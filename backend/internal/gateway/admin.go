@@ -1,6 +1,7 @@
 package gateway
 
 import (
+	"crypto/subtle"
 	"net/http"
 	"os"
 	"strings"
@@ -25,7 +26,7 @@ func AdminMiddleware() gin.HandlerFunc {
 			return
 		}
 		got := c.GetHeader("X-Admin-Token")
-		if got != want {
+		if subtle.ConstantTimeCompare([]byte(got), []byte(want)) != 1 {
 			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": gin.H{"code": "forbidden"}})
 			return
 		}

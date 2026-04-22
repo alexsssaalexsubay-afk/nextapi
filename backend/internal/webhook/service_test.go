@@ -123,7 +123,7 @@ func TestListDeliveries_ReturnsOrderedResults(t *testing.T) {
 	id1 := seedDelivery(t, db, "wh1", "video.succeeded")
 	id2 := seedDelivery(t, db, "wh1", "video.failed")
 
-	rows, err := svc.ListDeliveries(context.Background(), "wh1", 10, 0)
+	rows, err := svc.ListDeliveries(context.Background(), "org1", "wh1", 10, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -145,11 +145,11 @@ func TestListDeliveries_PaginationWorks(t *testing.T) {
 		seedDelivery(t, db, "wh1", "video.succeeded")
 	}
 
-	page1, _ := svc.ListDeliveries(context.Background(), "wh1", 2, 0)
+	page1, _ := svc.ListDeliveries(context.Background(), "org1", "wh1", 2, 0)
 	if len(page1) != 2 {
 		t.Fatalf("page 1: expected 2, got %d", len(page1))
 	}
-	page2, _ := svc.ListDeliveries(context.Background(), "wh1", 2, 2)
+	page2, _ := svc.ListDeliveries(context.Background(), "org1", "wh1", 2, 2)
 	if len(page2) != 2 {
 		t.Fatalf("page 2: expected 2, got %d", len(page2))
 	}

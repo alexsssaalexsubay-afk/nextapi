@@ -9,6 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
 	"github.com/sanidg/nextapi/backend/internal/auth"
+	"github.com/sanidg/nextapi/backend/internal/domain"
 )
 
 // Limiter is a Redis sliding-window counter.
@@ -41,7 +42,11 @@ func Middleware(l *Limiter, limit int, window time.Duration) gin.HandlerFunc {
 		ctx := c.Request.Context()
 		var key string
 		if v, ok := c.Get(auth.CtxAPIKey); ok {
-			key = "rl:key:" + fmt.Sprintf("%p", v)
+			if ak, is := v.(*domain.APIKey); is {
+				key = "rl:key:" + ak.ID
+			} else {
+				key = "rl:ip:" + c.ClientIP()
+			}
 		} else {
 			key = "rl:ip:" + c.ClientIP()
 		}

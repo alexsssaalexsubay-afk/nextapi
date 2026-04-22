@@ -19,8 +19,10 @@ import (
 )
 
 type VideosHandlers struct {
-	Jobs *job.Service
-	DB   *gorm.DB
+	Jobs       *job.Service
+	DB         *gorm.DB
+	Spend      *spend.Service
+	Throughput *throughput.Service
 }
 
 type videoCreateReq struct {
@@ -67,8 +69,13 @@ func (h *VideosHandlers) Create(c *gin.Context) {
 		input.DurationSeconds = 5
 	}
 
+	var apiKeyID *string
+	if ak := auth.APIKeyFrom(c); ak != nil {
+		apiKeyID = &ak.ID
+	}
 	res, err := h.Jobs.Create(c.Request.Context(), job.CreateInput{
-		OrgID: org.ID,
+		OrgID:    org.ID,
+		APIKeyID: apiKeyID,
 		Request: provider.GenerationRequest{
 			Prompt:          input.Prompt,
 			ImageURL:        input.ImageURL,
@@ -85,6 +92,7 @@ func (h *VideosHandlers) Create(c *gin.Context) {
 	// Write a record to videos table for the new surface.
 	vid := domain.Video{
 		OrgID:              org.ID,
+		APIKeyID:           apiKeyID,
 		Model:              req.Model,
 		Status:             "queued",
 		Input:              req.Input,
@@ -95,7 +103,10 @@ func (h *VideosHandlers) Create(c *gin.Context) {
 		WebhookURL:         req.WebhookURL,
 		IdempotencyKey:     req.IdempotencyKey,
 	}
-	h.DB.WithContext(c.Request.Context()).Create(&vid)
+	if err := h.DB.WithContext(c.Request.Context()).Create(&vid).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "internal", "message": "failed to create video record"}})
+		return
+	}
 
 	c.JSON(http.StatusAccepted, gin.H{
 		"id":                   vid.ID,
@@ -206,15 +217,38 @@ func (h *VideosHandlers) Delete(c *gin.Context) {
 		return
 	}
 
-	if v.Status != "queued" {
+	if v.Status != "queued" && v.Status != "running" {
 		c.JSON(http.StatusConflict, gin.H{
-			"error": gin.H{"code": "invalid_state", "message": "only queued videos can be cancelled"},
+			"error": gin.H{"code": "invalid_state", "message": "only queued or running videos can be cancelled"},
 		})
 		return
 	}
 
-	h.DB.WithContext(c.Request.Context()).
-		Model(&v).Update("status", "cancelled")
+	ctx := c.Request.Context()
+	now := time.Now()
+	h.DB.WithContext(ctx).Model(&v).Updates(map[string]any{"status": "cancelled", "finished_at": now})
+
+	if v.UpstreamJobID != nil {
+		var j domain.Job
+		if err := h.DB.WithContext(ctx).Where("id = ? AND status IN ('queued','running')", *v.UpstreamJobID).First(&j).Error; err == nil {
+			h.DB.WithContext(ctx).Model(&j).Updates(map[string]any{
+				"status": domain.JobFailed, "error_code": "cancelled", "error_message": "cancelled by user", "completed_at": now,
+			})
+			if h.Throughput != nil {
+				h.Throughput.Release(ctx, j.OrgID, j.ID)
+			}
+			if h.Spend != nil {
+				h.Spend.DecrInflight(ctx, j.OrgID, j.ReservedCredits)
+			}
+			if j.ReservedCredits > 0 {
+				refund := j.ReservedCredits
+				h.DB.WithContext(ctx).Create(&domain.CreditsLedger{
+					OrgID: j.OrgID, DeltaCredits: refund, DeltaCents: &refund,
+					Reason: domain.ReasonRefund, JobID: &j.ID, Note: "user cancelled video",
+				})
+			}
+		}
+	}
 
 	c.JSON(http.StatusOK, gin.H{"id": v.ID, "status": "cancelled"})
 }

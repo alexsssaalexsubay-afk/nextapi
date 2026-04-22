@@ -94,7 +94,7 @@ func main() {
 	api.GET("/jobs/:id", vh.Get)
 
 	// New /videos surface — full B2B pipeline (spend + throughput + moderation + idempotency).
-	vids := &gateway.VideosHandlers{Jobs: jobSvc, DB: gormDB}
+	vids := &gateway.VideosHandlers{Jobs: jobSvc, DB: gormDB, Spend: spendSvc, Throughput: throughputSvc}
 	api.POST("/videos", idem.Handle(), vids.Create)
 	api.GET("/videos", vids.List)
 	api.GET("/videos/:id", vids.Get)

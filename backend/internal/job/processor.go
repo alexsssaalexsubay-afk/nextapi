@@ -47,9 +47,14 @@ func (p *Processor) HandleGenerate(ctx context.Context, t *asynq.Task) error {
 	if err != nil {
 		return p.fail(ctx, &j, "provider_error", err.Error())
 	}
+	now := time.Now()
 	p.DB.WithContext(ctx).Model(&j).Updates(map[string]any{
 		"provider_job_id": providerID,
 		"status":          domain.JobRunning,
+	})
+	p.DB.WithContext(ctx).Model(&domain.Video{}).Where("upstream_job_id = ?", j.ID).Updates(map[string]any{
+		"status":     "running",
+		"started_at": now,
 	})
 	buf, _ := json.Marshal(payload{JobID: j.ID})
 	_, err = p.Queue.EnqueueContext(ctx,
@@ -106,12 +111,14 @@ func (p *Processor) HandlePoll(ctx context.Context, t *asynq.Task) error {
 }
 
 func (p *Processor) succeed(ctx context.Context, j *domain.Job, st *provider.JobStatus) error {
-	var actualCredits int64
+	actualCredits := j.ReservedCredits
 	if st.ActualTokensUsed != nil {
 		var req provider.GenerationRequest
 		_ = json.Unmarshal(j.Request, &req)
 		_, estCredits, _ := p.Prov.EstimateCost(req)
-		actualCredits = estCredits
+		if estCredits > 0 {
+			actualCredits = estCredits
+		}
 	}
 	now := time.Now()
 	err := p.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
@@ -138,6 +145,14 @@ func (p *Processor) succeed(ctx context.Context, j *domain.Job, st *provider.Job
 				return err
 			}
 		}
+		outputJSON, _ := json.Marshal(map[string]any{"video_url": st.VideoURL})
+		tx.Model(&domain.Video{}).Where("upstream_job_id = ?", j.ID).Updates(map[string]any{
+			"status":           "succeeded",
+			"output":           outputJSON,
+			"actual_cost_cents": actualCredits,
+			"upstream_tokens":  st.ActualTokensUsed,
+			"finished_at":     now,
+		})
 		return nil
 	})
 	if p.Throughput != nil {
@@ -170,15 +185,23 @@ func (p *Processor) fail(ctx context.Context, j *domain.Job, code, msg string) e
 		}
 		if j.ReservedCredits > 0 {
 			refundCents := j.ReservedCredits
-			return tx.Create(&domain.CreditsLedger{
+			if err := tx.Create(&domain.CreditsLedger{
 				OrgID:        j.OrgID,
 				DeltaCredits: j.ReservedCredits,
 				DeltaCents:   &refundCents,
 				Reason:       domain.ReasonRefund,
 				JobID:        &j.ID,
 				Note:         "refund on failure",
-			}).Error
+			}).Error; err != nil {
+				return err
+			}
 		}
+		tx.Model(&domain.Video{}).Where("upstream_job_id = ?", j.ID).Updates(map[string]any{
+			"status":        "failed",
+			"error_code":    code,
+			"error_message": msg,
+			"finished_at":   now,
+		})
 		return nil
 	})
 	if p.Throughput != nil {

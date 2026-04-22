@@ -71,10 +71,14 @@ func (s *Service) DeliverDue(ctx context.Context) error {
 	return nil
 }
 
-// ListDeliveries returns deliveries for a specific webhook.
-func (s *Service) ListDeliveries(ctx context.Context, webhookID string, limit, offset int) ([]domain.WebhookDelivery, error) {
+// ListDeliveries returns deliveries for a specific webhook, scoped to the org.
+func (s *Service) ListDeliveries(ctx context.Context, orgID, webhookID string, limit, offset int) ([]domain.WebhookDelivery, error) {
 	if limit <= 0 || limit > 100 {
 		limit = 20
+	}
+	var wh domain.Webhook
+	if err := s.db.WithContext(ctx).Where("id = ? AND org_id = ?", webhookID, orgID).First(&wh).Error; err != nil {
+		return nil, err
 	}
 	var rows []domain.WebhookDelivery
 	err := s.db.WithContext(ctx).

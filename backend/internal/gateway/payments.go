@@ -84,12 +84,15 @@ func (h *PaymentHandlers) Webhook(c *gin.Context) {
 		return
 	}
 	if ev != nil && ev.Type == "topup.succeeded" {
-		_ = h.Billing.AddCredits(c.Request.Context(), billing.Entry{
+		if err := h.Billing.AddCredits(c.Request.Context(), billing.Entry{
 			OrgID:  ev.OrgID,
 			Delta:  ev.Credits,
 			Reason: domain.ReasonTopup,
 			Note:   name + ":" + ev.ExternalID,
-		})
+		}); err != nil {
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "ledger_write_failed"}})
+			return
+		}
 	}
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }

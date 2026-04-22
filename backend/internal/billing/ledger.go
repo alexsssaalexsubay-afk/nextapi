@@ -36,13 +36,12 @@ func (s *Service) AddCredits(ctx context.Context, e Entry) error {
 	return s.db.WithContext(ctx).Create(&row).Error
 }
 
-// GetBalance = SUM(delta_credits).
+// GetBalance uses the same formula as spend.Enforce: COALESCE(delta_cents, delta_credits, 0).
 func (s *Service) GetBalance(ctx context.Context, orgID string) (int64, error) {
 	var out sql.NullInt64
-	err := s.db.WithContext(ctx).
-		Model(&domain.CreditsLedger{}).
-		Where("org_id = ?", orgID).
-		Select("COALESCE(SUM(delta_credits), 0)").
+	err := s.db.WithContext(ctx).Raw(`
+		SELECT COALESCE(SUM(COALESCE(delta_cents, delta_credits, 0)), 0)
+		FROM credits_ledger WHERE org_id = ?`, orgID).
 		Scan(&out).Error
 	if err != nil {
 		return 0, err

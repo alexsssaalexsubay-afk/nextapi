@@ -46,6 +46,12 @@ func (s *Service) Validate(ctx context.Context, raw string) (*ValidKey, error) {
 	if err := Verify(raw, key.Hash); err != nil {
 		return nil, ErrInvalidKey
 	}
+	var disabled bool
+	s.db.WithContext(ctx).Raw(
+		`SELECT COALESCE(disabled, false) FROM api_keys WHERE id = ?`, key.ID).Scan(&disabled)
+	if disabled {
+		return nil, ErrInvalidKey
+	}
 	var org domain.Org
 	if err := s.db.WithContext(ctx).First(&org, "id = ?", key.OrgID).Error; err != nil {
 		return nil, err

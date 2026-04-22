@@ -101,6 +101,7 @@ func (s *Service) DB() *gorm.DB { return s.db }
 // append the reservation ledger row for AmountCents.
 type Decision struct {
 	BalanceCents int64
+	EstCents     int64
 	PeriodSpend  int64
 	PeriodStart  time.Time
 }
@@ -177,7 +178,7 @@ func (s *Service) Enforce(ctx context.Context, tx *gorm.DB, orgID string, estCen
 
 	// 6. Soft alert + auto-pause evaluations (fired outside the tx by the caller
 	// via AfterReserve — we return the new values so caller can check).
-	return &Decision{BalanceCents: balance, PeriodSpend: proposed, PeriodStart: start}, nil
+	return &Decision{BalanceCents: balance, EstCents: estCents, PeriodSpend: proposed, PeriodStart: start}, nil
 }
 
 // AfterReserve runs post-commit to (a) fire soft-alert event if threshold crossed
@@ -217,7 +218,7 @@ func (s *Service) AfterReserve(ctx context.Context, orgID string, d *Decision) (
 		}
 	}
 
-	newBal := d.BalanceCents - 0 // reservation already applied by caller
+	newBal := d.BalanceCents - d.EstCents
 	if sc.AutoPauseBelowCents != nil && newBal < *sc.AutoPauseBelowCents {
 		now := time.Now()
 		reason := "auto_low_balance"

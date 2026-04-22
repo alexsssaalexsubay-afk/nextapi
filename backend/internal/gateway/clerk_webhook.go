@@ -92,9 +92,11 @@ func (w *ClerkWebhook) provision(ctx context.Context, userID, email string) erro
 		if err := tx.Create(&domain.OrgMember{OrgID: org.ID, UserID: userID, Role: "owner"}).Error; err != nil {
 			return err
 		}
+		bonus := billing.SignupBonusAmount
 		return tx.Create(&domain.CreditsLedger{
 			OrgID:        org.ID,
-			DeltaCredits: billing.SignupBonusAmount,
+			DeltaCredits: bonus,
+			DeltaCents:   &bonus,
 			Reason:       domain.ReasonSignupBonus,
 			Note:         "welcome to NextAPI",
 		}).Error
