@@ -45,7 +45,7 @@ func (p *Processor) HandleGenerate(ctx context.Context, t *asynq.Task) error {
 
 	providerID, err := p.Prov.GenerateVideo(ctx, req)
 	if err != nil {
-		return p.fail(ctx, &j, "provider_error", err.Error())
+		return p.fail(ctx, &j, "provider_error", "video generation failed")
 	}
 	now := time.Now()
 	if err := p.DB.WithContext(ctx).Model(&j).Updates(map[string]any{
@@ -92,14 +92,10 @@ func (p *Processor) HandlePoll(ctx context.Context, t *asynq.Task) error {
 		return p.succeed(ctx, &j, st)
 	case "failed":
 		code := "provider_failed"
-		msg := "upstream failed"
 		if st.ErrorCode != nil {
 			code = *st.ErrorCode
 		}
-		if st.ErrorMessage != nil {
-			msg = *st.ErrorMessage
-		}
-		return p.fail(ctx, &j, code, msg)
+		return p.fail(ctx, &j, code, "video generation failed")
 	default:
 		// still running → re-enqueue poll
 		buf, _ := json.Marshal(payload{JobID: j.ID})

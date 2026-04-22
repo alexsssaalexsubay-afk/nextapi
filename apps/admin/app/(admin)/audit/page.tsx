@@ -1,6 +1,8 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import { AdminShell } from "@/components/admin/admin-shell"
+import { adminFetch } from "@/lib/admin-api"
 import { cn } from "@/lib/utils"
 import { useTranslations } from "@/lib/i18n/context"
 
@@ -14,7 +16,7 @@ type Entry = {
   tone?: "default" | "write" | "sensitive"
 }
 
-const entries: Entry[] = [
+const MOCK_ENTRIES: Entry[] = [
   {
     ts: "2026-04-22 22:12:44.812",
     actor: "m. winters",
@@ -87,9 +89,97 @@ const entries: Entry[] = [
   },
 ]
 
+type ApiModerationEvent = {
+  ID?: number
+  id?: number
+  OrgID?: string
+  org_id?: string
+  VideoID?: string | null
+  video_id?: string | null
+  Verdict?: string
+  verdict?: string
+  Reason?: string | null
+  reason?: string | null
+  InternalNote?: string | null
+  internal_note?: string | null
+  Reviewer?: string | null
+  reviewer?: string | null
+  ProfileUsed?: string
+  profile_used?: string
+  CreatedAt?: string
+  created_at?: string
+}
+
+// TODO: align with backend response — dedicated audit chain vs moderation events.
+function formatAuditTs(iso: string): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return iso
+  const pad = (n: number) => String(n).padStart(2, "0")
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}.${String(d.getMilliseconds()).padStart(3, "0")}`
+}
+
+function moderationEventToAuditEntry(e: ApiModerationEvent): Entry {
+  const id = e.ID ?? e.id ?? 0
+  const orgId = e.OrgID ?? e.org_id ?? ""
+  const verdict = e.Verdict ?? e.verdict ?? ""
+  const reason = e.Reason ?? e.reason ?? ""
+  const note = e.InternalNote ?? e.internal_note ?? ""
+  const reviewer = e.Reviewer ?? e.reviewer ?? "—"
+  const profile = e.ProfileUsed ?? e.profile_used ?? ""
+  const vid = e.VideoID ?? e.video_id ?? ""
+  const created = e.CreatedAt ?? e.created_at ?? ""
+  const targetParts = [`org:${orgId.slice(0, 8)}`]
+  if (vid) targetParts.push(`video:${String(vid).slice(0, 8)}`)
+  if (reason) targetParts.push(reason)
+  else if (note) targetParts.push(note)
+  const tone: Entry["tone"] =
+    verdict === "block" ? "sensitive" : verdict === "review" ? "write" : "default"
+  return {
+    ts: formatAuditTs(created),
+    actor: reviewer,
+    action: `moderation.${verdict || "event"}`,
+    target: targetParts.join(" · "),
+    ip: profile || "—",
+    hash: `me_${id}`,
+    tone,
+  }
+}
+
 export default function AuditLogPage() {
   const t = useTranslations()
   const p = t.admin.auditPage
+  const [entries, setEntries] = useState<Entry[]>(MOCK_ENTRIES)
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [fromApi, setFromApi] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      setLoading(true)
+      setLoadError(null)
+      try {
+        const res = (await adminFetch("/moderation/events")) as { data?: ApiModerationEvent[] }
+        const rows = (res.data ?? []).map(moderationEventToAuditEntry)
+        if (!cancelled) {
+          setEntries(rows.length > 0 ? rows : MOCK_ENTRIES)
+          setFromApi(rows.length > 0)
+        }
+      } catch (e) {
+        console.error(e)
+        if (!cancelled) {
+          setLoadError(e instanceof Error ? e.message : "Failed to load audit data")
+          setEntries(MOCK_ENTRIES)
+          setFromApi(false)
+        }
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   return (
     <AdminShell
@@ -103,6 +193,12 @@ export default function AuditLogPage() {
           <span>{p.meta.tailHash}</span>
           <span className="text-muted-foreground/50">·</span>
           <span>{p.meta.verified}</span>
+          {loading && (
+            <>
+              <span className="text-muted-foreground/50">·</span>
+              <span className="text-muted-foreground">{t.common.loading}…</span>
+            </>
+          )}
         </>
       }
       actions={
@@ -117,13 +213,20 @@ export default function AuditLogPage() {
       }
     >
       <div className="space-y-6 p-6">
+        {loadError && (
+          <div className="rounded-lg border border-status-failed/30 bg-status-failed/10 px-4 py-2 font-mono text-[11px] text-status-failed">
+            {loadError}
+          </div>
+        )}
         {/* Filter bar */}
         <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border/80 bg-card/40 p-3 font-mono text-[11.5px]">
           <FilterChip label={p.filters.actor} value={p.filters.anyValue} />
           <FilterChip label={p.filters.action} value={p.filters.actionValue} active />
           <FilterChip label={p.filters.target} value={p.filters.anyValue} />
           <FilterChip label={p.filters.since} value={p.filters.sinceValue} />
-          <div className="ml-auto text-muted-foreground">{p.filters.matches}</div>
+          <div className="ml-auto text-muted-foreground">
+            {fromApi ? `${entries.length} moderation events` : p.filters.matches}
+          </div>
         </div>
 
         <section className="overflow-hidden rounded-xl border border-border/80 bg-card/40">
@@ -159,7 +262,9 @@ export default function AuditLogPage() {
             ))}
           </ul>
           <div className="flex items-center justify-between border-t border-border/60 bg-background/30 px-5 py-2.5 font-mono text-[10.5px] text-muted-foreground">
-            <span>{p.footer.note}</span>
+            <span>
+              {fromApi ? `Showing ${entries.length} moderation events` : p.footer.note}
+            </span>
             <div className="flex items-center gap-2">
               <button className="rounded-md border border-border/80 bg-card/40 px-2 py-0.5 text-foreground hover:bg-card">
                 {p.footer.prev}

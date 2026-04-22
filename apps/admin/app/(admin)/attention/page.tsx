@@ -1,7 +1,9 @@
 "use client"
 
 import Link from "next/link"
+import { useEffect, useState } from "react"
 import { AdminShell } from "@/components/admin/admin-shell"
+import { adminFetch } from "@/lib/admin-api"
 import { cn } from "@/lib/utils"
 import { useTranslations } from "@/lib/i18n/context"
 
@@ -15,7 +17,7 @@ type Row = {
   severity: "high" | "medium" | "low"
 }
 
-const rows: Row[] = [
+const MOCK_ROWS: Row[] = [
   {
     id: "job_7Hc9Xk2Lm3NpQ4rS",
     org: "linear-media",
@@ -81,9 +83,178 @@ const rows: Row[] = [
   },
 ]
 
+function formatJobAge(createdAt: string): string {
+  const t0 = new Date(createdAt).getTime()
+  if (Number.isNaN(t0)) return "—"
+  const mins = Math.floor((Date.now() - t0) / 60_000)
+  if (mins < 1) return "<1m"
+  if (mins < 60) return `${mins}m`
+  const h = Math.floor(mins / 60)
+  return `${h}h`
+}
+
+type ApiOrg = { ID?: string; id?: string; Name?: string; name?: string }
+type ApiJob = {
+  ID?: string
+  id?: string
+  OrgID?: string
+  org_id?: string
+  Status?: string
+  status?: string
+  ErrorCode?: string | null
+  error_code?: string | null
+  ErrorMessage?: string | null
+  error_message?: string | null
+  ReservedCredits?: number
+  reserved_credits?: number
+  CreatedAt?: string
+  created_at?: string
+}
+type ApiModerationEvent = {
+  ID?: number
+  id?: number
+  OrgID?: string
+  org_id?: string
+  Verdict?: string
+  verdict?: string
+  Reason?: string | null
+  reason?: string | null
+  InternalNote?: string | null
+  internal_note?: string | null
+  ProfileUsed?: string
+  profile_used?: string
+  CreatedAt?: string
+  created_at?: string
+}
+
+function buildOrgNameMap(orgs: ApiOrg[]): Map<string, string> {
+  const m = new Map<string, string>()
+  for (const o of orgs) {
+    const id = o.ID ?? o.id ?? ""
+    const name = o.Name ?? o.name ?? ""
+    if (id) m.set(id, name || id.slice(0, 8))
+  }
+  return m
+}
+
+// TODO: align with backend response — job/mod event fields and severity rules.
+function mapJobToRow(j: ApiJob, orgNames: Map<string, string>): Row {
+  const id = j.ID ?? j.id ?? "—"
+  const orgId = j.OrgID ?? j.org_id ?? ""
+  const org = orgNames.get(orgId) ?? (orgId ? orgId.slice(0, 8) : "—")
+  const status = (j.Status ?? j.status ?? "").toLowerCase()
+  const errCode = j.ErrorCode ?? j.error_code ?? ""
+  const errMsg = j.ErrorMessage ?? j.error_message ?? ""
+  const reserved = j.ReservedCredits ?? j.reserved_credits ?? 0
+  const created = j.CreatedAt ?? j.created_at ?? ""
+  const severity: Row["severity"] =
+    status === "failed" ? "high" : status === "running" ? "medium" : "medium"
+  const credits =
+    reserved > 0 ? `${reserved} held` : "—"
+  return {
+    id,
+    org,
+    rule: errCode ? String(errCode) : status || "job",
+    reason: errMsg ? String(errMsg) : `status=${status}`,
+    age: formatJobAge(created),
+    credits,
+    severity,
+  }
+}
+
+function mapModerationToRow(e: ApiModerationEvent, orgNames: Map<string, string>): Row {
+  const nid = e.ID ?? e.id ?? 0
+  const id = `mod_${nid}`
+  const orgId = e.OrgID ?? e.org_id ?? ""
+  const org = orgNames.get(orgId) ?? (orgId ? orgId.slice(0, 8) : "—")
+  const verdict = (e.Verdict ?? e.verdict ?? "").toLowerCase()
+  const reason = e.Reason ?? e.reason ?? ""
+  const profile = e.ProfileUsed ?? e.profile_used ?? ""
+  const created = e.CreatedAt ?? e.created_at ?? ""
+  const severity: Row["severity"] =
+    verdict === "block" ? "high" : verdict === "review" ? "medium" : "low"
+  return {
+    id,
+    org,
+    rule: profile ? `moderation · ${profile}` : `moderation · ${verdict || "event"}`,
+    reason: reason || "—",
+    age: formatJobAge(created),
+    credits: "—",
+    severity,
+  }
+}
+
 export default function AttentionQueuePage() {
   const t = useTranslations()
   const p = t.admin.attentionPage
+  const [rows, setRows] = useState<Row[]>(MOCK_ROWS)
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      setLoading(true)
+      setLoadError(null)
+      let orgNames = new Map<string, string>()
+      let jobsOk = false
+      let modOk = false
+      const merged: Row[] = []
+      const errParts: string[] = []
+
+      try {
+        const orgsRes = (await adminFetch("/orgs")) as { data?: ApiOrg[] }
+        orgNames = buildOrgNameMap(orgsRes.data ?? [])
+      } catch (e) {
+        console.error(e)
+        errParts.push("organizations")
+      }
+
+      try {
+        const [failedRes, runningRes] = await Promise.all([
+          adminFetch("/jobs?status=failed") as Promise<{ data?: ApiJob[] }>,
+          adminFetch("/jobs?status=running") as Promise<{ data?: ApiJob[] }>,
+        ])
+        const seen = new Set<string>()
+        for (const j of [...(failedRes.data ?? []), ...(runningRes.data ?? [])]) {
+          const id = j.ID ?? j.id
+          if (!id || seen.has(id)) continue
+          seen.add(id)
+          merged.push(mapJobToRow(j, orgNames))
+        }
+        jobsOk = true
+      } catch (e) {
+        console.error(e)
+        errParts.push("jobs")
+      }
+
+      try {
+        const modRes = (await adminFetch("/moderation/events")) as { data?: ApiModerationEvent[] }
+        for (const e of modRes.data ?? []) {
+          merged.push(mapModerationToRow(e, orgNames))
+        }
+        modOk = true
+      } catch (e) {
+        console.error(e)
+        errParts.push("moderation")
+      }
+
+      if (!cancelled) {
+        if (jobsOk || modOk) {
+          setRows(merged.length > 0 ? merged : [])
+        } else {
+          setRows(MOCK_ROWS)
+        }
+        if (errParts.length > 0) {
+          setLoadError(`Failed to load: ${errParts.join(", ")}`)
+        }
+        setLoading(false)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   return (
     <AdminShell
@@ -97,6 +268,12 @@ export default function AttentionQueuePage() {
           <span>{p.meta.oldest}</span>
           <span className="text-muted-foreground/50">·</span>
           <span>{p.meta.autoAssigned}</span>
+          {loading && (
+            <>
+              <span className="text-muted-foreground/50">·</span>
+              <span className="text-muted-foreground">{t.common.loading}…</span>
+            </>
+          )}
         </>
       }
       actions={
@@ -111,6 +288,11 @@ export default function AttentionQueuePage() {
       }
     >
       <div className="space-y-6 p-6">
+        {loadError && (
+          <div className="rounded-lg border border-status-failed/30 bg-status-failed/10 px-4 py-2 font-mono text-[11px] text-status-failed">
+            {loadError}
+          </div>
+        )}
         <section className="overflow-hidden rounded-xl border border-border/80 bg-card/40">
           <div className="grid grid-cols-[auto_auto_1.2fr_1fr_auto_auto_auto] items-center gap-4 border-b border-border/60 bg-background/40 px-5 py-2 font-mono text-[10.5px] uppercase tracking-[0.14em] text-muted-foreground">
             <span>{p.columns.sev}</span>

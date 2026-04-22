@@ -74,6 +74,7 @@ func main() {
 	r.Use(gin.Recovery(), httpx.RequestID(), metrics.Middleware())
 	r.Use(httpx.CORS([]string{
 		"https://nextapi.top",
+		"https://app.nextapi.top",
 		"https://dash.nextapi.top",
 		"https://admin.nextapi.top",
 		"http://localhost:3000",
@@ -115,6 +116,13 @@ func main() {
 	ob := &gateway.OrgBillingHandlers{DB: gormDB}
 	api.GET("/billing/settings", ob.GetBillingSettings)
 	api.PATCH("/billing/settings", ob.UpdateBillingSettings)
+
+	// Self-service key management (sk_* keys can manage their own org's keys)
+	api.GET("/keys", h.ListKeys)
+	api.POST("/keys", h.CreateKey)
+	api.GET("/keys/:id", h.GetKey)
+	api.PATCH("/keys/:id", h.UpdateKey)
+	api.DELETE("/keys/:id", h.RevokeKey)
 
 	// Admin surface (ak_* keys).
 	admn := v1.Group("")
