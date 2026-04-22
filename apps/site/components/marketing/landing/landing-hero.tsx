@@ -8,6 +8,7 @@ import {
   Copy,
   Sparkles,
 } from "lucide-react"
+import { track } from "../../../lib/analytics"
 
 const TRUST_ITEMS = [
   "99.95% Uptime",
@@ -62,6 +63,7 @@ export function LandingHero() {
           <div className="mt-8 flex flex-wrap items-center gap-3">
             <Link
               href="https://dash.nextapi.top"
+              onClick={() => track("hero_signup_clicked")}
               className="group inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-indigo-500 to-purple-600 px-5 py-3 text-[14px] font-medium text-white shadow-[0_0_30px_-8px] shadow-indigo-500/50 transition-all hover:shadow-indigo-500/70 hover:brightness-110"
             >
               Get Your API Key

@@ -84,10 +84,13 @@ func main() {
 	r.GET("/health", okJSON)
 	r.GET("/metrics", gateway.AdminMiddleware(), gin.WrapH(promhttp.Handler()))
 
+	sales := &gateway.SalesHandlers{}
+
 	v1 := r.Group("/v1")
 	v1.GET("/health", okJSON)
 	v1.POST("/webhooks/clerk", hook.Handle)
 	v1.POST("/webhooks/payments/:provider", ph.Webhook)
+	v1.POST("/sales/inquiry", ratelimit.Middleware(rl, 10, time.Hour), sales.Inquiry)
 
 	// Business surface (sk_* keys).
 	api := v1.Group("")

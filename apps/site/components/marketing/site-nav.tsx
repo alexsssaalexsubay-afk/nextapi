@@ -6,12 +6,13 @@ import { ArrowRight, Menu, X } from "lucide-react"
 import { ThemeToggle } from "@/components/nextapi/theme-toggle"
 import { LocaleToggle } from "@/components/nextapi/locale-toggle"
 import { cn } from "@/lib/utils"
+import { track } from "../../lib/analytics"
 
 const NAV_LINKS = [
   { label: "Features", href: "/#features" },
-  { label: "Gallery", href: "/#gallery" },
   { label: "Docs", href: "/docs" },
   { label: "Pricing", href: "/pricing" },
+  { label: "Enterprise", href: "/enterprise" },
 ] as const
 
 /**
@@ -80,12 +81,14 @@ export function SiteNav() {
           </div>
           <a
             href={process.env.NEXT_PUBLIC_DASHBOARD_URL ?? "https://dash.nextapi.top"}
+            onClick={() => track("nav_login_clicked")}
             className="hidden text-[13.5px] font-medium text-muted-foreground transition-colors hover:text-foreground md:block"
           >
             Log in
           </a>
           <a
             href={process.env.NEXT_PUBLIC_DASHBOARD_URL ?? "https://dash.nextapi.top"}
+            onClick={() => track("cta_get_started_clicked")}
             className="group relative hidden items-center gap-1.5 overflow-hidden rounded-full bg-gradient-to-r from-indigo-500 to-purple-600 px-4 py-2 text-[13px] font-medium text-white shadow-[0_0_20px_-5px] shadow-indigo-500/40 transition-all hover:shadow-indigo-500/60 hover:brightness-110 md:inline-flex"
           >
             Get Started

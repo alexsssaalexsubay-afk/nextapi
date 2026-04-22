@@ -6,9 +6,11 @@ import { Github, MessageCircle } from "lucide-react"
 const LINKS = [
   { label: "Docs", href: "/docs" },
   { label: "Pricing", href: "/pricing" },
+  { label: "Enterprise", href: "/enterprise" },
+  { label: "Security", href: "/security" },
+  { label: "Status", href: "/status" },
+  { label: "Legal", href: "/legal/terms" },
   { label: "Dashboard", href: "https://dash.nextapi.top" },
-  { label: "Status", href: "https://status.nextapi.dev" },
-  { label: "Contact Sales", href: "mailto:sales@nextapi.dev" },
 ] as const
 
 function Wordmark() {
