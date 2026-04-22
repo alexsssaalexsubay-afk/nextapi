@@ -6,7 +6,7 @@ ByteDance Volcengine Seedance. Vision: "OpenRouter for Video AI".
 
 ## Architecture (one glance)
 - Single Go binary serves api.nextapi.top; workers share same binary with different command.
-- 3 Next.js 15 App Router frontends: marketing site, customer dashboard, admin panel.
+- 3 Next.js 16 App Router frontends: marketing site (static export), customer dashboard (SSR), admin panel (SSR).
 - Mintlify handles docs.nextapi.top externally.
 - Provider Adapter pattern: only Seedance implemented in v1; Kling/Zhipu are interface stubs.
 - Async job model: POST creates job → worker calls provider → webhook notifies customer OR customer polls.
@@ -14,7 +14,7 @@ ByteDance Volcengine Seedance. Vision: "OpenRouter for Video AI".
 
 ## Tech conventions
 - Go 1.25 · Gin · GORM (simple) + sqlc (complex queries) · Asynq
-- Next.js 15 App Router · TypeScript strict · Tailwind v4 · shadcn · next-intl · Clerk
+- Next.js 16 App Router · TypeScript strict · Tailwind v4 · shadcn/ui · client-side i18n (packages/ui/src/lib/i18n/) · Clerk (dashboard + admin)
 - OpenAPI 3.1 = single source of truth for HTTP contract (backend/api/openapi.yaml)
 - All schema changes via goose migrations in backend/migrations/
 - Secrets via .env (local) or doppler (prod). Never commit.

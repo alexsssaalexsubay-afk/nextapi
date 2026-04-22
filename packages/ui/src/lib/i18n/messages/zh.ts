@@ -430,7 +430,7 @@ export const zh: Messages = {
   eyebrow: "定价",
   title: "按量计费。失败退款。无意外账单项。",
   subtitle:
-  "一个点数覆盖 6 秒 1080p Seedance 生成。失败任务在 Webhook 边界全额退款。每张发票��带预留 vs 实际计费的对账。",
+  "一个点数覆盖 6 秒 1080p Seedance 生成。失败任务在 Webhook 边界全额退款。每张发票附带预留 vs 实际计费的对账。",
   recommended: "推荐",
     developer: {
       name: "Builder",
@@ -516,7 +516,7 @@ export const zh: Messages = {
     },
     admin: {
       operations: "运维",
-      ledger: "账���",
+      ledger: "账本",
       overview: "概览",
       attention: "待处理队列",
       incidents: "事故",
@@ -724,7 +724,7 @@ export const zh: Messages = {
       retry: "重试",
       download: "下载",
       copyUrl: "复制链接",
-      refundNote: "失败的任务自动退款���无需操作。",
+      refundNote: "失败的任务自动退款，无需操作。",
       deliveryStatus: "投递状态",
       deliveryAttempts: "尝试次数",
       signatureVerified: "HMAC 签名已校验",
@@ -767,7 +767,7 @@ export const zh: Messages = {
         seedHint: "可选。留空则随机生成。",
         webhook: "投递 Webhook",
         webhookHint: "任务完成后我们会向此 URL 推送签名载荷。",
-        submit: "提交生��",
+        submit: "提交生成",
         reserve: "本次将预留",
       },
       tracker: {
@@ -1148,7 +1148,7 @@ export const zh: Messages = {
         operator: "操作人",
         ref: "单号",
       },
-      approvedLabel: "���批",
+      approvedLabel: "审批",
       reconciliation: {
         title: "预留 vs 实际账单对账",
         description:

@@ -6,7 +6,7 @@ import { Github, MessageCircle } from "lucide-react"
 const LINKS = [
   { label: "Docs", href: "/docs" },
   { label: "Pricing", href: "/pricing" },
-  { label: "Dashboard", href: "/dashboard" },
+  { label: "Dashboard", href: "https://dash.nextapi.top" },
   { label: "Status", href: "https://status.nextapi.dev" },
   { label: "Contact Sales", href: "mailto:sales@nextapi.dev" },
 ] as const
