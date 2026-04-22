@@ -20,7 +20,7 @@ type AdminJob = {
   org_id: string;
   provider: string;
   status: JobStatus;
-  cost: number;
+  cost_credits: number;
   created_at: string;
 };
 
@@ -39,8 +39,8 @@ export default function JobsPage() {
   const [cancelling, setCancelling] = useState<string | null>(null);
 
   const load = () => {
-    apiFetch<{ jobs: AdminJob[] }>("/v1/internal/admin/jobs")
-      .then((r) => setJobs(r.jobs))
+    apiFetch<{ data: AdminJob[] }>("/v1/internal/admin/jobs")
+      .then((r) => setJobs(r.data ?? []))
       .catch((e: Error) => setError(e.message));
   };
 
@@ -124,7 +124,7 @@ export default function JobsPage() {
                 <TD>
                   <StatusBadge status={j.status} />
                 </TD>
-                <TD className="text-right tabular-nums">{j.cost.toLocaleString()}</TD>
+                <TD className="text-right tabular-nums">{(j.cost_credits ?? 0).toLocaleString()}</TD>
                 <TD className="text-zinc-400">
                   {new Date(j.created_at).toLocaleString()}
                 </TD>

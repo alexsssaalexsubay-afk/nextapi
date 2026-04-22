@@ -4,8 +4,7 @@ import React, { useState } from "react";
 import { useTranslations } from "next-intl";
 import { Button, Input, Card, StatusBadge } from "@nextapi/ui";
 import { Play, Loader2 } from "lucide-react";
-
-const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
+import { apiFetch } from "@/lib/api";
 
 export default function PlaygroundPage() {
   const t = useTranslations("app");
@@ -25,23 +24,20 @@ export default function PlaygroundPage() {
     setVideoUrl(null);
     setStatus(null);
     try {
-      const res = await fetch(`${API}/v1/video/generations`, {
+      const r = await apiFetch<{ id: string; status: string }>("/v1/video/generations", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           prompt,
-          model: "seedance-v2-pro",
+          model: "seedance-2.0",
           duration_seconds: 5,
           resolution: "1080p",
           mode: "fast",
         }),
-        credentials: "include",
       });
-      const j = await res.json();
-      if (!res.ok) throw new Error(j.error?.message ?? "request failed");
-      setJobId(j.id);
-      setStatus(j.status);
-      poll(j.id);
+      if (!r.ok || !r.data) throw new Error("request failed");
+      setJobId(r.data.id);
+      setStatus(r.data.status);
+      poll(r.data.id);
     } catch (e: unknown) {
       setError((e as Error).message);
     } finally {
@@ -54,16 +50,16 @@ export default function PlaygroundPage() {
     for (let i = 0; i < 120; i++) {
       await new Promise((r) => setTimeout(r, 5000));
       try {
-        const res = await fetch(`${API}/v1/jobs/${id}`, { credentials: "include" });
-        const j = await res.json();
-        setStatus(j.status);
-        if (j.status === "succeeded") {
-          setVideoUrl(j.video_url);
+        const r = await apiFetch<{ status: string; video_url?: string; error_message?: string }>(`/v1/jobs/${id}`);
+        if (!r.data) break;
+        setStatus(r.data.status);
+        if (r.data.status === "succeeded") {
+          setVideoUrl(r.data.video_url ?? null);
           setPolling(false);
           return;
         }
-        if (j.status === "failed") {
-          setError(j.error_message ?? "job failed");
+        if (r.data.status === "failed") {
+          setError(r.data.error_message ?? "job failed");
           setPolling(false);
           return;
         }

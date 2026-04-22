@@ -17,10 +17,8 @@ import { TodoBanner } from "@/components/todo-banner";
 type AdminUser = {
   id: string;
   email: string;
-  org_id: string;
+  org_id?: string;
   created_at: string;
-  balance: number;
-  jobs_count: number;
 };
 
 export default function UsersPage() {
@@ -30,8 +28,8 @@ export default function UsersPage() {
   const [selected, setSelected] = useState<AdminUser | null>(null);
 
   useEffect(() => {
-    apiFetch<{ users: AdminUser[] }>("/v1/internal/admin/users")
-      .then((r) => setUsers(r.users))
+    apiFetch<{ data: AdminUser[] }>("/v1/internal/admin/users")
+      .then((r) => setUsers(r.data ?? []))
       .catch((e: Error) => setError(e.message));
   }, []);
 
@@ -71,14 +69,12 @@ export default function UsersPage() {
             <TH>Email</TH>
             <TH>Org</TH>
             <TH>Created</TH>
-            <TH className="text-right">Balance</TH>
-            <TH className="text-right">Jobs</TH>
           </TR>
         </THead>
         <TBody>
           {filtered.length === 0 ? (
             <TR>
-              <TD colSpan={5} className="py-8 text-center text-zinc-500">
+              <TD colSpan={3} className="py-8 text-center text-zinc-500">
                 No users to display.
               </TD>
             </TR>
@@ -86,12 +82,10 @@ export default function UsersPage() {
             filtered.map((u) => (
               <TR key={u.id} className="cursor-pointer" onClick={() => setSelected(u)}>
                 <TD className="font-medium">{u.email}</TD>
-                <TD className="text-zinc-400">{u.org_id}</TD>
+                <TD className="text-zinc-400">{u.org_id ?? "—"}</TD>
                 <TD className="text-zinc-400">
                   {new Date(u.created_at).toLocaleDateString()}
                 </TD>
-                <TD className="text-right tabular-nums">{u.balance.toLocaleString()}</TD>
-                <TD className="text-right tabular-nums">{u.jobs_count.toLocaleString()}</TD>
               </TR>
             ))
           )}
@@ -122,13 +116,9 @@ function UserDrawer({ user, onClose }: { user: AdminUser; onClose: () => void })
           <dt className="text-zinc-500">ID</dt>
           <dd className="text-zinc-200">{user.id}</dd>
           <dt className="text-zinc-500">Org</dt>
-          <dd className="text-zinc-200">{user.org_id}</dd>
+          <dd className="text-zinc-200">{user.org_id ?? "—"}</dd>
           <dt className="text-zinc-500">Created</dt>
           <dd className="text-zinc-200">{new Date(user.created_at).toLocaleString()}</dd>
-          <dt className="text-zinc-500">Balance</dt>
-          <dd className="text-zinc-200 tabular-nums">{user.balance.toLocaleString()}</dd>
-          <dt className="text-zinc-500">Jobs</dt>
-          <dd className="text-zinc-200 tabular-nums">{user.jobs_count.toLocaleString()}</dd>
         </dl>
 
         <div className="mt-8">

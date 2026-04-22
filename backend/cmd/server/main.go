@@ -60,7 +60,7 @@ func main() {
 	vh := &gateway.VideoHandlers{Jobs: jobSvc}
 	whh := &gateway.WebhookHandlers{DB: gormDB}
 	wdh := &gateway.WebhookDeliveryHandlers{Webhooks: whSvc}
-	ah := &gateway.AdminHandlers{DB: gormDB, Billing: billSvc}
+	ah := &gateway.AdminHandlers{DB: gormDB, Billing: billSvc, Spend: spendSvc, Throughput: throughputSvc}
 	ph := gateway.NewPaymentHandlers(billSvc)
 	hook := &gateway.ClerkWebhook{DB: gormDB, Billing: billSvc}
 	models := gateway.ModelsHandlers{}
@@ -141,11 +141,14 @@ func main() {
 	internal.Use(gateway.AdminMiddleware())
 	internal.GET("/overview", ah.OverviewStats)
 	internal.GET("/users", ah.Users)
+	internal.GET("/orgs", ah.Orgs)
+	internal.POST("/orgs/:id/pause", ah.PauseOrg)
 	internal.GET("/jobs", ah.Jobs)
 	internal.POST("/jobs/:id/cancel", ah.CancelJob)
 	internal.POST("/credits/adjust", ah.AdjustCredits)
 	internal.POST("/orgs/:id/unpause", sh.Unpause)
 	internal.PUT("/orgs/:id/throughput", th.AdminUpsertThroughput)
+	internal.PUT("/orgs/:id/moderation", mh.AdminUpsertProfile)
 	internal.GET("/moderation/events", mh.AdminListEvents)
 	internal.PATCH("/moderation/events/:id", mh.AdminAddNote)
 	internal.PATCH("/orgs/:id", ob.AdminUpdateOrg)

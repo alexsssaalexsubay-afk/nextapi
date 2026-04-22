@@ -9,6 +9,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/sanidg/nextapi/backend/internal/billing"
 	"github.com/sanidg/nextapi/backend/internal/domain"
+	"github.com/sanidg/nextapi/backend/internal/spend"
+	"github.com/sanidg/nextapi/backend/internal/throughput"
 	"gorm.io/gorm"
 )
 
@@ -32,8 +34,39 @@ func AdminMiddleware() gin.HandlerFunc {
 }
 
 type AdminHandlers struct {
-	DB      *gorm.DB
-	Billing *billing.Service
+	DB         *gorm.DB
+	Billing    *billing.Service
+	Spend      *spend.Service
+	Throughput *throughput.Service
+}
+
+func (h *AdminHandlers) Orgs(c *gin.Context) {
+	var rows []domain.Org
+	if err := h.DB.WithContext(c.Request.Context()).Order("created_at DESC").Limit(500).Find(&rows).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"data": rows})
+}
+
+func (h *AdminHandlers) PauseOrg(c *gin.Context) {
+	id := c.Param("id")
+	var body struct {
+		Reason string `json:"reason"`
+	}
+	_ = c.ShouldBindJSON(&body)
+	now := time.Now()
+	reason := body.Reason
+	if reason == "" {
+		reason = "admin paused"
+	}
+	if err := h.DB.WithContext(c.Request.Context()).
+		Model(&domain.Org{}).Where("id = ?", id).
+		Updates(map[string]any{"paused_at": now, "pause_reason": reason}).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
 func (h *AdminHandlers) Users(c *gin.Context) {
@@ -91,10 +124,22 @@ func (h *AdminHandlers) AdjustCredits(c *gin.Context) {
 
 func (h *AdminHandlers) CancelJob(c *gin.Context) {
 	id := c.Param("id")
+	ctx := c.Request.Context()
 	now := time.Now()
+
+	var job domain.Job
+	if err := h.DB.WithContext(ctx).Where("id = ?", id).First(&job).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": gin.H{"code": "not_found"}})
+		return
+	}
+	if job.Status != domain.JobQueued && job.Status != domain.JobRunning {
+		c.JSON(http.StatusConflict, gin.H{"error": gin.H{"code": "already_terminal", "message": "job is already " + string(job.Status)}})
+		return
+	}
+
 	code := "admin_cancelled"
 	msg := "cancelled by admin"
-	res := h.DB.WithContext(c.Request.Context()).
+	res := h.DB.WithContext(ctx).
 		Model(&domain.Job{}).
 		Where("id = ? AND status IN ('queued','running')", id).
 		Updates(map[string]any{
@@ -107,6 +152,26 @@ func (h *AdminHandlers) CancelJob(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": res.Error.Error()})
 		return
 	}
+
+	if h.Throughput != nil {
+		h.Throughput.Release(ctx, job.OrgID, job.ID)
+	}
+	if h.Spend != nil {
+		h.Spend.DecrInflight(ctx, job.OrgID, job.ReservedCredits)
+	}
+
+	if job.ReservedCredits > 0 {
+		refundCents := job.ReservedCredits
+		_ = h.DB.WithContext(ctx).Create(&domain.CreditsLedger{
+			OrgID:        job.OrgID,
+			DeltaCredits: job.ReservedCredits,
+			DeltaCents:   &refundCents,
+			Reason:       domain.ReasonRefund,
+			JobID:        &job.ID,
+			Note:         "refund: admin cancelled",
+		}).Error
+	}
+
 	c.JSON(http.StatusOK, gin.H{"affected": res.RowsAffected})
 }
 

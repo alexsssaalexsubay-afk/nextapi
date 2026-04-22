@@ -12,25 +12,15 @@ import {
   THead,
   TR,
 } from "@nextapi/ui";
-import { apiFetch, ApiError } from "@/lib/api";
+import { apiFetch } from "@/lib/api";
 import { TodoBanner } from "@/components/todo-banner";
 
 type Org = {
-  org_id: string;
+  id: string;
   name: string;
-  balance_cents: number;
   paused_at: string | null;
   pause_reason: string | null;
-  reserved_concurrency?: number;
-  burst_concurrency?: number;
-  priority_lane?: string;
-  rpm_limit?: number;
-  moderation_profile?: string;
-};
-
-type OrgsResponse = { orgs: Org[] };
-type UsersResponse = {
-  users: Array<{ org_id: string; balance: number }>;
+  created_at: string;
 };
 
 export default function OrgsPage() {
@@ -41,34 +31,12 @@ export default function OrgsPage() {
 
   const load = useCallback(async () => {
     try {
-      const r = await apiFetch<OrgsResponse>("/v1/internal/admin/orgs");
-      setOrgs(r.orgs ?? []);
+      const r = await apiFetch<{ data: Org[] }>("/v1/internal/admin/orgs");
+      setOrgs(r.data ?? []);
       setError(null);
     } catch (e) {
-      const err = e as ApiError;
-      try {
-        const r = await apiFetch<UsersResponse>("/v1/internal/admin/users");
-        const map = new Map<string, Org>();
-        for (const u of r.users ?? []) {
-          const existing = map.get(u.org_id);
-          if (existing) {
-            existing.balance_cents += u.balance;
-          } else {
-            map.set(u.org_id, {
-              org_id: u.org_id,
-              name: u.org_id,
-              balance_cents: u.balance,
-              paused_at: null,
-              pause_reason: null,
-            });
-          }
-        }
-        setOrgs(Array.from(map.values()));
-        setError(err.message);
-      } catch (e2) {
-        setOrgs([]);
-        setError((e2 as Error).message);
-      }
+      setOrgs([]);
+      setError((e as Error).message);
     }
   }, []);
 
@@ -76,10 +44,10 @@ export default function OrgsPage() {
     load();
   }, [load]);
 
-  async function pause(org_id: string) {
+  async function pause(id: string) {
     const reason = window.prompt("Pause reason?") ?? "";
     try {
-      await apiFetch(`/v1/internal/admin/orgs/${org_id}/pause`, {
+      await apiFetch(`/v1/internal/admin/orgs/${id}/pause`, {
         method: "POST",
         body: JSON.stringify({ reason }),
       });
@@ -89,9 +57,9 @@ export default function OrgsPage() {
     }
   }
 
-  async function unpause(org_id: string) {
+  async function unpause(id: string) {
     try {
-      await apiFetch(`/v1/internal/admin/orgs/${org_id}/unpause`, { method: "POST" });
+      await apiFetch(`/v1/internal/admin/orgs/${id}/unpause`, { method: "POST" });
       load();
     } catch (e) {
       alert((e as Error).message);
@@ -119,7 +87,6 @@ export default function OrgsPage() {
           <TR>
             <TH>Org ID</TH>
             <TH>Name</TH>
-            <TH className="text-right">Balance</TH>
             <TH>Status</TH>
             <TH>Reason</TH>
             <TH className="text-right">Actions</TH>
@@ -128,18 +95,15 @@ export default function OrgsPage() {
         <TBody>
           {orgs.length === 0 ? (
             <TR>
-              <TD colSpan={6} className="py-8 text-center text-zinc-500">
+              <TD colSpan={5} className="py-8 text-center text-zinc-500">
                 No orgs to display.
               </TD>
             </TR>
           ) : (
             orgs.map((o) => (
-              <TR key={o.org_id}>
-                <TD className="font-mono text-xs">{o.org_id}</TD>
+              <TR key={o.id}>
+                <TD className="font-mono text-xs">{o.id}</TD>
                 <TD>{o.name}</TD>
-                <TD className="text-right tabular-nums">
-                  ${(o.balance_cents / 100).toFixed(2)}
-                </TD>
                 <TD>
                   {o.paused_at ? (
                     <Badge variant="destructive">paused</Badge>
@@ -150,11 +114,11 @@ export default function OrgsPage() {
                 <TD className="text-zinc-400">{o.pause_reason ?? "—"}</TD>
                 <TD className="flex justify-end gap-2">
                   {o.paused_at ? (
-                    <Button size="sm" variant="secondary" onClick={() => unpause(o.org_id)}>
+                    <Button size="sm" variant="secondary" onClick={() => unpause(o.id)}>
                       Unpause
                     </Button>
                   ) : (
-                    <Button size="sm" variant="destructive" onClick={() => pause(o.org_id)}>
+                    <Button size="sm" variant="destructive" onClick={() => pause(o.id)}>
                       Pause
                     </Button>
                   )}
@@ -204,10 +168,10 @@ function ThroughputDrawer({
   onClose: () => void;
   onDone: () => void;
 }) {
-  const [reserved, setReserved] = useState<string>(String(org.reserved_concurrency ?? 0));
-  const [burst, setBurst] = useState<string>(String(org.burst_concurrency ?? 0));
-  const [lane, setLane] = useState<string>(org.priority_lane ?? "standard");
-  const [rpm, setRpm] = useState<string>(String(org.rpm_limit ?? 0));
+  const [reserved, setReserved] = useState("2");
+  const [burst, setBurst] = useState("8");
+  const [lane, setLane] = useState("standard");
+  const [rpm, setRpm] = useState("60");
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -215,7 +179,7 @@ function ThroughputDrawer({
     setBusy(true);
     setErr(null);
     try {
-      await apiFetch(`/v1/internal/admin/orgs/${org.org_id}/throughput`, {
+      await apiFetch(`/v1/internal/admin/orgs/${org.id}/throughput`, {
         method: "PUT",
         body: JSON.stringify({
           reserved_concurrency: Number(reserved),
@@ -237,7 +201,7 @@ function ThroughputDrawer({
       <div className="flex-1 bg-black/60" onClick={onClose} />
       <div className="w-full max-w-md space-y-4 overflow-y-auto border-l border-zinc-800 bg-zinc-950 p-6">
         <div className="flex items-start justify-between">
-          <h2 className="font-mono text-sm text-zinc-100">{org.org_id} · throughput</h2>
+          <h2 className="font-mono text-sm text-zinc-100">{org.id} · throughput</h2>
           <Button size="sm" variant="ghost" onClick={onClose}>Close</Button>
         </div>
         {err && <div className="text-sm text-red-400">{err}</div>}
@@ -256,10 +220,10 @@ function ThroughputDrawer({
             onChange={(e: ChangeEvent<HTMLSelectElement>) => setLane(e.target.value)}
             className="h-9 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 text-sm text-zinc-100"
           >
-            <option value="low">low</option>
             <option value="standard">standard</option>
-            <option value="high">high</option>
-            <option value="premium">premium</option>
+            <option value="priority">priority</option>
+            <option value="dedicated">dedicated</option>
+            <option value="critical">critical</option>
           </select>
         </label>
         <label className="block">
@@ -281,7 +245,7 @@ function ModerationDrawer({
   onClose: () => void;
   onDone: () => void;
 }) {
-  const [profile, setProfile] = useState(org.moderation_profile ?? "default");
+  const [profile, setProfile] = useState("balanced");
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -289,7 +253,7 @@ function ModerationDrawer({
     setBusy(true);
     setErr(null);
     try {
-      await apiFetch(`/v1/internal/admin/orgs/${org.org_id}/moderation`, {
+      await apiFetch(`/v1/internal/admin/orgs/${org.id}/moderation`, {
         method: "PUT",
         body: JSON.stringify({ profile }),
       });
@@ -306,7 +270,7 @@ function ModerationDrawer({
       <div className="flex-1 bg-black/60" onClick={onClose} />
       <div className="w-full max-w-md space-y-4 overflow-y-auto border-l border-zinc-800 bg-zinc-950 p-6">
         <div className="flex items-start justify-between">
-          <h2 className="font-mono text-sm text-zinc-100">{org.org_id} · moderation</h2>
+          <h2 className="font-mono text-sm text-zinc-100">{org.id} · moderation</h2>
           <Button size="sm" variant="ghost" onClick={onClose}>Close</Button>
         </div>
         {err && <div className="text-sm text-red-400">{err}</div>}
@@ -318,9 +282,9 @@ function ModerationDrawer({
             className="h-9 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 text-sm text-zinc-100"
           >
             <option value="strict">strict</option>
-            <option value="default">default</option>
+            <option value="balanced">balanced</option>
             <option value="relaxed">relaxed</option>
-            <option value="internal">internal</option>
+            <option value="custom">custom</option>
           </select>
         </label>
         <Button onClick={save} disabled={busy}>Save</Button>

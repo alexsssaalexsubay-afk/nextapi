@@ -6,6 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/sanidg/nextapi/backend/internal/auth"
 	"github.com/sanidg/nextapi/backend/internal/billing"
+	"github.com/sanidg/nextapi/backend/internal/domain"
 )
 
 type Handlers struct {
@@ -20,15 +21,16 @@ func New(a *auth.Service, b *billing.Service) *Handlers {
 // ---- Keys ----
 
 type createKeyReq struct {
-	Name                 string   `json:"name" binding:"required"`
-	Env                  string   `json:"env"`
-	Kind                 string   `json:"kind"`
-	Scopes               []string `json:"scopes"`
-	AllowedModels        []string `json:"allowed_models"`
-	MonthlySpendCapCents *int64   `json:"monthly_spend_cap_cents"`
-	RateLimitRPM         *int     `json:"rate_limit_rpm"`
-	IPAllowlist          []string `json:"ip_allowlist"`
-	ModerationProfile    *string  `json:"moderation_profile"`
+	Name                   string   `json:"name" binding:"required"`
+	Env                    string   `json:"env"`
+	Kind                   string   `json:"kind"`
+	Scopes                 []string `json:"scopes"`
+	AllowedModels          []string `json:"allowed_models"`
+	MonthlySpendCapCents   *int64   `json:"monthly_spend_cap_cents"`
+	RateLimitRPM           *int     `json:"rate_limit_rpm"`
+	IPAllowlist            []string `json:"ip_allowlist"`
+	ModerationProfile      *string  `json:"moderation_profile"`
+	ProvisionedConcurrency *int     `json:"provisioned_concurrency"`
 }
 
 func (h *Handlers) CreateKey(c *gin.Context) {
@@ -51,16 +53,17 @@ func (h *Handlers) CreateKey(c *gin.Context) {
 		env = auth.EnvLive
 	}
 	res, err := h.Auth.CreateKey(c.Request.Context(), auth.CreateKeyInput{
-		OrgID:                org.ID,
-		Name:                 req.Name,
-		Kind:                 kind,
-		Env:                  env,
-		Scopes:               req.Scopes,
-		AllowedModels:        req.AllowedModels,
-		MonthlySpendCapCents: req.MonthlySpendCapCents,
-		RateLimitRPM:         req.RateLimitRPM,
-		IPAllowlist:          req.IPAllowlist,
-		ModerationProfile:    req.ModerationProfile,
+		OrgID:                  org.ID,
+		Name:                   req.Name,
+		Kind:                   kind,
+		Env:                    env,
+		Scopes:                 req.Scopes,
+		AllowedModels:          req.AllowedModels,
+		MonthlySpendCapCents:   req.MonthlySpendCapCents,
+		RateLimitRPM:           req.RateLimitRPM,
+		IPAllowlist:            req.IPAllowlist,
+		ModerationProfile:      req.ModerationProfile,
+		ProvisionedConcurrency: req.ProvisionedConcurrency,
 	})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "internal_error", "message": err.Error()}})
@@ -88,12 +91,13 @@ func (h *Handlers) ListKeys(c *gin.Context) {
 	out := make([]gin.H, 0, len(keys))
 	for _, k := range keys {
 		out = append(out, gin.H{
-			"id":           k.ID,
-			"prefix":       k.Prefix,
-			"name":         k.Name,
-			"last_used_at": k.LastUsedAt,
-			"created_at":   k.CreatedAt,
-			"revoked_at":   k.RevokedAt,
+			"id":                      k.ID,
+			"prefix":                  k.Prefix,
+			"name":                    k.Name,
+			"provisioned_concurrency": k.ProvisionedConcurrency,
+			"last_used_at":            k.LastUsedAt,
+			"created_at":              k.CreatedAt,
+			"revoked_at":              k.RevokedAt,
 		})
 	}
 	c.JSON(http.StatusOK, gin.H{"data": out})
@@ -108,12 +112,13 @@ func (h *Handlers) GetKey(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{
-		"id":           key.ID,
-		"prefix":       key.Prefix,
-		"name":         key.Name,
-		"last_used_at": key.LastUsedAt,
-		"created_at":   key.CreatedAt,
-		"revoked_at":   key.RevokedAt,
+		"id":                      key.ID,
+		"prefix":                  key.Prefix,
+		"name":                    key.Name,
+		"provisioned_concurrency": key.ProvisionedConcurrency,
+		"last_used_at":            key.LastUsedAt,
+		"created_at":              key.CreatedAt,
+		"revoked_at":              key.RevokedAt,
 	})
 }
 
@@ -128,7 +133,8 @@ func (h *Handlers) RevokeKey(c *gin.Context) {
 }
 
 type updateKeyReq struct {
-	Disabled *bool `json:"disabled"`
+	Disabled               *bool `json:"disabled"`
+	ProvisionedConcurrency *int  `json:"provisioned_concurrency"`
 }
 
 func (h *Handlers) UpdateKey(c *gin.Context) {
@@ -144,6 +150,12 @@ func (h *Handlers) UpdateKey(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
+	}
+	if r.ProvisionedConcurrency != nil {
+		h.Auth.DB().WithContext(c.Request.Context()).
+			Model(&domain.APIKey{}).
+			Where("id = ? AND org_id = ?", id, org.ID).
+			Update("provisioned_concurrency", *r.ProvisionedConcurrency)
 	}
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }

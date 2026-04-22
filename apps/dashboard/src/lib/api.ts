@@ -1,18 +1,29 @@
 export const API_BASE =
   process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
 
+function getApiKey(): string | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem("nextapi_api_key") ?? null;
+}
+
+export function setApiKey(key: string) {
+  localStorage.setItem("nextapi_api_key", key);
+}
+
 export async function apiFetch<T>(
   path: string,
   init?: RequestInit,
 ): Promise<{ ok: boolean; status: number; data: T | null }> {
   try {
+    const key = getApiKey();
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      ...(init?.headers as Record<string, string> ?? {}),
+    };
+    if (key) headers["Authorization"] = `Bearer ${key}`;
     const res = await fetch(`${API_BASE}${path}`, {
-      credentials: "include",
       ...init,
-      headers: {
-        "Content-Type": "application/json",
-        ...(init?.headers ?? {}),
-      },
+      headers,
     });
     if (!res.ok) return { ok: false, status: res.status, data: null };
     const data = (await res.json()) as T;

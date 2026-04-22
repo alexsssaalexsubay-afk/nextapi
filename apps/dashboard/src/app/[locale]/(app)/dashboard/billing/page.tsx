@@ -22,7 +22,7 @@ type Row = {
   created_at: string;
 };
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
+import { apiFetch } from "@/lib/api";
 
 export default function BillingPage() {
   const t = useTranslations("billing");
@@ -30,14 +30,12 @@ export default function BillingPage() {
   const [rows, setRows] = useState<Row[]>([]);
 
   useEffect(() => {
-    fetch(`${API}/v1/billing/balance`, { credentials: "include" })
-      .then((r) => r.json())
-      .then((j) => setBalance(j.balance))
-      .catch(() => {});
-    fetch(`${API}/v1/billing/ledger`, { credentials: "include" })
-      .then((r) => r.json())
-      .then((j) => setRows(j.data ?? []))
-      .catch(() => {});
+    apiFetch<{ balance: number }>("/v1/credits").then(
+      (r) => r.data && setBalance(r.data.balance),
+    );
+    apiFetch<{ data: Row[] }>("/v1/billing/ledger").then(
+      (r) => r.data && setRows(r.data.data ?? []),
+    );
   }, []);
 
   return (

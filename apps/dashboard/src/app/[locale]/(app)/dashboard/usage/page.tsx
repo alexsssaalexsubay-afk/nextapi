@@ -2,8 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Card, CardTitle, CardDescription } from "@nextapi/ui";
-
-const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
+import { apiFetch } from "@/lib/api";
 
 type Point = { day: string; jobs: number; credits_used: number };
 
@@ -11,10 +10,9 @@ export default function UsagePage() {
   const [pts, setPts] = useState<Point[]>([]);
 
   useEffect(() => {
-    fetch(`${API}/v1/billing/usage?days=30`, { credentials: "include" })
-      .then((r) => r.json())
-      .then((j) => setPts(j.data ?? []))
-      .catch(() => {});
+    apiFetch<{ data: Point[] }>("/v1/billing/usage?days=30").then(
+      (r) => r.data && setPts(r.data.data ?? []),
+    );
   }, []);
 
   const max = Math.max(1, ...pts.map((p) => p.credits_used));

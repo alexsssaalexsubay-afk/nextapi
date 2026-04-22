@@ -52,6 +52,24 @@ func (h *ModerationHandlers) UpsertProfile(c *gin.Context) {
 	})
 }
 
+func (h *ModerationHandlers) AdminUpsertProfile(c *gin.Context) {
+	orgID := c.Param("id")
+	var body moderation.UpsertInput
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "invalid_request", "message": err.Error()}})
+		return
+	}
+	p, err := h.Svc.UpsertProfile(c.Request.Context(), orgID, body)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "internal_error", "message": err.Error()}})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"profile":      p.Profile,
+		"custom_rules": p.CustomRules,
+	})
+}
+
 func (h *ModerationHandlers) AdminListEvents(c *gin.Context) {
 	orgID := c.Query("org_id")
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "50"))

@@ -6,10 +6,9 @@ import { apiFetch } from "@/lib/api";
 import { TodoBanner } from "@/components/todo-banner";
 
 type Overview = {
-  total_users: number;
-  jobs_24h: number;
-  mrr_usd: number;
-  credits_consumed: number;
+  users_total: number;
+  jobs_last_24h: number;
+  credits_used_all_time: number;
 };
 
 export default function OverviewPage() {
@@ -23,10 +22,9 @@ export default function OverviewPage() {
   }, []);
 
   const stats: { label: string; value: string }[] = [
-    { label: "Total users", value: data ? data.total_users.toLocaleString() : "—" },
-    { label: "Jobs (24h)", value: data ? data.jobs_24h.toLocaleString() : "—" },
-    { label: "MRR", value: data ? `$${data.mrr_usd.toLocaleString()}` : "—" },
-    { label: "Credits consumed", value: data ? data.credits_consumed.toLocaleString() : "—" },
+    { label: "Total users", value: data ? data.users_total.toLocaleString() : "—" },
+    { label: "Jobs (24h)", value: data ? data.jobs_last_24h.toLocaleString() : "—" },
+    { label: "Credits consumed", value: data ? data.credits_used_all_time.toLocaleString() : "—" },
   ];
 
   return (

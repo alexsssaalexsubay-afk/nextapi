@@ -15,6 +15,7 @@ type Service struct {
 }
 
 func NewService(db *gorm.DB) *Service { return &Service{db: db} }
+func (s *Service) DB() *gorm.DB          { return s.db }
 
 type ValidKey struct {
 	APIKey *domain.APIKey
@@ -56,16 +57,17 @@ func (s *Service) Validate(ctx context.Context, raw string) (*ValidKey, error) {
 }
 
 type CreateKeyInput struct {
-	OrgID                string
-	Name                 string
-	Kind                 Kind
-	Env                  Env
-	Scopes               []string
-	AllowedModels        []string
-	MonthlySpendCapCents *int64
-	RateLimitRPM         *int
-	IPAllowlist          []string
-	ModerationProfile    *string
+	OrgID                  string
+	Name                   string
+	Kind                   Kind
+	Env                    Env
+	Scopes                 []string
+	AllowedModels          []string
+	MonthlySpendCapCents   *int64
+	RateLimitRPM           *int
+	IPAllowlist            []string
+	ModerationProfile      *string
+	ProvisionedConcurrency *int
 }
 
 type CreateKeyResult struct {
@@ -104,16 +106,22 @@ func (s *Service) CreateKey(ctx context.Context, in CreateKeyInput) (*CreateKeyR
 		return nil, err
 	}
 	// Extended fields via raw UPDATE (migration 00005).
+	provConc := 5
+	if in.ProvisionedConcurrency != nil {
+		provConc = *in.ProvisionedConcurrency
+	}
 	s.db.WithContext(ctx).Exec(`
 		UPDATE api_keys SET
 			env = ?, kind = ?, allowed_models = ?,
 			monthly_spend_cap_cents = ?, rate_limit_rpm = ?,
-			ip_allowlist = ?, moderation_profile = ?
+			ip_allowlist = ?, moderation_profile = ?,
+			provisioned_concurrency = ?
 		WHERE id = ?`,
 		string(env), strings.Trim(string(kind), " "),
 		toPGArray(in.AllowedModels),
 		in.MonthlySpendCapCents, in.RateLimitRPM,
-		toPGArray(in.IPAllowlist), in.ModerationProfile, row.ID,
+		toPGArray(in.IPAllowlist), in.ModerationProfile,
+		provConc, row.ID,
 	)
 	return &CreateKeyResult{
 		ID: row.ID, FullKey: full, Prefix: prefix, Name: row.Name,

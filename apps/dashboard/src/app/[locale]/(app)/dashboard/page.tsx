@@ -2,8 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Card, CardDescription, CardTitle } from "@nextapi/ui";
-
-const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
+import { apiFetch } from "@/lib/api";
 
 export default function DashboardHome() {
   const [balance, setBalance] = useState<number | null>(null);
@@ -11,25 +10,18 @@ export default function DashboardHome() {
   const [jobs24h, setJobs24h] = useState<number | null>(null);
 
   useEffect(() => {
-    fetch(`${API}/v1/billing/balance`, { credentials: "include" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((j) => j && setBalance(j.balance))
-      .catch(() => {});
-    fetch(`${API}/v1/keys`, { credentials: "include" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((j) => j && setKeysCount((j.data ?? []).filter((k: { revoked_at: string | null }) => !k.revoked_at).length))
-      .catch(() => {});
-    fetch(`${API}/v1/billing/usage?days=1`, { credentials: "include" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((j) => {
-        if (!j) return;
-        const total = (j.data ?? []).reduce(
-          (a: number, p: { jobs: number }) => a + p.jobs,
-          0,
-        );
-        setJobs24h(total);
-      })
-      .catch(() => {});
+    apiFetch<{ balance: number }>("/v1/credits").then(
+      (r) => r.data && setBalance(r.data.balance),
+    );
+    apiFetch<{ data: { revoked_at: string | null }[] }>("/v1/keys").then(
+      (r) => r.data && setKeysCount(r.data.data.filter((k) => !k.revoked_at).length),
+    );
+    apiFetch<{ data: { jobs: number }[] }>("/v1/billing/usage?days=1").then(
+      (r) => {
+        if (!r.data) return;
+        setJobs24h(r.data.data.reduce((a, p) => a + p.jobs, 0));
+      },
+    );
   }, []);
 
   const fmt = (n: number | null) => (n === null ? "—" : n.toLocaleString());
