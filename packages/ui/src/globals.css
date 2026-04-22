@@ -1,0 +1,331 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+@custom-variant dark (&:is(.dark *));
+
+/* NextAPI — refined operator theme.
+   Premium dark with transparent depth (not pure black).
+   Accent = teal-green #00D9A3 — infra trust signal.
+   Full light mode support. Inter for clarity. */
+
+/* ═══════════════════════════════════════════════════════════════
+   LIGHT MODE
+   ═══════════════════════════════════════════════════════════════ */
+:root {
+  /* Zinc + white scale, aligned with landing page */
+  --background: oklch(1 0 0);                    /* pure white */
+  --foreground: oklch(0.205 0.01 260);           /* zinc-900 */
+
+  --card: oklch(1 0 0);                          /* white */
+  --card-foreground: oklch(0.205 0.01 260);
+
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.205 0.01 260);
+
+  --primary: oklch(0.205 0.01 260);              /* near-black for body */
+  --primary-foreground: oklch(1 0 0);
+
+  --secondary: oklch(0.97 0.004 260);            /* zinc-50 */
+  --secondary-foreground: oklch(0.205 0.01 260);
+
+  --muted: oklch(0.97 0.004 260);                /* zinc-50 */
+  --muted-foreground: oklch(0.55 0.012 260);     /* zinc-500 */
+
+  /* Indigo brand accent — aligned with landing CTA gradient */
+  --accent: oklch(0.52 0.22 275);                /* indigo-600 */
+  --accent-foreground: oklch(1 0 0);
+
+  --destructive: oklch(0.58 0.21 25);
+  --destructive-foreground: oklch(1 0 0);
+
+  --border: oklch(0.92 0.005 260);               /* zinc-200 */
+  --input: oklch(0.92 0.005 260);
+  --ring: oklch(0.52 0.22 275);                  /* indigo-600 */
+
+  /* Brand signal — indigo, used by .kw, .hl, dashboard highlights */
+  --signal: oklch(0.52 0.22 275);                /* indigo-600 */
+  --signal-dim: oklch(0.72 0.16 275);            /* indigo-400 */
+
+  --status-success: oklch(0.55 0.16 155);
+  --status-success-dim: oklch(0.92 0.04 155);
+  --status-running: oklch(0.65 0.16 85);
+  --status-running-dim: oklch(0.94 0.04 85);
+  --status-queued: oklch(0.55 0.12 250);
+  --status-queued-dim: oklch(0.92 0.04 250);
+  --status-failed: oklch(0.55 0.2 25);
+  --status-failed-dim: oklch(0.94 0.05 25);
+  --status-idle: oklch(0.55 0.008 260);
+
+  /* Syntax — one-dark-pro inspired, tuned for light */
+  --syntax-bg: oklch(0.97 0.003 90);
+  --syntax-fg: oklch(0.28 0.008 260);
+  --syntax-key: oklch(0.52 0.12 220);       /* cyan */
+  --syntax-string: oklch(0.5 0.15 145);     /* green */
+  --syntax-number: oklch(0.58 0.14 55);     /* amber */
+  --syntax-keyword: oklch(0.5 0.18 295);    /* purple */
+  --syntax-comment: oklch(0.65 0.008 260);  /* dim gray */
+  --syntax-punct: oklch(0.45 0.008 260);
+
+  --chart-1: oklch(0.52 0.22 275);               /* indigo */
+  --chart-2: oklch(0.6 0.22 330);                /* fuchsia */
+  --chart-3: oklch(0.65 0.16 85);                /* amber */
+  --chart-4: oklch(0.55 0.12 250);               /* blue */
+  --chart-5: oklch(0.55 0.008 260);              /* zinc-500 */
+
+  --radius: 0.625rem;                            /* 10px — landing rounded-xl */
+
+  --sidebar: oklch(0.985 0.002 260);
+  --sidebar-foreground: oklch(0.205 0.01 260);
+  --sidebar-primary: oklch(0.52 0.22 275);
+  --sidebar-primary-foreground: oklch(1 0 0);
+  --sidebar-accent: oklch(0.97 0.004 260);
+  --sidebar-accent-foreground: oklch(0.205 0.01 260);
+  --sidebar-border: oklch(0.92 0.005 260);
+  --sidebar-ring: oklch(0.52 0.22 275);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   DARK MODE — Resend / Stripe / Vercel dev-infra aesthetic
+   ═══════════════════════════════════════════════════════════════ */
+.dark {
+  color-scheme: dark;
+
+  /* Zinc-950 base aligned with landing */
+  --background: oklch(0.16 0.005 260);           /* zinc-950 */
+  --foreground: oklch(0.985 0.003 260);          /* zinc-50 */
+
+  --card: oklch(0.205 0.007 260);                /* zinc-900 */
+  --card-foreground: oklch(0.985 0.003 260);
+
+  --popover: oklch(0.205 0.007 260);
+  --popover-foreground: oklch(0.985 0.003 260);
+
+  --primary: oklch(0.985 0.003 260);
+  --primary-foreground: oklch(0.16 0.005 260);
+
+  --secondary: oklch(0.24 0.008 260);            /* zinc-800 */
+  --secondary-foreground: oklch(0.985 0.003 260);
+
+  --muted: oklch(0.24 0.008 260);                /* zinc-800 */
+  --muted-foreground: oklch(0.68 0.012 260);     /* zinc-400 */
+
+  /* Indigo brand accent, brighter for dark */
+  --accent: oklch(0.72 0.18 275);                /* indigo-400 */
+  --accent-foreground: oklch(0.16 0.005 260);
+
+  --destructive: oklch(0.65 0.21 25);
+  --destructive-foreground: oklch(0.985 0.003 260);
+
+  --border: oklch(0.28 0.008 260);               /* zinc-800 */
+  --input: oklch(0.28 0.008 260);
+  --ring: oklch(0.72 0.18 275);
+
+  /* Brand signal — indigo-400 for dark */
+  --signal: oklch(0.72 0.18 275);
+  --signal-dim: oklch(0.55 0.18 275);
+
+  --status-success: oklch(0.72 0.14 160);
+  --status-success-dim: oklch(0.32 0.07 160);
+  --status-running: oklch(0.78 0.14 85);
+  --status-running-dim: oklch(0.32 0.07 85);
+  --status-queued: oklch(0.72 0.1 245);
+  --status-queued-dim: oklch(0.30 0.05 245);
+  --status-failed: oklch(0.68 0.18 25);
+  --status-failed-dim: oklch(0.30 0.08 25);
+  --status-idle: oklch(0.52 0.008 260);
+
+  /* Syntax — one-dark-pro faithful */
+  --syntax-bg: oklch(0.175 0.008 260);
+  --syntax-fg: oklch(0.82 0.008 260);
+  --syntax-key: oklch(0.78 0.13 210);       /* cyan  #56B6C2 */
+  --syntax-string: oklch(0.8 0.16 140);     /* green #98C379 */
+  --syntax-number: oklch(0.8 0.15 65);      /* amber #D19A66 */
+  --syntax-keyword: oklch(0.72 0.18 310);   /* purple #C678DD */
+  --syntax-comment: oklch(0.5 0.01 260);    /* dim gray #5C6370 */
+  --syntax-punct: oklch(0.72 0.008 260);
+
+  --chart-1: oklch(0.72 0.18 275);               /* indigo-400 */
+  --chart-2: oklch(0.72 0.22 330);               /* fuchsia-400 */
+  --chart-3: oklch(0.78 0.14 85);                /* amber */
+  --chart-4: oklch(0.72 0.1 245);                /* blue */
+  --chart-5: oklch(0.68 0.012 260);              /* zinc-400 */
+
+  --sidebar: oklch(0.205 0.007 260);
+  --sidebar-foreground: oklch(0.92 0.004 260);
+  --sidebar-primary: oklch(0.72 0.18 275);
+  --sidebar-primary-foreground: oklch(0.16 0.005 260);
+  --sidebar-accent: oklch(0.24 0.008 260);
+  --sidebar-accent-foreground: oklch(0.985 0.003 260);
+  --sidebar-border: oklch(0.28 0.008 260);
+  --sidebar-ring: oklch(0.72 0.18 275);
+}
+
+@theme inline {
+  --font-sans: 'Inter', 'Inter Fallback', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-signal: var(--signal);
+  --color-signal-dim: var(--signal-dim);
+
+  --color-status-success: var(--status-success);
+  --color-status-success-dim: var(--status-success-dim);
+  --color-status-running: var(--status-running);
+  --color-status-running-dim: var(--status-running-dim);
+  --color-status-queued: var(--status-queued);
+  --color-status-queued-dim: var(--status-queued-dim);
+  --color-status-failed: var(--status-failed);
+  --color-status-failed-dim: var(--status-failed-dim);
+  --color-status-idle: var(--status-idle);
+
+  --color-syntax-bg: var(--syntax-bg);
+  --color-syntax-fg: var(--syntax-fg);
+  --color-syntax-key: var(--syntax-key);
+  --color-syntax-string: var(--syntax-string);
+  --color-syntax-number: var(--syntax-number);
+  --color-syntax-keyword: var(--syntax-keyword);
+  --color-syntax-comment: var(--syntax-comment);
+  --color-syntax-punct: var(--syntax-punct);
+
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    @apply bg-background scroll-smooth;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "cv11", "ss01", "ss03";
+  }
+
+  /* Inline keyword emphasis — use sparingly, max 10 per page. */
+  .hl {
+    background: color-mix(in oklch, var(--signal) 18%, transparent);
+    color: var(--signal);
+    padding: 0 4px;
+    border-radius: 3px;
+    font-weight: 500;
+  }
+
+  /* .kw — marker-pen highlight on keywords inside body copy.
+     Background only, foreground text unchanged. Max 10 per page. */
+  .kw {
+    background: color-mix(in oklch, var(--signal) 30%, transparent);
+    color: var(--foreground);
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-weight: 500;
+    -webkit-box-decoration-break: clone;
+    box-decoration-break: clone;
+  }
+
+  /* Operator grid background — subtle, used on hero and dashboard */
+  .bg-grid {
+    background-image:
+      linear-gradient(to right, var(--border) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--border) 1px, transparent 1px);
+    background-size: 56px 56px;
+  }
+
+  .bg-grid-fade {
+    mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 40%, transparent 80%);
+    -webkit-mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 40%, transparent 80%);
+  }
+
+  .bg-dots {
+    background-image: radial-gradient(var(--border) 1px, transparent 1px);
+    background-size: 18px 18px;
+  }
+
+  .scroll-thin::-webkit-scrollbar { width: 8px; height: 8px; }
+  .scroll-thin::-webkit-scrollbar-thumb { background: var(--border); border-radius: 8px; }
+  .scroll-thin::-webkit-scrollbar-track { background: transparent; }
+
+  @keyframes op-pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(1.4); }
+  }
+  .op-pulse { animation: op-pulse 1.8s ease-in-out infinite; }
+
+  @keyframes op-sweep {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+  }
+  .op-sweep { position: relative; overflow: hidden; }
+  .op-sweep::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      color-mix(in oklch, var(--signal) 14%, transparent) 50%,
+      transparent 100%
+    );
+    animation: op-sweep 2.2s linear infinite;
+  }
+
+  @keyframes op-shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+  .op-shimmer {
+    background: linear-gradient(
+      90deg,
+      var(--muted) 0%,
+      var(--border) 50%,
+      var(--muted) 100%
+    );
+    background-size: 200% 100%;
+    animation: op-shimmer 1.8s ease-in-out infinite;
+  }
+
+  /* Subtle glow border for hero video — only place we use it */
+  .glow-ring {
+    box-shadow:
+      0 0 0 1px color-mix(in oklch, var(--signal) 30%, transparent),
+      0 0 30px -5px color-mix(in oklch, var(--signal) 25%, transparent),
+      0 20px 60px -20px oklch(0 0 0 / 0.7);
+  }
+}

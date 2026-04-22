@@ -1,7 +1,11 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "lib": ["dom", "dom.iterable", "esnext"],
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext"
+    ],
     "strict": true,
     "noEmit": true,
     "esModuleInterop": true,
@@ -9,14 +13,51 @@
     "moduleResolution": "bundler",
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "jsx": "preserve",
-    "incremental": true,
+    "jsx": "react-jsx",
     "skipLibCheck": true,
     "allowJs": true,
-    "plugins": [{ "name": "next" }],
+    "incremental": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
     "baseUrl": ".",
-    "paths": { "@/*": ["src/*"] }
+    "paths": {
+      "@/components/ui/*": [
+        "../../packages/ui/src/components/ui/*"
+      ],
+      "@/components/nextapi/*": [
+        "../../packages/ui/src/components/nextapi/*"
+      ],
+      "@/components/theme-provider": [
+        "../../packages/ui/src/components/theme-provider"
+      ],
+      "@/lib/utils": [
+        "../../packages/ui/src/lib/utils"
+      ],
+      "@/lib/i18n/*": [
+        "../../packages/ui/src/lib/i18n/*"
+      ],
+      "@/hooks/*": [
+        "../../packages/ui/src/hooks/*"
+      ],
+      "@/globals.css": [
+        "../../packages/ui/src/globals.css"
+      ],
+      "@/*": [
+        "./*"
+      ]
+    }
   },
-  "include": ["next-env.d.ts", "src/**/*", ".next/types/**/*.ts"],
-  "exclude": ["node_modules"]
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    ".next/dev/types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
 }

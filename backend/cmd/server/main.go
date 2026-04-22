@@ -72,6 +72,14 @@ func main() {
 
 	r := gin.New()
 	r.Use(gin.Recovery(), httpx.RequestID(), metrics.Middleware())
+	r.Use(httpx.CORS([]string{
+		"https://nextapi.top",
+		"https://dash.nextapi.top",
+		"https://admin.nextapi.top",
+		"http://localhost:3000",
+		"http://localhost:3001",
+		"http://localhost:3002",
+	}))
 
 	r.GET("/health", okJSON)
 	r.GET("/metrics", gateway.AdminMiddleware(), gin.WrapH(promhttp.Handler()))
