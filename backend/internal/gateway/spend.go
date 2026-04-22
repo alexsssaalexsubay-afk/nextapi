@@ -23,7 +23,7 @@ func (h *SpendHandlers) Get(c *gin.Context) {
 	ctx := c.Request.Context()
 	sc, err := h.Svc.Get(ctx, org.ID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "internal_error", "message": err.Error()}})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "internal_error"}})
 		return
 	}
 	burnRate, _ := h.Svc.BurnRateCentsPerDay(ctx, org.ID)
@@ -76,7 +76,7 @@ func (h *SpendHandlers) Put(c *gin.Context) {
 		PeriodResetsOn:      r.PeriodResetsOn,
 	})
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "internal_error", "message": err.Error()}})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "internal_error"}})
 		return
 	}
 	c.JSON(http.StatusOK, sc)
@@ -101,7 +101,7 @@ func (h *SpendHandlers) ListAlerts(c *gin.Context) {
 func (h *SpendHandlers) Unpause(c *gin.Context) {
 	id := c.Param("id")
 	if err := h.Svc.Unpause(c.Request.Context(), id); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "internal_error"}})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"ok": true})

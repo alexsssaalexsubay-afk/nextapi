@@ -44,7 +44,7 @@ type AdminHandlers struct {
 func (h *AdminHandlers) Orgs(c *gin.Context) {
 	var rows []domain.Org
 	if err := h.DB.WithContext(c.Request.Context()).Order("created_at DESC").Limit(500).Find(&rows).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "internal_error"}})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"data": rows})
@@ -64,7 +64,7 @@ func (h *AdminHandlers) PauseOrg(c *gin.Context) {
 	if err := h.DB.WithContext(c.Request.Context()).
 		Model(&domain.Org{}).Where("id = ?", id).
 		Updates(map[string]any{"paused_at": now, "pause_reason": reason}).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "internal_error"}})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"ok": true})
@@ -78,7 +78,7 @@ func (h *AdminHandlers) Users(c *gin.Context) {
 	}
 	var rows []domain.User
 	if err := db.Order("created_at DESC").Limit(200).Find(&rows).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "internal_error"}})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"data": rows})
@@ -92,7 +92,7 @@ func (h *AdminHandlers) Jobs(c *gin.Context) {
 	}
 	var rows []domain.Job
 	if err := db.Order("created_at DESC").Limit(200).Find(&rows).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "internal_error"}})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"data": rows})
@@ -107,7 +107,7 @@ type adjustReq struct {
 func (h *AdminHandlers) AdjustCredits(c *gin.Context) {
 	var r adjustReq
 	if err := c.ShouldBindJSON(&r); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "bad_request", "message": err.Error()}})
+		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "bad_request", "message": "invalid request body"}})
 		return
 	}
 	err := h.Billing.AddCredits(c.Request.Context(), billing.Entry{
@@ -117,7 +117,7 @@ func (h *AdminHandlers) AdjustCredits(c *gin.Context) {
 		Note:   r.Note,
 	})
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "internal_error"}})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"ok": true})
@@ -150,7 +150,7 @@ func (h *AdminHandlers) CancelJob(c *gin.Context) {
 			"completed_at":  now,
 		})
 	if res.Error != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": res.Error.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "internal_error"}})
 		return
 	}
 

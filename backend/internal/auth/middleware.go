@@ -56,11 +56,34 @@ func runGate(c *gin.Context, svc *Service, want Kind) {
 				"message": "this endpoint requires a " + string(want) + "_... key"}})
 		return
 	}
+
+	if vk.IPAllowlist != "" && vk.IPAllowlist != "{}" {
+		clientIP := c.ClientIP()
+		if !ipInAllowlist(clientIP, vk.IPAllowlist) {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
+				"error": gin.H{"code": "authorization.ip_not_allowed", "message": "client IP not in allowlist"}})
+			return
+		}
+	}
+
 	c.Set(CtxAPIKey, vk.APIKey)
 	c.Set(CtxOrg, vk.Org)
 	c.Set(CtxKind, vk.Kind)
 	c.Set(CtxEnv, vk.Env)
 	c.Next()
+}
+
+func ipInAllowlist(clientIP, pgArray string) bool {
+	clean := strings.Trim(pgArray, "{}")
+	if clean == "" {
+		return true
+	}
+	for _, allowed := range strings.Split(clean, ",") {
+		if strings.TrimSpace(allowed) == clientIP {
+			return true
+		}
+	}
+	return false
 }
 
 func SetOrg(c *gin.Context, org *domain.Org) {

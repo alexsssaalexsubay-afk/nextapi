@@ -59,7 +59,7 @@ func (h *PaymentHandlers) Checkout(c *gin.Context) {
 		CancelURL:   cancel,
 	})
 	if err != nil {
-		c.JSON(http.StatusNotImplemented, gin.H{"error": gin.H{"code": "not_implemented", "message": err.Error()}})
+		c.JSON(http.StatusNotImplemented, gin.H{"error": gin.H{"code": "not_implemented", "message": "payment provider not available"}})
 		return
 	}
 	c.JSON(http.StatusOK, out)
@@ -80,7 +80,7 @@ func (h *PaymentHandlers) Webhook(c *gin.Context) {
 	}
 	ev, err := p.VerifyWebhook(sig, body)
 	if err != nil {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "bad_webhook", "message": err.Error()}})
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "bad_webhook", "message": "webhook signature verification failed"}})
 		return
 	}
 	if ev != nil && ev.Type == "topup.succeeded" {

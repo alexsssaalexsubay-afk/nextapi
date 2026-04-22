@@ -10,6 +10,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/sanidg/nextapi/backend/internal/auth"
 	"github.com/sanidg/nextapi/backend/internal/domain"
+	"github.com/sanidg/nextapi/backend/internal/idempotency"
 	"github.com/sanidg/nextapi/backend/internal/job"
 	"github.com/sanidg/nextapi/backend/internal/moderation"
 	"github.com/sanidg/nextapi/backend/internal/provider"
@@ -50,7 +51,7 @@ func (h *VideosHandlers) Create(c *gin.Context) {
 	}
 	var req videoCreateReq
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "invalid_request", "message": err.Error()}})
+		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "invalid_request", "message": "invalid JSON body"}})
 		return
 	}
 
@@ -108,13 +109,15 @@ func (h *VideosHandlers) Create(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusAccepted, gin.H{
+	resp := gin.H{
 		"id":                   vid.ID,
 		"model":                vid.Model,
 		"status":               vid.Status,
 		"estimated_cost_cents": vid.EstimatedCostCents,
 		"created_at":           vid.CreatedAt,
-	})
+	}
+	idempotency.Commit(c.Request.Context(), h.DB, org.ID, c, http.StatusAccepted, resp)
+	c.JSON(http.StatusAccepted, resp)
 }
 
 // Get handles GET /v1/videos/:id.
@@ -143,7 +146,7 @@ func (h *VideosHandlers) Get(c *gin.Context) {
 		return
 	}
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "internal_error", "message": err.Error()}})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "internal_error"}})
 		return
 	}
 
@@ -213,7 +216,7 @@ func (h *VideosHandlers) Delete(c *gin.Context) {
 		return
 	}
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "internal_error", "message": err.Error()}})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "internal_error"}})
 		return
 	}
 
@@ -278,7 +281,7 @@ func (h *VideosHandlers) Wait(c *gin.Context) {
 			return
 		}
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "internal_error", "message": err.Error()}})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "internal_error"}})
 			return
 		}
 
@@ -354,5 +357,5 @@ func (h *VideosHandlers) handleJobError(c *gin.Context, err error) {
 		})
 		return
 	}
-	c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "internal", "message": err.Error()}})
+	c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "internal_error"}})
 }

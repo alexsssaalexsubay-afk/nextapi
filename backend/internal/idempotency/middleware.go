@@ -61,7 +61,7 @@ func (m *Middleware) Handle() gin.HandlerFunc {
 			c.Next()
 		case err != nil:
 			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
-				"error": gin.H{"code": "internal_error", "message": err.Error()}})
+				"error": gin.H{"code": "internal_error"}})
 		default:
 			if row.BodySHA256 != hash {
 				c.AbortWithStatusJSON(http.StatusConflict, gin.H{

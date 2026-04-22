@@ -66,7 +66,7 @@ func (h *Handlers) CreateKey(c *gin.Context) {
 		ProvisionedConcurrency: req.ProvisionedConcurrency,
 	})
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "internal_error", "message": err.Error()}})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "internal_error", "message": "failed to create key"}})
 		return
 	}
 	c.JSON(http.StatusCreated, gin.H{
@@ -85,7 +85,7 @@ func (h *Handlers) ListKeys(c *gin.Context) {
 	org := auth.OrgFrom(c)
 	keys, err := h.Auth.ListKeys(c.Request.Context(), org.ID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "internal", "message": err.Error()}})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "internal_error"}})
 		return
 	}
 	out := make([]gin.H, 0, len(keys))
@@ -126,7 +126,7 @@ func (h *Handlers) RevokeKey(c *gin.Context) {
 	org := auth.OrgFrom(c)
 	id := c.Param("id")
 	if err := h.Auth.RevokeKey(c.Request.Context(), org.ID, id); err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": gin.H{"code": "not_found", "message": err.Error()}})
+		c.JSON(http.StatusNotFound, gin.H{"error": gin.H{"code": "not_found"}})
 		return
 	}
 	c.Status(http.StatusNoContent)
@@ -147,7 +147,7 @@ func (h *Handlers) UpdateKey(c *gin.Context) {
 	}
 	if r.Disabled != nil {
 		if err := h.Auth.SetDisabled(c.Request.Context(), org.ID, id, *r.Disabled); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "internal_error"}})
 			return
 		}
 	}
@@ -175,7 +175,7 @@ func (h *Handlers) Balance(c *gin.Context) {
 	org := auth.OrgFrom(c)
 	bal, err := h.Billing.GetBalance(c.Request.Context(), org.ID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "internal", "message": err.Error()}})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "internal_error"}})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"balance": bal})
@@ -185,7 +185,7 @@ func (h *Handlers) Ledger(c *gin.Context) {
 	org := auth.OrgFrom(c)
 	rows, err := h.Billing.ListLedger(c.Request.Context(), org.ID, 50, 0)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "internal", "message": err.Error()}})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "internal_error"}})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"data": rows})

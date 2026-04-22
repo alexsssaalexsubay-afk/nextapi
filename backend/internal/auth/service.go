@@ -18,10 +18,11 @@ func NewService(db *gorm.DB) *Service { return &Service{db: db} }
 func (s *Service) DB() *gorm.DB          { return s.db }
 
 type ValidKey struct {
-	APIKey *domain.APIKey
-	Org    *domain.Org
-	Kind   Kind
-	Env    Env
+	APIKey      *domain.APIKey
+	Org         *domain.Org
+	Kind        Kind
+	Env         Env
+	IPAllowlist string
 }
 
 // Validate looks up by prefix, verifies hash, checks not revoked / not disabled.
@@ -46,10 +47,13 @@ func (s *Service) Validate(ctx context.Context, raw string) (*ValidKey, error) {
 	if err := Verify(raw, key.Hash); err != nil {
 		return nil, ErrInvalidKey
 	}
-	var disabled bool
+	var ext struct {
+		Disabled    bool   `gorm:"column:disabled"`
+		IPAllowlist string `gorm:"column:ip_allowlist"`
+	}
 	s.db.WithContext(ctx).Raw(
-		`SELECT COALESCE(disabled, false) FROM api_keys WHERE id = ?`, key.ID).Scan(&disabled)
-	if disabled {
+		`SELECT COALESCE(disabled, false) AS disabled, COALESCE(ip_allowlist, '{}') AS ip_allowlist FROM api_keys WHERE id = ?`, key.ID).Scan(&ext)
+	if ext.Disabled {
 		return nil, ErrInvalidKey
 	}
 	var org domain.Org
@@ -59,7 +63,7 @@ func (s *Service) Validate(ctx context.Context, raw string) (*ValidKey, error) {
 	now := time.Now()
 	s.db.WithContext(ctx).Model(&domain.APIKey{}).
 		Where("id = ?", key.ID).Update("last_used_at", now)
-	return &ValidKey{APIKey: &key, Org: &org, Kind: kind, Env: env}, nil
+	return &ValidKey{APIKey: &key, Org: &org, Kind: kind, Env: env, IPAllowlist: ext.IPAllowlist}, nil
 }
 
 type CreateKeyInput struct {

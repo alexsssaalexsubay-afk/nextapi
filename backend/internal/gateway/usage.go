@@ -13,7 +13,7 @@ func (h *Handlers) Usage(c *gin.Context) {
 	days, _ := strconv.Atoi(c.DefaultQuery("days", "30"))
 	pts, err := h.Billing.UsageDaily(c.Request.Context(), org.ID, days)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "internal_error"}})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"data": pts})
@@ -33,7 +33,7 @@ func (h *Handlers) Recharge(c *gin.Context) {
 		return
 	}
 	if err := h.Billing.Recharge(c.Request.Context(), org.ID, r.Credits, r.Note); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "internal_error"}})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"ok": true})

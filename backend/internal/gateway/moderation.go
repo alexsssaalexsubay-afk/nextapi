@@ -21,7 +21,7 @@ func (h *ModerationHandlers) GetProfile(c *gin.Context) {
 	}
 	p, err := h.Svc.GetProfile(c.Request.Context(), org.ID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "internal_error", "message": err.Error()}})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "internal_error"}})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{
@@ -43,7 +43,7 @@ func (h *ModerationHandlers) UpsertProfile(c *gin.Context) {
 	}
 	p, err := h.Svc.UpsertProfile(c.Request.Context(), org.ID, body)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "internal_error", "message": err.Error()}})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "internal_error"}})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{
@@ -61,7 +61,7 @@ func (h *ModerationHandlers) AdminUpsertProfile(c *gin.Context) {
 	}
 	p, err := h.Svc.UpsertProfile(c.Request.Context(), orgID, body)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "internal_error", "message": err.Error()}})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "internal_error"}})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{
@@ -77,7 +77,7 @@ func (h *ModerationHandlers) AdminListEvents(c *gin.Context) {
 
 	events, err := h.Svc.ListEvents(c.Request.Context(), orgID, limit, offset)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "internal_error", "message": err.Error()}})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "internal_error"}})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"data": events, "has_more": len(events) == limit})
@@ -99,7 +99,7 @@ func (h *ModerationHandlers) AdminAddNote(c *gin.Context) {
 		return
 	}
 	if err := h.Svc.AddReviewNote(c.Request.Context(), id, body.InternalNote, body.Reviewer); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "internal_error", "message": err.Error()}})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "internal_error"}})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"ok": true})

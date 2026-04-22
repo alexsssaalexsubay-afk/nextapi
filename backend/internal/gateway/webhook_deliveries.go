@@ -28,7 +28,7 @@ func (h *WebhookDeliveryHandlers) ListDeliveries(c *gin.Context) {
 
 	rows, err := h.Webhooks.ListDeliveries(c.Request.Context(), org.ID, webhookID, limit, offset)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "internal_error", "message": err.Error()}})
+		c.JSON(http.StatusNotFound, gin.H{"error": gin.H{"code": "not_found"}})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"data": rows, "has_more": len(rows) == limit})
@@ -49,7 +49,7 @@ func (h *WebhookDeliveryHandlers) RotateSecret(c *gin.Context) {
 
 	wh, err := h.Webhooks.RotateSecret(c.Request.Context(), org.ID, webhookID, newSecret)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": gin.H{"code": "not_found", "message": err.Error()}})
+		c.JSON(http.StatusNotFound, gin.H{"error": gin.H{"code": "not_found"}})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{
@@ -69,7 +69,7 @@ func (h *WebhookDeliveryHandlers) AdminReplay(c *gin.Context) {
 		return
 	}
 	if err := h.Webhooks.Replay(c.Request.Context(), id); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "internal_error", "message": err.Error()}})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "internal_error"}})
 		return
 	}
 	c.JSON(http.StatusAccepted, gin.H{"ok": true})

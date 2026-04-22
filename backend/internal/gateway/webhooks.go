@@ -40,7 +40,7 @@ func (h *WebhookHandlers) Create(c *gin.Context) {
 		EventTypes: pq.StringArray(req.EventTypes),
 	}
 	if err := h.DB.WithContext(c.Request.Context()).Create(&row).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "internal_error"}})
 		return
 	}
 	c.JSON(http.StatusCreated, gin.H{
@@ -97,7 +97,7 @@ func (h *WebhookHandlers) Delete(c *gin.Context) {
 		Where("id = ? AND org_id = ?", id, org.ID).
 		Delete(&domain.Webhook{})
 	if res.Error != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": res.Error.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "internal_error"}})
 		return
 	}
 	c.Status(http.StatusNoContent)

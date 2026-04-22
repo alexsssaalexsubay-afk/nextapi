@@ -3,6 +3,9 @@ package main
 import (
 	"context"
 	"log"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/hibiken/asynq"
@@ -41,26 +44,35 @@ func main() {
 	throughputSvc := throughput.NewService(gormDB, rClient)
 	proc := &job.Processor{DB: gormDB, Billing: billSvc, Spend: spendSvc, Prov: prov, Queue: queue, Webhooks: whSvc, Throughput: throughputSvc}
 
-	// Background: webhook retry ticker.
+	bgCtx, bgCancel := context.WithCancel(context.Background())
+	defer bgCancel()
+
 	go func() {
-		ctx := context.Background()
 		t := time.NewTicker(5 * time.Second)
 		defer t.Stop()
-		for range t.C {
-			if err := whSvc.DeliverDue(ctx); err != nil {
-				log.Printf("webhook deliver: %v", err)
+		for {
+			select {
+			case <-bgCtx.Done():
+				return
+			case <-t.C:
+				if err := whSvc.DeliverDue(bgCtx); err != nil {
+					log.Printf("webhook deliver: %v", err)
+				}
 			}
 		}
 	}()
 
-	// Background: idempotency key cleanup (hourly).
 	go func() {
-		ctx := context.Background()
 		t := time.NewTicker(1 * time.Hour)
 		defer t.Stop()
-		for range t.C {
-			if err := idempotency.CleanupExpired(ctx, gormDB); err != nil {
-				log.Printf("idempotency cleanup: %v", err)
+		for {
+			select {
+			case <-bgCtx.Done():
+				return
+			case <-t.C:
+				if err := idempotency.CleanupExpired(bgCtx, gormDB); err != nil {
+					log.Printf("idempotency cleanup: %v", err)
+				}
 			}
 		}
 	}()
@@ -77,6 +89,15 @@ func main() {
 	mux := asynq.NewServeMux()
 	mux.HandleFunc(job.TaskGenerate, proc.HandleGenerate)
 	mux.HandleFunc(job.TaskPoll, proc.HandlePoll)
+
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGTERM, syscall.SIGINT)
+	go func() {
+		<-sigCh
+		log.Println("shutdown signal received, stopping worker...")
+		bgCancel()
+		srv.Shutdown()
+	}()
 
 	log.Printf("nextapi worker starting (provider=%s)", prov.Name())
 	if err := srv.Run(mux); err != nil {

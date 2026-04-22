@@ -65,7 +65,7 @@ func (w *ClerkWebhook) Handle(c *gin.Context) {
 			email = u.EmailAddresses[0].EmailAddress
 		}
 		if err := w.provision(c.Request.Context(), u.ID, email); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "provision_failed", "message": err.Error()}})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "provision_failed"}})
 			return
 		}
 	case "user.deleted":

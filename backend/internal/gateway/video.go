@@ -6,15 +6,18 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/sanidg/nextapi/backend/internal/auth"
+	"github.com/sanidg/nextapi/backend/internal/idempotency"
 	"github.com/sanidg/nextapi/backend/internal/job"
 	"github.com/sanidg/nextapi/backend/internal/moderation"
 	"github.com/sanidg/nextapi/backend/internal/provider"
 	"github.com/sanidg/nextapi/backend/internal/spend"
 	"github.com/sanidg/nextapi/backend/internal/throughput"
+	"gorm.io/gorm"
 )
 
 type VideoHandlers struct {
 	Jobs *job.Service
+	DB   *gorm.DB
 }
 
 type generateReq struct {
@@ -105,14 +108,18 @@ func (h *VideoHandlers) Generate(c *gin.Context) {
 			})
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "internal", "message": err.Error()}})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "internal_error"}})
 		return
 	}
-	c.JSON(http.StatusAccepted, gin.H{
+	resp := gin.H{
 		"id":                res.JobID,
 		"status":            res.Status,
 		"estimated_credits": res.EstimatedCredits,
-	})
+	}
+	if h.DB != nil {
+		idempotency.Commit(c.Request.Context(), h.DB, org.ID, c, http.StatusAccepted, resp)
+	}
+	c.JSON(http.StatusAccepted, resp)
 }
 
 func (h *VideoHandlers) Get(c *gin.Context) {

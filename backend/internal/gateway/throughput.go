@@ -21,7 +21,7 @@ func (h *ThroughputHandlers) GetThroughput(c *gin.Context) {
 	}
 	cfg, inFlight, err := h.Svc.Get(c.Request.Context(), org.ID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "internal_error", "message": err.Error()}})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "internal_error"}})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{
@@ -53,7 +53,7 @@ func (h *ThroughputHandlers) AdminUpsertThroughput(c *gin.Context) {
 		RPMLimit:            body.RPMLimit,
 	})
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "internal_error", "message": err.Error()}})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "internal_error"}})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{

@@ -22,7 +22,7 @@ func (h *OrgBillingHandlers) GetBillingSettings(c *gin.Context) {
 	}
 	var o domain.Org
 	if err := h.DB.WithContext(c.Request.Context()).First(&o, "id = ?", org.ID).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": gin.H{"code": "not_found", "message": err.Error()}})
+		c.JSON(http.StatusNotFound, gin.H{"error": gin.H{"code": "not_found"}})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{
@@ -70,7 +70,7 @@ func (h *OrgBillingHandlers) UpdateBillingSettings(c *gin.Context) {
 	if err := h.DB.WithContext(c.Request.Context()).
 		Model(&domain.Org{}).Where("id = ?", org.ID).
 		Updates(updates).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "internal_error", "message": err.Error()}})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "internal_error"}})
 		return
 	}
 	h.GetBillingSettings(c)
@@ -113,7 +113,7 @@ func (h *OrgBillingHandlers) AdminUpdateOrg(c *gin.Context) {
 	if err := h.DB.WithContext(c.Request.Context()).
 		Model(&domain.Org{}).Where("id = ?", orgID).
 		Updates(updates).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "internal_error", "message": err.Error()}})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "internal_error"}})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"ok": true})

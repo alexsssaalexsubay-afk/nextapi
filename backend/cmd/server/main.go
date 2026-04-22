@@ -57,7 +57,7 @@ func main() {
 	jobSvc.SetModeration(modSvc)
 
 	h := gateway.New(authSvc, billSvc)
-	vh := &gateway.VideoHandlers{Jobs: jobSvc}
+	vh := &gateway.VideoHandlers{Jobs: jobSvc, DB: gormDB}
 	whh := &gateway.WebhookHandlers{DB: gormDB}
 	wdh := &gateway.WebhookDeliveryHandlers{Webhooks: whSvc}
 	ah := &gateway.AdminHandlers{DB: gormDB, Billing: billSvc, Spend: spendSvc, Throughput: throughputSvc}
@@ -74,7 +74,7 @@ func main() {
 	r.Use(gin.Recovery(), httpx.RequestID(), metrics.Middleware())
 
 	r.GET("/health", okJSON)
-	r.GET("/metrics", gin.WrapH(promhttp.Handler()))
+	r.GET("/metrics", gateway.AdminMiddleware(), gin.WrapH(promhttp.Handler()))
 
 	v1 := r.Group("/v1")
 	v1.GET("/health", okJSON)
@@ -108,6 +108,7 @@ func main() {
 	// Admin surface (ak_* keys).
 	admn := v1.Group("")
 	admn.Use(auth.Admin(authSvc))
+	admn.Use(ratelimit.Middleware(rl, 300, time.Minute))
 	admn.GET("/keys", h.ListKeys)
 	admn.POST("/keys", h.CreateKey)
 	admn.GET("/keys/:id", h.GetKey)
@@ -139,6 +140,7 @@ func main() {
 	// Internal operator panel (shared token, not bearer).
 	internal := v1.Group("/internal/admin")
 	internal.Use(gateway.AdminMiddleware())
+	internal.Use(ratelimit.Middleware(rl, 120, time.Minute))
 	internal.GET("/overview", ah.OverviewStats)
 	internal.GET("/users", ah.Users)
 	internal.GET("/orgs", ah.Orgs)
