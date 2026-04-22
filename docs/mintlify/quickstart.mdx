@@ -1,0 +1,175 @@
+---
+title: Quickstart
+description: "Generate your first video in under 5 minutes."
+---
+
+## 1. Sign up
+
+Create an account at [app.nextapi.top/signup](https://app.nextapi.top/signup). New accounts receive **500 free credits** ($0.50) to play with.
+
+## 2. Create an API key
+
+In the dashboard, go to **API Keys → Create key**. Copy the full key — it's shown only once and starts with `nxt_live_`.
+
+<Warning>
+Store the key in a secret manager. Anyone with the full key can spend credits from your account.
+</Warning>
+
+## 3. Create a job
+
+<CodeGroup>
+
+```bash curl
+curl -X POST https://api.nextapi.top/v1/jobs \
+  -H "Authorization: Bearer $NEXTAPI_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "seedance-1.0-pro",
+    "input": {
+      "prompt": "A golden retriever surfing a neon wave at sunset, cinematic, 24fps",
+      "duration": 5,
+      "aspect_ratio": "16:9"
+    }
+  }'
+```
+
+```python python
+import os, requests
+
+r = requests.post(
+    "https://api.nextapi.top/v1/jobs",
+    headers={"Authorization": f"Bearer {os.environ['NEXTAPI_KEY']}"},
+    json={
+        "model": "seedance-1.0-pro",
+        "input": {
+            "prompt": "A golden retriever surfing a neon wave at sunset, cinematic, 24fps",
+            "duration": 5,
+            "aspect_ratio": "16:9",
+        },
+    },
+    timeout=30,
+)
+print(r.json())
+```
+
+```javascript node
+const res = await fetch("https://api.nextapi.top/v1/jobs", {
+  method: "POST",
+  headers: {
+    Authorization: `Bearer ${process.env.NEXTAPI_KEY}`,
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    model: "seedance-1.0-pro",
+    input: {
+      prompt: "A golden retriever surfing a neon wave at sunset, cinematic, 24fps",
+      duration: 5,
+      aspect_ratio: "16:9",
+    },
+  }),
+});
+console.log(await res.json());
+```
+
+```go go
+package main
+
+import (
+  "bytes"
+  "fmt"
+  "io"
+  "net/http"
+  "os"
+)
+
+func main() {
+  body := []byte(`{
+    "model": "seedance-1.0-pro",
+    "input": {
+      "prompt": "A golden retriever surfing a neon wave at sunset, cinematic, 24fps",
+      "duration": 5,
+      "aspect_ratio": "16:9"
+    }
+  }`)
+  req, _ := http.NewRequest("POST", "https://api.nextapi.top/v1/jobs", bytes.NewReader(body))
+  req.Header.Set("Authorization", "Bearer "+os.Getenv("NEXTAPI_KEY"))
+  req.Header.Set("Content-Type", "application/json")
+  resp, _ := http.DefaultClient.Do(req)
+  defer resp.Body.Close()
+  b, _ := io.ReadAll(resp.Body)
+  fmt.Println(string(b))
+}
+```
+
+</CodeGroup>
+
+You'll get back a job:
+
+```json
+{
+  "id": "job_01HXYZABC123",
+  "status": "queued",
+  "model": "seedance-1.0-pro",
+  "credits_reserved": 120,
+  "created_at": "2026-04-22T10:00:00Z"
+}
+```
+
+## 4. Poll the job
+
+<CodeGroup>
+
+```bash curl
+curl https://api.nextapi.top/v1/jobs/job_01HXYZABC123 \
+  -H "Authorization: Bearer $NEXTAPI_KEY"
+```
+
+```python python
+import os, time, requests
+
+job_id = "job_01HXYZABC123"
+while True:
+    r = requests.get(
+        f"https://api.nextapi.top/v1/jobs/{job_id}",
+        headers={"Authorization": f"Bearer {os.environ['NEXTAPI_KEY']}"},
+    ).json()
+    if r["status"] in ("succeeded", "failed"):
+        print(r)
+        break
+    time.sleep(3)
+```
+
+```javascript node
+const id = "job_01HXYZABC123";
+while (true) {
+  const r = await fetch(`https://api.nextapi.top/v1/jobs/${id}`, {
+    headers: { Authorization: `Bearer ${process.env.NEXTAPI_KEY}` },
+  }).then((x) => x.json());
+  if (["succeeded", "failed"].includes(r.status)) {
+    console.log(r);
+    break;
+  }
+  await new Promise((r) => setTimeout(r, 3000));
+}
+```
+
+```go go
+for {
+  req, _ := http.NewRequest("GET", "https://api.nextapi.top/v1/jobs/"+id, nil)
+  req.Header.Set("Authorization", "Bearer "+os.Getenv("NEXTAPI_KEY"))
+  resp, _ := http.DefaultClient.Do(req)
+  b, _ := io.ReadAll(resp.Body)
+  resp.Body.Close()
+  fmt.Println(string(b))
+  time.Sleep(3 * time.Second)
+}
+```
+
+</CodeGroup>
+
+When `status` becomes `succeeded`, `output.video_url` contains a signed URL valid for 24 hours.
+
+## Next
+
+- Skip polling with [webhooks](/concepts/jobs-and-webhooks).
+- Browse the full [API Reference](/api-reference/introduction).

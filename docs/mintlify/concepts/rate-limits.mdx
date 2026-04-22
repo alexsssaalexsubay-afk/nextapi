@@ -1,0 +1,48 @@
+---
+title: Rate Limits
+description: "Per-key and per-IP sliding windows, tier differences."
+---
+
+## How we rate-limit
+
+NextAPI enforces a **sliding-window** counter on two dimensions simultaneously:
+
+- **Per API key** — protects your account from runaway scripts.
+- **Per source IP** — protects shared infrastructure from abuse.
+
+The stricter of the two applies. Both windows are 60 seconds wide.
+
+## Default tiers
+
+| Tier | Requests / min (key) | Concurrent jobs | Requests / min (IP) |
+| --- | --- | --- | --- |
+| Free | 30 | 2 | 60 |
+| Pro | 300 | 20 | 600 |
+| Scale | 3,000 | 200 | custom |
+| Enterprise | custom | custom | custom |
+
+Tier is determined by your account, not by individual keys.
+
+## Response headers
+
+Every response includes:
+
+```http
+X-RateLimit-Limit: 300
+X-RateLimit-Remaining: 287
+X-RateLimit-Reset: 1713780120
+```
+
+## Handling 429
+
+A `429 rate_limited` response includes `Retry-After` (seconds). Implement exponential backoff with jitter:
+
+```python
+import random, time
+def backoff(attempt: int) -> float:
+    return min(60, 2 ** attempt) * (0.5 + random.random())
+```
+
+## Requesting more
+
+Need higher limits? Email `support@nextapi.top` with your use case and expected QPS.

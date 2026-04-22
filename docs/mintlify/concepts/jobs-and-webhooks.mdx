@@ -1,0 +1,99 @@
+---
+title: Jobs & Webhooks
+description: "Async lifecycle, webhook signatures, retries."
+---
+
+## Lifecycle
+
+Every generation is a **Job**. Jobs transition through a small state machine:
+
+```
+queued → running → succeeded
+                 ↘ failed
+                 ↘ canceled
+```
+
+| Status | Meaning |
+| --- | --- |
+| `queued` | Accepted, waiting for provider capacity. |
+| `running` | Provider is generating. |
+| `succeeded` | Terminal. `output` is populated. |
+| `failed` | Terminal. `error` is populated. |
+| `canceled` | Terminal. You called `DELETE /v1/jobs/{id}`. |
+
+Typical end-to-end time for a 5s Seedance generation is **30–90 seconds**.
+
+## Polling
+
+Poll `GET /v1/jobs/{id}` every 2–5 seconds. Back off on any `429`. Our recommended ceiling is 1 poll / 2s per job.
+
+## Webhooks
+
+Polling is fine for scripts; webhooks are better for production.
+
+Register an endpoint in **Dashboard → Webhooks** or pass `webhook_url` on job creation:
+
+```json
+{
+  "model": "seedance-1.0-pro",
+  "input": { "prompt": "..." },
+  "webhook_url": "https://yourapp.com/hooks/nextapi"
+}
+```
+
+We `POST` this body on every terminal transition:
+
+```json
+{
+  "id": "evt_01HXYZ...",
+  "type": "job.succeeded",
+  "created_at": "2026-04-22T10:01:12Z",
+  "data": { "job": { "id": "job_...", "status": "succeeded", "output": { "video_url": "..." } } }
+}
+```
+
+### Event types
+
+- `job.running`
+- `job.succeeded`
+- `job.failed`
+- `job.canceled`
+
+### Signature verification
+
+Every delivery includes:
+
+```http
+X-NextAPI-Signature: t=1713780072,v1=5d2f...c4
+X-NextAPI-Event-Id: evt_01HXYZ...
+```
+
+The `v1` value is `HMAC-SHA256(secret, f"{t}.{raw_body}")`.
+
+```python
+import hmac, hashlib, time
+
+def verify(secret: str, header: str, body: bytes, tolerance: int = 300) -> bool:
+    parts = dict(p.split("=", 1) for p in header.split(","))
+    t, sig = int(parts["t"]), parts["v1"]
+    if abs(time.time() - t) > tolerance:
+        return False
+    expected = hmac.new(secret.encode(), f"{t}.".encode() + body, hashlib.sha256).hexdigest()
+    return hmac.compare_digest(expected, sig)
+```
+
+Reject any request where verification fails.
+
+### Retry policy
+
+Non-2xx responses are retried with exponential backoff:
+
+```
+30s, 2m, 10m, 1h, 6h, 24h  (6 attempts, ~31h window)
+```
+
+After the final attempt the event is marked `undelivered`. You can replay from the dashboard.
+
+### Idempotency
+
+Use `X-NextAPI-Event-Id` as your dedup key — the same event may be delivered more than once.

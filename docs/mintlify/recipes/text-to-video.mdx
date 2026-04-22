@@ -1,0 +1,92 @@
+---
+title: Text to Video
+description: "Generate a video from a prompt with Seedance 1.0 Pro."
+---
+
+## Goal
+
+Produce a 5-second 1080p clip from a text prompt, wait for completion, and download the result.
+
+## Full example
+
+<CodeGroup>
+
+```python python
+import os, time, requests
+
+API = "https://api.nextapi.top/v1"
+H = {"Authorization": f"Bearer {os.environ['NEXTAPI_KEY']}"}
+
+job = requests.post(f"{API}/jobs", headers=H, json={
+    "model": "seedance-1.0-pro",
+    "input": {
+        "prompt": "Aerial shot of a bioluminescent jellyfish forest drifting through a deep-ocean trench, volumetric light, 24fps, photoreal",
+        "negative_prompt": "text, watermark, low quality",
+        "duration": 5,
+        "aspect_ratio": "16:9",
+        "resolution": "1080p",
+        "seed": 42
+    }
+}).json()
+
+job_id = job["id"]
+while True:
+    j = requests.get(f"{API}/jobs/{job_id}", headers=H).json()
+    if j["status"] in ("succeeded", "failed"):
+        break
+    time.sleep(3)
+
+if j["status"] == "succeeded":
+    url = j["output"]["video_url"]
+    with open("out.mp4", "wb") as f:
+        f.write(requests.get(url).content)
+    print("saved out.mp4")
+else:
+    print("failed:", j["error"])
+```
+
+```javascript node
+import fs from "node:fs";
+
+const API = "https://api.nextapi.top/v1";
+const H = { Authorization: `Bearer ${process.env.NEXTAPI_KEY}`, "Content-Type": "application/json" };
+
+const job = await fetch(`${API}/jobs`, {
+  method: "POST",
+  headers: H,
+  body: JSON.stringify({
+    model: "seedance-1.0-pro",
+    input: {
+      prompt: "Aerial shot of a bioluminescent jellyfish forest drifting through a deep-ocean trench, volumetric light, 24fps, photoreal",
+      duration: 5,
+      aspect_ratio: "16:9",
+      resolution: "1080p",
+    },
+  }),
+}).then((r) => r.json());
+
+let j;
+while (true) {
+  j = await fetch(`${API}/jobs/${job.id}`, { headers: H }).then((r) => r.json());
+  if (["succeeded", "failed"].includes(j.status)) break;
+  await new Promise((r) => setTimeout(r, 3000));
+}
+
+if (j.status === "succeeded") {
+  const buf = Buffer.from(await (await fetch(j.output.video_url)).arrayBuffer());
+  fs.writeFileSync("out.mp4", buf);
+}
+```
+
+</CodeGroup>
+
+## Prompt tips
+
+- Lead with **subject → action → environment → style → camera**.
+- Include framerate and lens cues (`24fps`, `shallow depth of field`).
+- Use `negative_prompt` to remove common artefacts: `text, watermark, blurry`.
+- Fix `seed` for reproducibility while iterating.
+
+## Cost
+
+5s @ 1080p on `seedance-1.0-pro` ≈ **120 credits ($0.12)**.

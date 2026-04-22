@@ -1,0 +1,31 @@
+# Cursor rules for NextAPI monorepo
+
+## Non-negotiable
+1. Always read CLAUDE.md before any architectural decision.
+2. New module = start by writing docs/modules/<name>.md.
+3. Every new backend function gets a test.
+4. Frontend: shadcn conventions, no custom CSS unless necessary.
+
+## Code style
+- Go: small packages, explicit errors with codes, context.Context as first arg.
+- TypeScript: strict mode, no any, functional components, Server Components by default.
+- SQL: snake_case tables (plural), all changes via goose migrations.
+- HTTP: /v1/ prefix, plural resources, standard HTTP codes.
+
+## Security
+- Never hardcode secrets. Use .env.
+- Always validate input in handlers.
+- Use parametrized queries (GORM/sqlc). Never string-concat SQL.
+- Rate limit per api_key AND per IP on /v1/*.
+
+## Internationalization
+- All user-facing copy goes through next-intl.
+- Keys live in apps/{app}/messages/{en,zh}.json.
+- English first, Chinese fills second.
+
+## Forbidden
+- Creating templates/workflows (was scrapped design).
+- Adding providers beyond Seedance in v1.
+- Using `any` or `interface{}` without a TODO comment.
+- Inline CSS in React components.
+- Committing .env, keys, or any secret.

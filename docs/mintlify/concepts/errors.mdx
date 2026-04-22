@@ -1,0 +1,39 @@
+---
+title: Errors
+description: "Error codes and how to handle them."
+---
+
+## Shape
+
+All errors use a consistent envelope:
+
+```json
+{
+  "error": {
+    "code": "insufficient_credits",
+    "message": "Account balance 42 is below reservation 120.",
+    "request_id": "req_01HXYZ..."
+  }
+}
+```
+
+Always log `request_id` — it's the fastest way to get help from support.
+
+## Codes
+
+| Code | HTTP | Meaning | What to do |
+| --- | --- | --- | --- |
+| `bad_request` | 400 | Malformed JSON, missing field, or invalid value. | Validate your payload against the schema. |
+| `invalid_key` | 401 | Missing, revoked, or malformed API key. | Check `Authorization` header and key status. |
+| `rate_limited` | 429 | Per-key or per-IP window exceeded. | Back off using `Retry-After`. |
+| `insufficient_credits` | 402 | Balance below reservation. | Top up or enable auto top-up. |
+| `not_found` | 404 | Job, key, or resource doesn't exist or isn't yours. | Verify the ID and account. |
+| `provider_error` | 502 | Upstream model provider failed. | Safe to retry; jobs are fully refunded. |
+| `internal` | 500 | NextAPI bug. | Retry with backoff and report `request_id`. |
+
+## Retry matrix
+
+- **Retryable:** `rate_limited`, `provider_error`, `internal`, network timeouts.
+- **Not retryable:** `bad_request`, `invalid_key`, `insufficient_credits`, `not_found`.
+
+Use idempotency keys (`Idempotency-Key` header) on `POST /v1/jobs` to make retries safe.

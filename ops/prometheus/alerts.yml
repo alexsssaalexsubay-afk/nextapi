@@ -1,0 +1,45 @@
+# Alerting rules for nextapi.
+groups:
+  - name: nextapi.rules
+    rules:
+      - alert: HighErrorRate
+        expr: |
+          sum(rate(http_requests_total{service="nextapi",status=~"5.."}[5m]))
+            /
+          sum(rate(http_requests_total{service="nextapi"}[5m])) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High HTTP 5xx error rate on nextapi"
+          description: "Error rate has exceeded 5% for 5 minutes."
+
+      - alert: HighLatency
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(http_request_duration_seconds_bucket{service="nextapi"}[5m])) by (le)
+          ) > 2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High p95 latency on nextapi"
+          description: "p95 request latency has exceeded 2s for 5 minutes."
+
+      - alert: ProviderDown
+        expr: provider_healthy == 0
+        for: 3m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Upstream provider is unhealthy"
+          description: "provider_healthy has been 0 for 3 minutes (provider={{ $labels.provider }})."
+
+      - alert: QueueBacklog
+        expr: asynq_queue_size{state="pending"} > 1000
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Asynq queue backlog"
+          description: "More than 1000 pending jobs for 10 minutes (queue={{ $labels.queue }})."

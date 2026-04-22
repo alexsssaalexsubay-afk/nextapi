@@ -1,0 +1,16 @@
+---
+title: Changelog
+description: "Notable changes to the NextAPI platform."
+---
+
+## v0.1.0 — 2026-04-22
+
+Initial public release.
+
+- **Jobs API** — `POST /v1/jobs`, `GET /v1/jobs/{id}`, `DELETE /v1/jobs/{id}`, `GET /v1/jobs`.
+- **Models** — `seedance-1.0-pro` (text-to-video) and `seedance-1.0-pro-i2v` (image-to-video) available at launch as one of 20 Seedance partners.
+- **Billing** — reservation → reconciliation flow, 1 credit = $0.001, 500-credit signup bonus.
+- **Webhooks** — HMAC-SHA256 signed deliveries with 6-attempt exponential-backoff retry.
+- **Rate limits** — sliding-window per-key and per-IP across Free / Pro / Scale tiers.
+- **Uploads** — `POST /v1/uploads` signed URL flow for image-to-video assets.
+- **Dashboard** — key management, usage charts, webhook replays.

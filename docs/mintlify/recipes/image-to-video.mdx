@@ -1,0 +1,74 @@
+---
+title: Image to Video
+description: "Animate a still image with Seedance."
+---
+
+## Goal
+
+Take a still image and turn it into a 5-second motion clip guided by a prompt.
+
+## Step 1 — Upload (or host) your image
+
+You can pass either a public URL or a base64 data URI. For production, upload to your own CDN or use NextAPI's signed-upload endpoint:
+
+```bash
+curl -X POST https://api.nextapi.top/v1/uploads \
+  -H "Authorization: Bearer $NEXTAPI_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"content_type":"image/png"}'
+```
+
+The response contains `upload_url` (PUT your bytes here) and `asset_url` (use in the job).
+
+## Step 2 — Create the job
+
+<CodeGroup>
+
+```bash curl
+curl -X POST https://api.nextapi.top/v1/jobs \
+  -H "Authorization: Bearer $NEXTAPI_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "seedance-1.0-pro-i2v",
+    "input": {
+      "image_url": "https://cdn.example.com/hero.png",
+      "prompt": "Camera slowly pushes in as petals begin to drift upward, soft wind, cinematic",
+      "duration": 5,
+      "motion_strength": 0.6
+    }
+  }'
+```
+
+```python python
+import os, requests
+r = requests.post(
+    "https://api.nextapi.top/v1/jobs",
+    headers={"Authorization": f"Bearer {os.environ['NEXTAPI_KEY']}"},
+    json={
+        "model": "seedance-1.0-pro-i2v",
+        "input": {
+            "image_url": "https://cdn.example.com/hero.png",
+            "prompt": "Camera slowly pushes in as petals begin to drift upward, soft wind, cinematic",
+            "duration": 5,
+            "motion_strength": 0.6,
+        },
+    },
+).json()
+print(r)
+```
+
+</CodeGroup>
+
+## Step 3 — Receive via webhook
+
+Add `webhook_url` to skip polling. See [Jobs & Webhooks](/concepts/jobs-and-webhooks) for signature verification.
+
+## Tuning
+
+- **`motion_strength`** (0.1–1.0) — higher values move more; too high can distort the subject.
+- **Prompt** — describe **motion**, not the still content. The image already provides composition.
+- **Aspect ratio** — inferred from the input image; override with `aspect_ratio` if needed.
+
+## Cost
+
+5s image-to-video on `seedance-1.0-pro-i2v` ≈ **140 credits ($0.14)**.

@@ -1,0 +1,86 @@
+{
+  "$schema": "https://mintlify.com/schema.json",
+  "name": "NextAPI",
+  "logo": {
+    "light": "/logo/light.svg",
+    "dark": "/logo/dark.svg"
+  },
+  "favicon": "/favicon.svg",
+  "colors": {
+    "primary": "#7c3aed",
+    "light": "#a78bfa",
+    "dark": "#6d28d9",
+    "background": {
+      "dark": "#0b0b0f"
+    }
+  },
+  "theme": "venus",
+  "modeToggle": {
+    "default": "dark",
+    "isHidden": false
+  },
+  "topbarCtaButton": {
+    "name": "Get API key",
+    "url": "https://app.nextapi.top/signup"
+  },
+  "topbarLinks": [
+    {
+      "name": "Dashboard",
+      "url": "https://app.nextapi.top"
+    }
+  ],
+  "tabs": [
+    {
+      "name": "Guides",
+      "url": "/"
+    },
+    {
+      "name": "API Reference",
+      "url": "api-reference"
+    }
+  ],
+  "openapi": "../../backend/api/openapi.yaml",
+  "navigation": [
+    {
+      "group": "Get Started",
+      "pages": [
+        "introduction",
+        "quickstart",
+        "changelog"
+      ]
+    },
+    {
+      "group": "Core Concepts",
+      "pages": [
+        "concepts/authentication",
+        "concepts/credits-and-billing",
+        "concepts/jobs-and-webhooks",
+        "concepts/rate-limits",
+        "concepts/errors"
+      ]
+    },
+    {
+      "group": "Recipes",
+      "pages": [
+        "recipes/text-to-video",
+        "recipes/image-to-video"
+      ]
+    },
+    {
+      "group": "API Reference",
+      "pages": [
+        "api-reference/introduction"
+      ]
+    },
+    {
+      "group": "Endpoints",
+      "pages": [
+        "api-reference/openapi"
+      ]
+    }
+  ],
+  "footerSocials": {
+    "website": "https://nextapi.top",
+    "github": "https://github.com/nextapi"
+  }
+}

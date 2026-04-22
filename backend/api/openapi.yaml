@@ -1,0 +1,1156 @@
+openapi: 3.1.0
+info:
+  title: NextAPI Gateway
+  version: 1.0.0
+  summary: Unified B2B gateway for ByteDance Seedance 2.0 video generation.
+  description: |
+    Exposes a clean, OpenAI/Replicate/fal-style surface over ByteDance's
+    Ark Seedance 2.0 / 2.0-fast / 1.x video models. All Ark-specific
+    quirks (prompt-suffix flags, token-based pricing, 24h asset TTL,
+    endpoint-id indirection) are hidden inside the gateway.
+
+    Conventions:
+      * Bearer auth. Business key (sk_live_* / sk_test_*) for /videos & /models;
+        admin key (ak_live_* / ak_test_*) for /admin, /keys, /webhooks, /credits, /usage.
+      * Idempotency-Key header on POSTs. 24h de-dup window.
+      * All timestamps are RFC 3339 UTC unless stated otherwise.
+      * Cursor pagination on list endpoints.
+      * Webhook signatures use HMAC-SHA256 over `t.` + raw body.
+  contact:
+    name: NextAPI Platform
+    url: https://docs.nextapi.top
+  license:
+    name: Proprietary
+
+servers:
+  - url: https://api.nextapi.top/v1
+    description: Production
+  - url: https://api.sandbox.nextapi.top/v1
+    description: Sandbox (sk_test_* keys, synthetic output)
+
+security:
+  - bearerBusiness: []
+
+tags:
+  - name: videos
+  - name: models
+  - name: credits
+  - name: billing
+  - name: usage
+  - name: keys
+  - name: webhooks
+  - name: spend_controls
+  - name: moderation
+  - name: throughput
+  - name: auth
+  - name: health
+
+paths:
+  /health:
+    get:
+      tags: [health]
+      operationId: getHealth
+      security: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Health' }
+
+  /models:
+    get:
+      tags: [models]
+      operationId: listModels
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ModelPage' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /models/{model_id}:
+    get:
+      tags: [models]
+      operationId: getModel
+      parameters:
+        - name: model_id
+          in: path
+          required: true
+          schema: { type: string, example: seedance-2.0 }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Model' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /videos:
+    post:
+      tags: [videos]
+      operationId: createVideo
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/VideoCreateRequest' }
+      responses:
+        '202':
+          description: Accepted.
+          headers:
+            X-Request-Id: { $ref: '#/components/headers/XRequestId' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Video' }
+        '400': { $ref: '#/components/responses/InvalidRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '402': { $ref: '#/components/responses/InsufficientQuota' }
+        '409': { $ref: '#/components/responses/IdempotencyConflict' }
+        '422': { $ref: '#/components/responses/Moderation' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '502': { $ref: '#/components/responses/UpstreamError' }
+
+    get:
+      tags: [videos]
+      operationId: listVideos
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+        - name: status
+          in: query
+          schema: { $ref: '#/components/schemas/VideoStatus' }
+        - name: model
+          in: query
+          schema: { type: string }
+        - name: created_after
+          in: query
+          schema: { type: string, format: date-time }
+        - name: created_before
+          in: query
+          schema: { type: string, format: date-time }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/VideoPage' }
+
+  /videos/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string }
+    get:
+      tags: [videos]
+      operationId: getVideo
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Video' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      tags: [videos]
+      operationId: cancelVideo
+      responses:
+        '200':
+          description: Cancelled or deleted.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Video' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { description: Already running. }
+
+  /videos/{id}/wait:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string }
+      - name: timeout
+        in: query
+        schema: { type: integer, minimum: 1, maximum: 600, default: 60 }
+    get:
+      tags: [videos]
+      operationId: waitForVideo
+      responses:
+        '200':
+          description: Terminal state reached.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Video' }
+            text/event-stream:
+              schema: { $ref: '#/components/schemas/VideoSseEvent' }
+        '408':
+          description: Timed out.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Video' }
+
+  /credits:
+    get:
+      tags: [credits]
+      operationId: getCredits
+      security: [ { bearerAdmin: [] } ]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Credits' }
+
+  /billing/usage:
+    get:
+      tags: [usage]
+      operationId: listUsage
+      security: [ { bearerAdmin: [] } ]
+      parameters:
+        - name: days
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 90, default: 30 }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UsagePage' }
+
+  /billing/ledger:
+    get:
+      tags: [credits]
+      operationId: listLedger
+      security: [ { bearerAdmin: [] } ]
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, has_more]
+                properties:
+                  data: { type: array, items: { $ref: '#/components/schemas/LedgerEntry' } }
+                  has_more: { type: boolean }
+
+  /billing/settings:
+    get:
+      tags: [billing]
+      operationId: getBillingSettings
+      description: Accessible via both sk_* (business) and ak_* (admin) keys.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BillingSettings' }
+    patch:
+      tags: [billing]
+      operationId: updateBillingSettings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/BillingSettings' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BillingSettings' }
+
+  /auth/me:
+    get:
+      tags: [auth]
+      operationId: getAuthMe
+      description: Returns the authenticated org and key metadata.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  org_id: { type: string }
+                  org_name: { type: string }
+                  key_id: { type: string }
+                  key_name: { type: string }
+                  scopes: { type: array, items: { type: string } }
+
+  /usage.csv:
+    get:
+      tags: [usage]
+      operationId: exportUsageCsv
+      security: [ { bearerAdmin: [] } ]
+      parameters:
+        - name: start
+          in: query
+          required: true
+          schema: { type: string, format: date-time }
+        - name: end
+          in: query
+          required: true
+          schema: { type: string, format: date-time }
+      responses:
+        '200':
+          description: CSV download.
+          content:
+            text/csv:
+              schema: { type: string }
+
+  /ledger.csv:
+    get:
+      tags: [credits]
+      operationId: exportLedgerCsv
+      security: [ { bearerAdmin: [] } ]
+      responses:
+        '200':
+          description: CSV download of credits ledger.
+          content:
+            text/csv:
+              schema: { type: string }
+
+  /spend_controls:
+    get:
+      tags: [spend_controls]
+      operationId: getSpendControls
+      security: [ { bearerAdmin: [] } ]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SpendControls' }
+    put:
+      tags: [spend_controls]
+      operationId: updateSpendControls
+      security: [ { bearerAdmin: [] } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SpendControlsUpdate' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SpendControls' }
+
+  /spend_alerts:
+    get:
+      tags: [spend_controls]
+      operationId: listSpendAlerts
+      security: [ { bearerAdmin: [] } ]
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SpendAlertPage' }
+
+  /throughput:
+    get:
+      tags: [throughput]
+      operationId: getThroughput
+      security: [ { bearerAdmin: [] } ]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ThroughputConfig' }
+
+  /moderation_profile:
+    get:
+      tags: [moderation]
+      operationId: getModerationProfile
+      security: [ { bearerAdmin: [] } ]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ModerationProfile' }
+    put:
+      tags: [moderation]
+      operationId: updateModerationProfile
+      security: [ { bearerAdmin: [] } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ModerationProfile' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ModerationProfile' }
+
+  /keys:
+    get:
+      tags: [keys]
+      operationId: listApiKeys
+      security: [ { bearerAdmin: [] } ]
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiKeyPage' }
+    post:
+      tags: [keys]
+      operationId: createApiKey
+      security: [ { bearerAdmin: [] } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ApiKeyCreateRequest' }
+      responses:
+        '201':
+          description: Created.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiKeyWithSecret' }
+
+  /keys/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string }
+    get:
+      tags: [keys]
+      operationId: getApiKey
+      security: [ { bearerAdmin: [] } ]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiKey' }
+    patch:
+      tags: [keys]
+      operationId: updateApiKey
+      security: [ { bearerAdmin: [] } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ApiKeyUpdateRequest' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiKey' }
+    delete:
+      tags: [keys]
+      operationId: revokeApiKey
+      security: [ { bearerAdmin: [] } ]
+      responses:
+        '204': { description: Revoked. }
+
+  /webhooks:
+    get:
+      tags: [webhooks]
+      operationId: listWebhooks
+      security: [ { bearerAdmin: [] } ]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WebhookPage' }
+    post:
+      tags: [webhooks]
+      operationId: createWebhook
+      security: [ { bearerAdmin: [] } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/WebhookCreateRequest' }
+      responses:
+        '201':
+          description: Created. `signing_secret` shown ONCE.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WebhookWithSecret' }
+
+  /webhooks/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string }
+    get:
+      tags: [webhooks]
+      operationId: getWebhook
+      security: [ { bearerAdmin: [] } ]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Webhook' }
+    delete:
+      tags: [webhooks]
+      operationId: deleteWebhook
+      security: [ { bearerAdmin: [] } ]
+      responses:
+        '204': { description: Deleted. }
+
+  /webhooks/{id}/rotate:
+    post:
+      tags: [webhooks]
+      operationId: rotateWebhookSecret
+      security: [ { bearerAdmin: [] } ]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: New signing secret.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WebhookWithSecret' }
+
+  /webhooks/{id}/deliveries:
+    get:
+      tags: [webhooks]
+      operationId: listWebhookDeliveries
+      security: [ { bearerAdmin: [] } ]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WebhookDeliveryPage' }
+
+  /webhooks/deliveries/{delivery_id}/replay:
+    post:
+      tags: [webhooks]
+      operationId: replayWebhookDelivery
+      security: [ { bearerAdmin: [] } ]
+      parameters:
+        - name: delivery_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '202':
+          description: Replay queued.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WebhookDelivery' }
+
+components:
+  securitySchemes:
+    bearerBusiness:
+      type: http
+      scheme: bearer
+      bearerFormat: sk_{live|test}_...
+    bearerAdmin:
+      type: http
+      scheme: bearer
+      bearerFormat: ak_{live|test}_...
+
+  parameters:
+    Limit:
+      name: limit
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+    Cursor:
+      name: cursor
+      in: query
+      schema: { type: string }
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: false
+      schema: { type: string, maxLength: 128 }
+      description: Dedup window 24h.
+
+  headers:
+    XRequestId:
+      schema: { type: string }
+    XRateLimitLimit:
+      schema: { type: integer }
+    XRateLimitRemaining:
+      schema: { type: integer }
+    XRateLimitReset:
+      schema: { type: integer }
+
+  responses:
+    Unauthorized:
+      description: Missing or invalid API key.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    NotFound:
+      description: Not found.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    InvalidRequest:
+      description: Validation error.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    IdempotencyConflict:
+      description: Same Idempotency-Key with different body.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    InsufficientQuota:
+      description: >-
+        Not enough credits, budget cap hit, org paused, or in-flight liability
+        exceeded (balance minus estimated cost of queued/running jobs is below
+        the cost of this request). Top up or wait for running jobs to complete.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Moderation:
+      description: Content moderation rejected the request.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    RateLimited:
+      description: Rate-limited.
+      headers:
+        X-RateLimit-Limit: { $ref: '#/components/headers/XRateLimitLimit' }
+        X-RateLimit-Remaining: { $ref: '#/components/headers/XRateLimitRemaining' }
+        X-RateLimit-Reset: { $ref: '#/components/headers/XRateLimitReset' }
+        Retry-After:
+          schema: { type: integer }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    UpstreamError:
+      description: Ark upstream returned an error after retries.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+
+  schemas:
+
+    Health:
+      type: object
+      required: [status, version]
+      properties:
+        status: { type: string, enum: [ok, degraded] }
+        version: { type: string }
+        region: { type: string }
+
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code: { type: string, example: invalid_request.resolution_unsupported }
+            message: { type: string }
+            request_id: { type: string }
+            param: { type: string }
+            doc_url: { type: string, format: uri }
+
+    VideoStatus:
+      type: string
+      enum: [queued, running, succeeded, failed, cancelled]
+
+    AspectRatio:
+      type: string
+      enum: ["16:9", "4:3", "1:1", "3:4", "9:16", "21:9"]
+
+    Resolution:
+      type: string
+      enum: [480p, 720p, 1080p]
+
+    ReferenceItem:
+      type: object
+      required: [type, url]
+      properties:
+        type: { type: string, enum: [image, video, audio] }
+        role:
+          type: string
+          enum: [subject, environment, first_frame, last_frame, reference_video, audio, style]
+        url: { type: string, format: uri }
+
+    VideoCreateRequest:
+      type: object
+      required: [model, prompt]
+      properties:
+        model:
+          type: string
+          enum: [seedance-2.0, seedance-2.0-fast, seedance-1.5-pro, seedance-1.0-pro, seedance-1.0-pro-fast, seedance-1.0-lite]
+        prompt: { type: string, maxLength: 4000 }
+        negative_prompt: { type: string, maxLength: 1000 }
+        aspect_ratio: { $ref: '#/components/schemas/AspectRatio' }
+        resolution: { $ref: '#/components/schemas/Resolution' }
+        duration_seconds: { type: integer, minimum: -1, maximum: 15 }
+        fps: { type: integer, enum: [24, 30], default: 24 }
+        seed: { type: integer, minimum: 0, maximum: 4294967295 }
+        watermark: { type: boolean, default: false }
+        first_frame_url: { type: string, format: uri }
+        last_frame_url: { type: string, format: uri }
+        reference_video_url: { type: string, format: uri }
+        references:
+          type: array
+          maxItems: 12
+          items: { $ref: '#/components/schemas/ReferenceItem' }
+        webhook_url: { type: string, format: uri }
+        metadata:
+          type: object
+          additionalProperties: { type: string }
+
+    VideoInputEcho:
+      type: object
+      properties:
+        model: { type: string }
+        prompt: { type: string }
+        negative_prompt: { type: string }
+        aspect_ratio: { $ref: '#/components/schemas/AspectRatio' }
+        resolution: { $ref: '#/components/schemas/Resolution' }
+        duration_seconds: { type: integer }
+        fps: { type: integer }
+        seed: { type: integer }
+        watermark: { type: boolean }
+        references:
+          type: array
+          items: { $ref: '#/components/schemas/ReferenceItem' }
+
+    VideoOutput:
+      type: object
+      properties:
+        video_url: { type: string, format: uri }
+        thumbnail_url: { type: string, format: uri }
+        last_frame_url: { type: string, format: uri }
+        duration_seconds: { type: number, format: float }
+        width: { type: integer }
+        height: { type: integer }
+        fps: { type: integer }
+        has_audio: { type: boolean }
+
+    VideoUsage:
+      type: object
+      properties:
+        video_seconds: { type: number, format: float }
+        upstream_tokens: { type: integer }
+        estimated_cost_cents: { type: integer }
+        actual_cost_cents: { type: integer, nullable: true }
+
+    Video:
+      type: object
+      required: [id, object, status, model, created_at]
+      properties:
+        id: { type: string, example: vid_01HXXX }
+        object: { type: string, const: video }
+        status: { $ref: '#/components/schemas/VideoStatus' }
+        model: { type: string }
+        created_at: { type: string, format: date-time }
+        started_at: { type: string, format: date-time, nullable: true }
+        finished_at: { type: string, format: date-time, nullable: true }
+        input: { $ref: '#/components/schemas/VideoInputEcho' }
+        output:
+          oneOf:
+            - $ref: '#/components/schemas/VideoOutput'
+            - type: 'null'
+        usage: { $ref: '#/components/schemas/VideoUsage' }
+        error:
+          oneOf:
+            - $ref: '#/components/schemas/Error'
+            - type: 'null'
+        metadata:
+          type: object
+          additionalProperties: { type: string }
+        _links:
+          type: object
+          properties:
+            self: { type: string, format: uri }
+            cancel: { type: string, format: uri }
+            wait: { type: string, format: uri }
+
+    VideoPage:
+      type: object
+      required: [data, has_more]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/Video' }
+        has_more: { type: boolean }
+        next_cursor: { type: string, nullable: true }
+
+    VideoSseEvent:
+      type: object
+      properties:
+        event: { type: string, enum: [queued, running, succeeded, failed, cancelled, heartbeat] }
+        data: { $ref: '#/components/schemas/Video' }
+
+    Model:
+      type: object
+      required: [id, family, max_duration_seconds, supported_resolutions]
+      properties:
+        id: { type: string }
+        family: { type: string }
+        description: { type: string }
+        modality_support:
+          type: object
+          properties:
+            text_to_video: { type: boolean }
+            image_to_video: { type: boolean }
+            video_to_video: { type: boolean }
+            audio_to_video: { type: boolean }
+            multimodal_reference: { type: boolean }
+        max_duration_seconds: { type: integer }
+        min_duration_seconds: { type: integer, default: 4 }
+        supports_auto_duration: { type: boolean }
+        supported_resolutions:
+          type: array
+          items: { $ref: '#/components/schemas/Resolution' }
+        supported_aspect_ratios:
+          type: array
+          items: { $ref: '#/components/schemas/AspectRatio' }
+        supports_audio_output: { type: boolean }
+        price_cents_per_second:
+          type: object
+          additionalProperties: { type: integer }
+        status: { type: string, enum: [ga, beta, deprecated] }
+
+    ModelPage:
+      type: object
+      required: [data, has_more]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/Model' }
+        has_more: { type: boolean }
+        next_cursor: { type: string, nullable: true }
+
+    Credits:
+      type: object
+      required: [balance_cents, currency]
+      properties:
+        balance_cents: { type: integer }
+        currency: { type: string, const: USD }
+        auto_reload_enabled: { type: boolean }
+        auto_reload_threshold_cents: { type: integer }
+        auto_reload_amount_cents: { type: integer }
+        lifetime_spend_cents: { type: integer }
+        current_period_spend_cents: { type: integer }
+        period_resets_on: { type: integer, minimum: 1, maximum: 28 }
+
+    UsageLineItem:
+      type: object
+      properties:
+        bucket: { type: string }
+        model: { type: string }
+        api_key_id: { type: string }
+        video_seconds: { type: number }
+        request_count: { type: integer }
+        success_count: { type: integer }
+        failure_count: { type: integer }
+        cost_cents: { type: integer }
+
+    UsagePage:
+      type: object
+      required: [data, has_more]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/UsageLineItem' }
+        has_more: { type: boolean }
+        next_cursor: { type: string, nullable: true }
+
+    SpendControls:
+      type: object
+      properties:
+        hard_cap_cents: { type: integer, nullable: true }
+        soft_alert_cents: { type: integer, nullable: true }
+        auto_pause_below_cents: { type: integer, nullable: true }
+        monthly_limit_cents: { type: integer, nullable: true }
+        period_resets_on: { type: integer, minimum: 1, maximum: 28 }
+        paused_at: { type: string, format: date-time, nullable: true }
+        pause_reason: { type: string, nullable: true }
+        current_burn_rate_cents_per_day: { type: integer }
+
+    SpendControlsUpdate:
+      type: object
+      properties:
+        hard_cap_cents: { type: integer, nullable: true }
+        soft_alert_cents: { type: integer, nullable: true }
+        auto_pause_below_cents: { type: integer, nullable: true }
+        monthly_limit_cents: { type: integer, nullable: true }
+        period_resets_on: { type: integer, minimum: 1, maximum: 28 }
+
+    SpendAlert:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        kind: { type: string, enum: [soft_alert, auto_paused, monthly_limit_hit] }
+        amount_cents: { type: integer }
+        period_start: { type: string, format: date-time }
+        fired_at: { type: string, format: date-time }
+
+    SpendAlertPage:
+      type: object
+      required: [data, has_more]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/SpendAlert' }
+        has_more: { type: boolean }
+        next_cursor: { type: string, nullable: true }
+
+    ThroughputConfig:
+      type: object
+      properties:
+        reserved_concurrency: { type: integer, description: "Guaranteed concurrent jobs for this org." }
+        burst_concurrency: { type: integer, description: "Soft ceiling above reserved." }
+        priority_lane: { type: string, enum: [standard, priority, dedicated] }
+        queue_tier:
+          type: string
+          enum: [default, critical]
+          description: >-
+            Worker queue assignment. 'critical' gets 8x priority weight.
+            Overridden by per-key provisioned_concurrency >= 50.
+        rpm_limit: { type: integer, description: "Requests per minute cap (sliding)." }
+        current_in_flight: { type: integer }
+
+    ModerationProfile:
+      type: object
+      properties:
+        profile: { type: string, enum: [strict, balanced, relaxed, custom] }
+        custom_rules:
+          type: object
+          description: Only meaningful when profile=custom.
+          properties:
+            allow_nsfw: { type: boolean }
+            allow_minors: { type: boolean }
+            allow_public_figures: { type: boolean }
+            block_keywords: { type: array, items: { type: string } }
+
+    ApiKeyScope:
+      type: string
+      enum: [videos.read, videos.write, models.read]
+
+    ApiKeyCreateRequest:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, maxLength: 80 }
+        scopes:
+          type: array
+          items: { $ref: '#/components/schemas/ApiKeyScope' }
+          default: [videos.read, videos.write, models.read]
+        allowed_models:
+          type: array
+          items: { type: string }
+        monthly_spend_cap_cents: { type: integer, minimum: 0 }
+        rate_limit_rpm: { type: integer, minimum: 1 }
+        ip_allowlist:
+          type: array
+          items: { type: string }
+        moderation_profile:
+          type: string
+          enum: [strict, balanced, relaxed, custom]
+        provisioned_concurrency:
+          type: integer
+          minimum: 1
+          default: 5
+          description: >-
+            Maximum concurrent jobs for this key. Keys with >= 50 are routed
+            to the critical priority queue.
+
+    ApiKeyUpdateRequest:
+      type: object
+      properties:
+        name: { type: string }
+        disabled: { type: boolean }
+        allowed_models: { type: array, items: { type: string } }
+        monthly_spend_cap_cents: { type: integer }
+        rate_limit_rpm: { type: integer }
+        ip_allowlist: { type: array, items: { type: string } }
+        moderation_profile: { type: string, enum: [strict, balanced, relaxed, custom] }
+
+    ApiKey:
+      type: object
+      required: [id, name, prefix, created_at]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        prefix: { type: string }
+        scopes: { type: array, items: { $ref: '#/components/schemas/ApiKeyScope' } }
+        allowed_models: { type: array, items: { type: string } }
+        disabled: { type: boolean }
+        monthly_spend_cap_cents: { type: integer, nullable: true }
+        rate_limit_rpm: { type: integer, nullable: true }
+        ip_allowlist: { type: array, items: { type: string } }
+        moderation_profile: { type: string, nullable: true }
+        provisioned_concurrency: { type: integer, default: 5 }
+        created_at: { type: string, format: date-time }
+        last_used_at: { type: string, format: date-time, nullable: true }
+
+    ApiKeyWithSecret:
+      allOf:
+        - $ref: '#/components/schemas/ApiKey'
+        - type: object
+          required: [secret]
+          properties:
+            secret: { type: string }
+
+    ApiKeyPage:
+      type: object
+      required: [data, has_more]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/ApiKey' }
+        has_more: { type: boolean }
+        next_cursor: { type: string, nullable: true }
+
+    WebhookEventType:
+      type: string
+      enum: [video.queued, video.started, video.succeeded, video.failed, video.cancelled, video.*, budget.alert, budget.auto_paused, budget.monthly_limit]
+
+    WebhookCreateRequest:
+      type: object
+      required: [url, events]
+      properties:
+        url: { type: string, format: uri }
+        events:
+          type: array
+          minItems: 1
+          items: { $ref: '#/components/schemas/WebhookEventType' }
+        description: { type: string }
+
+    Webhook:
+      type: object
+      required: [id, url, events, created_at]
+      properties:
+        id: { type: string }
+        url: { type: string, format: uri }
+        events: { type: array, items: { $ref: '#/components/schemas/WebhookEventType' } }
+        description: { type: string }
+        disabled: { type: boolean }
+        last_delivery_at: { type: string, format: date-time, nullable: true }
+        last_delivery_status: { type: integer, nullable: true }
+        created_at: { type: string, format: date-time }
+
+    WebhookWithSecret:
+      allOf:
+        - $ref: '#/components/schemas/Webhook'
+        - type: object
+          required: [signing_secret]
+          properties:
+            signing_secret: { type: string }
+
+    WebhookPage:
+      type: object
+      required: [data, has_more]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/Webhook' }
+        has_more: { type: boolean }
+        next_cursor: { type: string, nullable: true }
+
+    WebhookDelivery:
+      type: object
+      properties:
+        id: { type: string }
+        webhook_id: { type: string }
+        event_type: { $ref: '#/components/schemas/WebhookEventType' }
+        status_code: { type: integer, nullable: true }
+        error: { type: string, nullable: true }
+        attempt: { type: integer }
+        next_retry_at: { type: string, format: date-time, nullable: true }
+        delivered_at: { type: string, format: date-time, nullable: true }
+        created_at: { type: string, format: date-time }
+
+    WebhookDeliveryPage:
+      type: object
+      required: [data, has_more]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/WebhookDelivery' }
+        has_more: { type: boolean }
+        next_cursor: { type: string, nullable: true }
+
+    BillingSettings:
+      type: object
+      properties:
+        company_name: { type: string, nullable: true }
+        tax_id: { type: string, nullable: true }
+        billing_email: { type: string, format: email, nullable: true }
+        country_region: { type: string, nullable: true }
+
+    LedgerEntry:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        org_id: { type: string }
+        delta_credits: { type: integer }
+        delta_cents: { type: integer, nullable: true }
+        reason: { type: string, enum: [signup_bonus, topup, consumption, reservation, reconciliation, refund, adjustment] }
+        job_id: { type: string, nullable: true }
+        note: { type: string }
+        created_at: { type: string, format: date-time }
+
+    WebhookEventEnvelope:
+      type: object
+      required: [id, type, created_at, data]
+      properties:
+        id: { type: string }
+        type: { $ref: '#/components/schemas/WebhookEventType' }
+        created_at: { type: string, format: date-time }
+        api_version: { type: string, const: "1.0" }
+        data:
+          type: object
+          properties:
+            video: { $ref: '#/components/schemas/Video' }
+
+webhooks:
+  videoEvent:
+    post:
+      summary: Outbound video.* event delivered to registered webhook URL.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/WebhookEventEnvelope' }
+      responses:
+        '2XX':
+          description: Any 2xx accepted. Non-2xx triggers retry per backoff schedule.

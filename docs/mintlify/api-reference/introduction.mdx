@@ -1,0 +1,35 @@
+---
+title: API Reference
+description: "REST API for NextAPI — auto-generated from our OpenAPI spec."
+---
+
+## Base URL
+
+```
+https://api.nextapi.top/v1
+```
+
+## Authentication
+
+Every request requires a Bearer token. See [Authentication](/concepts/authentication).
+
+```http
+Authorization: Bearer nxt_live_...
+```
+
+## Content type
+
+All request and response bodies are JSON. `Content-Type: application/json` is required on `POST`/`PATCH`.
+
+## OpenAPI spec
+
+The endpoint documentation in this section is generated from the canonical spec at
+[`backend/api/openapi.yaml`](https://github.com/nextapi/nextapi/blob/main/backend/api/openapi.yaml).
+The live rendered spec is also served at [`https://api.nextapi.top/openapi.yaml`](https://api.nextapi.top/openapi.yaml).
+
+## Conventions
+
+- Timestamps are RFC 3339 UTC (`2026-04-22T10:00:00Z`).
+- IDs are ULIDs with a resource prefix (`job_`, `key_`, `evt_`).
+- List endpoints use cursor pagination via `?cursor=` and return `next_cursor`.
+- Errors follow the [error envelope](/concepts/errors).

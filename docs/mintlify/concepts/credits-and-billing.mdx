@@ -1,0 +1,46 @@
+---
+title: Credits & Billing
+description: "How credits, reservations, and reconciliation work."
+---
+
+## The unit
+
+**1 credit = $0.001 USD.** All pricing is denominated in credits. A 5-second Seedance Pro generation costs roughly 120 credits ($0.12).
+
+## Signup bonus
+
+New accounts receive **500 free credits** on verification. No card required.
+
+## Top-ups
+
+Buy credits in the dashboard (Stripe). Credits never expire. Enterprise plans can be invoiced monthly.
+
+## Reservation → reconciliation
+
+Video jobs run asynchronously and provider pricing can shift based on final duration, resolution, or retries. NextAPI uses a two-phase billing model:
+
+<Steps>
+  <Step title="Reservation">
+    When you `POST /v1/jobs`, we estimate the max cost and **reserve** that many credits. The job is rejected with `insufficient_credits` if your balance is lower than the reservation.
+  </Step>
+  <Step title="Execution">
+    The reserved credits are held — not yet charged. They don't count toward your available balance, but they aren't spent.
+  </Step>
+  <Step title="Reconciliation">
+    When the job reaches `succeeded` or `failed`, we compute the **actual** cost (often lower than the reservation) and charge only that. The delta is released back to your balance.
+
+    Failed jobs due to provider error are **fully refunded**. Failed jobs due to invalid input may be partially charged.
+  </Step>
+</Steps>
+
+The final charge is recorded on the job object as `credits_charged` and on your invoice line items.
+
+## Viewing usage
+
+- `GET /v1/usage` — aggregated per-day credit consumption.
+- `GET /v1/jobs/{id}` — per-job `credits_reserved` and `credits_charged`.
+- **Dashboard → Usage** — charts and CSV export.
+
+## Auto top-up
+
+Enable auto top-up to recharge a fixed amount when your balance falls below a threshold. Prevents production jobs from being rejected for `insufficient_credits`.

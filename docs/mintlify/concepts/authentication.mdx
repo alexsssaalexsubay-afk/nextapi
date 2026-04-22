@@ -1,0 +1,37 @@
+---
+title: Authentication
+description: "Bearer tokens, key prefixes, and revocation."
+---
+
+## Bearer tokens
+
+Every request must include your API key as a Bearer token:
+
+```http
+Authorization: Bearer nxt_live_9f3c...a81b
+```
+
+Requests without a valid key return `401 invalid_key`.
+
+## Key format
+
+Keys have two visible parts:
+
+- **Prefix** — `nxt_live_9f3c` (first 12 chars). Safe to log, shown in the dashboard, used for identification.
+- **Full key** — `nxt_live_9f3c...a81b`. Shown exactly once at creation. Treat like a password.
+
+Test keys use the `nxt_test_` prefix and can only call sandbox models that never consume real credits.
+
+## Scopes
+
+By default keys have full account scope. You can restrict a key to specific models or to read-only (no job creation) from the dashboard.
+
+## Rotation & revocation
+
+Revoke a key any time from **Dashboard → API Keys → Revoke**. Revocation is immediate — in-flight jobs continue, but new requests fail with `invalid_key`.
+
+Rotate keys at least every 90 days or immediately after any suspected leak.
+
+## Never expose keys client-side
+
+NextAPI keys must live on a server you control. For client apps, proxy requests through your backend or mint short-lived tokens via your own auth layer.
