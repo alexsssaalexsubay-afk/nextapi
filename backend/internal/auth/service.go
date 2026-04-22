@@ -51,8 +51,10 @@ func (s *Service) Validate(ctx context.Context, raw string) (*ValidKey, error) {
 		Disabled    bool   `gorm:"column:disabled"`
 		IPAllowlist string `gorm:"column:ip_allowlist"`
 	}
-	s.db.WithContext(ctx).Raw(
-		`SELECT COALESCE(disabled, false) AS disabled, COALESCE(ip_allowlist, '{}') AS ip_allowlist FROM api_keys WHERE id = ?`, key.ID).Scan(&ext)
+	if err := s.db.WithContext(ctx).Raw(
+		`SELECT COALESCE(disabled, false) AS disabled, COALESCE(ip_allowlist, '{}') AS ip_allowlist FROM api_keys WHERE id = ?`, key.ID).Scan(&ext).Error; err != nil {
+		return nil, err
+	}
 	if ext.Disabled {
 		return nil, ErrInvalidKey
 	}

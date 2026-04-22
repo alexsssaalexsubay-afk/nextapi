@@ -12,6 +12,8 @@ import (
 	"gorm.io/gorm"
 )
 
+const maxExportRows = 10000
+
 type ExportHandlers struct {
 	DB *gorm.DB
 }
@@ -38,6 +40,7 @@ func (h *ExportHandlers) UsageCSV(c *gin.Context) {
 	h.DB.WithContext(c.Request.Context()).
 		Where("org_id = ? AND created_at >= ? AND created_at <= ?", org.ID, start, end).
 		Order("created_at DESC").
+		Limit(maxExportRows).
 		Find(&jobs)
 
 	c.Header("Content-Type", "text/csv")
@@ -82,6 +85,7 @@ func (h *ExportHandlers) LedgerCSV(c *gin.Context) {
 	h.DB.WithContext(c.Request.Context()).
 		Where("org_id = ?", org.ID).
 		Order("created_at DESC").
+		Limit(maxExportRows).
 		Find(&rows)
 
 	c.Header("Content-Type", "text/csv")

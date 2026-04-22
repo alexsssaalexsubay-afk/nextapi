@@ -48,10 +48,12 @@ func (p *Processor) HandleGenerate(ctx context.Context, t *asynq.Task) error {
 		return p.fail(ctx, &j, "provider_error", err.Error())
 	}
 	now := time.Now()
-	p.DB.WithContext(ctx).Model(&j).Updates(map[string]any{
+	if err := p.DB.WithContext(ctx).Model(&j).Updates(map[string]any{
 		"provider_job_id": providerID,
 		"status":          domain.JobRunning,
-	})
+	}).Error; err != nil {
+		return err
+	}
 	p.DB.WithContext(ctx).Model(&domain.Video{}).Where("upstream_job_id = ?", j.ID).Updates(map[string]any{
 		"status":     "running",
 		"started_at": now,

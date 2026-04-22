@@ -79,7 +79,7 @@ func (m *Middleware) Handle() gin.HandlerFunc {
 }
 
 // Commit is invoked by a handler after a successful write to store the
-// response for replay.
+// response for replay. On DB error, logs but does not block the response.
 func Commit(ctx context.Context, db *gorm.DB, orgID string, c *gin.Context, statusCode int, body any) {
 	key, ok := c.Get("idem.key")
 	if !ok {
@@ -91,5 +91,7 @@ func Commit(ctx context.Context, db *gorm.DB, orgID string, c *gin.Context, stat
 		OrgID: orgID, Key: key.(string), BodySHA256: hash.(string),
 		Response: b, StatusCode: statusCode,
 	}
-	_ = db.WithContext(ctx).Create(&row).Error
+	if err := db.WithContext(ctx).Create(&row).Error; err != nil {
+		c.Header("X-Idempotency-Persisted", "false")
+	}
 }

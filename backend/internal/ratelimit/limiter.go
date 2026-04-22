@@ -52,7 +52,9 @@ func Middleware(l *Limiter, limit int, window time.Duration) gin.HandlerFunc {
 		}
 		allowed, remain, reset, err := l.Allow(ctx, key, limit, window)
 		if err != nil {
-			c.Next()
+			c.AbortWithStatusJSON(http.StatusServiceUnavailable, gin.H{
+				"error": gin.H{"code": "service_unavailable", "message": "rate limiting temporarily unavailable"},
+			})
 			return
 		}
 		c.Header("X-RateLimit-Limit", fmt.Sprintf("%d", limit))

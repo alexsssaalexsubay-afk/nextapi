@@ -233,7 +233,7 @@ func (h *VideosHandlers) Delete(c *gin.Context) {
 
 	if v.UpstreamJobID != nil {
 		var j domain.Job
-		if err := h.DB.WithContext(ctx).Where("id = ? AND status IN ('queued','running')", *v.UpstreamJobID).First(&j).Error; err == nil {
+		if err := h.DB.WithContext(ctx).Where("id = ? AND org_id = ? AND status IN ('queued','running')", *v.UpstreamJobID, org.ID).First(&j).Error; err == nil {
 			h.DB.WithContext(ctx).Model(&j).Updates(map[string]any{
 				"status": domain.JobFailed, "error_code": "cancelled", "error_message": "cancelled by user", "completed_at": now,
 			})
