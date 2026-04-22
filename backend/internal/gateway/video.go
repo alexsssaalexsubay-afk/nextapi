@@ -37,7 +37,7 @@ func (h *VideoHandlers) Generate(c *gin.Context) {
 	}
 	var req generateReq
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "bad_request", "message": err.Error()}})
+		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "bad_request", "message": "invalid request body"}})
 		return
 	}
 	if req.Resolution == "" {

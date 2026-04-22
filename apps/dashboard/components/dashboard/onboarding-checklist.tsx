@@ -66,7 +66,7 @@ export function OnboardingChecklist() {
             {
               label: "curl",
               language: "bash",
-              code: `curl https://api.nextapi.dev/v1/video/seedance \\
+              code: `curl https://api.nextapi.top/v1/video/seedance \\
   -H "Authorization: Bearer $NEXTAPI_KEY" \\
   -d '{"model":"seedance-2.0-pro","prompt":"Sunrise over the Alps","duration":6}'`,
             },

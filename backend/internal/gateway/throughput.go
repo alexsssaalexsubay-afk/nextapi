@@ -43,7 +43,7 @@ func (h *ThroughputHandlers) AdminUpsertThroughput(c *gin.Context) {
 		RPMLimit            *int    `json:"rpm_limit"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "invalid_request", "message": err.Error()}})
+		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "invalid_request", "message": "invalid request body"}})
 		return
 	}
 	cfg, err := h.Svc.Upsert(c.Request.Context(), orgID, throughput.UpsertInput{

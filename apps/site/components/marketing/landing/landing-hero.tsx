@@ -8,7 +8,7 @@ import {
   Copy,
   Sparkles,
 } from "lucide-react"
-import { track } from "../../../lib/analytics"
+import { track } from "@/lib/analytics"
 
 const TRUST_ITEMS = [
   "99.95% Uptime",
@@ -131,6 +131,8 @@ function HeroPlayerCard() {
             muted
             loop
             playsInline
+            aria-label="AI-generated video: drone orbiting a lighthouse at dusk"
+            preload="none"
           >
             <source src="/samples/lighthouse-dusk.mp4" type="video/mp4" />
           </video>

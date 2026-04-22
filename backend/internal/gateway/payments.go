@@ -73,7 +73,11 @@ func (h *PaymentHandlers) Webhook(c *gin.Context) {
 		c.AbortWithStatus(http.StatusNotFound)
 		return
 	}
-	body, _ := io.ReadAll(c.Request.Body)
+	body, err := io.ReadAll(c.Request.Body)
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "bad_request", "message": "failed to read request body"}})
+		return
+	}
 	sig := c.GetHeader("X-Signature")
 	if name == "stripe" {
 		sig = c.GetHeader("Stripe-Signature")

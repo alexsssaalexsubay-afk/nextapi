@@ -23,7 +23,7 @@ func (h *WebhookHandlers) Create(c *gin.Context) {
 	org := auth.OrgFrom(c)
 	var req createWebhookReq
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "bad_request", "message": err.Error()}})
+		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "bad_request", "message": "invalid request body"}})
 		return
 	}
 	if len(req.EventTypes) == 0 {

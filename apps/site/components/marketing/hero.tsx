@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { CodeBlock } from "@/components/nextapi/code-block"
 import { useTranslations } from "@/lib/i18n/context"
 
-const curlExample = `curl https://api.nextapi.dev/v1/video/seedance \\
+const curlExample = `curl https://api.nextapi.top/v1/video/seedance \\
   -H "Authorization: Bearer $NEXTAPI_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{

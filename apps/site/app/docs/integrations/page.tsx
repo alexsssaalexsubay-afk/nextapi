@@ -1,7 +1,7 @@
 import Link from "next/link"
 import { SiteNav } from "@/components/marketing/site-nav"
 import { LandingFooter } from "@/components/marketing/landing/landing-footer"
-import { ArrowRight, ExternalLink } from "lucide-react"
+import { ArrowRight } from "lucide-react"
 
 const INTEGRATIONS = [
   {

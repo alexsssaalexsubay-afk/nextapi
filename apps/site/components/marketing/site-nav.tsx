@@ -6,7 +6,7 @@ import { ArrowRight, Menu, X } from "lucide-react"
 import { ThemeToggle } from "@/components/nextapi/theme-toggle"
 import { LocaleToggle } from "@/components/nextapi/locale-toggle"
 import { cn } from "@/lib/utils"
-import { track } from "../../lib/analytics"
+import { track } from "@/lib/analytics"
 
 const NAV_LINKS = [
   { label: "Features", href: "/#features" },

@@ -3,6 +3,7 @@ import { Inter, JetBrains_Mono } from "next/font/google"
 import { ClerkProvider } from "@clerk/nextjs"
 import { ThemeProvider } from "@/components/theme-provider"
 import { I18nProvider } from "@/lib/i18n/context"
+import { Toaster } from "sonner"
 import "@/globals.css"
 
 export const dynamic = "force-dynamic"
@@ -45,6 +46,7 @@ export default function RootLayout({
           >
             <I18nProvider>
               {children}
+              <Toaster richColors position="top-right" />
             </I18nProvider>
           </ThemeProvider>
         </body>

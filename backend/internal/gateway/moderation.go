@@ -38,7 +38,7 @@ func (h *ModerationHandlers) UpsertProfile(c *gin.Context) {
 	}
 	var body moderation.UpsertInput
 	if err := c.ShouldBindJSON(&body); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "invalid_request", "message": err.Error()}})
+		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "invalid_request", "message": "invalid request body"}})
 		return
 	}
 	p, err := h.Svc.UpsertProfile(c.Request.Context(), org.ID, body)
@@ -56,7 +56,7 @@ func (h *ModerationHandlers) AdminUpsertProfile(c *gin.Context) {
 	orgID := c.Param("id")
 	var body moderation.UpsertInput
 	if err := c.ShouldBindJSON(&body); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "invalid_request", "message": err.Error()}})
+		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "invalid_request", "message": "invalid request body"}})
 		return
 	}
 	p, err := h.Svc.UpsertProfile(c.Request.Context(), orgID, body)
@@ -95,7 +95,7 @@ func (h *ModerationHandlers) AdminAddNote(c *gin.Context) {
 		Reviewer     string `json:"reviewer" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "invalid_request", "message": err.Error()}})
+		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "invalid_request", "message": "invalid request body"}})
 		return
 	}
 	if err := h.Svc.AddReviewNote(c.Request.Context(), id, body.InternalNote, body.Reviewer); err != nil {

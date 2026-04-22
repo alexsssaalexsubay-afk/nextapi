@@ -66,7 +66,7 @@ func (h *SpendHandlers) Put(c *gin.Context) {
 	}
 	var r spendPutReq
 	if err := c.ShouldBindJSON(&r); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "invalid_request", "message": err.Error()}})
+		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "invalid_request", "message": "invalid request body"}})
 		return
 	}
 	sc, err := h.Svc.Upsert(c.Request.Context(), org.ID, spend.UpdateInput{

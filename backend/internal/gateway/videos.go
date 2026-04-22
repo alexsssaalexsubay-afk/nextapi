@@ -180,11 +180,14 @@ func (h *VideosHandlers) List(c *gin.Context) {
 	}
 
 	var videos []domain.Video
-	h.DB.WithContext(c.Request.Context()).
+	if err := h.DB.WithContext(c.Request.Context()).
 		Where("org_id = ?", org.ID).
 		Order("created_at DESC").
 		Limit(limit).Offset(offset).
-		Find(&videos)
+		Find(&videos).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "internal_error"}})
+		return
+	}
 
 	items := make([]gin.H, 0, len(videos))
 	for _, v := range videos {

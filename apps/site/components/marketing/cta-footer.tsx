@@ -41,14 +41,11 @@ export function SiteFooter() {
 
   const integrationLinks: [string, string][] = [
     ["Cursor", "/docs/integrations/cursor"],
-    ["Claude Code", "/docs/integrations/claude-code"],
     ["n8n", "/docs/integrations/n8n"],
     ["ComfyUI", "/docs/integrations/comfyui"],
     ["Dify", "/docs/integrations/dify"],
-    ["Apifox", "/docs/integrations/apifox"],
-    ["Postman", "/docs/integrations/postman"],
-    ["Vercel AI SDK", "/docs/integrations/vercel-ai-sdk"],
     ["LangChain", "/docs/integrations/langchain"],
+    ["Make", "/docs/integrations/make"],
   ]
 
   return (
@@ -74,8 +71,8 @@ export function SiteFooter() {
             {
               heading: t.footer.product,
               links: [
-                ["Seedance", "/docs/seedance"],
-                [t.webhooks.title, "/docs/webhooks"],
+                ["Seedance", "/docs#create"],
+                [t.webhooks.title, "/docs#events"],
                 [t.common.docs, "/docs"],
               ] as [string, string][],
             },
@@ -87,15 +84,19 @@ export function SiteFooter() {
               heading: t.footer.company,
               links: [
                 [t.common.pricing, "/pricing"],
-                [t.common.status, "https://status.nextapi.dev"],
-                [t.common.support, "mailto:team@nextapi.dev"],
+                ["Enterprise", "/enterprise"],
+                [t.common.status, "/status"],
+                [t.common.support, "mailto:support@nextapi.dev"],
               ] as [string, string][],
             },
             {
               heading: t.footer.legal,
               links: [
-                [t.footer.terms, "/terms"],
-                [t.footer.privacy, "/privacy"],
+                [t.footer.terms, "/legal/terms"],
+                [t.footer.privacy, "/legal/privacy"],
+                ["Acceptable Use", "/legal/aup"],
+                ["SLA", "/legal/sla"],
+                ["Security", "/security"],
               ] as [string, string][],
             },
           ].map((g) => (

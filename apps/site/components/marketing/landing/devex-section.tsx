@@ -3,7 +3,7 @@
 import * as React from "react"
 import { Check, Copy, Play, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { track } from "../../../lib/analytics"
+import { track } from "@/lib/analytics"
 
 const STEPS = [
   { n: 1, title: "Sign Up", body: "Create your account in seconds" },
@@ -41,7 +41,7 @@ function generateMockResponse() {
     prompt: "drone orbiting a lighthouse at dusk",
     duration: 6,
     resolution: "1080p",
-    url: `https://cdn.nextapi.dev/v/${id}.mp4`,
+    url: `https://cdn.nextapi.top/v/${id}.mp4`,
     created_at: Math.floor(Date.now() / 1000),
     usage: { credits: 12, processing_ms: 38420 },
   }
@@ -164,7 +164,7 @@ export function DevexSection() {
         <Line>{"  "}<Key>&quot;status&quot;</Key>: <Str>&quot;succeeded&quot;</Str>,</Line>
         <Line>{"  "}<Key>&quot;duration&quot;</Key>: <Num>6</Num>,</Line>
         <Line>{"  "}<Key>&quot;model&quot;</Key>: <Str>&quot;seedance-2.0-pro&quot;</Str>,</Line>
-        <Line>{"  "}<Key>&quot;url&quot;</Key>: <Str>&quot;https://cdn.nextapi.dev/v/01HX...mp4&quot;</Str>,</Line>
+        <Line>{"  "}<Key>&quot;url&quot;</Key>: <Str>&quot;https://cdn.nextapi.top/v/01HX...mp4&quot;</Str>,</Line>
         <Line>{"  "}<Key>&quot;created_at&quot;</Key>: <Num>1714579200</Num></Line>
         <Line>{"}"}</Line>
       </>

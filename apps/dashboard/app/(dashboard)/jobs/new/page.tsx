@@ -258,7 +258,7 @@ export default function NewJobPage() {
               {
                 label: t.jobs.new.liveCurl,
                 language: "bash",
-                code: `curl https://api.nextapi.dev/v1/video/seedance \\
+                code: `curl https://api.nextapi.top/v1/video/seedance \\
   -H "Authorization: Bearer $NEXTAPI_KEY" \\
   -H "Content-Type: application/json" \\
   -d '${curlBody}'`,

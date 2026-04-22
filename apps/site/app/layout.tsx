@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next"
 import { Inter, JetBrains_Mono } from "next/font/google"
 import { ThemeProvider } from "@/components/theme-provider"
 import { I18nProvider } from "@/lib/i18n/context"
-import { PostHogProvider } from "../components/posthog-provider"
+import { PostHogProvider } from "@/components/posthog-provider"
 import "@/globals.css"
 
 const inter = Inter({

@@ -23,7 +23,7 @@ func (h *SalesHandlers) Inquiry(c *gin.Context) {
 	var req salesInquiryReq
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": gin.H{"code": "invalid_request", "message": err.Error()},
+			"error": gin.H{"code": "invalid_request", "message": "invalid request body"},
 		})
 		return
 	}

@@ -140,7 +140,7 @@ function OutputPanel({ state }: { state: JobStatus }) {
             href="#"
             className="inline-flex items-center gap-1 font-mono text-[11.5px] text-muted-foreground hover:text-foreground"
           >
-            cdn.nextapi.dev/out/7Hc9Xk2Lm3NpQ4rS.mp4
+            cdn.nextapi.top/out/7Hc9Xk2Lm3NpQ4rS.mp4
             <ExternalLink className="size-3" />
           </a>
         )}

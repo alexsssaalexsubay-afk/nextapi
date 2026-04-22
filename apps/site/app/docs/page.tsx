@@ -181,7 +181,7 @@ X-NextAPI-Environment: live`,
                   {
                     label: d.createJob.requestTab,
                     language: "bash",
-                    code: `curl https://api.nextapi.dev/v1/video/seedance \\
+                    code: `curl https://api.nextapi.top/v1/video/seedance \\
   -H "Authorization: Bearer $NEXTAPI_KEY" \\
   -H "Idempotency-Key: 9c4fa1b2" \\
   -H "Content-Type: application/json" \\
@@ -299,6 +299,110 @@ def verify(raw_body: bytes, header: str, secret: str) -> bool:
                   },
                 ]}
               />
+            </div>
+          </section>
+
+          <section id="idem" className="mt-12 scroll-mt-24">
+            <h2 className="text-2xl font-semibold tracking-[-0.02em] text-foreground">
+              Idempotency
+            </h2>
+            <p className="mt-2 text-[14px] leading-relaxed text-muted-foreground">
+              Include an <span className="font-mono text-foreground/90">Idempotency-Key</span> header
+              on POST requests to safely retry without creating duplicate jobs. Keys are scoped
+              per API key and expire after 24 hours.
+            </p>
+          </section>
+
+          <section id="retrieve" className="mt-12 scroll-mt-24">
+            <div className="flex items-center gap-2">
+              <span className="rounded-md bg-indigo-500/10 px-2 py-0.5 font-mono text-[10.5px] uppercase tracking-wider text-indigo-500">
+                GET
+              </span>
+              <span className="font-mono text-[13px] text-foreground">/v1/videos/:id</span>
+            </div>
+            <h2 className="mt-3 text-2xl font-semibold tracking-[-0.02em] text-foreground">
+              Retrieve a Video
+            </h2>
+            <p className="mt-2 text-[14px] leading-relaxed text-muted-foreground">
+              Fetch the current state of a generation job by its ID. Returns the video URL
+              once generation completes, or the current status and progress otherwise.
+            </p>
+          </section>
+
+          <section id="list" className="mt-12 scroll-mt-24">
+            <div className="flex items-center gap-2">
+              <span className="rounded-md bg-indigo-500/10 px-2 py-0.5 font-mono text-[10.5px] uppercase tracking-wider text-indigo-500">
+                GET
+              </span>
+              <span className="font-mono text-[13px] text-foreground">/v1/videos</span>
+            </div>
+            <h2 className="mt-3 text-2xl font-semibold tracking-[-0.02em] text-foreground">
+              List Videos
+            </h2>
+            <p className="mt-2 text-[14px] leading-relaxed text-muted-foreground">
+              Returns a paginated list of generation jobs for the authenticated organization.
+              Use <span className="font-mono text-foreground/90">?limit=</span> and{" "}
+              <span className="font-mono text-foreground/90">?offset=</span> for pagination.
+            </p>
+          </section>
+
+          <section id="retries" className="mt-12 scroll-mt-24">
+            <h2 className="text-2xl font-semibold tracking-[-0.02em] text-foreground">
+              Webhook Retries
+            </h2>
+            <p className="mt-2 text-[14px] leading-relaxed text-muted-foreground">
+              Webhooks are retried with exponential backoff up to 5 times. If your endpoint returns
+              a non-2xx status, we retry at 1m, 5m, 30m, 2h, and 12h intervals. Each delivery
+              includes the same <span className="font-mono text-foreground/90">X-Webhook-Signature</span> header.
+            </p>
+          </section>
+
+          <section id="limits" className="mt-12 scroll-mt-24">
+            <h2 className="text-2xl font-semibold tracking-[-0.02em] text-foreground">
+              Rate Limits
+            </h2>
+            <p className="mt-2 text-[14px] leading-relaxed text-muted-foreground">
+              API requests are rate-limited per key. Limits are returned in response headers:{" "}
+              <span className="font-mono text-foreground/90">X-RateLimit-Remaining</span> and{" "}
+              <span className="font-mono text-foreground/90">X-RateLimit-Reset</span>.
+              Default: 600 requests/minute for business keys, 300/min for admin keys.
+              Enterprise customers can negotiate higher limits.
+            </p>
+          </section>
+
+          <section id="errors" className="mt-12 scroll-mt-24">
+            <h2 className="text-2xl font-semibold tracking-[-0.02em] text-foreground">
+              Error Codes
+            </h2>
+            <p className="mt-2 text-[14px] leading-relaxed text-muted-foreground">
+              All errors follow a consistent JSON format with{" "}
+              <span className="font-mono text-foreground/90">error.code</span> and{" "}
+              <span className="font-mono text-foreground/90">error.message</span>.
+              Common codes: <span className="font-mono text-foreground/90">invalid_request</span>,{" "}
+              <span className="font-mono text-foreground/90">unauthorized</span>,{" "}
+              <span className="font-mono text-foreground/90">rate_limit_exceeded</span>,{" "}
+              <span className="font-mono text-foreground/90">insufficient_credits</span>,{" "}
+              <span className="font-mono text-foreground/90">internal_error</span>.
+            </p>
+          </section>
+
+          <section id="changelog" className="mt-12 scroll-mt-24">
+            <h2 className="text-2xl font-semibold tracking-[-0.02em] text-foreground">
+              Changelog
+            </h2>
+            <div className="mt-4 space-y-4">
+              <div className="rounded-lg border border-border/80 bg-card/50 p-4">
+                <div className="flex items-center gap-2">
+                  <span className="rounded-full bg-indigo-500/10 px-2 py-0.5 text-[11px] font-medium text-indigo-500">
+                    v1.0
+                  </span>
+                  <span className="text-[12px] text-muted-foreground">April 2026</span>
+                </div>
+                <p className="mt-2 text-[13.5px] text-muted-foreground">
+                  Initial release — Seedance 2.0 Pro support, webhook events, idempotency keys,
+                  spend controls, and configurable moderation profiles.
+                </p>
+              </div>
             </div>
           </section>
         </main>

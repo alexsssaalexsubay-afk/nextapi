@@ -8,7 +8,7 @@ const tabs = [
   {
     label: "text-to-video",
     language: "bash",
-    code: `curl https://api.nextapi.dev/v1/video/seedance \\
+    code: `curl https://api.nextapi.top/v1/video/seedance \\
   -H "Authorization: Bearer $NEXTAPI_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -24,7 +24,7 @@ const tabs = [
   {
     label: "image-to-video",
     language: "bash",
-    code: `curl https://api.nextapi.dev/v1/video/seedance \\
+    code: `curl https://api.nextapi.top/v1/video/seedance \\
   -H "Authorization: Bearer $NEXTAPI_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -93,8 +93,8 @@ const webhookTab = [
   "status": "succeeded",
   "duration_ms": 38420,
   "output": {
-    "video_url": "https://cdn.nextapi.dev/out/7Hc9Xk2Lm3NpQ4rS.mp4",
-    "thumb_url": "https://cdn.nextapi.dev/out/7Hc9Xk2Lm3NpQ4rS.jpg",
+    "video_url": "https://cdn.nextapi.top/out/7Hc9Xk2Lm3NpQ4rS.mp4",
+    "thumb_url": "https://cdn.nextapi.top/out/7Hc9Xk2Lm3NpQ4rS.jpg",
     "width": 1920,
     "height": 1080,
     "duration_s": 6.0

@@ -47,7 +47,7 @@ func (h *OrgBillingHandlers) UpdateBillingSettings(c *gin.Context) {
 		CountryRegion *string `json:"country_region"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "invalid_request", "message": err.Error()}})
+		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "invalid_request", "message": "invalid request body"}})
 		return
 	}
 	updates := map[string]any{}
@@ -87,7 +87,7 @@ func (h *OrgBillingHandlers) AdminUpdateOrg(c *gin.Context) {
 		Name          *string `json:"name"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "invalid_request", "message": err.Error()}})
+		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "invalid_request", "message": "invalid request body"}})
 		return
 	}
 	updates := map[string]any{}

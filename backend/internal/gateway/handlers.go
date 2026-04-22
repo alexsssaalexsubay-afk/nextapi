@@ -41,7 +41,7 @@ func (h *Handlers) CreateKey(c *gin.Context) {
 	}
 	var req createKeyReq
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "invalid_request", "message": err.Error()}})
+		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "invalid_request", "message": "invalid request body"}})
 		return
 	}
 	kind := auth.Kind(req.Kind)

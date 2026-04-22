@@ -1,6 +1,12 @@
+import type { Metadata } from "next"
 import Link from "next/link"
 import { SiteNav } from "@/components/marketing/site-nav"
 import { LandingFooter } from "@/components/marketing/landing/landing-footer"
+
+export const metadata: Metadata = {
+  title: "Legal",
+  description: "NextAPI legal documents: Terms of Service, Privacy Policy, Acceptable Use Policy, and SLA.",
+}
 
 const LEGAL_NAV = [
   { label: "Terms of Service", href: "/legal/terms" },
