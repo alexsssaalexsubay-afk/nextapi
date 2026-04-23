@@ -75,6 +75,18 @@ func main() {
 	idem := &idempotency.Middleware{DB: gormDB}
 
 	r := gin.New()
+	// Gin's default trusts every X-Forwarded-For hop, which means a
+	// remote attacker can spoof their ClientIP() and silently bypass
+	// per-IP rate limits, key IP allowlists, /metrics IP allowlist,
+	// and pollute audit_log.actor_ip. Pin the trusted proxy set to
+	// the local nginx (which is the only thing that should ever talk
+	// to us on 127.0.0.1:8080 now that SERVER_ADDR is loopback).
+	// CF-Connecting-IP is preferred when it's set so we still get the
+	// real client IP behind Cloudflare without trusting hostile XFF.
+	if err := r.SetTrustedProxies([]string{"127.0.0.1", "::1"}); err != nil {
+		log.Fatalf("trusted proxies: %v", err)
+	}
+	r.RemoteIPHeaders = []string{"CF-Connecting-IP", "X-Real-IP", "X-Forwarded-For"}
 	r.Use(gin.Recovery(), httpx.RequestID(), metrics.Middleware())
 	r.Use(httpx.CORS([]string{
 		"https://nextapi.top",

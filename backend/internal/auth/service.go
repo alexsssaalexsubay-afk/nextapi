@@ -32,10 +32,13 @@ func maxKeysPerOrg() int {
 }
 
 type Service struct {
-	db *gorm.DB
+	db    *gorm.DB
+	cache *validateCache
 }
 
-func NewService(db *gorm.DB) *Service { return &Service{db: db} }
+func NewService(db *gorm.DB) *Service {
+	return &Service{db: db, cache: newValidateCache()}
+}
 func (s *Service) DB() *gorm.DB          { return s.db }
 
 type ValidKey struct {
@@ -48,13 +51,33 @@ type ValidKey struct {
 }
 
 // Validate looks up by prefix, verifies hash, checks not revoked / not disabled.
+//
+// The hot path is memoised: Argon2id costs ~50ms per call, so without
+// a cache one attacker holding a valid prefix could DoS the box by
+// spraying wrong secrets. We cache positives for 5m and negatives for
+// 30s so revokes propagate quickly. RevokeKey punches the cache too.
 func (s *Service) Validate(ctx context.Context, raw string) (*ValidKey, error) {
+	if it, ok := s.cache.get(raw); ok {
+		if !it.ok {
+			return nil, ErrInvalidKey
+		}
+		// Update last_used_at lazily in the background — cache hits should
+		// not block on the DB write, but we still want operator visibility.
+		go func(id string) {
+			s.db.Model(&domain.APIKey{}).Where("id = ?", id).
+				Update("last_used_at", time.Now())
+		}(it.vk.APIKey.ID)
+		return it.vk, nil
+	}
+
 	kind, env, err := ClassifyKey(raw)
 	if err != nil {
+		s.cache.putNegative(raw)
 		return nil, err
 	}
 	prefix := ParsePrefix(raw)
 	if prefix == "" {
+		s.cache.putNegative(raw)
 		return nil, ErrInvalidKey
 	}
 	var key domain.APIKey
@@ -62,11 +85,13 @@ func (s *Service) Validate(ctx context.Context, raw string) (*ValidKey, error) {
 		Where("prefix = ? AND revoked_at IS NULL", prefix)
 	if err := q.First(&key).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
+			s.cache.putNegative(raw)
 			return nil, ErrInvalidKey
 		}
 		return nil, err
 	}
 	if err := Verify(raw, key.Hash); err != nil {
+		s.cache.putNegative(raw)
 		return nil, ErrInvalidKey
 	}
 	var ext struct {
@@ -95,7 +120,9 @@ func (s *Service) Validate(ctx context.Context, raw string) (*ValidKey, error) {
 	now := time.Now()
 	s.db.WithContext(ctx).Model(&domain.APIKey{}).
 		Where("id = ?", key.ID).Update("last_used_at", now)
-	return &ValidKey{APIKey: &key, Org: &org, Kind: kind, Env: env, IPAllowlist: ext.IPAllowlist, RateLimitRPM: rpm}, nil
+	vk := &ValidKey{APIKey: &key, Org: &org, Kind: kind, Env: env, IPAllowlist: ext.IPAllowlist, RateLimitRPM: rpm}
+	s.cache.putPositive(raw, vk)
+	return vk, nil
 }
 
 type CreateKeyInput struct {
@@ -129,6 +156,18 @@ func (s *Service) CreateKey(ctx context.Context, in CreateKeyInput) (*CreateKeyR
 	env := in.Env
 	if env == "" {
 		env = EnvLive
+	}
+	// Reject "allowlist that allows everyone" — a customer who pastes
+	// 0.0.0.0/0 has effectively turned the feature off, which is the
+	// opposite of what an allowlist exists for. Tell them up front.
+	for _, entry := range in.IPAllowlist {
+		t := strings.TrimSpace(entry)
+		if t == "" {
+			continue
+		}
+		if t == "0.0.0.0/0" || t == "::/0" || t == "0.0.0.0" || t == "*" {
+			return nil, errors.New("ip_allowlist entry too permissive: " + t)
+		}
 	}
 	if in.Name != "dashboard-session" {
 		var active int64

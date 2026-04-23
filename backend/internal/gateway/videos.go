@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/sanidg/nextapi/backend/internal/abuse"
 	"github.com/sanidg/nextapi/backend/internal/auth"
 	"github.com/sanidg/nextapi/backend/internal/domain"
 	"github.com/sanidg/nextapi/backend/internal/idempotency"
@@ -69,6 +70,19 @@ func (h *VideosHandlers) Create(c *gin.Context) {
 	}
 	if input.DurationSeconds <= 0 {
 		input.DurationSeconds = 5
+	}
+
+	// Vendor-SSRF guard: Seedance fetches image_url server-side. Block
+	// the obvious metadata/loopback hosts so a customer can't make our
+	// upstream walk into our (or AWS's) internal network on our dime.
+	if input.ImageURL != nil {
+		if err := abuse.ValidatePublicURL(*input.ImageURL); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{
+				"code":    "invalid_image_url",
+				"message": err.Error(),
+			}})
+			return
+		}
 	}
 
 	var apiKeyID *string

@@ -130,9 +130,14 @@ func (v *ClerkVerifier) Verify(ctx context.Context, token string) (*ClerkClaims,
 		return nil, errors.New("token not yet valid")
 	}
 	// Clerk issuer is the Frontend API URL; allow exact match or the same host
-	// with a trailing path (Clerk sometimes returns issuer with custom path).
-	if !strings.HasPrefix(c.Iss, v.issuer) {
-		return nil, fmt.Errorf("issuer mismatch: got %q, want prefix %q", c.Iss, v.issuer)
+	// Issuer must match exactly, or be the configured issuer with an
+	// optional trailing slash. HasPrefix alone would have accepted
+	// `https://big-vulture-6.clerk.accounts.dev.evil.com` — close
+	// enough to pass the prefix test, far enough to be hostile.
+	got := strings.TrimRight(c.Iss, "/")
+	want := strings.TrimRight(v.issuer, "/")
+	if got != want {
+		return nil, fmt.Errorf("issuer mismatch: got %q, want %q", c.Iss, v.issuer)
 	}
 	if c.Sub == "" {
 		return nil, errors.New("missing sub claim")

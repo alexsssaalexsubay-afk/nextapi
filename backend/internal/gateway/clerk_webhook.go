@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -135,6 +136,18 @@ func verifySvix(h http.Header, body []byte, secret string) bool {
 	ts := h.Get("svix-timestamp")
 	sigHeader := h.Get("svix-signature")
 	if id == "" || ts == "" || sigHeader == "" {
+		return false
+	}
+	// Reject events whose svix-timestamp is more than 5 minutes off
+	// from now. Without this an attacker who captured one valid Clerk
+	// payload (e.g. via leaked log) can replay it forever, even if our
+	// svix-id dedup table is rotated. Svix recommends ±5 minutes.
+	if tsInt, err := strconv.ParseInt(ts, 10, 64); err == nil {
+		drift := time.Now().Unix() - tsInt
+		if drift > 300 || drift < -300 {
+			return false
+		}
+	} else {
 		return false
 	}
 	raw := strings.TrimPrefix(secret, "whsec_")

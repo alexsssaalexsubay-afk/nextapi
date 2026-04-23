@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/sanidg/nextapi/backend/internal/abuse"
 	"github.com/sanidg/nextapi/backend/internal/auth"
 	"github.com/sanidg/nextapi/backend/internal/idempotency"
 	"github.com/sanidg/nextapi/backend/internal/job"
@@ -48,6 +49,17 @@ func (h *VideoHandlers) Generate(c *gin.Context) {
 	}
 	if req.DurationSeconds <= 0 {
 		req.DurationSeconds = 5
+	}
+
+	// Vendor-SSRF guard, mirrors the new /v1/videos surface.
+	if req.ImageURL != nil {
+		if err := abuse.ValidatePublicURL(*req.ImageURL); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{
+				"code":    "invalid_image_url",
+				"message": err.Error(),
+			}})
+			return
+		}
 	}
 
 	input := job.CreateInput{
