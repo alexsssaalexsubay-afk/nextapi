@@ -176,6 +176,14 @@ func main() {
 	api.GET("/billing/settings", ob.GetBillingSettings)
 	api.PATCH("/billing/settings", ob.UpdateBillingSettings)
 
+	// Self-service webhook management (sk_* keys manage their own org's webhooks)
+	api.GET("/webhooks", whh.List)
+	api.POST("/webhooks", whh.Create)
+	api.GET("/webhooks/:id", whh.Get)
+	api.DELETE("/webhooks/:id", whh.Delete)
+	api.GET("/webhooks/:id/deliveries", wdh.ListDeliveries)
+	api.POST("/webhooks/:id/rotate", wdh.RotateSecret)
+
 	// Self-service key management (sk_* keys can manage their own org's keys)
 	api.GET("/me/keys", h.ListKeys)
 	api.POST("/me/keys", h.CreateKey)

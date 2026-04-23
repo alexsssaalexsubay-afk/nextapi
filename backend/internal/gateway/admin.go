@@ -288,6 +288,17 @@ func (h *AdminHandlers) CancelJob(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "internal_error"}})
 		return
 	}
+	// If 0 rows were affected the job transitioned to a terminal state
+	// between our initial SELECT and this UPDATE (e.g. the processor
+	// completed it concurrently). Do not refund — the processor already
+	// handled it.
+	if res.RowsAffected == 0 {
+		c.JSON(http.StatusConflict, gin.H{"error": gin.H{
+			"code":    "already_terminal",
+			"message": "job reached a terminal state before the cancel could be applied",
+		}})
+		return
+	}
 
 	if h.Throughput != nil {
 		// Release the per-key slot too — without this, an admin

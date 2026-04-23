@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/sanidg/nextapi/backend/internal/domain"
@@ -102,12 +103,15 @@ func (s *Service) DeliverDue(ctx context.Context) error {
 
 	const workers = 16
 	sem := make(chan struct{}, workers)
+	var wg sync.WaitGroup
 	for _, r := range picked {
-		sem <- struct{}{}
+		sem <- struct{}{} // acquire a slot (blocks when all workers busy)
+		wg.Add(1)
 		go func(d domain.WebhookDelivery) {
 			defer func() {
 				_ = recover() // never let a panic kill the worker
-				<-sem
+				<-sem         // release slot
+				wg.Done()
 			}()
 			// Per-delivery timeout so a hung TCP connect can't pin a worker
 			// for the full 30s default.
@@ -116,10 +120,7 @@ func (s *Service) DeliverDue(ctx context.Context) error {
 			_ = s.deliver(dctx, &d)
 		}(r)
 	}
-	// Drain.
-	for i := 0; i < workers; i++ {
-		sem <- struct{}{}
-	}
+	wg.Wait() // block until all in-flight deliveries finish
 	return nil
 }
 

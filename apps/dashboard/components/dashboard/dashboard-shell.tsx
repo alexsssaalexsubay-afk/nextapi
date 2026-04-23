@@ -1,5 +1,6 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import {
   Activity,
@@ -18,6 +19,7 @@ import { ThemeToggle } from "@/components/nextapi/theme-toggle"
 import { LocaleToggle } from "@/components/nextapi/locale-toggle"
 import { useTranslations } from "@/lib/i18n/context"
 import { cn } from "@/lib/utils"
+import { apiFetch } from "@/lib/api"
 
 export function DashboardShell({
   children,
@@ -33,13 +35,38 @@ export function DashboardShell({
   actions?: React.ReactNode
 }) {
   const t = useTranslations()
+  const [orgName, setOrgName] = useState<string | null>(null)
+  const [balance, setBalance] = useState<number | null>(null)
+  const [initials, setInitials] = useState<string>("—")
+
+  useEffect(() => {
+    let cancelled = false
+    apiFetch("/v1/auth/me").then((res) => {
+      if (cancelled) return
+      const data = res as { org?: { name?: string }; balance?: number } | null
+      if (data?.org?.name) {
+        setOrgName(data.org.name)
+        setInitials(
+          data.org.name
+            .split(/[\s-_]+/)
+            .slice(0, 2)
+            .map((w: string) => w[0]?.toUpperCase() ?? "")
+            .join("") || "–",
+        )
+      }
+      if (typeof data?.balance === "number") {
+        setBalance(data.balance)
+      }
+    }).catch(() => { /* non-fatal: sidebar still renders */ })
+    return () => { cancelled = true }
+  }, [])
 
   const sections = [
     {
       heading: t.common.overview,
       items: [
         { label: t.nav.dashboard.home, href: "/", icon: LayoutDashboard },
-        { label: t.nav.dashboard.jobs, href: "/jobs", icon: Activity, badge: "12" },
+        { label: t.nav.dashboard.jobs, href: "/jobs", icon: Activity },
         { label: t.nav.dashboard.usage, href: "/usage", icon: Gauge },
       ],
     },
@@ -72,9 +99,11 @@ export function DashboardShell({
           <div className="flex flex-1 items-center justify-between rounded-md border border-sidebar-border bg-background/60 px-2 py-1.5">
             <div className="flex items-center gap-2">
               <div className="flex size-5 items-center justify-center rounded-sm bg-signal/10 font-mono text-[10px] font-medium text-signal">
-                A
+                {initials[0] ?? "–"}
               </div>
-              <span className="text-[12.5px] text-foreground">acme-prod</span>
+              <span className="max-w-[130px] truncate text-[12.5px] text-foreground">
+                {orgName ?? "—"}
+              </span>
             </div>
             <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
               live
@@ -105,9 +134,9 @@ export function DashboardShell({
                       >
                         <Icon className={cn("size-4", active ? "text-signal" : "")} />
                         <span className="flex-1">{item.label}</span>
-                        {"badge" in item && item.badge && (
+                        {"badge" in item && (item as { badge?: string }).badge && (
                           <span className="rounded-sm bg-sidebar-accent px-1.5 font-mono text-[10px] text-muted-foreground">
-                            {item.badge}
+                            {(item as { badge?: string }).badge}
                           </span>
                         )}
                       </Link>
@@ -136,7 +165,7 @@ export function DashboardShell({
               <span className="text-[12px] text-foreground">{t.cta.footer.allSystems}</span>
             </div>
             <div className="mt-1 font-mono text-[10.5px] text-muted-foreground">
-              Seedance · 99.982% · 30d
+              Seedance · partner-tier
             </div>
           </div>
         </div>
@@ -151,7 +180,10 @@ export function DashboardShell({
           </button>
           <div className="flex items-center gap-3">
             <span className="hidden items-center gap-2 text-[12px] text-muted-foreground md:inline-flex">
-              <span className="font-mono text-foreground">142.80</span> {t.common.credits}
+              <span className="font-mono text-foreground">
+                {balance !== null ? balance.toFixed(2) : "—"}
+              </span>{" "}
+              {t.common.credits}
             </span>
             <Link
               href="/billing"
@@ -162,7 +194,7 @@ export function DashboardShell({
             <LocaleToggle />
             <ThemeToggle />
             <div className="flex size-7 items-center justify-center rounded-full border border-border/80 bg-card font-mono text-[11px] text-foreground">
-              JL
+              {initials.slice(0, 2) || "–"}
             </div>
           </div>
         </header>
