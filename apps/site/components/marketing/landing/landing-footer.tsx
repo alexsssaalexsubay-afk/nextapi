@@ -10,7 +10,7 @@ const LINKS = [
   { label: "Security", href: "/security" },
   { label: "Status", href: "/status" },
   { label: "Legal", href: "/legal/terms" },
-  { label: "Dashboard", href: "https://dash.nextapi.top" },
+  { label: "Dashboard", href: "https://app.nextapi.top" },
 ] as const
 
 function Wordmark() {

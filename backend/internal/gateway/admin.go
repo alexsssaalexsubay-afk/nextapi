@@ -4,6 +4,7 @@ import (
 	"crypto/subtle"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -61,12 +62,14 @@ func (h *AdminHandlers) PauseOrg(c *gin.Context) {
 	if reason == "" {
 		reason = "admin paused"
 	}
-	if err := h.DB.WithContext(c.Request.Context()).
+	ctx := c.Request.Context()
+	if err := h.DB.WithContext(ctx).
 		Model(&domain.Org{}).Where("id = ?", id).
 		Updates(map[string]any{"paused_at": now, "pause_reason": reason}).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "internal_error"}})
 		return
 	}
+	RecordAudit(ctx, h.DB, c, "org.pause", "org", id, gin.H{"reason": reason})
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
@@ -110,7 +113,8 @@ func (h *AdminHandlers) AdjustCredits(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "bad_request", "message": "invalid request body"}})
 		return
 	}
-	err := h.Billing.AddCredits(c.Request.Context(), billing.Entry{
+	ctx := c.Request.Context()
+	err := h.Billing.AddCredits(ctx, billing.Entry{
 		OrgID:  r.OrgID,
 		Delta:  r.Delta,
 		Reason: domain.ReasonAdjustment,
@@ -120,6 +124,10 @@ func (h *AdminHandlers) AdjustCredits(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "internal_error"}})
 		return
 	}
+	RecordAudit(ctx, h.DB, c, "credits.adjust", "org", r.OrgID, gin.H{
+		"delta_cents": r.Delta,
+		"note":        r.Note,
+	})
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
@@ -173,7 +181,44 @@ func (h *AdminHandlers) CancelJob(c *gin.Context) {
 		}).Error
 	}
 
+	RecordAudit(ctx, h.DB, c, "job.cancel", "job", job.ID, gin.H{
+		"org_id":           job.OrgID,
+		"refunded_cents":   job.ReservedCredits,
+		"original_status":  job.Status,
+	})
+
 	c.JSON(http.StatusOK, gin.H{"affected": res.RowsAffected})
+}
+
+// Audit returns the most recent audit log entries.
+// Filters: ?actor=email, ?target_type=org, ?target_id=<id>, ?action=org.pause, ?limit=200
+func (h *AdminHandlers) Audit(c *gin.Context) {
+	ctx := c.Request.Context()
+	q := h.DB.WithContext(ctx).Model(&domain.AuditLog{})
+	if v := strings.TrimSpace(c.Query("actor")); v != "" {
+		q = q.Where("actor_email ILIKE ?", "%"+v+"%")
+	}
+	if v := strings.TrimSpace(c.Query("target_type")); v != "" {
+		q = q.Where("target_type = ?", v)
+	}
+	if v := strings.TrimSpace(c.Query("target_id")); v != "" {
+		q = q.Where("target_id = ?", v)
+	}
+	if v := strings.TrimSpace(c.Query("action")); v != "" {
+		q = q.Where("action = ?", v)
+	}
+	limit := 200
+	if v := c.Query("limit"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 && n <= 500 {
+			limit = n
+		}
+	}
+	var rows []domain.AuditLog
+	if err := q.Order("created_at DESC").Limit(limit).Find(&rows).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "internal_error"}})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"data": rows})
 }
 
 type Overview struct {

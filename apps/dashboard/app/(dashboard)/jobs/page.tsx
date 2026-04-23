@@ -1,30 +1,104 @@
 "use client"
 
+import * as React from "react"
 import Link from "next/link"
 import { useSearchParams } from "next/navigation"
 import { Play } from "lucide-react"
 import { DashboardShell } from "@/components/dashboard/dashboard-shell"
-import { JobsTable, sampleJobs } from "@/components/dashboard/jobs-table"
+import { JobsTable, type JobRow } from "@/components/dashboard/jobs-table"
 import { Button } from "@/components/ui/button"
 import { StatusPill, type JobStatus } from "@/components/nextapi/status-pill"
 import { EmptyState, ErrorState, LoadingRows } from "@/components/nextapi/states"
 import { useTranslations } from "@/lib/i18n/context"
+import { apiFetch } from "@/lib/api"
 import { cn } from "@/lib/utils"
 
 type ListState = "default" | "empty" | "loading" | "error"
 
+type VideoListItem = {
+  id: string
+  model: string
+  status: string
+  estimated_cost_cents: number
+  created_at: string
+}
+
+function relTime(iso: string): string {
+  const t = new Date(iso).getTime()
+  if (Number.isNaN(t)) return "—"
+  const diffSec = Math.max(0, Math.floor((Date.now() - t) / 1000))
+  if (diffSec < 60) return `${diffSec}s`
+  if (diffSec < 3600) return `${Math.floor(diffSec / 60)}m`
+  if (diffSec < 86400) return `${Math.floor(diffSec / 3600)}h`
+  return `${Math.floor(diffSec / 86400)}d`
+}
+
+function toJobRow(v: VideoListItem): JobRow {
+  const status = (["queued", "running", "succeeded", "failed"].includes(v.status)
+    ? v.status
+    : "queued") as JobStatus
+  const credits = (v.estimated_cost_cents / 100).toFixed(2)
+  const kind: JobRow["creditsKind"] =
+    status === "failed" ? "refunded" : status === "succeeded" ? "billed" : "reserved"
+  return {
+    id: v.id,
+    status,
+    model: v.model || "seedance-2.0",
+    prompt: "",
+    submitted: relTime(v.created_at),
+    duration: "—",
+    creditsAmount: credits,
+    creditsKind: kind,
+  }
+}
+
 export default function JobsPage() {
   const t = useTranslations()
   const params = useSearchParams()
-  const raw = (params.get("state") ?? "default") as ListState
-  const state: ListState = (
-    ["default", "empty", "loading", "error"] as ListState[]
-  ).includes(raw)
-    ? raw
-    : "default"
+  const overrideRaw = (params.get("state") ?? "") as ListState | ""
+  const override: ListState | "" = (
+    ["empty", "loading", "error"] as ListState[]
+  ).includes(overrideRaw as ListState)
+    ? (overrideRaw as ListState)
+    : ""
+
+  const [rows, setRows] = React.useState<JobRow[] | null>(null)
+  const [fetchError, setFetchError] = React.useState<string | null>(null)
+
+  React.useEffect(() => {
+    let cancelled = false
+    apiFetch("/v1/videos?limit=50")
+      .then((res) => {
+        if (cancelled) return
+        if (res && Array.isArray(res.data)) {
+          setRows((res.data as VideoListItem[]).map(toJobRow))
+        } else {
+          setRows([])
+        }
+      })
+      .catch((e) => {
+        if (!cancelled) setFetchError(e instanceof Error ? e.message : "load failed")
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  // Decide effective state: explicit ?state= overrides; otherwise infer from data.
+  const state: ListState =
+    override ||
+    (fetchError ? "error" : rows === null ? "loading" : rows.length === 0 ? "empty" : "default")
+
+  const counts = {
+    all: rows?.length ?? 0,
+    running: rows?.filter((r) => r.status === "running").length ?? 0,
+    queued: rows?.filter((r) => r.status === "queued").length ?? 0,
+    succeeded: rows?.filter((r) => r.status === "succeeded").length ?? 0,
+    failed: rows?.filter((r) => r.status === "failed").length ?? 0,
+  }
 
   const stateTabs: { key: ListState; label: string; hint: string }[] = [
-    { key: "default", label: t.jobs.statePreview.default, hint: "284 jobs" },
+    { key: "default", label: t.jobs.statePreview.default, hint: `${counts.all} jobs` },
     { key: "empty", label: t.jobs.statePreview.empty, hint: t.jobs.empty.title.toLowerCase() },
     { key: "loading", label: t.jobs.statePreview.loading, hint: t.common.loading.toLowerCase() },
     { key: "error", label: t.jobs.statePreview.error, hint: "upstream 5xx" },
@@ -36,11 +110,11 @@ export default function JobsPage() {
     count: number
     active?: boolean
   }[] = [
-    { label: t.jobs.filters.all, count: 284, active: true },
-    { label: t.jobs.states.running, status: "running", count: 4 },
-    { label: t.jobs.states.queued, status: "queued", count: 8 },
-    { label: t.jobs.states.succeeded, status: "succeeded", count: 270 },
-    { label: t.jobs.states.failed, status: "failed", count: 2 },
+    { label: t.jobs.filters.all, count: counts.all, active: true },
+    { label: t.jobs.states.running, status: "running", count: counts.running },
+    { label: t.jobs.states.queued, status: "queued", count: counts.queued },
+    { label: t.jobs.states.succeeded, status: "succeeded", count: counts.succeeded },
+    { label: t.jobs.states.failed, status: "failed", count: counts.failed },
   ]
 
   return (
@@ -61,7 +135,6 @@ export default function JobsPage() {
       }
     >
       <div className="flex flex-col gap-5 p-6">
-        {/* State preview strip */}
         <div className="flex items-center justify-between rounded-lg border border-dashed border-border/80 bg-card/30 px-3 py-2">
           <div className="flex items-center gap-2 text-[12px] text-muted-foreground">
             <span className="font-mono uppercase tracking-[0.14em]">
@@ -94,7 +167,6 @@ export default function JobsPage() {
           </div>
         </div>
 
-        {/* Filter rail */}
         <div
           className={cn(
             "flex flex-wrap items-center gap-2 transition-opacity",
@@ -129,33 +201,12 @@ export default function JobsPage() {
           >
             {t.common.last24h}
           </button>
-          <button
-            disabled={state !== "default"}
-            className="h-8 rounded-md border border-border/60 bg-card/30 px-2.5 text-[12px] text-muted-foreground transition-colors hover:border-border hover:text-foreground"
-          >
-            {t.usage.exportCsv}
-          </button>
         </div>
 
-        {/* Content swap */}
-        {state === "default" && <JobsTable rows={sampleJobs} />}
+        {state === "default" && rows && <JobsTable rows={rows} />}
         {state === "loading" && <LoadingRows rows={6} />}
         {state === "empty" && <EmptyState />}
         {state === "error" && <ErrorState retryHref="/jobs" />}
-
-        {state === "default" && (
-          <div className="flex items-center justify-between text-[12px] text-muted-foreground">
-            <span>
-              {t.common.page} <span className="text-foreground">1</span> {t.common.of}{" "}
-              <span className="text-foreground">48</span>
-            </span>
-            <div className="flex items-center gap-1">
-              <button className="h-7 rounded-md border border-border/60 bg-card/30 px-2 text-[12px] hover:border-border hover:text-foreground">
-                {t.common.more}
-              </button>
-            </div>
-          </div>
-        )}
       </div>
     </DashboardShell>
   )

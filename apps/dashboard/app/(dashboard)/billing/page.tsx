@@ -12,6 +12,12 @@ import {
 import { DashboardShell } from "@/components/dashboard/dashboard-shell"
 import { Button } from "@/components/ui/button"
 import { useTranslations } from "@/lib/i18n/context"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 
 type Invoice = {
   id: string
@@ -84,14 +90,58 @@ export default function BillingPage() {
             <Download className="size-3.5" />
             {t.usage.exportCsv}
           </Button>
-          <Button className="h-8 gap-1.5 bg-foreground text-[12.5px] text-background hover:bg-foreground/90">
-            {t.common.topUp}
-            <ArrowUpRight className="size-3.5" />
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span>
+                  <Button
+                    disabled
+                    className="h-8 cursor-not-allowed gap-1.5 bg-foreground/30 text-[12.5px] text-background opacity-50"
+                  >
+                    {t.common.topUp}
+                    <ArrowUpRight className="size-3.5" />
+                  </Button>
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="max-w-[280px] text-[12px]">
+                {t.billing.preview.topUpDisabledTooltip}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          <Button
+            asChild
+            variant="outline"
+            className="h-8 gap-1.5 border-signal/40 bg-signal/5 text-[12.5px] text-signal hover:bg-signal/10"
+          >
+            <Link href="https://nextapi.top/enterprise" target="_blank" rel="noopener noreferrer">
+              {t.billing.preview.contactSales}
+              <ArrowUpRight className="size-3.5" />
+            </Link>
           </Button>
         </>
       }
     >
       <div className="mx-auto max-w-[1180px] px-6 py-8">
+        {/* Top-up coming soon banner */}
+        <div className="mb-6 flex flex-col gap-2 rounded-xl border border-signal/30 bg-signal/5 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-3">
+            <Info className="mt-0.5 size-4 shrink-0 text-signal" />
+            <div className="text-[13px] text-foreground">
+              <span className="font-medium">{t.billing.preview.comingSoonEn}</span>
+              <span className="ml-2 text-muted-foreground">{t.billing.preview.comingSoonZh}</span>
+            </div>
+          </div>
+          <Link
+            href="https://nextapi.top/enterprise"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-signal/40 bg-background px-3 py-1.5 text-[12.5px] font-medium text-signal transition-colors hover:bg-signal/10"
+          >
+            {t.billing.preview.contactSales}
+            <ArrowUpRight className="size-3" />
+          </Link>
+        </div>
+
         {/* Current balance */}
         <section className="grid grid-cols-1 gap-4 md:grid-cols-4">
           <BalanceCard

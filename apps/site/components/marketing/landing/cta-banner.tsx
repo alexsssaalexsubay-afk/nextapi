@@ -31,17 +31,17 @@ export function CtaBanner() {
             </p>
             <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
               <Link
-                href="https://dash.nextapi.top"
+                href="https://app.nextapi.top/sign-up"
                 className="group inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-indigo-500 to-purple-600 px-6 py-3 text-[14px] font-medium text-white shadow-[0_0_30px_-8px] shadow-indigo-500/60 transition-all hover:shadow-indigo-500/80 hover:brightness-110"
               >
-                Get Your API Key
+                Get a free API key
                 <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
               </Link>
               <Link
-                href="mailto:sales@nextapi.dev"
+                href="/enterprise"
                 className="inline-flex items-center gap-2 rounded-full border border-border bg-card/60 px-5 py-3 text-[14px] font-medium text-foreground backdrop-blur-sm transition-colors hover:border-foreground/20 hover:bg-muted"
               >
-                Contact Sales
+                Talk to sales
               </Link>
             </div>
           </div>

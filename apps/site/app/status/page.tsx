@@ -6,46 +6,103 @@ import { LandingFooter } from "@/components/marketing/landing/landing-footer"
 import { Activity, CheckCircle2, AlertTriangle, XCircle } from "lucide-react"
 import { cn } from "@/lib/utils"
 
-type Status = "operational" | "degraded" | "outage" | "loading"
+type ServiceStatus = "ok" | "degraded" | "down" | "checking"
 
-const SERVICES = [
-  { key: "api", label: "API Gateway", endpoint: "/health" },
-  { key: "dashboard", label: "Dashboard", endpoint: null },
-  { key: "webhooks", label: "Webhook Delivery", endpoint: null },
-  { key: "generation", label: "Video Generation", endpoint: null },
+interface ServiceResult {
+  status: ServiceStatus
+  latencyMs: number | null
+  checkedAt: Date | null
+}
+
+const ENDPOINTS: { key: string; label: string; url: string; method: "GET" | "HEAD" }[] = [
+  { key: "api", label: "API Gateway", url: "https://api.nextapi.top/health", method: "GET" },
+  { key: "app", label: "Dashboard (app)", url: "https://app.nextapi.top", method: "HEAD" },
+  { key: "admin", label: "Admin", url: "https://admin.nextapi.top", method: "HEAD" },
+  { key: "home", label: "Marketing Site", url: "https://nextapi.top", method: "HEAD" },
 ]
 
-const STATUS_CONFIG: Record<Status, { icon: typeof CheckCircle2; color: string; label: string }> = {
-  operational: { icon: CheckCircle2, color: "text-emerald-500", label: "Operational" },
+const TIMEOUT_MS = 5000
+const DEGRADED_THRESHOLD_MS = 2000
+const POLL_INTERVAL_MS = 60_000
+
+const STATUS_CONFIG: Record<
+  ServiceStatus,
+  { icon: typeof CheckCircle2; color: string; label: string }
+> = {
+  ok: { icon: CheckCircle2, color: "text-emerald-500", label: "Operational" },
   degraded: { icon: AlertTriangle, color: "text-yellow-500", label: "Degraded" },
-  outage: { icon: XCircle, color: "text-red-500", label: "Outage" },
-  loading: { icon: Activity, color: "text-muted-foreground", label: "Checking..." },
+  down: { icon: XCircle, color: "text-red-500", label: "Down" },
+  checking: { icon: Activity, color: "text-muted-foreground", label: "Checking…" },
+}
+
+async function checkEndpoint(
+  url: string,
+  method: "GET" | "HEAD",
+): Promise<{ status: ServiceStatus; latencyMs: number | null }> {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS)
+  const t0 = Date.now()
+  try {
+    const res = await fetch(url, {
+      method,
+      mode: "no-cors",
+      cache: "no-store",
+      signal: controller.signal,
+    })
+    const latencyMs = Date.now() - t0
+    const ok = res.ok || res.type === "opaque"
+    if (!ok) return { status: "down", latencyMs }
+    return {
+      status: latencyMs > DEGRADED_THRESHOLD_MS ? "degraded" : "ok",
+      latencyMs,
+    }
+  } catch {
+    return { status: "down", latencyMs: null }
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+function overallStatus(results: Record<string, ServiceResult>): ServiceStatus {
+  const statuses = Object.values(results).map((r) => r.status)
+  if (statuses.some((s) => s === "checking")) return "checking"
+  if (statuses.some((s) => s === "down")) return "down"
+  if (statuses.some((s) => s === "degraded")) return "degraded"
+  return "ok"
 }
 
 export default function StatusPage() {
-  const [apiStatus, setApiStatus] = React.useState<Status>("loading")
-  const [latency, setLatency] = React.useState<number | null>(null)
+  const initial: Record<string, ServiceResult> = Object.fromEntries(
+    ENDPOINTS.map((e) => [e.key, { status: "checking" as const, latencyMs: null, checkedAt: null }]),
+  )
+  const [results, setResults] = React.useState<Record<string, ServiceResult>>(initial)
+  const [lastChecked, setLastChecked] = React.useState<Date | null>(null)
 
-  React.useEffect(() => {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://api.nextapi.top"
-    const t0 = Date.now()
-    fetch(`${apiUrl}/health`, { mode: "cors" })
-      .then((res) => {
-        setLatency(Date.now() - t0)
-        setApiStatus(res.ok ? "operational" : "degraded")
-      })
-      .catch(() => {
-        setLatency(null)
-        setApiStatus("outage")
-      })
+  const runChecks = React.useCallback(async () => {
+    setResults((prev) =>
+      Object.fromEntries(
+        Object.entries(prev).map(([k, v]) => [k, { ...v, status: "checking" as const }]),
+      ),
+    )
+    const checks = await Promise.all(
+      ENDPOINTS.map(async (ep) => {
+        const result = await checkEndpoint(ep.url, ep.method)
+        return [ep.key, { ...result, checkedAt: new Date() }] as const
+      }),
+    )
+    setResults(Object.fromEntries(checks))
+    setLastChecked(new Date())
   }, [])
 
-  function getStatus(key: string): Status {
-    if (key === "api") return apiStatus
-    return apiStatus === "loading" ? "loading" : apiStatus === "outage" ? "outage" : "operational"
-  }
+  React.useEffect(() => {
+    runChecks()
+    const id = setInterval(runChecks, POLL_INTERVAL_MS)
+    return () => clearInterval(id)
+  }, [runChecks])
 
-  const overallStatus = apiStatus === "outage" ? "outage" : apiStatus === "degraded" ? "degraded" : apiStatus
+  const overall = overallStatus(results)
+  const cfg = STATUS_CONFIG[overall]
+  const Icon = cfg.icon
 
   return (
     <div className="min-h-screen bg-white text-zinc-900 antialiased dark:bg-zinc-950 dark:text-zinc-100">
@@ -56,60 +113,59 @@ export default function StatusPage() {
           <div
             className={cn(
               "flex items-center gap-3 rounded-2xl border p-6",
-              overallStatus === "operational"
+              overall === "ok"
                 ? "border-emerald-500/30 bg-emerald-500/5"
-                : overallStatus === "degraded"
+                : overall === "degraded"
                   ? "border-yellow-500/30 bg-yellow-500/5"
-                  : overallStatus === "outage"
+                  : overall === "down"
                     ? "border-red-500/30 bg-red-500/5"
                     : "border-border bg-card",
             )}
           >
-            {(() => {
-              const cfg = STATUS_CONFIG[overallStatus]
-              const Icon = cfg.icon
-              return (
-                <>
-                  <Icon className={cn("size-6", cfg.color)} />
-                  <div>
-                    <h1 className="text-lg font-semibold text-foreground">
-                      {overallStatus === "operational"
-                        ? "All Systems Operational"
-                        : overallStatus === "degraded"
-                          ? "Degraded Performance"
-                          : overallStatus === "outage"
-                            ? "Service Disruption"
-                            : "Checking Status..."}
-                    </h1>
-                    {latency !== null && (
-                      <p className="text-[13px] text-muted-foreground">
-                        API responded in {latency}ms
-                      </p>
-                    )}
-                  </div>
-                </>
-              )
-            })()}
+            <Icon className={cn("size-6", cfg.color)} />
+            <div>
+              <h1 className="text-lg font-semibold text-foreground">
+                {overall === "ok"
+                  ? "All Systems Operational"
+                  : overall === "degraded"
+                    ? "Degraded Performance"
+                    : overall === "down"
+                      ? "Service Disruption"
+                      : "Checking Status…"}
+              </h1>
+              {lastChecked && (
+                <p className="text-[13px] text-muted-foreground">
+                  Last checked {lastChecked.toLocaleTimeString()} · auto-refreshes every 60s
+                </p>
+              )}
+            </div>
           </div>
 
           {/* Service list */}
           <div className="mt-8 overflow-hidden rounded-xl border border-border">
-            {SERVICES.map((s, i) => {
-              const status = getStatus(s.key)
-              const cfg = STATUS_CONFIG[status]
-              const Icon = cfg.icon
+            {ENDPOINTS.map((ep, i) => {
+              const r = results[ep.key]
+              const scfg = STATUS_CONFIG[r.status]
+              const SIcon = scfg.icon
               return (
                 <div
-                  key={s.key}
+                  key={ep.key}
                   className={cn(
                     "flex items-center justify-between px-5 py-4",
-                    i < SERVICES.length - 1 && "border-b border-border",
+                    i < ENDPOINTS.length - 1 && "border-b border-border",
                   )}
                 >
-                  <span className="text-[14px] font-medium text-foreground">{s.label}</span>
-                  <span className={cn("flex items-center gap-2 text-[13px]", cfg.color)}>
-                    <Icon className="size-4" />
-                    {cfg.label}
+                  <div>
+                    <span className="text-[14px] font-medium text-foreground">{ep.label}</span>
+                    {r.latencyMs !== null && r.status !== "checking" && (
+                      <span className="ml-2 text-[12px] text-muted-foreground">
+                        {r.latencyMs}ms
+                      </span>
+                    )}
+                  </div>
+                  <span className={cn("flex items-center gap-2 text-[13px]", scfg.color)}>
+                    <SIcon className="size-4" />
+                    {scfg.label}
                   </span>
                 </div>
               )
@@ -118,13 +174,19 @@ export default function StatusPage() {
 
           <p className="mt-6 text-center text-[13px] text-muted-foreground">
             For real-time incident updates, follow{" "}
-            <a href="https://twitter.com/nextapi" className="text-indigo-500 hover:underline" target="_blank" rel="noreferrer">
+            <a
+              href="https://twitter.com/nextapi"
+              className="text-indigo-500 hover:underline"
+              target="_blank"
+              rel="noreferrer"
+            >
               @nextapi
             </a>{" "}
-            on Twitter or subscribe to{" "}
-            <a href="mailto:status@nextapi.dev" className="text-indigo-500 hover:underline">
-              status notifications
-            </a>.
+            on Twitter or contact{" "}
+            <a href="mailto:status@nextapi.top" className="text-indigo-500 hover:underline">
+              status@nextapi.top
+            </a>
+            .
           </p>
         </div>
       </main>

@@ -53,6 +53,18 @@ export function InlinePlayground() {
           </p>
         </div>
 
+        {/* ─── Demo preview banner ─── */}
+        <div className="mb-5 flex items-center gap-2 rounded-lg border border-amber-400/60 bg-amber-400/10 px-4 py-2.5 text-[12.5px] text-amber-700 dark:border-amber-400/40 dark:bg-amber-400/10 dark:text-amber-300">
+          <span className="shrink-0 text-base">⚠</span>
+          <span>{t.playground.marketing.previewBanner}</span>
+          <a
+            href="https://app.nextapi.top/sign-up"
+            className="ml-auto shrink-0 underline underline-offset-2 hover:opacity-80"
+          >
+            Sign up →
+          </a>
+        </div>
+
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,460px)]">
           {/* ─── Input card ─── */}
           <div className="flex flex-col gap-4 rounded-xl border border-border/70 bg-card/40 p-5">
@@ -103,7 +115,7 @@ export function InlinePlayground() {
                 ) : (
                   <>
                     <Play className="size-3.5 fill-current" />
-                    {t.playground.generate}
+                    {t.playground.marketing.showSample}
                   </>
                 )}
               </Button>
@@ -156,7 +168,12 @@ export function InlinePlayground() {
             </div>
             <div className="flex items-center justify-between border-t border-border/60 px-4 py-3">
               <p className="truncate text-[12px] text-muted-foreground">
-                {t.playground.resultCaption}
+                {t.playground.resultCaption}{" "}
+                {phase === "done" && (
+                  <span className="ml-1 rounded border border-amber-400/50 bg-amber-400/10 px-1 py-0.5 font-mono text-[10px] text-amber-600 dark:text-amber-400">
+                    {t.playground.marketing.sampleLabel}
+                  </span>
+                )}
               </p>
               <span className="shrink-0 font-mono text-[11px] text-signal">
                 {phase === "done" ? "4.8s · 1.00cr" : "—"}

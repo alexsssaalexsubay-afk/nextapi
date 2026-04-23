@@ -1,56 +1,164 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { ChevronLeft, ImageIcon, Play, Type, Upload, X } from "lucide-react"
 import { DashboardShell } from "@/components/dashboard/dashboard-shell"
 import { CodeBlock } from "@/components/nextapi/code-block"
-import { StatusPill, type JobStatus } from "@/components/nextapi/status-pill"
 import { useTranslations } from "@/lib/i18n/context"
 import { cn } from "@/lib/utils"
+import { apiFetch, ApiError } from "@/lib/api"
+import { toast } from "sonner"
 
 type Mode = "text" | "image"
 
+const FALLBACK_MODELS = ["seedance-v2-pro", "seedance-v2"]
+
+// Mirrors backend/internal/provider/seedance/pricing.go
+function resolutionScale(r: string): number {
+  if (r === "720p") return 0.55
+  if (r === "480p") return 0.3
+  return 1.0
+}
+
+function pricePer1K(hasImage: boolean): number {
+  return hasImage ? 0.0043 : 0.007
+}
+
+// Returns display credits (1.00 = one standard 6s 1080p text generation)
+function estimateCostCredits(duration: number, resolution: string, hasImage: boolean): number {
+  const base = (55000 * 6 * 1.0) / 1000 * 0.007
+  const current = (55000 * duration * resolutionScale(resolution)) / 1000 * pricePer1K(hasImage)
+  return Math.ceil((current / base) * 100) / 100
+}
+
+const KNOWN_ERROR_CODES = [
+  "spend_cap_exceeded",
+  "moderation_blocked",
+  "insufficient_credits",
+  "rate_limited",
+  "idempotency_conflict",
+  "idempotent_request_in_progress",
+] as const
+
+type KnownErrorCode = typeof KNOWN_ERROR_CODES[number]
+
+function isKnownErrorCode(code: string | undefined): code is KnownErrorCode {
+  return KNOWN_ERROR_CODES.includes(code as KnownErrorCode)
+}
+
 export default function NewJobPage() {
   const t = useTranslations()
-  const [submit, setSubmit] = useState<JobStatus>("idle")
+  const router = useRouter()
+  const [submitting, setSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
   const [mode, setMode] = useState<Mode>("text")
-  const [model, setModel] = useState("seedance-2.0-pro")
+  const [models, setModels] = useState<string[]>(FALLBACK_MODELS)
+  const [model, setModel] = useState(FALLBACK_MODELS[0])
   const [duration, setDuration] = useState("6")
   const [resolution, setResolution] = useState("1080p")
-  const [seed, setSeed] = useState("42")
-  const [webhook, setWebhook] = useState("https://acme.com/hooks/nextapi")
   const [prompt, setPrompt] = useState(t.jobs.new.form.promptPlaceholder)
+  const [imageUrl, setImageUrl] = useState("")
   const [hasImage, setHasImage] = useState(false)
+  const [estimatedCost, setEstimatedCost] = useState(1.0)
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const submitJob = () => {
-    setSubmit("submitting")
-    setTimeout(() => setSubmit("queued"), 900)
-    setTimeout(() => setSubmit("running"), 2400)
-    setTimeout(() => setSubmit("succeeded"), 6400)
+  // Load models from backend
+  useEffect(() => {
+    apiFetch("/v1/models")
+      .then((res) => {
+        const items: { id: string }[] = res?.data ?? res ?? []
+        const ids = items.map((m) => m.id).filter(Boolean)
+        if (ids.length > 0) {
+          setModels(ids)
+          setModel(ids[0])
+        }
+      })
+      .catch(() => {
+        // silently fall back to hardcoded models
+      })
+  }, [])
+
+  // Debounced cost estimate
+  const updateCost = useCallback(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => {
+      setEstimatedCost(
+        estimateCostCredits(Number(duration), resolution, mode === "image" && hasImage),
+      )
+    }, 300)
+  }, [duration, resolution, mode, hasImage])
+
+  useEffect(() => {
+    updateCost()
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+    }
+  }, [updateCost])
+
+  const getErrorMessage = (err: unknown): string => {
+    if (err instanceof ApiError) {
+      const code = err.code
+      if (isKnownErrorCode(code)) {
+        // @ts-expect-error dynamic key lookup into i18n object
+        return (t.jobs.errors[code] as string) ?? err.message
+      }
+      return err.message
+    }
+    return t.jobs.errors.unknown
   }
 
-  // cURL body changes depending on mode
+  const submitJob = async () => {
+    setSubmitting(true)
+    setSubmitError(null)
+    const idempotencyKey = crypto.randomUUID()
+    const body: Record<string, unknown> = {
+      model,
+      prompt,
+      duration: Number(duration),
+      resolution,
+    }
+    if (mode === "image" && imageUrl) {
+      body.image_url = imageUrl
+    }
+    try {
+      const res = await apiFetch("/v1/videos", {
+        method: "POST",
+        body: JSON.stringify(body),
+        headers: { "Idempotency-Key": idempotencyKey },
+      })
+      toast.success(t.jobs.new.tracker.succeededTitle)
+      const jobId: string = res?.id ?? res?.job_id ?? ""
+      if (jobId) {
+        router.push(`/jobs/${jobId}`)
+      } else {
+        router.push("/jobs")
+      }
+    } catch (err) {
+      const msg = getErrorMessage(err)
+      setSubmitError(msg)
+      toast.error(msg)
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
   const curlBody =
     mode === "image"
       ? `{
-    "model": "${model}",
-    "mode": "image-to-video",
-    "image_url": "https://cdn.example.com/source.jpg",
-    "prompt": "${prompt}",
-    "duration_seconds": ${duration},
-    "resolution": "${resolution}"
-  }`
+  "model": "${model}",
+  "image_url": "https://cdn.example.com/source.jpg",
+  "prompt": "${prompt}",
+  "duration": ${duration},
+  "resolution": "${resolution}"
+}`
       : `{
-    "model": "${model}",
-    "mode": "text-to-video",
-    "prompt": "${prompt}",
-    "duration_seconds": ${duration},
-    "resolution": "${resolution}"
-  }`
-
-  const running =
-    submit === "submitting" || submit === "queued" || submit === "running"
+  "model": "${model}",
+  "prompt": "${prompt}",
+  "duration": ${duration},
+  "resolution": "${resolution}"
+}`
 
   return (
     <DashboardShell activeHref="/jobs">
@@ -72,8 +180,13 @@ export default function NewJobPage() {
             </p>
           </div>
 
+          {submitError && (
+            <div className="rounded-md border border-destructive/40 bg-destructive/10 px-4 py-3 text-[13px] text-destructive">
+              {submitError}
+            </div>
+          )}
+
           <div className="flex flex-col gap-5 rounded-xl border border-border/80 bg-card/40 p-6">
-            {/* Mode toggle — Seedance 2.0 supports both modes */}
             <Field label={t.jobs.new.form.mode} hint={t.jobs.new.form.modeHint}>
               <div className="grid grid-cols-2 gap-2 rounded-md border border-border/80 bg-background p-1">
                 <ModeButton
@@ -100,21 +213,27 @@ export default function NewJobPage() {
                   onChange={(e) => setModel(e.target.value)}
                   className="h-9 w-full rounded-md border border-border/80 bg-background px-3 font-mono text-[13px] text-foreground focus:border-signal/50 focus:outline-none"
                 >
-                  <option value="seedance-2.0-pro">seedance-2.0-pro</option>
-                  <option value="seedance-2.0-lite">seedance-2.0-lite</option>
+                  {models.map((m) => (
+                    <option key={m} value={m}>
+                      {m}
+                    </option>
+                  ))}
                 </select>
               </Field>
-              <Field label={t.jobs.new.form.aspectRatio}>
-                <select className="h-9 w-full rounded-md border border-border/80 bg-background px-3 font-mono text-[13px] text-foreground focus:border-signal/50 focus:outline-none">
-                  <option>16:9</option>
-                  <option>9:16</option>
-                  <option>1:1</option>
-                  <option>4:3</option>
+              <Field label={t.jobs.new.form.resolution}>
+                <select
+                  value={resolution}
+                  onChange={(e) => setResolution(e.target.value)}
+                  className="h-9 w-full rounded-md border border-border/80 bg-background px-3 font-mono text-[13px] text-foreground focus:border-signal/50 focus:outline-none"
+                >
+                  <option value="720p">720p</option>
+                  <option value="1080p">1080p</option>
+                  <option value="2K">2K</option>
+                  <option value="4K">4K</option>
                 </select>
               </Field>
             </div>
 
-            {/* Conditional: source image for image-to-video mode */}
             {mode === "image" && (
               <Field
                 label={t.jobs.new.form.sourceImage}
@@ -124,19 +243,18 @@ export default function NewJobPage() {
                   <div className="flex items-center gap-3 rounded-md border border-border/80 bg-background p-3">
                     <div className="relative size-16 shrink-0 overflow-hidden rounded-md border border-border/60 bg-[oklch(0.14_0.01_220)]">
                       <div className="absolute inset-0 bg-gradient-to-br from-[oklch(0.25_0.05_170)] via-[oklch(0.18_0.03_200)] to-[oklch(0.11_0.004_260)]" />
-                      <div className="absolute inset-0 bg-dots opacity-40" />
                     </div>
-                    <div className="min-w-0 flex-1 font-mono text-[11.5px]">
-                      <div className="truncate text-foreground">
-                        source_frame_01.jpg
-                      </div>
-                      <div className="text-muted-foreground">
-                        1920 × 1080 · 2.3 MB · uploaded
-                      </div>
+                    <div className="min-w-0 flex-1">
+                      <input
+                        value={imageUrl}
+                        onChange={(e) => setImageUrl(e.target.value)}
+                        placeholder="https://cdn.example.com/image.jpg"
+                        className="h-8 w-full rounded-md border border-border/80 bg-background px-2 font-mono text-[12px] text-foreground focus:border-signal/50 focus:outline-none"
+                      />
                     </div>
                     <button
                       type="button"
-                      onClick={() => setHasImage(false)}
+                      onClick={() => { setHasImage(false); setImageUrl("") }}
                       className="inline-flex size-7 items-center justify-center rounded-md border border-border/80 text-muted-foreground hover:text-foreground"
                       aria-label={t.jobs.new.form.sourceImageReplace}
                     >
@@ -152,7 +270,7 @@ export default function NewJobPage() {
                     <Upload className="size-5" />
                     <span className="text-[12.5px]">{t.jobs.new.form.sourceImageDrop}</span>
                     <span className="font-mono text-[11px] text-muted-foreground">
-                      png, jpg · max 8 MB
+                      Enter image URL
                     </span>
                   </button>
                 )}
@@ -168,77 +286,41 @@ export default function NewJobPage() {
               />
             </Field>
 
-            <div className="grid grid-cols-3 gap-4">
-              <Field label={t.jobs.new.form.duration}>
-                <select
-                  value={duration}
-                  onChange={(e) => setDuration(e.target.value)}
-                  className="h-9 w-full rounded-md border border-border/80 bg-background px-3 font-mono text-[13px] text-foreground focus:border-signal/50 focus:outline-none"
-                >
-                  <option value="6">6s</option>
-                  <option value="5">5s</option>
-                  <option value="10">10s</option>
-                  <option value="30">30s</option>
-                </select>
-              </Field>
-              <Field label={t.jobs.new.form.resolution}>
-                <select
-                  value={resolution}
-                  onChange={(e) => setResolution(e.target.value)}
-                  className="h-9 w-full rounded-md border border-border/80 bg-background px-3 font-mono text-[13px] text-foreground focus:border-signal/50 focus:outline-none"
-                >
-                  <option value="720p">720p</option>
-                  <option value="1080p">1080p</option>
-                  <option value="2K">2K</option>
-                  <option value="4K">4K</option>
-                </select>
-              </Field>
-              <Field label={`${t.jobs.new.form.seed} · ${t.jobs.new.form.seedHint}`}>
-                <input
-                  value={seed}
-                  onChange={(e) => setSeed(e.target.value)}
-                  className="h-9 w-full rounded-md border border-border/80 bg-background px-3 font-mono text-[13px] text-foreground focus:border-signal/50 focus:outline-none"
-                />
-              </Field>
-            </div>
-
-            <Field label={t.jobs.new.form.webhook}>
-              <input
-                value={webhook}
-                onChange={(e) => setWebhook(e.target.value)}
+            <Field label={t.jobs.new.form.duration}>
+              <select
+                value={duration}
+                onChange={(e) => setDuration(e.target.value)}
                 className="h-9 w-full rounded-md border border-border/80 bg-background px-3 font-mono text-[13px] text-foreground focus:border-signal/50 focus:outline-none"
-              />
+              >
+                <option value="5">5s</option>
+                <option value="6">6s</option>
+                <option value="10">10s</option>
+                <option value="30">30s</option>
+              </select>
             </Field>
 
             <div className="flex items-center justify-between border-t border-border/60 pt-5">
               <div className="flex flex-col gap-0.5 font-mono text-[11.5px] text-muted-foreground">
                 <div>
                   {t.jobs.new.willReserve}{" "}
-                  <span className="text-foreground">1.00 {t.common.credits}</span>
-                </div>
-                <div>
-                  {t.jobs.new.balanceAfter}: <span className="text-foreground">141.80</span>
+                  <span className="text-foreground">
+                    {estimatedCost.toFixed(2)} {t.common.credits}
+                  </span>
                 </div>
               </div>
               <button
                 onClick={submitJob}
-                disabled={running || (mode === "image" && !hasImage)}
+                disabled={submitting || (mode === "image" && !hasImage)}
                 className={cn(
                   "inline-flex h-9 items-center gap-1.5 rounded-md bg-foreground px-4 text-[13px] font-medium text-background transition-all",
-                  (running || (mode === "image" && !hasImage)) && "opacity-60",
+                  (submitting || (mode === "image" && !hasImage)) && "opacity-60",
                 )}
               >
-                {submit === "submitting" ? (
+                {submitting ? (
                   <>
                     <span className="size-3 animate-spin rounded-full border-2 border-background border-t-transparent" />
                     {t.jobs.states.submitting}
                   </>
-                ) : submit === "queued" ? (
-                  <>{`${t.jobs.states.queued}…`}</>
-                ) : submit === "running" ? (
-                  <>{`${t.jobs.states.running}…`}</>
-                ) : submit === "succeeded" ? (
-                  <>{t.jobs.new.submitAnother}</>
                 ) : (
                   <>
                     <Play className="size-3.5" />
@@ -254,9 +336,10 @@ export default function NewJobPage() {
               {
                 label: t.jobs.new.liveCurl,
                 language: "bash",
-                code: `curl https://api.nextapi.top/v1/video/generations \\
+                code: `curl https://api.nextapi.top/v1/videos \\
   -H "Authorization: Bearer $NEXTAPI_KEY" \\
   -H "Content-Type: application/json" \\
+  -H "Idempotency-Key: $(uuidgen)" \\
   -d '${curlBody}'`,
               },
             ]}
@@ -265,71 +348,21 @@ export default function NewJobPage() {
 
         <aside className="flex flex-col gap-4">
           <div className="rounded-xl border border-border/80 bg-card/40 p-5">
-            <div className="flex items-center justify-between">
-              <h2 className="text-[13px] font-medium tracking-tight">
-                {t.jobs.new.tracker.title}
-              </h2>
-              {submit !== "idle" && <StatusPill status={submit} />}
-            </div>
-            {submit === "idle" ? (
-              <p className="mt-3 text-[12.5px] leading-relaxed text-muted-foreground">
-                {t.jobs.new.tracker.idleHint}
-              </p>
-            ) : (
-              <ol className="mt-4 flex flex-col gap-3 text-[12.5px]">
-                {[
-                  { k: "submitting" as JobStatus, l: t.jobs.new.tracker.submittingTitle },
-                  { k: "queued" as JobStatus, l: t.jobs.new.tracker.queuedTitle },
-                  { k: "running" as JobStatus, l: t.jobs.new.tracker.runningTitle },
-                  { k: "succeeded" as JobStatus, l: t.jobs.new.tracker.succeededTitle },
-                ].map((row) => {
-                  const order: JobStatus[] = ["submitting", "queued", "running", "succeeded"]
-                  const idx = order.indexOf(submit)
-                  const rowIdx = order.indexOf(row.k)
-                  const state = rowIdx < idx ? "done" : rowIdx === idx ? "active" : "todo"
-                  return (
-                    <li key={row.k} className="flex items-center gap-3">
-                      <div className="relative flex size-2 items-center justify-center">
-                        {state === "active" && (
-                          <span className="absolute inset-0 rounded-full bg-status-running op-pulse" />
-                        )}
-                        <span
-                          className={cn(
-                            "relative size-2 rounded-full",
-                            state === "done" && "bg-status-success",
-                            state === "active" && "bg-status-running",
-                            state === "todo" && "bg-border",
-                          )}
-                        />
-                      </div>
-                      <span
-                        className={cn(
-                          state === "todo" ? "text-muted-foreground" : "text-foreground",
-                        )}
-                      >
-                        {row.l}
-                      </span>
-                    </li>
-                  )
-                })}
-              </ol>
-            )}
-          </div>
-
-          <div className="rounded-xl border border-border/80 bg-card/40 p-5">
-            <h2 className="text-[13px] font-medium tracking-tight">{t.jobs.new.estimatedCost}</h2>
+            <h2 className="text-[13px] font-medium tracking-tight">
+              {t.jobs.new.estimatedCost}
+            </h2>
             <div className="mt-3 flex items-baseline gap-1.5">
-              <span className="font-mono text-[24px] text-foreground">1.00</span>
-              <span className="text-[12px] text-muted-foreground">
-                {t.common.credits} · $0.12
+              <span className="font-mono text-[24px] text-foreground">
+                {estimatedCost.toFixed(2)}
               </span>
+              <span className="text-[12px] text-muted-foreground">{t.common.credits}</span>
             </div>
             <div className="mt-3 flex flex-wrap gap-1.5 font-mono text-[10.5px]">
               <span className="rounded-sm bg-signal/10 px-1.5 py-0.5 text-signal">
                 {mode === "image" ? "image-to-video" : "text-to-video"}
               </span>
               <span className="rounded-sm bg-card px-1.5 py-0.5 text-muted-foreground">
-                {model.replace("seedance-2.0-", "")}
+                {model}
               </span>
               <span className="rounded-sm bg-card px-1.5 py-0.5 text-muted-foreground">
                 {resolution}

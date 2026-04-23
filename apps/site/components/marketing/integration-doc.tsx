@@ -55,8 +55,15 @@ export function IntegrationDoc({ name, intro, configSnippet, configLang, curlTes
       <section className="mt-12">
         <h2 className="text-xl font-semibold text-foreground">Test with cURL</h2>
         <p className="mt-2 text-[14px] text-muted-foreground">
-          Verify your setup by running this command:
+          Verify your setup by running this command with your real{" "}
+          <code className="rounded bg-muted px-1 font-mono text-[12px]">sk_live_</code> key:
         </p>
+        <div className="mt-3 flex items-center gap-2 rounded-lg border border-amber-400/50 bg-amber-400/10 px-3 py-2 text-[12px] text-amber-700 dark:border-amber-400/40 dark:text-amber-300">
+          <span>⚠</span>
+          <span>Sample command — replace <code className="font-mono">$NEXTAPI_KEY</code> with your actual key from{" "}
+            <a href="https://app.nextapi.top" className="underline underline-offset-2">app.nextapi.top</a>.
+          </span>
+        </div>
         <CodeBlock lang="bash" code={curlTest} />
       </section>
 
@@ -64,8 +71,8 @@ export function IntegrationDoc({ name, intro, configSnippet, configLang, curlTes
         <h3 className="text-[15px] font-semibold text-foreground">Need help?</h3>
         <p className="mt-2 text-[13.5px] text-muted-foreground">
           Contact our integrations team at{" "}
-          <a href="mailto:support@nextapi.dev" className="text-indigo-500 hover:underline">
-            support@nextapi.dev
+          <a href="mailto:support@nextapi.top" className="text-indigo-500 hover:underline">
+            support@nextapi.top
           </a>{" "}
           or check the{" "}
           <Link href="/docs" className="text-indigo-500 hover:underline">

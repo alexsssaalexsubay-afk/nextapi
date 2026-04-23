@@ -86,7 +86,7 @@ export function LoadingRows({ rows = 6 }: { rows?: number }) {
         </span>
         <span className="inline-flex items-center gap-2 font-mono text-[11px] text-muted-foreground">
           <span className="size-2.5 animate-spin rounded-full border border-muted-foreground border-t-transparent" />
-          api.nextapi.dev
+          api.nextapi.top
         </span>
       </div>
       <div className="divide-y divide-border/60">
@@ -149,7 +149,7 @@ export function ErrorState({
           {t.jobs.error.cta}
         </Link>
         <Link
-          href="https://status.nextapi.dev"
+          href="https://status.nextapi.top"
           className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border/80 bg-card/40 px-3 text-[12.5px] text-foreground hover:bg-card"
         >
           {t.jobs.error.status}

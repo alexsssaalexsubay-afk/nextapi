@@ -1,6 +1,11 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
 
+/* Tailwind v4: explicitly include monorepo sources so utilities used in
+   packages/ui (sr-only, dialog primitives, etc.) get emitted in apps/*. */
+@source "../../**/*.{ts,tsx}";
+@source "../../../../apps/**/*.{ts,tsx}";
+
 @custom-variant dark (&:is(.dark *));
 
 /* NextAPI — refined operator theme.

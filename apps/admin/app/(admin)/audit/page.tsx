@@ -1,146 +1,89 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { AdminShell } from "@/components/admin/admin-shell"
 import { adminFetch } from "@/lib/admin-api"
 import { cn } from "@/lib/utils"
 import { useTranslations } from "@/lib/i18n/context"
 
+type AuditRow = {
+  ID?: number
+  id?: number
+  ActorEmail?: string
+  actor_email?: string
+  ActorIP?: string
+  actor_ip?: string
+  ActorKind?: string
+  actor_kind?: string
+  Action?: string
+  action?: string
+  TargetType?: string
+  target_type?: string
+  TargetID?: string
+  target_id?: string
+  Payload?: Record<string, unknown> | string
+  payload?: Record<string, unknown> | string
+  CreatedAt?: string
+  created_at?: string
+}
+
 type Entry = {
+  id: number
   ts: string
   actor: string
   action: string
   target: string
   ip: string
   hash: string
-  tone?: "default" | "write" | "sensitive"
+  tone: "default" | "write" | "sensitive"
 }
 
-const MOCK_ENTRIES: Entry[] = [
-  {
-    ts: "2026-04-22 22:12:44.812",
-    actor: "m. winters",
-    action: "credits.adjust",
-    target: "org:linear-media · +120.00",
-    ip: "10.4.12.88",
-    hash: "f8c2…9a4b",
-    tone: "sensitive",
-  },
-  {
-    ts: "2026-04-22 22:08:19.204",
-    actor: "s. patel",
-    action: "key.rotate",
-    target: "org:acme-prod · sk_live_7Hc9…4rS",
-    ip: "10.4.12.91",
-    hash: "a031…1e77",
-    tone: "sensitive",
-  },
-  {
-    ts: "2026-04-22 22:04:02.118",
-    actor: "j. li",
-    action: "attention.resolve",
-    target: "job_3Bf0Kq9Uj2IwAa5R · refund 1.00",
-    ip: "10.4.12.62",
-    hash: "7bc1…02d4",
-    tone: "write",
-  },
-  {
-    ts: "2026-04-22 21:51:30.944",
-    actor: "m. winters",
-    action: "flag.toggle",
-    target: "seedance.pool_b_shift · on",
-    ip: "10.4.12.88",
-    hash: "ee19…3f2c",
-    tone: "write",
-  },
-  {
-    ts: "2026-04-22 21:34:11.701",
-    actor: "billing-bot",
-    action: "invoice.finalize",
-    target: "org:parallax-studio · inv_2026_0412",
-    ip: "internal",
-    hash: "3412…a8b0",
-    tone: "write",
-  },
-  {
-    ts: "2026-04-22 20:18:04.412",
-    actor: "m. winters",
-    action: "session.open",
-    target: "admin.ops.nextapi.dev · webauthn",
-    ip: "10.4.12.88",
-    hash: "b8e2…7c10",
-  },
-  {
-    ts: "2026-04-22 19:58:41.022",
-    actor: "j. li",
-    action: "org.view",
-    target: "org:stellar-post · masked_pii=true",
-    ip: "10.4.12.62",
-    hash: "d401…9f88",
-  },
-  {
-    ts: "2026-04-22 19:12:03.201",
-    actor: "s. patel",
-    action: "credits.adjust",
-    target: "org:acme-prod · −8.42",
-    ip: "10.4.12.91",
-    hash: "c702…bb10",
-    tone: "sensitive",
-  },
-]
+const SENSITIVE = new Set([
+  "credits.adjust",
+  "org.pause",
+  "key.rotate",
+  "key.revoke",
+])
+const WRITE = new Set([
+  "job.cancel",
+  "moderation.update",
+  "throughput.update",
+  "webhook.replay",
+  "attention.resolve",
+  "flag.toggle",
+])
 
-type ApiModerationEvent = {
-  ID?: number
-  id?: number
-  OrgID?: string
-  org_id?: string
-  VideoID?: string | null
-  video_id?: string | null
-  Verdict?: string
-  verdict?: string
-  Reason?: string | null
-  reason?: string | null
-  InternalNote?: string | null
-  internal_note?: string | null
-  Reviewer?: string | null
-  reviewer?: string | null
-  ProfileUsed?: string
-  profile_used?: string
-  CreatedAt?: string
-  created_at?: string
+function pad(n: number) {
+  return String(n).padStart(2, "0")
 }
-
-// TODO: align with backend response — dedicated audit chain vs moderation events.
-function formatAuditTs(iso: string): string {
+function formatTs(iso: string): string {
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return iso
-  const pad = (n: number) => String(n).padStart(2, "0")
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}.${String(d.getMilliseconds()).padStart(3, "0")}`
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
 }
 
-function moderationEventToAuditEntry(e: ApiModerationEvent): Entry {
-  const id = e.ID ?? e.id ?? 0
-  const orgId = e.OrgID ?? e.org_id ?? ""
-  const verdict = e.Verdict ?? e.verdict ?? ""
-  const reason = e.Reason ?? e.reason ?? ""
-  const note = e.InternalNote ?? e.internal_note ?? ""
-  const reviewer = e.Reviewer ?? e.reviewer ?? "—"
-  const profile = e.ProfileUsed ?? e.profile_used ?? ""
-  const vid = e.VideoID ?? e.video_id ?? ""
-  const created = e.CreatedAt ?? e.created_at ?? ""
-  const targetParts = [`org:${orgId.slice(0, 8)}`]
-  if (vid) targetParts.push(`video:${String(vid).slice(0, 8)}`)
-  if (reason) targetParts.push(reason)
-  else if (note) targetParts.push(note)
-  const tone: Entry["tone"] =
-    verdict === "block" ? "sensitive" : verdict === "review" ? "write" : "default"
+function rowToEntry(row: AuditRow): Entry {
+  const id = row.ID ?? row.id ?? 0
+  const action = row.Action ?? row.action ?? ""
+  const targetType = row.TargetType ?? row.target_type ?? ""
+  const targetID = row.TargetID ?? row.target_id ?? ""
+  const target =
+    targetType && targetID
+      ? `${targetType}:${targetID}`
+      : targetType || targetID || "—"
+  const tone: Entry["tone"] = SENSITIVE.has(action)
+    ? "sensitive"
+    : WRITE.has(action)
+      ? "write"
+      : "default"
   return {
-    ts: formatAuditTs(created),
-    actor: reviewer,
-    action: `moderation.${verdict || "event"}`,
-    target: targetParts.join(" · "),
-    ip: profile || "—",
-    hash: `me_${id}`,
+    id,
+    ts: formatTs(row.CreatedAt ?? row.created_at ?? ""),
+    actor: row.ActorEmail ?? row.actor_email ?? "—",
+    action,
+    target,
+    ip: row.ActorIP ?? row.actor_ip ?? "—",
+    hash: `#${id}`,
     tone,
   }
 }
@@ -148,10 +91,10 @@ function moderationEventToAuditEntry(e: ApiModerationEvent): Entry {
 export default function AuditLogPage() {
   const t = useTranslations()
   const p = t.admin.auditPage
-  const [entries, setEntries] = useState<Entry[]>(MOCK_ENTRIES)
+  const [entries, setEntries] = useState<Entry[]>([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
-  const [fromApi, setFromApi] = useState(false)
+  const [actionFilter, setActionFilter] = useState("")
 
   useEffect(() => {
     let cancelled = false
@@ -159,19 +102,18 @@ export default function AuditLogPage() {
       setLoading(true)
       setLoadError(null)
       try {
-        const res = (await adminFetch("/moderation/events")) as { data?: ApiModerationEvent[] }
-        const rows = (res.data ?? []).map(moderationEventToAuditEntry)
-        if (!cancelled) {
-          setEntries(rows.length > 0 ? rows : MOCK_ENTRIES)
-          setFromApi(rows.length > 0)
+        const params = new URLSearchParams()
+        params.set("limit", "200")
+        if (actionFilter) params.set("action", actionFilter)
+        const res = (await adminFetch(`/audit?${params.toString()}`)) as {
+          data?: AuditRow[]
         }
+        if (cancelled) return
+        setEntries((res.data ?? []).map(rowToEntry))
       } catch (e) {
-        console.error(e)
-        if (!cancelled) {
-          setLoadError(e instanceof Error ? e.message : "Failed to load audit data")
-          setEntries(MOCK_ENTRIES)
-          setFromApi(false)
-        }
+        if (cancelled) return
+        setLoadError(e instanceof Error ? e.message : "Failed to load audit log")
+        setEntries([])
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -179,7 +121,16 @@ export default function AuditLogPage() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [actionFilter])
+
+  const counts = useMemo(() => {
+    const c = { sensitive: 0, write: 0, total: entries.length }
+    for (const e of entries) {
+      if (e.tone === "sensitive") c.sensitive++
+      else if (e.tone === "write") c.write++
+    }
+    return c
+  }, [entries])
 
   return (
     <AdminShell
@@ -188,11 +139,9 @@ export default function AuditLogPage() {
       description={p.description}
       meta={
         <>
-          <span>{p.meta.chainHeight}</span>
-          <span className="text-muted-foreground/50">·</span>
-          <span>{p.meta.tailHash}</span>
-          <span className="text-muted-foreground/50">·</span>
-          <span>{p.meta.verified}</span>
+          <span>
+            {counts.total} entries · {counts.sensitive} sensitive · {counts.write} write
+          </span>
           {loading && (
             <>
               <span className="text-muted-foreground/50">·</span>
@@ -202,14 +151,12 @@ export default function AuditLogPage() {
         </>
       }
       actions={
-        <>
-          <button className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border/80 bg-card/40 px-3 text-[12px] text-foreground hover:bg-card">
-            {p.verifyChain}
-          </button>
-          <button className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border/80 bg-card/40 px-3 text-[12px] text-foreground hover:bg-card">
-            {p.export}
-          </button>
-        </>
+        <button
+          onClick={() => setActionFilter("")}
+          className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border/80 bg-card/40 px-3 text-[12px] text-foreground hover:bg-card"
+        >
+          {p.filters.anyValue}
+        </button>
       }
     >
       <div className="space-y-6 p-6">
@@ -218,19 +165,35 @@ export default function AuditLogPage() {
             {loadError}
           </div>
         )}
-        {/* Filter bar */}
+
         <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border/80 bg-card/40 p-3 font-mono text-[11.5px]">
-          <FilterChip label={p.filters.actor} value={p.filters.anyValue} />
-          <FilterChip label={p.filters.action} value={p.filters.actionValue} active />
-          <FilterChip label={p.filters.target} value={p.filters.anyValue} />
-          <FilterChip label={p.filters.since} value={p.filters.sinceValue} />
+          <FilterChip
+            label={p.filters.action}
+            value={actionFilter || p.filters.anyValue}
+            active={!!actionFilter}
+            onClick={() => setActionFilter("")}
+          />
+          {[
+            "credits.adjust",
+            "org.pause",
+            "job.cancel",
+            "webhook.replay",
+          ].map((a) => (
+            <FilterChip
+              key={a}
+              label="quick"
+              value={a}
+              active={actionFilter === a}
+              onClick={() => setActionFilter(a)}
+            />
+          ))}
           <div className="ml-auto text-muted-foreground">
-            {fromApi ? `${entries.length} moderation events` : p.filters.matches}
+            {entries.length} {entries.length === 1 ? "entry" : "entries"}
           </div>
         </div>
 
         <section className="overflow-hidden rounded-xl border border-border/80 bg-card/40">
-          <div className="grid grid-cols-[210px_140px_180px_1fr_120px_110px] items-center gap-4 border-b border-border/60 bg-background/40 px-5 py-2 font-mono text-[10.5px] uppercase tracking-[0.14em] text-muted-foreground">
+          <div className="grid grid-cols-[180px_220px_180px_1fr_140px_80px] items-center gap-4 border-b border-border/60 bg-background/40 px-5 py-2 font-mono text-[10.5px] uppercase tracking-[0.14em] text-muted-foreground">
             <span>{p.columns.timestamp}</span>
             <span>{p.columns.actor}</span>
             <span>{p.columns.action}</span>
@@ -238,42 +201,37 @@ export default function AuditLogPage() {
             <span>{p.columns.ip}</span>
             <span>{p.columns.hash}</span>
           </div>
-          <ul className="divide-y divide-border/60 font-mono text-[11.5px]">
-            {entries.map((e) => (
-              <li
-                key={e.hash}
-                className="grid grid-cols-[210px_140px_180px_1fr_120px_110px] items-center gap-4 px-5 py-2.5 transition-colors hover:bg-card/60"
-              >
-                <span className="text-muted-foreground">{e.ts}</span>
-                <span className="text-foreground/90">{e.actor}</span>
-                <span
-                  className={cn(
-                    e.tone === "sensitive" && "text-status-failed",
-                    e.tone === "write" && "text-status-running",
-                    (!e.tone || e.tone === "default") && "text-foreground/90",
-                  )}
-                >
-                  {e.action}
-                </span>
-                <span className="truncate text-foreground">{e.target}</span>
-                <span className="text-muted-foreground">{e.ip}</span>
-                <span className="text-signal">{e.hash}</span>
-              </li>
-            ))}
-          </ul>
-          <div className="flex items-center justify-between border-t border-border/60 bg-background/30 px-5 py-2.5 font-mono text-[10.5px] text-muted-foreground">
-            <span>
-              {fromApi ? `Showing ${entries.length} moderation events` : p.footer.note}
-            </span>
-            <div className="flex items-center gap-2">
-              <button className="rounded-md border border-border/80 bg-card/40 px-2 py-0.5 text-foreground hover:bg-card">
-                {p.footer.prev}
-              </button>
-              <button className="rounded-md border border-border/80 bg-card/40 px-2 py-0.5 text-foreground hover:bg-card">
-                {p.footer.next}
-              </button>
+          {entries.length === 0 && !loading ? (
+            <div className="px-5 py-12 text-center font-mono text-[11.5px] text-muted-foreground">
+              {actionFilter
+                ? `No audit entries match action "${actionFilter}".`
+                : "No admin actions recorded yet. State-changing operations (pause / adjust / cancel) will appear here."}
             </div>
-          </div>
+          ) : (
+            <ul className="divide-y divide-border/60 font-mono text-[11.5px]">
+              {entries.map((e) => (
+                <li
+                  key={e.id}
+                  className="grid grid-cols-[180px_220px_180px_1fr_140px_80px] items-center gap-4 px-5 py-2.5 transition-colors hover:bg-card/60"
+                >
+                  <span className="text-muted-foreground">{e.ts}</span>
+                  <span className="truncate text-foreground/90">{e.actor}</span>
+                  <span
+                    className={cn(
+                      e.tone === "sensitive" && "text-status-failed",
+                      e.tone === "write" && "text-status-running",
+                      e.tone === "default" && "text-foreground/90",
+                    )}
+                  >
+                    {e.action}
+                  </span>
+                  <span className="truncate text-foreground">{e.target}</span>
+                  <span className="text-muted-foreground">{e.ip}</span>
+                  <span className="text-signal">{e.hash}</span>
+                </li>
+              ))}
+            </ul>
+          )}
         </section>
       </div>
     </AdminShell>
@@ -284,13 +242,16 @@ function FilterChip({
   label,
   value,
   active,
+  onClick,
 }: {
   label: string
   value: string
   active?: boolean
+  onClick?: () => void
 }) {
   return (
     <button
+      onClick={onClick}
       className={cn(
         "inline-flex h-7 items-center gap-1.5 rounded-md border px-2 text-[11px]",
         active

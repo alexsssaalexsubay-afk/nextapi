@@ -320,7 +320,7 @@ export default function AttentionQueuePage() {
                   {r.severity}
                 </span>
                 <Link
-                  href={r.id.startsWith("mod_") ? "/audit" : `https://dash.nextapi.top/jobs/${r.id}`}
+                  href={r.id.startsWith("mod_") ? "/audit" : `https://app.nextapi.top/jobs/${r.id}`}
                   className="truncate text-foreground hover:text-signal"
                 >
                   {r.id}

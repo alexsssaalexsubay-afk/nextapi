@@ -1,6 +1,15 @@
 package provider
 
-import "context"
+import (
+	"context"
+	"errors"
+)
+
+// ErrUpstreamUnavailable is returned by providers when they are
+// circuit-broken or otherwise refuse a call without trying the network
+// (used to surface a meaningful 503 to the caller instead of a generic
+// "internal error" or burning a job retry).
+var ErrUpstreamUnavailable = errors.New("provider upstream unavailable")
 
 type GenerationRequest struct {
 	Prompt          string

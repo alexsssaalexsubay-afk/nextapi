@@ -109,7 +109,7 @@ export default function DocsPage() {
           <p className="mt-4 max-w-[680px] text-pretty text-[15px] leading-relaxed text-muted-foreground">
             {d.quickstart.leadPrefix}{" "}
             <Link
-              href="https://dash.nextapi.top"
+              href="https://app.nextapi.top"
               className="text-indigo-500 underline decoration-indigo-500/40 underline-offset-4 hover:text-indigo-600 dark:text-indigo-400 dark:hover:text-indigo-300"
             >
               {d.quickstart.leadLink}
@@ -147,8 +147,7 @@ export default function DocsPage() {
                   {
                     label: d.auth.tabLabel,
                     language: "bash",
-                    code: `Authorization: Bearer nxa_live_sk_9fa0b1c8...4e2a
-X-NextAPI-Environment: live`,
+                    code: `Authorization: Bearer sk_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxx`,
                   },
                 ]}
                 showLineNumbers={false}
@@ -347,9 +346,13 @@ def verify(raw_body: bytes, header: str, secret: str) -> bool:
               Webhook Retries
             </h2>
             <p className="mt-2 text-[14px] leading-relaxed text-muted-foreground">
-              Webhooks are retried with exponential backoff up to 5 times. If your endpoint returns
-              a non-2xx status, we retry at 1m, 5m, 30m, 2h, and 12h intervals. Each delivery
-              includes the same <span className="font-mono text-foreground/90">X-Webhook-Signature</span> header.
+              Webhooks are retried with exponential backoff up to 6 times. If your endpoint returns
+              a non-2xx status or times out, we retry at{" "}
+              <span className="font-mono text-foreground/90">30s, 2m, 10m, 1h, 6h, 24h</span>{" "}
+              intervals. Each delivery includes the same{" "}
+              <span className="font-mono text-foreground/90">X-NextAPI-Signature</span>,{" "}
+              <span className="font-mono text-foreground/90">X-NextAPI-Timestamp</span>, and{" "}
+              <span className="font-mono text-foreground/90">X-NextAPI-Event</span> headers.
             </p>
           </section>
 

@@ -64,7 +64,7 @@ export default function PrivacyPage() {
         <li>Export your data in a portable format</li>
         <li>Object to processing</li>
       </ul>
-      <p>To exercise these rights, contact <a href="mailto:privacy@nextapi.dev">privacy@nextapi.dev</a>.</p>
+      <p>To exercise these rights, contact <a href="mailto:privacy@nextapi.top">privacy@nextapi.top</a>.</p>
 
       <h2>7. Cookies</h2>
       <p>
@@ -76,7 +76,7 @@ export default function PrivacyPage() {
       <h2>8. Contact</h2>
       <p>
         For privacy-related questions, contact us at{" "}
-        <a href="mailto:privacy@nextapi.dev">privacy@nextapi.dev</a>.
+        <a href="mailto:privacy@nextapi.top">privacy@nextapi.top</a>.
       </p>
     </article>
   )

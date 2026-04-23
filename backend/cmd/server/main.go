@@ -8,6 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/hibiken/asynq"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/sanidg/nextapi/backend/internal/abuse"
 	"github.com/sanidg/nextapi/backend/internal/auth"
 	"github.com/sanidg/nextapi/backend/internal/billing"
 	"github.com/sanidg/nextapi/backend/internal/gateway"
@@ -75,7 +76,6 @@ func main() {
 	r.Use(httpx.CORS([]string{
 		"https://nextapi.top",
 		"https://app.nextapi.top",
-		"https://dash.nextapi.top",
 		"https://admin.nextapi.top",
 		"http://localhost:3000",
 		"http://localhost:3001",
@@ -83,7 +83,10 @@ func main() {
 	}))
 
 	r.GET("/health", okJSON)
-	r.GET("/metrics", gateway.AdminMiddleware(), gin.WrapH(promhttp.Handler()))
+	// /metrics is auth'd via dedicated middleware (Basic auth or IP
+	// allowlist) so Prometheus scrapers don't need the human ADMIN_TOKEN
+	// — that token is way too dangerous to hand to a scrape job.
+	r.GET("/metrics", metrics.Auth(), gin.WrapH(promhttp.Handler()))
 
 	sales := &gateway.SalesHandlers{}
 
@@ -91,12 +94,37 @@ func main() {
 	v1.GET("/health", okJSON)
 	v1.POST("/webhooks/clerk", hook.Handle)
 	v1.POST("/webhooks/payments/:provider", ph.Webhook)
-	v1.POST("/sales/inquiry", ratelimit.Middleware(rl, 10, time.Hour), sales.Inquiry)
+	// Sales inquiry — public, costs us a notification round-trip per call,
+	// so layer Turnstile + a tight rate limit. Turnstile is no-op when
+	// TURNSTILE_SECRET_KEY is unset, which keeps local dev frictionless.
+	v1.POST("/sales/inquiry",
+		abuse.Turnstile(),
+		ratelimit.Middleware(rl, 10, time.Hour),
+		sales.Inquiry)
+
+	// Clerk-session → API-key bridge (Group A fix). The dashboard / admin SPAs
+	// hit these on first load with a Clerk JWT and exchange it for the
+	// appropriate credential. Heavily rate-limited because key minting is
+	// state-changing.
+	clerkVerifier := auth.NewClerkVerifier()
+	bh := &gateway.BootstrapHandlers{DB: gormDB, Auth: authSvc, Billing: billSvc, Clerk: clerkVerifier}
+	v1.POST("/me/bootstrap",
+		abuse.Turnstile(),
+		ratelimit.Middleware(rl, 30, time.Minute),
+		bh.MeBootstrap)
+	v1.POST("/me/admin-bootstrap",
+		abuse.Turnstile(),
+		ratelimit.Middleware(rl, 10, time.Minute),
+		bh.AdminBootstrap)
 
 	// Business surface (sk_* keys).
 	api := v1.Group("")
 	api.Use(auth.Business(authSvc))
 	api.Use(ratelimit.Middleware(rl, 600, time.Minute))
+	// Per-key RPM cap (the rate_limit_rpm column on the API key). No-op
+	// when unset on the key, so this is safe to layer over the route
+	// default and any later per-org caps.
+	api.Use(ratelimit.PerKey(rl))
 	api.GET("/auth/me", h.AuthMe)
 	api.GET("/models", models.List)
 	api.GET("/models/:model_id", models.Get)
@@ -173,6 +201,7 @@ func main() {
 	internal.PATCH("/moderation/events/:id", mh.AdminAddNote)
 	internal.PATCH("/orgs/:id", ob.AdminUpdateOrg)
 	internal.POST("/webhooks/deliveries/:id/replay", wdh.AdminReplay)
+	internal.GET("/audit", ah.Audit)
 
 	log.Printf("nextapi server listening on %s (provider=%s)", cfg.ServerAddr, prov.Name())
 	if err := r.Run(cfg.ServerAddr); err != nil {

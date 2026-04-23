@@ -53,6 +53,20 @@ func (w *ClerkWebhook) Handle(c *gin.Context) {
 		return
 	}
 	ctx := c.Request.Context()
+
+	// Svix-id dedup. Clerk retries failed deliveries; without this we
+	// would re-provision the user on every retry, blowing up on the
+	// users.id PK clash and double-granting the signup bonus.
+	if svixID := c.GetHeader("svix-id"); svixID != "" {
+		res := w.DB.WithContext(ctx).Exec(
+			`INSERT INTO clerk_webhook_seen (svix_id, processed_at) VALUES (?, now()) ON CONFLICT (svix_id) DO NOTHING`,
+			svixID)
+		if res.Error == nil && res.RowsAffected == 0 {
+			// Duplicate delivery — return 200 so Svix stops retrying.
+			c.JSON(http.StatusOK, gin.H{"ok": true, "duplicate": true})
+			return
+		}
+	}
 	switch ev.Type {
 	case "user.created":
 		var u clerkUserData

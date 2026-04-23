@@ -5,7 +5,10 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"sync"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/sanidg/nextapi/backend/internal/auth"
@@ -73,7 +76,6 @@ func TestSameKeyAndBody_ReplayCachedResponse(t *testing.T) {
 
 	body := []byte(`{"prompt":"hello"}`)
 
-	// First request — should succeed and cache.
 	w1 := httptest.NewRecorder()
 	req1 := httptest.NewRequest("POST", "/test", bytes.NewReader(body))
 	req1.Header.Set("Content-Type", "application/json")
@@ -83,7 +85,6 @@ func TestSameKeyAndBody_ReplayCachedResponse(t *testing.T) {
 		t.Fatalf("first: want 202, got %d", w1.Code)
 	}
 
-	// Second request — same key, same body — should replay.
 	w2 := httptest.NewRecorder()
 	req2 := httptest.NewRequest("POST", "/test", bytes.NewReader(body))
 	req2.Header.Set("Content-Type", "application/json")
@@ -91,6 +92,9 @@ func TestSameKeyAndBody_ReplayCachedResponse(t *testing.T) {
 	r.ServeHTTP(w2, req2)
 	if w2.Code != http.StatusAccepted {
 		t.Fatalf("replay: want 202, got %d", w2.Code)
+	}
+	if got := w2.Header().Get("X-Idempotent-Replay"); got != "true" {
+		t.Fatalf("expected X-Idempotent-Replay=true on replay, got %q", got)
 	}
 
 	var resp1, resp2 map[string]any
@@ -131,5 +135,69 @@ func TestSameKeyDifferentBody_Conflict(t *testing.T) {
 	errObj, _ := errResp["error"].(map[string]any)
 	if errObj["code"] != "idempotency_conflict" {
 		t.Fatalf("want idempotency_conflict, got %v", errObj["code"])
+	}
+}
+
+// TestConcurrentSameKey_OnlyOneRunsHandler is the regression test for
+// the TOCTOU bug. Two simultaneous identical requests must result in
+// exactly one provider call (handler invocation), with the loser getting
+// either a replayed response OR an in-progress 409.
+func TestConcurrentSameKey_OnlyOneRunsHandler(t *testing.T) {
+	db := setupDB(t)
+
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	m := &Middleware{DB: db}
+
+	var handlerCalls int32
+	r.POST("/test", func(c *gin.Context) {
+		auth.SetOrg(c, &domain.Org{ID: "org1", Name: "test"})
+		c.Next()
+	}, m.Handle(), func(c *gin.Context) {
+		atomic.AddInt32(&handlerCalls, 1)
+		// Simulate a slow upstream: hold the placeholder long enough
+		// that the second request definitely arrives mid-flight.
+		time.Sleep(100 * time.Millisecond)
+		body := gin.H{"id": "job_unique", "status": "queued"}
+		Commit(c.Request.Context(), db, "org1", c, http.StatusAccepted, body)
+		c.JSON(http.StatusAccepted, body)
+	})
+
+	body := []byte(`{"prompt":"race"}`)
+	var wg sync.WaitGroup
+	codes := make([]int, 2)
+	for i := 0; i < 2; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			w := httptest.NewRecorder()
+			req := httptest.NewRequest("POST", "/test", bytes.NewReader(body))
+			req.Header.Set("Content-Type", "application/json")
+			req.Header.Set("Idempotency-Key", "race-key")
+			r.ServeHTTP(w, req)
+			codes[i] = w.Code
+		}(i)
+		// Tiny stagger to make the race deterministic on most platforms.
+		time.Sleep(5 * time.Millisecond)
+	}
+	wg.Wait()
+
+	if got := atomic.LoadInt32(&handlerCalls); got != 1 {
+		t.Fatalf("handler must run exactly once under concurrent same-key; ran %d times", got)
+	}
+	// Exactly one 202 and one 409 (in-progress). After the leader Commits,
+	// a third request would replay; but here both fire roughly together so
+	// the second sees the placeholder.
+	got202, got409 := 0, 0
+	for _, c := range codes {
+		switch c {
+		case http.StatusAccepted:
+			got202++
+		case http.StatusConflict:
+			got409++
+		}
+	}
+	if got202 != 1 || got409 != 1 {
+		t.Fatalf("expected 1×202 + 1×409, got codes=%v", codes)
 	}
 }

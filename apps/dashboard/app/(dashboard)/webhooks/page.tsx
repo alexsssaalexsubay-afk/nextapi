@@ -45,6 +45,14 @@ export default function WebhooksPage() {
       }
     >
       <div className="flex flex-col gap-6 p-6">
+        {/* Preview banner — backend wiring lands in the next release. */}
+        <div className="flex items-center justify-between rounded-md border border-dashed border-border/80 bg-card/30 px-3 py-2 text-[12px] text-muted-foreground">
+          <span>
+            <span className="font-mono uppercase tracking-[0.14em]">{t.common.preview ?? "PREVIEW"}</span>
+            <span className="ml-2">{t.webhooks.previewNote ?? "Sample data — endpoint create + delivery log API ships in the next release."}</span>
+          </span>
+        </div>
+
         {/* Endpoint */}
         <section className="rounded-xl border border-border/80 bg-card/40">
           <div className="flex items-start justify-between border-b border-border/60 px-5 py-4">

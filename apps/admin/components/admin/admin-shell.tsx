@@ -85,7 +85,7 @@ export function AdminShell({
           <div className="flex items-center justify-between rounded-md border border-sidebar-border bg-background/60 px-2 py-1.5">
             <div className="flex items-center gap-2">
               <Terminal className="size-3.5 text-signal" />
-              <span className="font-mono text-[11.5px] text-foreground">ops.nextapi.dev</span>
+              <span className="font-mono text-[11.5px] text-foreground">ops.nextapi.top</span>
             </div>
             <span className="font-mono text-[9.5px] uppercase tracking-[0.16em] text-muted-foreground">
               {t.admin.shell.prodBadge.toLowerCase()}
@@ -142,7 +142,7 @@ export function AdminShell({
 
         <div className="border-t border-sidebar-border p-3">
           <a
-            href="https://runbooks.nextapi.dev"
+            href="https://runbooks.nextapi.top"
             target="_blank"
             rel="noreferrer"
             className="mb-2 flex items-center gap-2.5 rounded-md px-2 py-1.5 text-[12.5px] text-muted-foreground transition-colors hover:text-foreground"

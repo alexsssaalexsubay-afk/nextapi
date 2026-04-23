@@ -8,7 +8,7 @@ import { useTranslations } from "@/lib/i18n/context"
 type TierKey = "builder" | "growth" | "enterprise"
 
 const tierMeta: Record<TierKey, { href: string; featured: boolean }> = {
-  builder: { href: "https://dash.nextapi.top", featured: false },
+  builder: { href: "https://app.nextapi.top", featured: false },
   growth: { href: "/pricing", featured: true },
   enterprise: { href: "/pricing#contact", featured: false },
 }

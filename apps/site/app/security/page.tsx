@@ -57,7 +57,7 @@ const MEASURES = [
     icon: Users,
     title: "Responsible Disclosure",
     items: [
-      "Security vulnerabilities: security@nextapi.dev",
+      "Security vulnerabilities: security@nextapi.top",
       "Bug bounty program (coming Q3 2026)",
       "72-hour acknowledgment for all reports",
       "Public post-mortem for significant incidents",

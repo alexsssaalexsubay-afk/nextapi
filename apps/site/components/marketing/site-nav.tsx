@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import Image from "next/image"
 import Link from "next/link"
 import { ArrowRight, Menu, X } from "lucide-react"
 import { ThemeToggle } from "@/components/nextapi/theme-toggle"
@@ -16,15 +17,35 @@ const NAV_LINKS = [
 ] as const
 
 /**
- * Wordmark: bold, modern. Renders "next" in foreground and "API" with the
- * indigo→purple gradient. No icon — keeps the chrome clean.
+ * Brand mark: real logo (auto switches between light/dark variants) + wordmark.
+ * Logo files live in /apps/site/public/logo-{light,dark}.png (transparent bg).
  */
-function Wordmark() {
+function BrandMark() {
   return (
-    <span className="select-none font-sans text-[17px] font-semibold tracking-[-0.02em] text-foreground">
-      next
-      <span className="bg-gradient-to-r from-indigo-500 to-purple-500 bg-clip-text text-transparent">
-        API
+    <span className="flex items-center gap-2 select-none">
+      <Image
+        src="/logo-dark.png"
+        alt=""
+        aria-hidden
+        width={28}
+        height={28}
+        priority
+        className="hidden h-7 w-7 object-contain dark:block"
+      />
+      <Image
+        src="/logo-light.png"
+        alt=""
+        aria-hidden
+        width={28}
+        height={28}
+        priority
+        className="block h-7 w-7 object-contain dark:hidden"
+      />
+      <span className="font-sans text-[17px] font-semibold tracking-[-0.02em] text-foreground">
+        next
+        <span className="bg-gradient-to-r from-indigo-500 to-purple-500 bg-clip-text text-transparent">
+          API
+        </span>
       </span>
     </span>
   )
@@ -58,7 +79,7 @@ export function SiteNav() {
             aria-label="NextAPI home"
             className="flex items-center"
           >
-            <Wordmark />
+            <BrandMark />
           </Link>
           <nav className="hidden items-center gap-7 md:flex">
             {NAV_LINKS.map((l) => (
@@ -80,14 +101,14 @@ export function SiteNav() {
             <ThemeToggle />
           </div>
           <a
-            href={process.env.NEXT_PUBLIC_DASHBOARD_URL ?? "https://dash.nextapi.top"}
+            href={process.env.NEXT_PUBLIC_DASHBOARD_URL ?? "https://app.nextapi.top"}
             onClick={() => track("nav_login_clicked")}
             className="hidden text-[13.5px] font-medium text-muted-foreground transition-colors hover:text-foreground md:block"
           >
             Log in
           </a>
           <a
-            href={process.env.NEXT_PUBLIC_DASHBOARD_URL ?? "https://dash.nextapi.top"}
+            href={process.env.NEXT_PUBLIC_DASHBOARD_URL ?? "https://app.nextapi.top"}
             onClick={() => track("cta_get_started_clicked")}
             className="group relative hidden items-center gap-1.5 overflow-hidden rounded-full bg-gradient-to-r from-indigo-500 to-purple-600 px-4 py-2 text-[13px] font-medium text-white shadow-[0_0_20px_-5px] shadow-indigo-500/40 transition-all hover:shadow-indigo-500/60 hover:brightness-110 md:inline-flex"
           >
@@ -127,7 +148,7 @@ export function SiteNav() {
                 <ThemeToggle />
               </div>
               <a
-                href={process.env.NEXT_PUBLIC_DASHBOARD_URL ?? "https://dash.nextapi.top"}
+                href={process.env.NEXT_PUBLIC_DASHBOARD_URL ?? "https://app.nextapi.top"}
                 className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-indigo-500 to-purple-600 px-4 py-2 text-[13px] font-medium text-white"
               >
                 Get Started

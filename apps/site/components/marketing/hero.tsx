@@ -78,7 +78,7 @@ export function Hero() {
                 className="h-10 gap-1.5 bg-signal px-4 text-[13.5px] font-medium text-signal-foreground hover:bg-signal/90"
                 style={{ color: "var(--background)" }}
               >
-                <Link href="https://dash.nextapi.top">
+                <Link href="https://app.nextapi.top">
                   {t.hero.cta}
                   <ArrowRight className="size-4" />
                 </Link>

@@ -218,6 +218,9 @@ export function DevexSection() {
               </div>
               <span className="font-mono text-[11px] text-zinc-500">generate.ts</span>
               <div className="flex items-center gap-2">
+                <span className="rounded-md border border-amber-400/40 bg-amber-400/10 px-2 py-0.5 text-[10px] font-medium text-amber-400">
+                  sample response
+                </span>
                 <button
                   type="button"
                   onClick={onRunDemo}
@@ -225,7 +228,7 @@ export function DevexSection() {
                   className="inline-flex items-center gap-1 rounded-md bg-indigo-500/20 px-2.5 py-1 text-[11px] font-medium text-indigo-300 transition-colors hover:bg-indigo-500/30 disabled:opacity-50"
                 >
                   {running ? <Loader2 className="size-3 animate-spin" /> : <Play className="size-3" />}
-                  {running ? "Running..." : "Run Demo"}
+                  {running ? "Running..." : "Show sample"}
                 </button>
                 <button
                   type="button"

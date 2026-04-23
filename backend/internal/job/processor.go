@@ -155,11 +155,17 @@ func (p *Processor) succeed(ctx context.Context, j *domain.Job, st *provider.Job
 		p.Spend.DecrInflight(ctx, j.OrgID, j.ReservedCredits)
 	}
 	if err == nil && p.Webhooks != nil {
+		// Carry both job_id (legacy SDK contract) and video_id (current /v1/videos
+		// surface) so customers on either generation of the SDK can pick up the
+		// event without code change.
 		_ = p.Webhooks.Enqueue(ctx, j.OrgID, "job.succeeded", map[string]any{
 			"id":           j.ID,
+			"job_id":       j.ID,
+			"video_id":     j.ID,
 			"status":       "succeeded",
 			"video_url":    st.VideoURL,
 			"cost_credits": actualCredits,
+			"created_at":   now.UTC().Format(time.RFC3339),
 		})
 	}
 	return err
@@ -206,9 +212,12 @@ func (p *Processor) fail(ctx context.Context, j *domain.Job, code, msg string) e
 	if err == nil && p.Webhooks != nil {
 		_ = p.Webhooks.Enqueue(ctx, j.OrgID, "job.failed", map[string]any{
 			"id":            j.ID,
+			"job_id":        j.ID,
+			"video_id":      j.ID,
 			"status":        "failed",
 			"error_code":    code,
 			"error_message": msg,
+			"created_at":    now.UTC().Format(time.RFC3339),
 		})
 	}
 	return err

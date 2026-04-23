@@ -288,6 +288,11 @@ export const en = {
     },
     hint: "Sign up to run with your own prompts and region pool.",
     resultCaption: "Cached sample · replace with your own prompt above",
+    marketing: {
+      previewBanner: "Demo preview · Sample response. Sign up for a free key to run real generations.",
+      showSample: "Show sample response",
+      sampleLabel: "(sample)",
+    },
   },
 
   faq: {
@@ -544,25 +549,26 @@ export const en = {
       subtitle: "Four steps separate you from your first webhook.",
       progress: "complete",
       remaining: "remaining",
+      dismiss: "Dismiss",
       step1: {
-        title: "Create an API key",
-        description: "Scoped to live or test. Copy once, rotate any time.",
-        action: "Create key",
+        title: "Account created",
+        description: "Your NextAPI account is active and ready.",
+        action: "View account",
       },
       step2: {
-        title: "Copy the cURL example",
-        description: "Runnable against your key. No SDK required.",
-        action: "Copy cURL",
+        title: "First API key minted",
+        description: "Create a live key to start making API calls.",
+        action: "Create key",
       },
       step3: {
-        title: "Run your first request",
+        title: "First successful generation",
         description: "Submit a Seedance job and watch it reach succeeded.",
-        action: "Open live tester",
+        action: "New job",
       },
       step4: {
-        title: "Configure a webhook",
+        title: "Webhook configured",
         description: "Receive signed payloads on status change. Replay any delivery.",
-        action: "Send test event",
+        action: "Configure",
       },
     },
     stats: {
@@ -589,6 +595,15 @@ export const en = {
     subtitle: "Every generation submitted by your organization, with full async state visibility.",
     newJob: "New job",
     runFirst: "Run your first request",
+    errors: {
+      spend_cap_exceeded: "Spend cap exceeded. Adjust your budget in Billing settings.",
+      moderation_blocked: "Prompt blocked by content moderation policy.",
+      insufficient_credits: "Insufficient credits. Please top up your balance.",
+      rate_limited: "Rate limit reached. Please wait a moment and try again.",
+      idempotency_conflict: "A different request was already submitted with the same idempotency key.",
+      idempotent_request_in_progress: "A request with this idempotency key is already in progress. Retrying…",
+      unknown: "Submission failed",
+    },
     columns: {
       id: "Job ID",
       prompt: "Prompt",
@@ -805,6 +820,11 @@ export const en = {
     create: "Create new key",
     live: "Live",
     test: "Test",
+    curlPreview: {
+      title: "Try it with cURL",
+      description: "Run this command to make your first live generation.",
+      copy: "Copy cURL",
+    },
     columns: {
       name: "Name",
       key: "Key",
@@ -878,6 +898,12 @@ export const en = {
   billing: {
     title: "Billing",
     subtitle: "Manage credits, payment methods, and invoices.",
+    preview: {
+      comingSoonEn: "Self-service top-up coming soon · Contact sales for prepaid credits or wire transfer.",
+      comingSoonZh: "自助充值即将上线 · 大额套餐请联系销售",
+      contactSales: "Contact sales",
+      topUpDisabledTooltip: "Self-service top-up coming soon. Contact sales for prepaid credits.",
+    },
     balance: {
       available: "Available credits",
       availableHint: "After active reservations",
@@ -1185,7 +1211,7 @@ export const en = {
       meta: {
         statusDegraded: "status · degraded · 1 active",
         uptime: "30d uptime · 99.982%",
-        publicFeed: "public feed · status.nextapi.dev",
+        publicFeed: "public feed · status.nextapi.top",
       },
       postUpdate: "Post update",
       newIncident: "New incident",

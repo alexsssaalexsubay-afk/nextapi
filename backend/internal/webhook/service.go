@@ -57,16 +57,55 @@ func (s *Service) Enqueue(ctx context.Context, orgID, eventType string, payload 
 	return nil
 }
 
-// DeliverDue picks rows whose next_retry_at <= now and attempts delivery.
+// DeliverDue picks rows whose next_retry_at <= now and attempts delivery
+// in parallel with bounded concurrency. Per-org grouping ensures one
+// blackholing customer endpoint can't starve every other tenant — we
+// only run one delivery per webhook_id per tick.
 func (s *Service) DeliverDue(ctx context.Context) error {
 	var rows []domain.WebhookDelivery
 	if err := s.db.WithContext(ctx).
 		Where("delivered_at IS NULL AND next_retry_at <= now()").
-		Limit(100).Find(&rows).Error; err != nil {
+		Order("created_at ASC").
+		Limit(200).Find(&rows).Error; err != nil {
 		return err
 	}
+	if len(rows) == 0 {
+		return nil
+	}
+
+	// Dedup by webhook_id: within one tick we only attempt each
+	// destination once, oldest event first. The next tick (5s later)
+	// will pick up the others, so a slow customer endpoint affects
+	// only its own queue depth, not anyone else's.
+	seen := make(map[string]bool, len(rows))
+	picked := make([]domain.WebhookDelivery, 0, len(rows))
 	for _, r := range rows {
-		_ = s.deliver(ctx, &r)
+		if seen[r.WebhookID] {
+			continue
+		}
+		seen[r.WebhookID] = true
+		picked = append(picked, r)
+	}
+
+	const workers = 16
+	sem := make(chan struct{}, workers)
+	for _, r := range picked {
+		sem <- struct{}{}
+		go func(d domain.WebhookDelivery) {
+			defer func() {
+				_ = recover() // never let a panic kill the worker
+				<-sem
+			}()
+			// Per-delivery timeout so a hung TCP connect can't pin a worker
+			// for the full 30s default.
+			dctx, cancel := context.WithTimeout(ctx, 15*time.Second)
+			defer cancel()
+			_ = s.deliver(dctx, &d)
+		}(r)
+	}
+	// Drain.
+	for i := 0; i < workers; i++ {
+		sem <- struct{}{}
 	}
 	return nil
 }

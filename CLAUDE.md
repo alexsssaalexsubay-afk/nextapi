@@ -7,36 +7,46 @@ ByteDance Volcengine Seedance. Vision: "OpenRouter for Video AI".
 ## Architecture (one glance)
 
 ```
-                    ┌────────────────────────────────────────────────────┐
-                    │                   nextapi.top                      │
-                    │            Cloudflare Pages (static)               │
-                    │  Marketing · Pricing · Docs · Enterprise · Legal   │
-                    └────────────────────────────────────────────────────┘
-
-  ┌──────────────────────┐   ┌──────────────────────┐   ┌──────────────────────┐
-  │   dash.nextapi.top   │   │  admin.nextapi.top   │   │   api.nextapi.top    │
-  │  Next.js 16 SSR      │   │  Next.js 16 SSR      │   │  Go 1.25 + Gin       │
-  │  Customer Dashboard   │   │  Operator Admin      │   │  REST API + Worker   │
-  │  Clerk Auth           │   │  Clerk Auth          │   │  Asynq Job Queue     │
-  │  Port 3001            │   │  Port 3002           │   │  Port 8080           │
-  └──────────┬───────────┘   └──────────┬───────────┘   └──────────┬───────────┘
-             │                          │                          │
-             └──────────────────────────┴──────────────────────────┘
-                                        │
-                    ┌───────────────────┬┴──────────────────┐
-                    │  PostgreSQL 16    │  Redis 7          │  Cloudflare R2
-                    │  Users/Orgs/Keys  │  Rate Limit       │  Video Storage
-                    │  Jobs/Videos      │  Asynq Queues     │  cdn.nextapi.top
-                    │  Billing/Ledger   │  Spend Inflight   │
-                    │  Webhooks         │  Cache             │
-                    └───────────────────┴───────────────────┘
+        ┌──────────────────────┐   ┌──────────────────────┐   ┌──────────────────────┐
+        │     nextapi.top      │   │   app.nextapi.top    │   │  admin.nextapi.top   │
+        │  Cloudflare Pages    │   │ Cloudflare Workers   │   │ Cloudflare Workers   │
+        │  Marketing (static)  │   │ Dashboard (OpenNext) │   │   Admin (OpenNext)   │
+        │  apps/site           │   │ apps/dashboard +     │   │  apps/admin +        │
+        │                      │   │ Clerk SSR            │   │  Clerk SSR           │
+        └──────────────────────┘   └──────────┬───────────┘   └──────────┬───────────┘
+                                              │                          │
+                                              └────────────┬─────────────┘
+                                                           │ HTTPS (Let's Encrypt)
+                                                           ▼
+                                          ┌────────────────────────────────────┐
+                                          │         api.nextapi.top            │
+                                          │       Aliyun HK VPS (47.76.*)      │
+                                          │   Nginx 443 → Go 1.25 + Gin :8080  │
+                                          │   systemd: nextapi-server          │
+                                          │   systemd: nextapi-worker (Asynq)  │
+                                          └─────────────────┬──────────────────┘
+                                                            │
+                                ┌───────────────────────────┴──────────────────────────┐
+                                │  PostgreSQL 16     │  Redis 7          │  Cloudflare R2
+                                │  (docker)          │  (docker)         │  (managed)
+                                │  Users/Orgs/Keys   │  Rate limit       │  Video storage
+                                │  Jobs/Videos       │  Asynq queues     │  cdn.nextapi.top
+                                │  Billing/Ledger    │  Spend inflight   │
+                                │  Webhooks          │  Cache            │
+                                └────────────────────┴───────────────────┘
 ```
 
-- Single Go binary serves api.nextapi.top; workers share same binary with different command.
-- 3 Next.js 16 App Router frontends: marketing site (static export), customer dashboard (SSR), admin panel (SSR).
-- Mintlify handles docs.nextapi.top externally.
+Deployment topology (live as of 2026-04):
+- Marketing site → **Cloudflare Pages** (`pnpm --filter @nextapi/site build` → `npx wrangler pages deploy out`)
+- Dashboard + Admin → **Cloudflare Workers** via OpenNext (`npx opennextjs-cloudflare build` → `npx wrangler deploy`)
+- API + worker → **Aliyun HK VPS** (Ubuntu, systemd units, Nginx + certbot, Docker for Postgres/Redis)
+- DNS: Cloudflare (orange-cloud for site/app/admin; **api is grey-cloud + Let's Encrypt** so OpenNext Workers can fetch directly)
+
+Other invariants:
+- Single Go binary serves api.nextapi.top; workers share the same binary with `cmd/worker`.
 - Provider Adapter pattern: only Seedance implemented in v1; Kling/Zhipu are interface stubs.
 - Async job model: POST creates job → worker calls provider → webhook notifies customer OR customer polls.
+- Mintlify handles docs.nextapi.top externally (not in this repo).
 - Single region for MVP: Aliyun HK. Multi-region in roadmap (not Q1).
 
 ## Monorepo layout
@@ -109,7 +119,7 @@ nextapi-v3/
 │   ├── /videos/:id             GET     Get video
 │   ├── /videos/:id             DELETE  Delete video
 │   ├── /videos/:id/wait        GET     Long-poll video
-│   ├── /keys                   GET/POST/PATCH/DELETE  Self-service key management
+│   ├── /me/keys                GET/POST/PATCH/DELETE  Self-service key management (dashboard)
 │   └── /billing/settings       GET/PATCH  Billing settings
 │
 ├── Admin surface (ak_* keys, auth.Admin middleware)
@@ -159,7 +169,7 @@ nextapi-v3/
 - NO raw error message exposure. Always sanitize before returning to clients.
 
 ## v1 customer journey (memorize)
-1. User signs up on dash.nextapi.top → receives 500 free credits.
+1. User signs up on app.nextapi.top → receives 500 free credits.
 2. Creates API key in dashboard (shown once, prefix-only after).
 3. Reads docs.nextapi.top → copies curl example.
 4. POST /v1/video/generations { prompt, model:"seedance-v2-pro", image_url? }

@@ -1,16 +1,94 @@
 "use client"
 
+import * as React from "react"
 import Link from "next/link"
-import { ArrowRight, Play } from "lucide-react"
+import { Play } from "lucide-react"
 import { DashboardShell } from "@/components/dashboard/dashboard-shell"
 import { OnboardingChecklist } from "@/components/dashboard/onboarding-checklist"
 import { StatCard } from "@/components/dashboard/stat-card"
-import { JobsTable, sampleJobs } from "@/components/dashboard/jobs-table"
+import { JobsTable, type JobRow } from "@/components/dashboard/jobs-table"
 import { Button } from "@/components/ui/button"
 import { useTranslations } from "@/lib/i18n/context"
+import { apiFetch } from "@/lib/api"
+import type { JobStatus } from "@/components/nextapi/status-pill"
+
+type AuthMe = {
+  org?: { id: string; name: string }
+  balance?: number
+  api_keys_active?: number
+}
+
+type VideoListItem = {
+  id: string
+  model: string
+  status: string
+  estimated_cost_cents: number
+  created_at: string
+}
+
+function relTime(iso: string): string {
+  const t = new Date(iso).getTime()
+  if (Number.isNaN(t)) return "—"
+  const diffSec = Math.max(0, Math.floor((Date.now() - t) / 1000))
+  if (diffSec < 60) return `${diffSec}s`
+  if (diffSec < 3600) return `${Math.floor(diffSec / 60)}m`
+  if (diffSec < 86400) return `${Math.floor(diffSec / 3600)}h`
+  return `${Math.floor(diffSec / 86400)}d`
+}
+
+function toJobRow(v: VideoListItem): JobRow {
+  const status = (["queued", "running", "succeeded", "failed"].includes(v.status)
+    ? v.status
+    : "queued") as JobStatus
+  const credits = (v.estimated_cost_cents / 100).toFixed(2)
+  const kind: JobRow["creditsKind"] =
+    status === "failed" ? "refunded" : status === "succeeded" ? "billed" : "reserved"
+  return {
+    id: v.id,
+    status,
+    model: v.model || "seedance-2.0",
+    prompt: "",
+    submitted: relTime(v.created_at),
+    duration: "—",
+    creditsAmount: credits,
+    creditsKind: kind,
+  }
+}
 
 export default function DashboardHome() {
   const t = useTranslations()
+  const [me, setMe] = React.useState<AuthMe | null>(null)
+  const [jobs, setJobs] = React.useState<JobRow[] | null>(null)
+  const [error, setError] = React.useState<string | null>(null)
+
+  React.useEffect(() => {
+    let cancelled = false
+    async function load() {
+      try {
+        const [meRes, vidsRes] = await Promise.all([
+          apiFetch("/v1/auth/me").catch(() => null),
+          apiFetch("/v1/videos?limit=10").catch(() => null),
+        ])
+        if (cancelled) return
+        if (meRes) setMe(meRes as AuthMe)
+        if (vidsRes && Array.isArray(vidsRes.data)) {
+          setJobs((vidsRes.data as VideoListItem[]).map(toJobRow))
+        } else {
+          setJobs([])
+        }
+      } catch (e) {
+        if (!cancelled) setError(e instanceof Error ? e.message : "load failed")
+      }
+    }
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const credits = me?.balance != null ? (me.balance / 100).toFixed(2) : "—"
+  const activeKeys = me?.api_keys_active != null ? String(me.api_keys_active) : "—"
+  const jobsTodayValue = jobs ? String(jobs.length) : "—"
 
   return (
     <DashboardShell
@@ -39,164 +117,68 @@ export default function DashboardHome() {
       }
     >
       <div className="flex flex-col gap-8 p-6">
-        {/* Stats */}
+        {error && (
+          <div className="rounded-md border border-destructive/40 bg-destructive/10 px-4 py-2 text-[13px] text-destructive">
+            {error}
+          </div>
+        )}
+
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
           <StatCard
             label={t.dashboard.stats.available}
-            value="142.80"
+            value={credits}
             unit={t.common.credits}
-            caption={t.dashboard.stats.availableHint}
-            sparkline={[88, 92, 87, 90, 86, 96, 102, 108, 122, 142]}
+            caption={me ? t.dashboard.stats.availableHint : t.common.loading}
           />
           <StatCard
             label={t.dashboard.stats.activeKeys}
-            value="3"
+            value={activeKeys}
             unit={t.dashboard.stats.activeKeysHint}
-            caption={`${t.common.last24h} · us-east-1`}
+            caption={t.common.last24h}
           />
           <StatCard
             label={t.dashboard.stats.jobsToday}
-            value="284"
+            value={jobsTodayValue}
             unit=""
-            trend={{ value: "+18.4%", positive: true }}
             caption={t.dashboard.stats.jobsTodayHint}
-            sparkline={[12, 14, 18, 11, 9, 22, 31, 28, 42, 48, 38, 44]}
           />
           <StatCard
             label={t.dashboard.stats.webhookHealth}
-            value="99.3"
-            unit="%"
-            trend={{ value: "0.2 pts", positive: true }}
+            value="—"
+            unit=""
             caption={t.dashboard.stats.webhookHealthHint}
           />
         </div>
 
         <OnboardingChecklist />
 
-        {/* Recent jobs */}
         <div>
           <div className="mb-4 flex items-end justify-between">
             <div>
               <h2 className="text-[15px] font-medium tracking-tight text-foreground">
                 {t.dashboard.recentJobs.title}
               </h2>
-              <p className="mt-0.5 text-[12.5px] text-muted-foreground">
-                {t.dashboard.recentJobs.subtitle}
-              </p>
             </div>
             <Link
               href="/jobs"
-              className="inline-flex items-center gap-1 text-[12.5px] text-muted-foreground transition-colors hover:text-foreground"
+              className="text-[12.5px] text-muted-foreground hover:text-foreground"
             >
               {t.dashboard.recentJobs.viewAll}
-              <ArrowRight className="size-3" />
             </Link>
           </div>
-          <JobsTable rows={sampleJobs} />
-        </div>
-
-        {/* Side rail: reconciliation + integration */}
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          <ReconciliationCard />
-          <WebhookHealthCard />
+          {jobs === null ? (
+            <div className="rounded-xl border border-border/80 bg-card/40 px-4 py-8 text-center text-[13px] text-muted-foreground">
+              {t.common.loading}
+            </div>
+          ) : jobs.length === 0 ? (
+            <div className="rounded-xl border border-border/80 bg-card/40 px-4 py-8 text-center text-[13px] text-muted-foreground">
+              {t.jobs.empty.title}
+            </div>
+          ) : (
+            <JobsTable rows={jobs} compact />
+          )}
         </div>
       </div>
     </DashboardShell>
-  )
-}
-
-function ReconciliationCard() {
-  const t = useTranslations()
-  return (
-    <div className="rounded-xl border border-border/80 bg-card/40 p-5">
-      <div className="flex items-center justify-between">
-        <h3 className="text-[14px] font-medium tracking-tight">
-          {t.billing.reconciliation.title}
-        </h3>
-        <span className="font-mono text-[11px] text-muted-foreground">{t.common.last24h}</span>
-      </div>
-      <p className="mt-1 text-[12.5px] text-muted-foreground">
-        {t.billing.reconciliation.subtitle}
-      </p>
-      <div className="mt-5 flex flex-col gap-3 font-mono text-[12.5px]">
-        <Row label={t.usage.reserved} value="284.00" />
-        <Row label={t.usage.billed} value="261.42" />
-        <Row label={t.usage.refunded} value="2.00" muted />
-        <div className="h-px bg-border/60" />
-        <Row label={`${t.usage.billed} · ${t.common.last24h}`} value="$31.37" strong />
-      </div>
-    </div>
-  )
-}
-
-function Row({
-  label,
-  value,
-  muted,
-  strong,
-}: {
-  label: string
-  value: string
-  muted?: boolean
-  strong?: boolean
-}) {
-  return (
-    <div className="flex items-center justify-between">
-      <span className={muted ? "text-muted-foreground" : "text-foreground/90"}>{label}</span>
-      <span
-        className={
-          strong
-            ? "text-foreground"
-            : muted
-              ? "text-muted-foreground"
-              : "text-foreground/90"
-        }
-      >
-        {value}
-      </span>
-    </div>
-  )
-}
-
-function WebhookHealthCard() {
-  const t = useTranslations()
-  const recent = [
-    { ts: "17:03:11", ev: "job.succeeded", status: "200" },
-    { ts: "17:02:58", ev: "job.running", status: "200" },
-    { ts: "17:02:12", ev: "job.queued", status: "200" },
-    { ts: "16:58:42", ev: "job.failed", status: "200" },
-    { ts: "16:57:05", ev: "job.succeeded", status: "500", failed: true },
-  ]
-  return (
-    <div className="rounded-xl border border-border/80 bg-card/40 p-5">
-      <div className="flex items-center justify-between">
-        <h3 className="text-[14px] font-medium tracking-tight">{t.webhooks.recentDeliveries}</h3>
-        <span className="font-mono text-[11px] text-muted-foreground">
-          https://acme.com/hooks/nextapi
-        </span>
-      </div>
-      <p className="mt-1 text-[12.5px] text-muted-foreground">
-        {t.webhooks.help.verification}
-      </p>
-      <ul className="mt-5 flex flex-col divide-y divide-border/60 rounded-md border border-border/60 bg-background/40 font-mono text-[12px]">
-        {recent.map((r, i) => (
-          <li key={i} className="flex items-center justify-between px-3 py-2">
-            <div className="flex items-center gap-3">
-              <span className="text-muted-foreground">{r.ts}</span>
-              <span className="text-foreground/90">{r.ev}</span>
-            </div>
-            <span
-              className={
-                r.failed
-                  ? "rounded-sm bg-status-failed-dim/50 px-1.5 text-status-failed"
-                  : "rounded-sm bg-status-success-dim/40 px-1.5 text-status-success"
-              }
-            >
-              {r.status}
-            </span>
-          </li>
-        ))}
-      </ul>
-    </div>
   )
 }

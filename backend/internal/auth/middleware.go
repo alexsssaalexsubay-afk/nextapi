@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"net"
 	"net/http"
 	"strings"
 
@@ -13,6 +14,7 @@ const (
 	CtxOrg    = "nextapi.org"
 	CtxKind   = "nextapi.kind"
 	CtxEnv    = "nextapi.env"
+	CtxRPM    = "nextapi.key.rpm"
 )
 
 // Business gates /videos, /models. Accepts sk_* only.
@@ -70,20 +72,48 @@ func runGate(c *gin.Context, svc *Service, want Kind) {
 	c.Set(CtxOrg, vk.Org)
 	c.Set(CtxKind, vk.Kind)
 	c.Set(CtxEnv, vk.Env)
+	c.Set(CtxRPM, vk.RateLimitRPM)
 	c.Next()
 }
 
+// ipInAllowlist accepts both bare IPs ("203.0.113.1") and CIDR
+// blocks ("203.0.113.0/24"). pgArray is a postgres array literal as
+// returned by `SELECT ip_allowlist`, e.g. `{1.2.3.4,10.0.0.0/8}`.
 func ipInAllowlist(clientIP, pgArray string) bool {
 	clean := strings.Trim(pgArray, "{}")
 	if clean == "" {
 		return true
 	}
-	for _, allowed := range strings.Split(clean, ",") {
-		if strings.TrimSpace(allowed) == clientIP {
+	parsedClient := net.ParseIP(clientIP)
+	for _, raw := range strings.Split(clean, ",") {
+		entry := strings.TrimSpace(raw)
+		if entry == "" {
+			continue
+		}
+		if entry == clientIP {
 			return true
+		}
+		if strings.Contains(entry, "/") {
+			if _, cidr, err := net.ParseCIDR(entry); err == nil &&
+				parsedClient != nil && cidr.Contains(parsedClient) {
+				return true
+			}
 		}
 	}
 	return false
+}
+
+// RateLimitFor returns the per-key RPM cap from context. 0 means
+// "use route-level default" (the per-key middleware skips when 0).
+func RateLimitFor(c *gin.Context) int {
+	v, ok := c.Get(CtxRPM)
+	if !ok {
+		return 0
+	}
+	if n, ok := v.(int); ok {
+		return n
+	}
+	return 0
 }
 
 func SetOrg(c *gin.Context, org *domain.Org) {

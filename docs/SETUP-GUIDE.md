@@ -3,102 +3,193 @@
 > 本文档列出把 NextAPI 从代码变成可运营产品需要**你手动操作**的所有步骤。
 > 代码层面的工作已经全部完成。以下是需要你在各个平台上配置的事情。
 
+> **当前状态（2026-04-23）**：所有服务已经上线运行。本文档既是部署指南，也是
+> 复盘/灾备 runbook。
+
 ---
 
-## 一、域名 DNS 配置
+## 当前部署拓扑（认准这个，别再踩坑）
 
-你的域名：`nextapi.top`
+```
+┌───────────────────────┐  ┌──────────────────────┐  ┌──────────────────────┐
+│  nextapi.top          │  │  app.nextapi.top     │  │  admin.nextapi.top   │
+│  Cloudflare Pages     │  │  Cloudflare Workers  │  │  Cloudflare Workers  │
+│  apps/site (静态)     │  │  apps/dashboard      │  │  apps/admin          │
+│                       │  │  OpenNext + Clerk    │  │  OpenNext + Clerk    │
+└───────────────────────┘  └──────────┬───────────┘  └──────────┬───────────┘
+                                      └────────────┬────────────┘
+                                                   │ HTTPS
+                                                   ▼
+                                  ┌─────────────────────────────────┐
+                                  │  api.nextapi.top                │
+                                  │  Aliyun HK VPS  47.76.205.108   │
+                                  │  Nginx :443 (Let's Encrypt)     │
+                                  │  → Go Gin :8080                 │
+                                  │  systemd: nextapi-server,       │
+                                  │           nextapi-worker        │
+                                  │  docker: postgres, redis        │
+                                  └─────────────────────────────────┘
+```
 
-在域名管理后台（Cloudflare / 阿里云 DNS）添加以下记录：
+要点：
+- **Marketing 静态站** 用 Cloudflare Pages（零成本，海外+国内都快）。
+- **Dashboard / Admin** 用 Cloudflare Workers + OpenNext（SSR + Clerk 都跑在边缘，不再占用 VPS）。
+- **API** 跑在 VPS 上，DNS 走 **grey-cloud（DNS only，不过 Cloudflare 代理）**，证书用 Let's Encrypt。
+  - 之所以 grey-cloud：Cloudflare Workers 通过 fetch 调 API 时，如果 api 也走 CF orange-cloud，会触发循环路径与 Worker→Worker 限流。
+- **VPS Nginx 只对外暴露 api.nextapi.top**，dashboard/admin 的 systemd 单元已停用并 disable。
 
-| 类型 | 名称 | 值 | 用途 |
-|------|------|-----|------|
-| A | `api` | `你的阿里云 HK VPS IP` | Go 后端 API |
-| A | `dash` | `你的阿里云 HK VPS IP` | 用户 Dashboard |
-| A | `admin` | `你的阿里云 HK VPS IP` | 管理员后台 |
-| CNAME | `@` (根域) | Cloudflare Pages 提供的域名 | 营销官网 |
+---
 
-> Cloudflare Pages 的 CNAME 值会在步骤三中得到。
+## 一、域名 DNS 配置（Cloudflare）
+
+| 类型 | 名称 | 值 | 代理状态 | 用途 |
+|------|------|-----|----------|------|
+| A | `api` | `47.76.205.108` | **DNS only（灰云）** | Go 后端 API |
+| A | `app` | Cloudflare Workers 自动绑定 | 橙云 | Dashboard |
+| A | `admin` | Cloudflare Workers 自动绑定 | 橙云 | Admin |
+| CNAME | `@` (根域 nextapi.top) | Pages 给的 `xxx.pages.dev` | 橙云 | 营销官网 |
+| CNAME | `cdn` | R2 自定义域配置后给的值 | 橙云 | 视频 CDN |
+
+> **重点**：`api` 这条记录必须是 **DNS only**（灰云）。Workers 绑定 `app/admin` 是
+> 在 Cloudflare Workers Dashboard 里的 "Custom Domains" 完成的，不是你手动建 A 记录。
 
 ---
 
 ## 二、Clerk 认证配置
 
 1. 登录 https://dashboard.clerk.com
-2. 创建一个新 Application（或使用已有的）
-3. 获取以下密钥：
+2. 创建 Application（或用已有的）
+3. 获取以下密钥（开发环境用 `pk_test_*` / `sk_test_*`，生产换 `pk_live_*`）：
 
 | 变量名 | 从哪里获取 |
 |--------|-----------|
 | `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Clerk Dashboard → API Keys |
 | `CLERK_SECRET_KEY` | Clerk Dashboard → API Keys |
-| `CLERK_WEBHOOK_SECRET` | 下面步骤 4 获取 |
+| `CLERK_WEBHOOK_SECRET` | 见步骤 4 |
 
 4. 配置 Clerk Webhook：
-   - 进入 Clerk Dashboard → Webhooks
-   - 点 "Add Endpoint"
-   - URL 填：`https://api.nextapi.top/v1/webhooks/clerk`
-   - 选择事件：`user.created`、`user.updated`、`user.deleted`
-   - 创建后复制 Signing Secret → 这就是 `CLERK_WEBHOOK_SECRET`
+   - Clerk Dashboard → Webhooks → "Add Endpoint"
+   - URL：`https://api.nextapi.top/v1/webhooks/clerk`
+   - 事件：`user.created`、`user.updated`、`user.deleted`
+   - 创建后复制 Signing Secret → `CLERK_WEBHOOK_SECRET`
+
+### Clerk → API key 自动桥接（dashboard / admin 一键登录）
+
+**原理**：用户用 Clerk 登录 dashboard / admin 后，前端用当前 session 拿到 Clerk 签发的 JWT，
+POST 到后端 `POST /v1/me/bootstrap`（dashboard）或 `POST /v1/me/admin-bootstrap`（admin）。
+后端拉 Clerk 的 JWKS 验签，然后：
+
+- **Dashboard**：lazy-provision User+Org+SignupBonus → revoke 旧的 `dashboard-session` key →
+  现场 mint 一把新的 `sk_live_*` 返回给前端，前端只放在 `sessionStorage`，关浏览器即丢失。
+- **Admin**：从 JWT 拿 email（拿不到就走 Clerk Backend API 查），命中 `ADMIN_EMAILS` 才下发
+  共享 `ADMIN_TOKEN`，否则 403。
+
+**前置条件（缺一就 503）**：
+
+| 后端 env | 用途 |
+|----------|------|
+| `CLERK_ISSUER` | JWKS 验签的 issuer，写成 `https://你的Clerk frontend API` |
+| `CLERK_SECRET_KEY` | 仅在 JWT 不带 email 时用 Backend API 反查 |
+| `ADMIN_TOKEN` + `ADMIN_EMAILS` | 仅 admin 桥接需要 |
+
+**用户体验**：登录 → 进 dashboard 任意页面 → 第一次 fetch 自动 bootstrap → 业务可用。
+不再需要用户手动复制 API key 到 localStorage。
+
+### Clerk 登录页域名（你问到的 `big-vulture-6.accounts.dev`）
+
+- 这是 Clerk 在**开发模式**下自动给你的 `*.accounts.dev` 域名，免费。
+- 想改成 `accounts.nextapi.top` 这种自有域名，必须升级 Clerk Pro（$25/月起）+ 添加自定义域名。
+- **现阶段建议**：保持开发模式 + `*.accounts.dev`，等正式开始收费再升级。
+- 升级后只要在 Clerk Dashboard → Domains 里加自定义域，按提示配 DNS（CNAME 到 Clerk 给的值），改前端 `wrangler.toml` 里的 `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` 为生产 key 即可，不用改业务代码。
 
 ---
 
-## 三、Cloudflare Pages 部署（营销官网）
-
-方法一：GitHub 自动部署（推荐）
-
-1. 登录 Cloudflare Dashboard → Pages
-2. 点 "Create a project" → "Connect to Git"
-3. 选你的 GitHub 仓库 `nextapi`
-4. 配置构建：
-   - **Build command**: `pnpm --filter @nextapi/site build`
-   - **Build output directory**: `apps/site/out`
-   - **Root directory**: `/`（留空即可）
-   - **环境变量**: `NODE_VERSION` = `20`
-5. 点 Deploy
-6. 部署成功后，进入 Custom Domains → 添加 `nextapi.top`
-7. 按照提示配置 DNS CNAME 记录（步骤一中的根域记录）
-
-方法二：GitHub Actions（已配置好）
-
-1. 进入 GitHub 仓库 → Settings → Secrets
-2. 添加两个 Secret：
-   - `CLOUDFLARE_ACCOUNT_ID` — 从 Cloudflare Dashboard 右侧栏获取
-   - `CLOUDFLARE_API_TOKEN` — 从 Cloudflare → My Profile → API Tokens → 创建 Token（选 "Edit Cloudflare Workers" 模板）
-3. 推送代码到 `main` 分支会自动触发部署
-
----
-
-## 四、VPS 配置（阿里云 HK）
-
-### 4.1 安装基础软件
+## 三、Cloudflare Pages 部署（营销官网 nextapi.top）
 
 ```bash
-# SSH 登录你的 VPS
-ssh root@你的VPS_IP
+# 本地构建 + 部署
+pnpm --filter @nextapi/site build
+cd apps/site
+npx wrangler pages deploy out --project-name=nextapi-site
+```
 
-# 安装 Docker + Docker Compose
+首次部署后：
+1. 进入 Cloudflare Dashboard → Pages → `nextapi-site` → Custom Domains
+2. 添加 `nextapi.top`（按提示自动加 CNAME）
+
+GitHub Actions 自动部署已配置在 `.github/workflows/`，推送 main 即触发。
+
+---
+
+## 四、Cloudflare Workers 部署（Dashboard + Admin）
+
+### 4.1 一次性认证
+
+```bash
+npx wrangler login   # 浏览器授权 Cloudflare
+```
+
+### 4.2 部署 Dashboard
+
+```bash
+cd apps/dashboard
+pnpm build                                 # Next.js production build
+npx opennextjs-cloudflare build            # 转成 Workers 可执行
+npx wrangler deploy                        # 上线到 nextapi-dashboard worker
+```
+
+`apps/dashboard/wrangler.toml` 已绑定自定义域 `app.nextapi.top`，部署后会自动生效。
+
+### 4.3 部署 Admin
+
+```bash
+cd apps/admin
+pnpm build
+npx opennextjs-cloudflare build
+npx wrangler deploy
+```
+
+绑定域名：`admin.nextapi.top`。
+
+### 4.4 配置 Workers 密钥（敏感信息）
+
+公开变量已经写在 `wrangler.toml [vars]` 里（如 `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`、`NEXT_PUBLIC_API_URL`）。
+密钥变量必须用 `wrangler secret put`：
+
+```bash
+# Dashboard
+cd apps/dashboard
+echo -n "sk_live_xxxxx" | npx wrangler secret put CLERK_SECRET_KEY
+
+# Admin
+cd ../admin
+echo -n "sk_live_xxxxx" | npx wrangler secret put CLERK_SECRET_KEY
+```
+
+> 切换 Clerk live 环境时，**两个 worker 都要重新 `secret put`**。
+
+---
+
+## 五、VPS 配置（阿里云 HK，仅跑 API + Worker）
+
+### 5.1 一次性安装
+
+```bash
+ssh root@47.76.205.108
 curl -fsSL https://get.docker.com | sh
-apt install -y docker-compose-plugin
-
-# 安装 Nginx + Certbot
-apt install -y nginx certbot python3-certbot-nginx
+apt-get install -y docker-compose-plugin nginx certbot python3-certbot-nginx
 ```
 
-### 4.2 申请 SSL 证书
+### 5.2 启动 Postgres + Redis
 
 ```bash
-# 确保 DNS 已经指向这台 VPS，然后运行：
-certbot --nginx -d api.nextapi.top -d dash.nextapi.top -d admin.nextapi.top
+cd /opt/nextapi
+docker compose up -d postgres redis
 ```
 
-### 4.3 创建环境变量文件
-
-在 VPS 上创建 `/opt/nextapi/.env`：
+### 5.3 环境变量 `/opt/nextapi/.env`
 
 ```bash
-mkdir -p /opt/nextapi
-cat > /opt/nextapi/.env << 'EOF'
 # ===== 数据库 =====
 DATABASE_URL=postgres://nextapi:你设置的密码@localhost:5432/nextapi?sslmode=disable
 
@@ -108,10 +199,15 @@ REDIS_ADDR=localhost:6379
 # ===== 服务器 =====
 SERVER_ADDR=:8080
 
-# ===== Clerk 认证 =====
-NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_live_xxxxx
-CLERK_SECRET_KEY=sk_live_xxxxx
+# ===== Clerk 认证（关键：少了 CLERK_ISSUER 浏览器登录后会卡死）=====
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_xxxxx
+CLERK_SECRET_KEY=sk_test_xxxxx
 CLERK_WEBHOOK_SECRET=whsec_xxxxx
+# CLERK_ISSUER 是 Clerk Frontend API URL，开发模式形如
+# https://big-vulture-6.clerk.accounts.dev；生产换成 https://clerk.你的域名.com
+# 后端用它的 /.well-known/jwks.json 验签前端 Clerk session JWT。
+# 没设这个值时 POST /v1/me/bootstrap 会 503，dashboard 就拿不到业务 key。
+CLERK_ISSUER=https://big-vulture-6.clerk.accounts.dev
 
 # ===== Seedance / 火山引擎 =====
 VOLC_ARK_API_KEY=你的火山引擎API密钥
@@ -124,193 +220,151 @@ R2_BUCKET=nextapi-videos
 R2_PUBLIC_URL=https://cdn.nextapi.top
 
 # ===== 管理员 =====
-ADMIN_TOKEN=生成一个强随机字符串至少32字符
-ADMIN_EMAILS=你的邮箱@example.com
+# ADMIN_TOKEN 是后端共享 operator token；admin 站不会让用户直接看到，
+# 而是由 POST /v1/me/admin-bootstrap 在校验 Clerk 登录 + email ∈ ADMIN_EMAILS
+# 之后下发给前端。两个变量缺一不可。
+ADMIN_TOKEN=$(openssl rand -hex 32)
+ADMIN_EMAILS=你的邮箱@example.com,另一个运维@example.com
 
-# ===== Stripe（可选，支付用）=====
+# ===== Stripe（可选）=====
 STRIPE_SECRET_KEY=sk_live_xxxxx
 STRIPE_WEBHOOK_SECRET=whsec_xxxxx
 
-# ===== PostHog（可选，追踪用）=====
+# ===== PostHog =====
 NEXT_PUBLIC_POSTHOG_KEY=phc_xxxxx
-EOF
 ```
 
-> 生成强随机 ADMIN_TOKEN：`openssl rand -hex 32`
+### 5.4 systemd 单元
 
-### 4.4 启动服务
+已经在 VPS 上配好两个单元：
+
+| 单元 | 命令 | 用途 |
+|------|------|------|
+| `nextapi-server.service` | `/opt/nextapi/server` | Gin HTTP server |
+| `nextapi-worker.service` | `/opt/nextapi/worker` | Asynq job worker |
+
+> Dashboard / Admin 的 `nextapi-dashboard` / `nextapi-admin` 单元已 `systemctl disable`，
+> 因为前端已迁到 Cloudflare Workers。
+
+启动 / 重启：
 
 ```bash
-cd /opt/nextapi
-
-# 启动 PostgreSQL + Redis
-docker compose up -d postgres redis
-
-# 运行数据库迁移
-./nextapi migrate up
-
-# 启动 Go 后端
-./nextapi server &
-
-# 启动 Worker
-./nextapi worker &
+systemctl restart nextapi-server nextapi-worker
+journalctl -u nextapi-server -f
 ```
 
-### 4.5 配置 Nginx 反向代理
+### 5.5 Nginx 反代 + Let's Encrypt
 
-创建 `/etc/nginx/sites-available/nextapi`：
+`/etc/nginx/sites-available/nextapi`：
 
 ```nginx
-# API 后端
+# API 后端 — 唯一对外服务
 server {
+    listen 80;
     server_name api.nextapi.top;
-    location / {
-        proxy_pass http://127.0.0.1:8080;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-    listen 443 ssl;
-    # certbot 会自动填充 SSL 配置
+    return 301 https://$host$request_uri;
 }
 
-# Dashboard
 server {
-    server_name dash.nextapi.top;
+    listen 443 ssl http2;
+    server_name api.nextapi.top;
+
+    ssl_certificate     /etc/letsencrypt/live/api.nextapi.top/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/api.nextapi.top/privkey.pem;
+    include             /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam         /etc/letsencrypt/ssl-dhparams.pem;
+
     location / {
-        proxy_pass http://127.0.0.1:3001;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_pass         http://127.0.0.1:8080;
+        proxy_set_header   Host $host;
+        proxy_set_header   X-Real-IP $remote_addr;
+        proxy_set_header   X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto $scheme;
+        proxy_read_timeout 300s;
+        proxy_send_timeout 300s;
+        client_max_body_size 50m;
     }
-    listen 443 ssl;
 }
 
-# Admin
+# 默认 server 丢弃未知 Host，避免 SNI 滥用
 server {
-    server_name admin.nextapi.top;
-    location / {
-        proxy_pass http://127.0.0.1:3002;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-    listen 443 ssl;
+    listen 80 default_server;
+    listen 443 ssl default_server;
+    server_name _;
+    ssl_certificate     /etc/letsencrypt/live/api.nextapi.top/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/api.nextapi.top/privkey.pem;
+    return 444;
 }
 ```
+
+证书申请（首次）：
 
 ```bash
-ln -s /etc/nginx/sites-available/nextapi /etc/nginx/sites-enabled/
-nginx -t && systemctl reload nginx
+certbot --nginx -d api.nextapi.top --non-interactive \
+    --agree-tos --email admin@nextapi.top --redirect
 ```
 
----
-
-## 五、第三方服务配置
-
-### 5.1 火山引擎 Seedance API
-
-1. 登录 https://console.volcengine.com
-2. 开通"方舟大模型平台"（Ark）
-3. 创建 API Key → 填入 `.env` 的 `VOLC_ARK_API_KEY`
-
-### 5.2 Cloudflare R2（视频存储）
-
-1. Cloudflare Dashboard → R2
-2. 创建 Bucket：名称 `nextapi-videos`
-3. 创建 API Token（R2 读写权限）→ 填入 `.env`
-4. 可选：配置自定义域名 `cdn.nextapi.top` 指向该 Bucket
-
-### 5.3 Stripe（支付，可选）
-
-1. 登录 https://dashboard.stripe.com
-2. Developers → API Keys → 复制 Secret Key → 填入 `.env`
-3. Developers → Webhooks → 添加端点：
-   - URL：`https://api.nextapi.top/v1/webhooks/payments/stripe`
-   - 事件：`checkout.session.completed`、`invoice.paid`
-4. 复制 Webhook Signing Secret → 填入 `.env`
-
-### 5.4 PostHog（用户追踪，可选）
-
-1. 登录 https://posthog.com
-2. 创建项目
-3. 复制 Project API Key → 填入 `.env` 的 `NEXT_PUBLIC_POSTHOG_KEY`
+certbot 会自动配置定时续期（systemd timer `certbot.timer`）。
 
 ---
 
-## 六、GitHub 配置
+## 六、第三方服务
 
-### 6.1 GitHub Actions Secrets
+### 6.1 火山引擎 Seedance API
 
-进入 GitHub 仓库 → Settings → Secrets and variables → Actions，添加：
+1. https://console.volcengine.com → 开通"方舟大模型平台"（Ark）
+2. 创建 API Key → `.env` 的 `VOLC_ARK_API_KEY`
 
-| Secret 名称 | 值 |
-|-------------|-----|
+### 6.2 Cloudflare R2
+
+1. Cloudflare Dashboard → R2 → 创建 Bucket `nextapi-videos`
+2. 创建 R2 API Token（读写） → `.env`
+3. 配置自定义域 `cdn.nextapi.top`
+
+### 6.3 Stripe（可选）
+
+- API key + Webhook 见 `.env` 配置
+- Webhook URL：`https://api.nextapi.top/v1/webhooks/payments/stripe`
+- 事件：`checkout.session.completed`、`invoice.paid`
+
+### 6.4 PostHog
+
+- https://posthog.com → 创建项目 → 复制 Project API Key → `NEXT_PUBLIC_POSTHOG_KEY`
+- 同时写到 Cloudflare Workers 的 `wrangler.toml [vars]` 才能在前端生效
+
+---
+
+## 七、GitHub Actions 配置
+
+仓库 Settings → Secrets：
+
+| Secret | 值 |
+|--------|-----|
 | `CLOUDFLARE_ACCOUNT_ID` | Cloudflare 账户 ID |
-| `CLOUDFLARE_API_TOKEN` | Cloudflare API Token |
-| `DEPLOY_HOST` | VPS IP 地址 |
-| `DEPLOY_SSH_KEY` | SSH 私钥（用于部署到 VPS）|
+| `CLOUDFLARE_API_TOKEN` | Cloudflare API Token（Workers + Pages 权限） |
+| `DEPLOY_HOST` | `47.76.205.108` |
+| `DEPLOY_SSH_KEY` | 用于部署 Go 后端的 SSH 私钥 |
 
-### 6.2 生成部署 SSH Key
+生成 SSH key：
 
 ```bash
-# 在本地电脑上
 ssh-keygen -t ed25519 -f ~/.ssh/nextapi_deploy -N ""
-
-# 把公钥添加到 VPS
-ssh-copy-id -i ~/.ssh/nextapi_deploy.pub root@你的VPS_IP
-
-# 把私钥内容复制为 GitHub Secret DEPLOY_SSH_KEY
-cat ~/.ssh/nextapi_deploy
-```
-
----
-
-## 七、Dashboard 和 Admin 环境变量
-
-在 VPS 上启动 Dashboard 和 Admin 时需要以下环境变量：
-
-```bash
-# Dashboard (apps/dashboard)
-NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_live_xxxxx
-CLERK_SECRET_KEY=sk_live_xxxxx
-NEXT_PUBLIC_API_URL=https://api.nextapi.top
-
-# Admin (apps/admin)
-NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_live_xxxxx
-CLERK_SECRET_KEY=sk_live_xxxxx
-NEXT_PUBLIC_API_URL=https://api.nextapi.top
-```
-
-启动命令：
-
-```bash
-# 在 VPS 上编译并启动
-cd /opt/nextapi/apps/dashboard
-pnpm build
-PORT=3001 pnpm start &
-
-cd /opt/nextapi/apps/admin
-pnpm build
-PORT=3002 pnpm start &
+ssh-copy-id -i ~/.ssh/nextapi_deploy.pub root@47.76.205.108
+cat ~/.ssh/nextapi_deploy   # 复制到 GitHub Secret
 ```
 
 ---
 
 ## 八、上线前检查清单
 
-- [ ] DNS 记录全部生效（`dig api.nextapi.top`、`dig dash.nextapi.top` 等）
-- [ ] SSL 证书正常（浏览器打开各域名无证书警告）
-- [ ] `https://api.nextapi.top/health` 返回 `{"status":"ok"}`
-- [ ] `https://nextapi.top` 营销官网正常加载
-- [ ] `https://dash.nextapi.top` 可以注册/登录（Clerk）
-- [ ] 登录后可以创建 API Key
-- [ ] 用创建的 Key 调用 API 成功
-- [ ] `https://admin.nextapi.top` 可以登录，看到 Overview 数据
-- [ ] Webhook 端点可以接收 Clerk 事件（创建新用户测试）
+- [ ] DNS 全部生效（用 `dig +short api.nextapi.top @1.1.1.1` 在非翻墙环境验证）
+- [ ] `https://api.nextapi.top/v1/health` → `{"status":"ok"}`
+- [ ] `https://nextapi.top` 营销页可访问，logo 正常显示
+- [ ] `https://app.nextapi.top` 可注册/登录（Clerk）
+- [ ] 登录后可创建 API Key（`/v1/me/keys`）
+- [ ] 用创建的 Key 调用 `POST /v1/videos` 成功
+- [ ] `https://admin.nextapi.top` 可登录，Overview 数据从 `/v1/internal/admin/overview` 加载
+- [ ] Clerk Webhook 创建用户事件能写入 DB
 
 ---
 
@@ -320,48 +374,43 @@ PORT=3002 pnpm start &
 |------|------|
 | 查看后端日志 | `journalctl -u nextapi-server -f` |
 | 查看 Worker 日志 | `journalctl -u nextapi-worker -f` |
-| 重启后端 | `systemctl restart nextapi-server` |
-| 手动调整用户余额 | 在 Admin 后台 → Credits 页面操作，或 API: `POST /v1/internal/admin/credits/adjust` |
-| 暂停异常组织 | Admin 后台 → 点击 Pause，或 API: `POST /v1/internal/admin/orgs/:id/pause` |
+| 重启后端 | `systemctl restart nextapi-server nextapi-worker` |
+| 部署新后端 | 本地 `GOOS=linux GOARCH=amd64 go build -o /tmp/server ./cmd/server` → `scp` 到 `/opt/nextapi/server` → `systemctl restart nextapi-server` |
+| 部署新 Dashboard | 本地 `cd apps/dashboard && pnpm build && npx opennextjs-cloudflare build && npx wrangler deploy` |
+| 部署新 Admin | 本地 `cd apps/admin && pnpm build && npx opennextjs-cloudflare build && npx wrangler deploy` |
+| 部署新 Marketing | 本地 `pnpm --filter @nextapi/site build && cd apps/site && npx wrangler pages deploy out` |
+| 手动调整余额 | Admin UI → Credits 页，或 `POST /v1/internal/admin/credits/adjust` |
+| 暂停异常组织 | Admin UI 点 Pause，或 `POST /v1/internal/admin/orgs/:id/pause` |
+| Let's Encrypt 续期 | 自动（`systemctl status certbot.timer`） |
 
 ---
 
-## 需要律师审核的内容
+## 十、常见问题排查
 
-以下页面已有初稿，上线前需要律师审核：
+### `https://api.nextapi.top` 浏览器报 SSL 错误
+- 检查 Cloudflare DNS：`api` 必须是 **DNS only（灰云）**，否则会用 CF Edge 证书但 Origin 是自签 → "Full" 模式才能通；最稳妥就是 grey-cloud + Let's Encrypt。
+- 检查 Let's Encrypt 是否已签：`ls /etc/letsencrypt/live/api.nextapi.top/`
+
+### Dashboard / Admin 打开是 Clerk 的 `*.accounts.dev`
+- 这是正常的（开发模式）。要换成自有域名，需要 Clerk Pro + 自定义域。
+
+### Dashboard 数据是不是假的？
+不是了。当前实现：
+- 首页 4 个 StatCard 中 **Available credits、Active keys** 来自 `/v1/auth/me`（真实），**Jobs in last 24h** 来自 `/v1/videos?limit=10`（真实）。
+- **Webhook health** 仍是占位符（`—`），等 webhook 投递统计 API 上线后接入。
+- `/jobs` 列表全部走 `/v1/videos?limit=50`。
+- `/webhooks` 页**整页是 PREVIEW**（页头有提示横幅），等下个版本接入 endpoint CRUD + delivery log API。
+
+### Worker 部署后 secret 丢失
+- `wrangler secret put` 一次性写入，重新 `wrangler deploy` 不会清掉，但**切到新账号 / 删 worker 再创建** 会丢，要重新 put。
+
+---
+
+## 需要律师审核
 
 - `https://nextapi.top/legal/terms` — 服务条款
 - `https://nextapi.top/legal/privacy` — 隐私政策
 - `https://nextapi.top/legal/aup` — 可接受使用政策
 - `https://nextapi.top/legal/sla` — 服务等级协议
 
----
-
-## 架构总览
-
-```
-用户浏览器
-    │
-    ├── nextapi.top (Cloudflare Pages, 静态)
-    │       营销官网 / 文档 / 定价 / Enterprise / Legal
-    │
-    ├── dash.nextapi.top (VPS, Next.js SSR, port 3001)
-    │       用户 Dashboard → Clerk 登录 → 管理 API Key / 查看用量
-    │
-    ├── admin.nextapi.top (VPS, Next.js SSR, port 3002)
-    │       管理员后台 → Clerk 登录 → 管理用户/组织/余额
-    │
-    └── api.nextapi.top (VPS, Go, port 8080)
-            REST API ← Nginx 反向代理 (HTTPS)
-            ├── /v1/videos/* ← 视频生成（sk_* key 认证）
-            ├── /v1/keys/* ← API Key 管理
-            ├── /v1/billing/* ← 计费
-            ├── /v1/webhooks/* ← Webhook 管理
-            ├── /v1/internal/admin/* ← 管理员 API（X-Admin-Token）
-            └── Worker (Asynq) ← 异步视频生成 + 轮询 + Webhook 投递
-
-数据存储：
-    PostgreSQL 16 ← 用户/组织/Key/Job/视频/账单/Webhook
-    Redis 7 ← 限频/缓存/Asynq队列/在途负债追踪
-    Cloudflare R2 ← 生成的视频文件
-```
+以上都已生成 B2B 初稿，正式上线前必须过律师。

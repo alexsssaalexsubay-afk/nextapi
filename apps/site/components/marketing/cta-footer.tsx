@@ -23,7 +23,7 @@ export function FinalCta() {
             {t.cta.subtitle}
           </p>
           <div className="mt-2 flex flex-wrap items-center gap-3">
-            <BrandButton href="https://dash.nextapi.top" showArrow>
+            <BrandButton href="https://app.nextapi.top" showArrow>
               {t.cta.primary}
             </BrandButton>
             <BrandButton href="/docs" variant="outline">
@@ -63,7 +63,7 @@ export function SiteFooter() {
                 <span className="relative inline-block h-1.5 w-1.5 rounded-full bg-status-success" />
               </span>
               <span className="text-[12px] text-muted-foreground">
-                {t.cta.footer.allSystems} · 99.982% · 30d
+                <a href="/status" className="hover:underline">{t.cta.footer.allSystems}</a>
               </span>
             </div>
           </div>
@@ -86,7 +86,7 @@ export function SiteFooter() {
                 [t.common.pricing, "/pricing"],
                 ["Enterprise", "/enterprise"],
                 [t.common.status, "/status"],
-                [t.common.support, "mailto:support@nextapi.dev"],
+                [t.common.support, "mailto:support@nextapi.top"],
               ] as [string, string][],
             },
             {
@@ -125,7 +125,7 @@ export function SiteFooter() {
             © 2026 NextAPI · {t.footer.copyright}
           </span>
           <span className="font-mono text-[11px] text-muted-foreground">
-            build 26.04.22 · us-east-1 / ap-southeast-1
+            build 26.04.22
           </span>
         </div>
       </div>

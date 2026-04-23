@@ -48,7 +48,7 @@ export default function AUPPage() {
       <ul>
         <li>Keep your API keys confidential and rotate them regularly</li>
         <li>Do not embed API keys in client-side code or public repositories</li>
-        <li>Report security vulnerabilities to <a href="mailto:security@nextapi.dev">security@nextapi.dev</a></li>
+        <li>Report security vulnerabilities to <a href="mailto:security@nextapi.top">security@nextapi.top</a></li>
         <li>Do not attempt to access other customers&apos; data or accounts</li>
       </ul>
 
@@ -61,7 +61,7 @@ export default function AUPPage() {
 
       <h2>7. Reporting Violations</h2>
       <p>
-        To report AUP violations, contact <a href="mailto:abuse@nextapi.dev">abuse@nextapi.dev</a>.
+        To report AUP violations, contact <a href="mailto:abuse@nextapi.top">abuse@nextapi.top</a>.
         We investigate all reports within 24 hours.
       </p>
     </article>

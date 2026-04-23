@@ -288,6 +288,11 @@ export const zh: Messages = {
     },
     hint: "注册账号后，即可使用自己的提示词与区域池。",
     resultCaption: "缓存示例 · 请在上方替换为你自己的提示词",
+    marketing: {
+      previewBanner: "演示预览 · 示例响应。注册免费 key 运行真实生成。",
+      showSample: "查看示例响应",
+      sampleLabel: "（示例）",
+    },
   },
 
   faq: {
@@ -535,25 +540,26 @@ export const zh: Messages = {
       subtitle: "四步之后，你就会收到第一个 Webhook。",
       progress: "已完成",
       remaining: "待完成",
+      dismiss: "关闭",
       step1: {
-        title: "创建 API 密钥",
-        description: "按 live / test 环境隔离。复制一次，可随时轮换。",
-        action: "创建密钥",
+        title: "账号已创建",
+        description: "你的 NextAPI 账号已激活，随时可用。",
+        action: "查看账号",
       },
       step2: {
-        title: "复制 cURL 示例",
-        description: "直接使用你的密钥运行，无需 SDK。",
-        action: "复制 cURL",
+        title: "已创建首个 API 密钥",
+        description: "创建 live 密钥以开始调用 API。",
+        action: "创建密钥",
       },
       step3: {
-        title: "发起第一次请求",
+        title: "首次成功生成",
         description: "提交一个 Seedance 任务，看着它走到 succeeded。",
-        action: "打开实时测试",
+        action: "新建任务",
       },
       step4: {
-        title: "配置 Webhook",
+        title: "已配置 Webhook",
         description: "状态变更时收到签名回调。任意投递可回放。",
-        action: "发送测试事件",
+        action: "配置",
       },
     },
     stats: {
@@ -580,6 +586,15 @@ export const zh: Messages = {
     subtitle: "组织内提交过的每一次生成，完整的异步状态可见。",
     newJob: "新建任务",
     runFirst: "发起你的第一次请求",
+    errors: {
+      spend_cap_exceeded: "已超出消费上限，请在账单设置中调整。",
+      moderation_blocked: "提示词被内容审核策略拦截。",
+      insufficient_credits: "点数不足，请充值。",
+      rate_limited: "请求过于频繁，请稍后再试。",
+      idempotency_conflict: "相同幂等键已提交过不同的请求。",
+      idempotent_request_in_progress: "相同幂等键的请求正在处理中，正在重试…",
+      unknown: "提交失败",
+    },
     columns: {
       id: "任务 ID",
       prompt: "提示词",
@@ -795,6 +810,11 @@ export const zh: Messages = {
     create: "创建新密钥",
     live: "正式",
     test: "测试",
+    curlPreview: {
+      title: "使用 cURL 测试",
+      description: "执行此命令发起你的第一次真实生成。",
+      copy: "复制 cURL",
+    },
     columns: {
       name: "名称",
       key: "密钥",
@@ -868,6 +888,12 @@ export const zh: Messages = {
   billing: {
     title: "账单",
     subtitle: "管理点数、支付方式和发票。",
+    preview: {
+      comingSoonEn: "Self-service top-up coming soon · Contact sales for prepaid credits or wire transfer.",
+      comingSoonZh: "自助充值即将上线 · 大额套餐请联系销售",
+      contactSales: "联系销售",
+      topUpDisabledTooltip: "自助充值即将上线，大额套餐请联系销售。",
+    },
     balance: {
       available: "可用点数",
       availableHint: "扣除进行中的预留",
@@ -1175,7 +1201,7 @@ export const zh: Messages = {
       meta: {
         statusDegraded: "状态 · 降级 · 1 个活跃",
         uptime: "30 天可用性 · 99.982%",
-        publicFeed: "公开状态页 · status.nextapi.dev",
+        publicFeed: "公开状态页 · status.nextapi.top",
       },
       postUpdate: "发布更新",
       newIncident: "新增事故",

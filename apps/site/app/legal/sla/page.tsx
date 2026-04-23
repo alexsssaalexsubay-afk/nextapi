@@ -147,7 +147,7 @@ export default function SLAPage() {
       <h2>7. Contact</h2>
       <p>
         For SLA inquiries or credit requests, contact{" "}
-        <a href="mailto:support@nextapi.dev">support@nextapi.dev</a>.
+        <a href="mailto:support@nextapi.top">support@nextapi.top</a>.
       </p>
     </article>
   )

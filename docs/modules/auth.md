@@ -20,10 +20,12 @@ Clerk-based authentication + API key management for NextAPI gateway.
 
 ## Public surface
 - `POST /v1/webhooks/clerk` — Clerk webhook receiver
-- `POST /v1/keys` — create key (returns full key once)
-- `GET /v1/keys` — list keys (prefix + name only)
-- `DELETE /v1/keys/:id` — revoke key
-- `GET /v1/auth/me` — return org info for current key
+- `POST /v1/me/keys` — dashboard self-service: create key (returns full key once)
+- `GET /v1/me/keys` — dashboard self-service: list keys (prefix + name only)
+- `PATCH /v1/me/keys/:id` — dashboard self-service: rotate / rename
+- `DELETE /v1/me/keys/:id` — dashboard self-service: revoke key
+- `POST /v1/keys` / `GET /v1/keys` / `PATCH /v1/keys/:id` / `DELETE /v1/keys/:id` — admin (`ak_*`) variant
+- `GET /v1/auth/me` — return org info, balance, active key count for current key
 - Middleware: `AuthRequired()` Gin middleware
 
 ## Dependencies

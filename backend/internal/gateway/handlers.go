@@ -1,6 +1,7 @@
 package gateway
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -66,6 +67,13 @@ func (h *Handlers) CreateKey(c *gin.Context) {
 		ProvisionedConcurrency: req.ProvisionedConcurrency,
 	})
 	if err != nil {
+		if errors.Is(err, auth.ErrTooManyKeys) {
+			c.JSON(http.StatusConflict, gin.H{"error": gin.H{
+				"code":    "too_many_keys",
+				"message": "this org has reached its active API key limit; revoke an unused key first",
+			}})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "internal_error", "message": "failed to create key"}})
 		return
 	}
@@ -164,9 +172,24 @@ func (h *Handlers) UpdateKey(c *gin.Context) {
 
 func (h *Handlers) AuthMe(c *gin.Context) {
 	org := auth.OrgFrom(c)
-	c.JSON(http.StatusOK, gin.H{
+	out := gin.H{
 		"org": gin.H{"id": org.ID, "name": org.Name},
-	})
+	}
+
+	if h.Billing != nil {
+		if bal, err := h.Billing.GetBalance(c.Request.Context(), org.ID); err == nil {
+			out["balance"] = bal
+		}
+	}
+
+	var keysActive int64
+	_ = h.Auth.DB().WithContext(c.Request.Context()).
+		Model(&domain.APIKey{}).
+		Where("org_id = ? AND revoked_at IS NULL", org.ID).
+		Count(&keysActive).Error
+	out["api_keys_active"] = keysActive
+
+	c.JSON(http.StatusOK, out)
 }
 
 // ---- Billing ----

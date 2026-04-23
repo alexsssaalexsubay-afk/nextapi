@@ -10,23 +10,28 @@ info:
     endpoint-id indirection) are hidden inside the gateway.
 
     Conventions:
-      * Bearer auth. Business key (sk_live_* / sk_test_*) for /videos & /models;
-        admin key (ak_live_* / ak_test_*) for /admin, /keys, /webhooks, /credits, /usage.
+      * Bearer auth. Business key (sk_live_* / sk_test_*) for /videos, /models,
+        /auth/me, /billing/settings, and /me/*; admin key (ak_live_* / ak_test_*)
+        for /keys, /credits, /billing/ledger, /billing/usage, /billing/recharge,
+        /billing/checkout, /webhooks, /spend_controls, /usage, and export endpoints.
+      * Internal operator panel uses X-Admin-Token header for /v1/internal/admin/*.
       * Idempotency-Key header on POSTs. 24h de-dup window.
       * All timestamps are RFC 3339 UTC unless stated otherwise.
       * Cursor pagination on list endpoints.
-      * Webhook signatures use HMAC-SHA256 over `t.` + raw body.
+      * Outbound webhook signatures use HMAC-SHA256. Headers sent with every event:
+          - X-NextAPI-Signature: t=<unix>,sha256=<hex>
+          - X-NextAPI-Timestamp: <unix epoch seconds>
+          - X-NextAPI-Event: <event type, e.g. video.succeeded>
   contact:
     name: NextAPI Platform
     url: https://docs.nextapi.top
   license:
     name: Proprietary
+    url: https://nextapi.top/legal/terms
 
 servers:
   - url: https://api.nextapi.top/v1
-    description: Production
-  - url: https://api.sandbox.nextapi.top/v1
-    description: Sandbox (sk_test_* keys, synthetic output)
+    description: Production. For local development use http://localhost:8080/v1.
 
 security:
   - bearerBusiness: []
@@ -44,11 +49,17 @@ tags:
   - name: throughput
   - name: auth
   - name: health
+  - name: bridge
+    description: Clerk JWT → API key exchange endpoints used by dashboard SPAs on first load.
+  - name: sales
+  - name: internal
+    description: Operator panel endpoints secured by X-Admin-Token. Not for external use.
 
 paths:
   /health:
     get:
       tags: [health]
+      summary: Health check
       operationId: getHealth
       security: []
       responses:
@@ -61,6 +72,7 @@ paths:
   /models:
     get:
       tags: [models]
+      summary: List models
       operationId: listModels
       parameters:
         - $ref: '#/components/parameters/Limit'
@@ -76,6 +88,7 @@ paths:
   /models/{model_id}:
     get:
       tags: [models]
+      summary: Get model
       operationId: getModel
       parameters:
         - name: model_id
@@ -93,6 +106,7 @@ paths:
   /videos:
     post:
       tags: [videos]
+      summary: Create video
       operationId: createVideo
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
@@ -119,6 +133,7 @@ paths:
 
     get:
       tags: [videos]
+      summary: List videos
       operationId: listVideos
       parameters:
         - $ref: '#/components/parameters/Limit'
@@ -150,6 +165,7 @@ paths:
         schema: { type: string }
     get:
       tags: [videos]
+      summary: Get video
       operationId: getVideo
       responses:
         '200':
@@ -160,6 +176,7 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
     delete:
       tags: [videos]
+      summary: Cancel video
       operationId: cancelVideo
       responses:
         '200':
@@ -181,6 +198,7 @@ paths:
         schema: { type: integer, minimum: 1, maximum: 600, default: 60 }
     get:
       tags: [videos]
+      summary: Wait for video
       operationId: waitForVideo
       responses:
         '200':
@@ -196,11 +214,61 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/Video' }
 
+  /video/generations:
+    post:
+      tags: [videos]
+      summary: Create video (legacy)
+      operationId: createVideoLegacy
+      deprecated: true
+      description: >-
+        Legacy endpoint retained for backwards compatibility. Prefer POST /videos.
+        Accepts the same body as VideoCreateRequest and returns a Video object.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/VideoCreateRequest' }
+      responses:
+        '202':
+          description: Accepted.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Video' }
+        '400': { $ref: '#/components/responses/InvalidRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '402': { $ref: '#/components/responses/InsufficientQuota' }
+        '409': { $ref: '#/components/responses/IdempotencyConflict' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '502': { $ref: '#/components/responses/UpstreamError' }
+
+  /jobs/{id}:
+    get:
+      tags: [videos]
+      summary: Get job (legacy)
+      operationId: getJobLegacy
+      deprecated: true
+      description: Legacy alias for GET /videos/{id}. Prefer /videos/{id}.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Video' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
   /credits:
     get:
       tags: [credits]
+      summary: Get credits balance
       operationId: getCredits
-      security: [ { bearerAdmin: [] } ]
+      security: [ { bearerAuth: [] } ]
       responses:
         '200':
           description: OK
@@ -211,8 +279,9 @@ paths:
   /billing/usage:
     get:
       tags: [usage]
+      summary: List usage
       operationId: listUsage
-      security: [ { bearerAdmin: [] } ]
+      security: [ { bearerAuth: [] } ]
       parameters:
         - name: days
           in: query
@@ -227,8 +296,9 @@ paths:
   /billing/ledger:
     get:
       tags: [credits]
+      summary: List ledger entries
       operationId: listLedger
-      security: [ { bearerAdmin: [] } ]
+      security: [ { bearerAuth: [] } ]
       parameters:
         - $ref: '#/components/parameters/Limit'
         - $ref: '#/components/parameters/Cursor'
@@ -247,8 +317,10 @@ paths:
   /billing/settings:
     get:
       tags: [billing]
+      summary: Get billing settings
       operationId: getBillingSettings
-      description: Accessible via both sk_* (business) and ak_* (admin) keys.
+      security: [ { bearerBusiness: [] } ]
+      description: Org billing settings. Requires business key (sk_*).
       responses:
         '200':
           description: OK
@@ -257,7 +329,9 @@ paths:
               schema: { $ref: '#/components/schemas/BillingSettings' }
     patch:
       tags: [billing]
+      summary: Update billing settings
       operationId: updateBillingSettings
+      security: [ { bearerBusiness: [] } ]
       requestBody:
         required: true
         content:
@@ -270,11 +344,68 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/BillingSettings' }
 
+  /billing/recharge:
+    post:
+      tags: [billing]
+      summary: Recharge credits
+      operationId: rechargeCredits
+      security: [ { bearerAuth: [] } ]
+      description: Manually top up the org's credit balance.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [amount_cents]
+              properties:
+                amount_cents: { type: integer, minimum: 1 }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Credits' }
+        '400': { $ref: '#/components/responses/InvalidRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /billing/checkout:
+    post:
+      tags: [billing]
+      summary: Create checkout session
+      operationId: createCheckoutSession
+      security: [ { bearerAuth: [] } ]
+      description: Create a payment provider checkout session for credit purchase.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [amount_cents]
+              properties:
+                amount_cents: { type: integer, minimum: 1 }
+                success_url: { type: string, format: uri }
+                cancel_url: { type: string, format: uri }
+      responses:
+        '200':
+          description: Checkout session created.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  checkout_url: { type: string, format: uri }
+                  session_id: { type: string }
+        '400': { $ref: '#/components/responses/InvalidRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
   /auth/me:
     get:
       tags: [auth]
+      summary: Get auth identity
       operationId: getAuthMe
-      description: Returns the authenticated org and key metadata.
+      description: Returns the authenticated org and key metadata. Requires business key (sk_*).
       responses:
         '200':
           description: OK
@@ -292,8 +423,9 @@ paths:
   /usage.csv:
     get:
       tags: [usage]
+      summary: Export usage CSV
       operationId: exportUsageCsv
-      security: [ { bearerAdmin: [] } ]
+      security: [ { bearerAuth: [] } ]
       parameters:
         - name: start
           in: query
@@ -313,8 +445,9 @@ paths:
   /ledger.csv:
     get:
       tags: [credits]
+      summary: Export ledger CSV
       operationId: exportLedgerCsv
-      security: [ { bearerAdmin: [] } ]
+      security: [ { bearerAuth: [] } ]
       responses:
         '200':
           description: CSV download of credits ledger.
@@ -325,8 +458,9 @@ paths:
   /spend_controls:
     get:
       tags: [spend_controls]
+      summary: Get spend controls
       operationId: getSpendControls
-      security: [ { bearerAdmin: [] } ]
+      security: [ { bearerAuth: [] } ]
       responses:
         '200':
           description: OK
@@ -335,8 +469,9 @@ paths:
               schema: { $ref: '#/components/schemas/SpendControls' }
     put:
       tags: [spend_controls]
+      summary: Update spend controls
       operationId: updateSpendControls
-      security: [ { bearerAdmin: [] } ]
+      security: [ { bearerAuth: [] } ]
       requestBody:
         required: true
         content:
@@ -352,8 +487,9 @@ paths:
   /spend_alerts:
     get:
       tags: [spend_controls]
+      summary: List spend alerts
       operationId: listSpendAlerts
-      security: [ { bearerAdmin: [] } ]
+      security: [ { bearerAuth: [] } ]
       parameters:
         - $ref: '#/components/parameters/Limit'
         - $ref: '#/components/parameters/Cursor'
@@ -367,8 +503,9 @@ paths:
   /throughput:
     get:
       tags: [throughput]
+      summary: Get throughput config
       operationId: getThroughput
-      security: [ { bearerAdmin: [] } ]
+      security: [ { bearerAuth: [] } ]
       responses:
         '200':
           description: OK
@@ -379,8 +516,9 @@ paths:
   /moderation_profile:
     get:
       tags: [moderation]
+      summary: Get moderation profile
       operationId: getModerationProfile
-      security: [ { bearerAdmin: [] } ]
+      security: [ { bearerAuth: [] } ]
       responses:
         '200':
           description: OK
@@ -389,8 +527,9 @@ paths:
               schema: { $ref: '#/components/schemas/ModerationProfile' }
     put:
       tags: [moderation]
+      summary: Update moderation profile
       operationId: updateModerationProfile
-      security: [ { bearerAdmin: [] } ]
+      security: [ { bearerAuth: [] } ]
       requestBody:
         required: true
         content:
@@ -406,8 +545,9 @@ paths:
   /keys:
     get:
       tags: [keys]
+      summary: List admin API keys
       operationId: listApiKeys
-      security: [ { bearerAdmin: [] } ]
+      security: [ { bearerAuth: [] } ]
       parameters:
         - $ref: '#/components/parameters/Limit'
         - $ref: '#/components/parameters/Cursor'
@@ -419,8 +559,9 @@ paths:
               schema: { $ref: '#/components/schemas/ApiKeyPage' }
     post:
       tags: [keys]
+      summary: Create admin API key
       operationId: createApiKey
-      security: [ { bearerAdmin: [] } ]
+      security: [ { bearerAuth: [] } ]
       requestBody:
         required: true
         content:
@@ -441,8 +582,9 @@ paths:
         schema: { type: string }
     get:
       tags: [keys]
+      summary: Get API key
       operationId: getApiKey
-      security: [ { bearerAdmin: [] } ]
+      security: [ { bearerAuth: [] } ]
       responses:
         '200':
           description: OK
@@ -451,8 +593,9 @@ paths:
               schema: { $ref: '#/components/schemas/ApiKey' }
     patch:
       tags: [keys]
+      summary: Update API key
       operationId: updateApiKey
-      security: [ { bearerAdmin: [] } ]
+      security: [ { bearerAuth: [] } ]
       requestBody:
         required: true
         content:
@@ -466,16 +609,98 @@ paths:
               schema: { $ref: '#/components/schemas/ApiKey' }
     delete:
       tags: [keys]
+      summary: Revoke API key
       operationId: revokeApiKey
-      security: [ { bearerAdmin: [] } ]
+      security: [ { bearerAuth: [] } ]
       responses:
         '204': { description: Revoked. }
+
+  /me/keys:
+    get:
+      tags: [keys]
+      summary: List my API keys
+      operationId: listMyKeys
+      security: [ { bearerBusiness: [] } ]
+      description: List API keys for the authenticated org. Requires business key (sk_*).
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiKeyPage' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    post:
+      tags: [keys]
+      summary: Create my API key
+      operationId: createMyKey
+      security: [ { bearerBusiness: [] } ]
+      description: Create a new API key for the authenticated org. Requires business key (sk_*).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ApiKeyCreateRequest' }
+      responses:
+        '201':
+          description: Created.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiKeyWithSecret' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /me/keys/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string }
+    get:
+      tags: [keys]
+      summary: Get my API key
+      operationId: getMyKey
+      security: [ { bearerBusiness: [] } ]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiKey' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [keys]
+      summary: Update my API key
+      operationId: updateMyKey
+      security: [ { bearerBusiness: [] } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ApiKeyUpdateRequest' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiKey' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      tags: [keys]
+      summary: Revoke my API key
+      operationId: revokeMyKey
+      security: [ { bearerBusiness: [] } ]
+      responses:
+        '204': { description: Revoked. }
+        '404': { $ref: '#/components/responses/NotFound' }
 
   /webhooks:
     get:
       tags: [webhooks]
+      summary: List webhooks
       operationId: listWebhooks
-      security: [ { bearerAdmin: [] } ]
+      security: [ { bearerAuth: [] } ]
       responses:
         '200':
           description: OK
@@ -484,8 +709,9 @@ paths:
               schema: { $ref: '#/components/schemas/WebhookPage' }
     post:
       tags: [webhooks]
+      summary: Create webhook
       operationId: createWebhook
-      security: [ { bearerAdmin: [] } ]
+      security: [ { bearerAuth: [] } ]
       requestBody:
         required: true
         content:
@@ -506,8 +732,9 @@ paths:
         schema: { type: string }
     get:
       tags: [webhooks]
+      summary: Get webhook
       operationId: getWebhook
-      security: [ { bearerAdmin: [] } ]
+      security: [ { bearerAuth: [] } ]
       responses:
         '200':
           description: OK
@@ -516,16 +743,18 @@ paths:
               schema: { $ref: '#/components/schemas/Webhook' }
     delete:
       tags: [webhooks]
+      summary: Delete webhook
       operationId: deleteWebhook
-      security: [ { bearerAdmin: [] } ]
+      security: [ { bearerAuth: [] } ]
       responses:
         '204': { description: Deleted. }
 
   /webhooks/{id}/rotate:
     post:
       tags: [webhooks]
+      summary: Rotate webhook secret
       operationId: rotateWebhookSecret
-      security: [ { bearerAdmin: [] } ]
+      security: [ { bearerAuth: [] } ]
       parameters:
         - name: id
           in: path
@@ -541,8 +770,9 @@ paths:
   /webhooks/{id}/deliveries:
     get:
       tags: [webhooks]
+      summary: List webhook deliveries
       operationId: listWebhookDeliveries
-      security: [ { bearerAdmin: [] } ]
+      security: [ { bearerAuth: [] } ]
       parameters:
         - name: id
           in: path
@@ -557,13 +787,490 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/WebhookDeliveryPage' }
 
-  /webhooks/deliveries/{delivery_id}/replay:
+  /me/bootstrap:
+    post:
+      tags: [bridge]
+      summary: Bootstrap business key
+      operationId: meBootstrap
+      security: []
+      description: >-
+        Exchange a Clerk JWT for a business API key (sk_live_* / sk_test_*).
+        Called by the dashboard SPA on first load. Rate-limited to 30 req/min.
+        Pass the Clerk session token as `Authorization: Bearer <clerk_jwt>`.
+      parameters:
+        - name: Authorization
+          in: header
+          required: true
+          schema: { type: string, example: 'Bearer <clerk_jwt>' }
+          description: Clerk session JWT.
+      responses:
+        '200':
+          description: Business key returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [secret, prefix, key_id, name, org, balance]
+                properties:
+                  secret: { type: string, description: "Full sk_live_* key. Shown once." }
+                  prefix: { type: string }
+                  key_id: { type: string }
+                  name: { type: string }
+                  org:
+                    type: object
+                    required: [id, name]
+                    properties:
+                      id: { type: string }
+                      name: { type: string }
+                  balance: { type: integer, description: Balance in cents. }
+                  note: { type: string }
+        '401':
+          description: Invalid or missing Clerk JWT (invalid_token / missing_token).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '503':
+          description: Clerk integration not configured (clerk_not_configured).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /me/admin-bootstrap:
+    post:
+      tags: [bridge]
+      summary: Bootstrap admin token
+      operationId: meAdminBootstrap
+      security: []
+      description: >-
+        Exchange a Clerk JWT for an admin token. Only succeeds for users whose
+        email is listed in ADMIN_EMAILS. Rate-limited to 10 req/min.
+        Pass the Clerk session token as `Authorization: Bearer <clerk_jwt>`.
+      parameters:
+        - name: Authorization
+          in: header
+          required: true
+          schema: { type: string, example: 'Bearer <clerk_jwt>' }
+          description: Clerk session JWT.
+      responses:
+        '200':
+          description: Admin token issued.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [admin_token]
+                properties:
+                  admin_token: { type: string }
+                  expires_at:
+                    type: [string, 'null']
+                    format: date-time
+        '401':
+          description: Invalid or missing Clerk JWT (invalid_token / missing_token).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '403':
+          description: Authenticated user is not in ADMIN_EMAILS (not_admin).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '503':
+          description: Clerk integration not configured (clerk_not_configured).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /sales/inquiry:
+    post:
+      tags: [sales]
+      summary: Submit sales inquiry
+      operationId: submitSalesInquiry
+      security: []
+      description: Submit a sales inquiry. Rate-limited to 10 requests per hour per IP.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, email, company, monthly_volume, target_p95_ms]
+              properties:
+                name: { type: string }
+                email: { type: string, format: email }
+                company: { type: string }
+                monthly_volume: { type: integer, description: Estimated monthly video seconds. }
+                target_p95_ms: { type: integer, description: "Target p95 latency in milliseconds." }
+                message: { type: string }
+      responses:
+        '200':
+          description: Inquiry received.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, const: received }
+        '400': { $ref: '#/components/responses/InvalidRequest' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+  /webhooks/clerk:
     post:
       tags: [webhooks]
-      operationId: replayWebhookDelivery
-      security: [ { bearerAdmin: [] } ]
+      summary: Clerk webhook receiver
+      operationId: clerkWebhookReceiver
+      security: []
+      description: >-
+        Inbound Clerk event receiver. Validated via Svix signature headers.
+        Not a client-callable endpoint — used by Clerk's webhook delivery system.
       parameters:
-        - name: delivery_id
+        - name: svix-id
+          in: header
+          required: true
+          schema: { type: string }
+          description: Svix message ID.
+        - name: svix-timestamp
+          in: header
+          required: true
+          schema: { type: string }
+          description: Svix message timestamp.
+        - name: svix-signature
+          in: header
+          required: true
+          schema: { type: string }
+          description: Svix HMAC signature.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: true }
+      responses:
+        '200':
+          description: Event processed.
+        '400':
+          description: Invalid Svix signature.
+
+  /webhooks/payments/{provider}:
+    post:
+      tags: [webhooks]
+      summary: Payment webhook receiver
+      operationId: paymentWebhookReceiver
+      security: []
+      description: >-
+        Inbound payment provider event receiver (Stripe, Wise, etc.). Each
+        provider uses its own signature verification. Not a client-callable endpoint.
+      parameters:
+        - name: provider
+          in: path
+          required: true
+          schema: { type: string, example: stripe }
+          description: Payment provider identifier (e.g. stripe, wise).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: true }
+      responses:
+        '200':
+          description: Event processed.
+        '400':
+          description: Invalid provider signature.
+
+  /internal/admin/overview:
+    get:
+      tags: [internal]
+      summary: Admin overview stats
+      operationId: adminOverview
+      security: [ { adminToken: [] } ]
+      description: Platform-wide statistics for the operator panel.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /internal/admin/users:
+    get:
+      tags: [internal]
+      summary: List users
+      operationId: adminListUsers
+      security: [ { adminToken: [] } ]
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+        - name: q
+          in: query
+          schema: { type: string }
+          description: Search by email or user ID.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+
+  /internal/admin/orgs:
+    get:
+      tags: [internal]
+      summary: List orgs
+      operationId: adminListOrgs
+      security: [ { adminToken: [] } ]
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+        - name: q
+          in: query
+          schema: { type: string }
+          description: Search by org name or ID.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+
+  /internal/admin/orgs/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string }
+    patch:
+      tags: [internal]
+      summary: Update org
+      operationId: adminUpdateOrg
+      security: [ { adminToken: [] } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: true }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /internal/admin/orgs/{id}/pause:
+    post:
+      tags: [internal]
+      summary: Pause org
+      operationId: adminPauseOrg
+      security: [ { adminToken: [] } ]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason: { type: string }
+      responses:
+        '200':
+          description: Org paused.
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /internal/admin/orgs/{id}/unpause:
+    post:
+      tags: [internal]
+      summary: Unpause org
+      operationId: adminUnpauseOrg
+      security: [ { adminToken: [] } ]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Org unpaused.
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /internal/admin/orgs/{id}/throughput:
+    put:
+      tags: [internal]
+      summary: Update org throughput
+      operationId: adminUpsertOrgThroughput
+      security: [ { adminToken: [] } ]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ThroughputConfig' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ThroughputConfig' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /internal/admin/orgs/{id}/moderation:
+    put:
+      tags: [internal]
+      summary: Update org moderation
+      operationId: adminUpsertOrgModeration
+      security: [ { adminToken: [] } ]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ModerationProfile' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ModerationProfile' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /internal/admin/jobs:
+    get:
+      tags: [internal]
+      summary: List all jobs
+      operationId: adminListJobs
+      security: [ { adminToken: [] } ]
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+        - name: status
+          in: query
+          schema: { $ref: '#/components/schemas/VideoStatus' }
+        - name: org_id
+          in: query
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, has_more]
+                properties:
+                  data: { type: array, items: { $ref: '#/components/schemas/Video' } }
+                  has_more: { type: boolean }
+                  next_cursor: { type: [string, 'null'] }
+
+  /internal/admin/jobs/{id}/cancel:
+    post:
+      tags: [internal]
+      summary: Cancel job
+      operationId: adminCancelJob
+      security: [ { adminToken: [] } ]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Job cancelled.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Video' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /internal/admin/credits/adjust:
+    post:
+      tags: [internal]
+      summary: Adjust org credits
+      operationId: adminAdjustCredits
+      security: [ { adminToken: [] } ]
+      description: Manually adjust an org's credit balance.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [org_id, delta_credits]
+              properties:
+                org_id: { type: string }
+                delta_credits: { type: integer, description: "Positive to add, negative to subtract." }
+                note: { type: string }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LedgerEntry' }
+        '400': { $ref: '#/components/responses/InvalidRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /internal/admin/moderation/events:
+    get:
+      tags: [internal]
+      summary: List moderation events
+      operationId: adminListModerationEvents
+      security: [ { adminToken: [] } ]
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+        - name: org_id
+          in: query
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+
+  /internal/admin/moderation/events/{id}:
+    patch:
+      tags: [internal]
+      summary: Update moderation event
+      operationId: adminAddModerationNote
+      security: [ { adminToken: [] } ]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                note: { type: string }
+                resolved: { type: boolean }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /internal/admin/webhooks/deliveries/{id}/replay:
+    post:
+      tags: [internal]
+      summary: Replay webhook delivery
+      operationId: adminReplayWebhookDelivery
+      security: [ { adminToken: [] } ]
+      description: Force-replay a webhook delivery attempt.
+      parameters:
+        - name: id
           in: path
           required: true
           schema: { type: string }
@@ -573,17 +1280,34 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/WebhookDelivery' }
+        '404': { $ref: '#/components/responses/NotFound' }
 
 components:
   securitySchemes:
     bearerBusiness:
       type: http
       scheme: bearer
-      bearerFormat: sk_{live|test}_...
-    bearerAdmin:
+      bearerFormat: sk_live_xxx
+      description: >-
+        Business API key for /v1/videos, /v1/models, /v1/auth/me, /v1/me/*.
+        Format: `sk_live_<hex>` (production) or `sk_test_<hex>` (test mode).
+    bearerAuth:
       type: http
       scheme: bearer
-      bearerFormat: ak_{live|test}_...
+      bearerFormat: ak_live_xxx
+      description: >-
+        Admin API key for /v1/keys/*, /v1/credits, /v1/billing/ledger,
+        /v1/billing/usage, /v1/billing/recharge, /v1/billing/checkout,
+        /v1/webhooks/*, /v1/spend_controls, /v1/spend_alerts, /v1/throughput,
+        /v1/moderation_profile, and export endpoints.
+        Format: `ak_live_<hex>` (production) or `ak_test_<hex>` (test mode).
+    adminToken:
+      type: apiKey
+      in: header
+      name: X-Admin-Token
+      description: >-
+        Shared operator token for /v1/internal/admin/* endpoints.
+        Not a per-org bearer key — used only by the internal operator panel.
 
   parameters:
     Limit:
@@ -672,6 +1396,27 @@ components:
         version: { type: string }
         region: { type: string }
 
+    ErrorCode:
+      type: string
+      description: >-
+        Machine-readable error code returned in the `error.code` field.
+        This enum lists common platform-level codes; endpoint-specific codes
+        follow the pattern `<domain>.<detail>`.
+      enum:
+        - authentication.missing_bearer
+        - authentication.invalid_key
+        - authorization.wrong_kind
+        - authorization.ip_not_allowed
+        - rate_limited
+        - idempotency_conflict
+        - idempotent_request_in_progress
+        - spend_cap_exceeded
+        - moderation_blocked
+        - provider_unavailable
+        - invalid_request.resolution_unsupported
+        - invalid_request.model_not_found
+        - not_found
+
     Error:
       type: object
       required: [error]
@@ -757,7 +1502,7 @@ components:
         video_url: { type: string, format: uri }
         thumbnail_url: { type: string, format: uri }
         last_frame_url: { type: string, format: uri }
-        duration_seconds: { type: number, format: float }
+        duration_seconds: { type: number }
         width: { type: integer }
         height: { type: integer }
         fps: { type: integer }
@@ -766,10 +1511,10 @@ components:
     VideoUsage:
       type: object
       properties:
-        video_seconds: { type: number, format: float }
+        video_seconds: { type: number }
         upstream_tokens: { type: integer }
         estimated_cost_cents: { type: integer }
-        actual_cost_cents: { type: integer, nullable: true }
+        actual_cost_cents: { type: [integer, 'null'] }
 
     Video:
       type: object
@@ -780,8 +1525,8 @@ components:
         status: { $ref: '#/components/schemas/VideoStatus' }
         model: { type: string }
         created_at: { type: string, format: date-time }
-        started_at: { type: string, format: date-time, nullable: true }
-        finished_at: { type: string, format: date-time, nullable: true }
+        started_at: { type: [string, 'null'], format: date-time }
+        finished_at: { type: [string, 'null'], format: date-time }
         input: { $ref: '#/components/schemas/VideoInputEcho' }
         output:
           oneOf:
@@ -810,7 +1555,7 @@ components:
           type: array
           items: { $ref: '#/components/schemas/Video' }
         has_more: { type: boolean }
-        next_cursor: { type: string, nullable: true }
+        next_cursor: { type: [string, 'null'] }
 
     VideoSseEvent:
       type: object
@@ -856,7 +1601,7 @@ components:
           type: array
           items: { $ref: '#/components/schemas/Model' }
         has_more: { type: boolean }
-        next_cursor: { type: string, nullable: true }
+        next_cursor: { type: [string, 'null'] }
 
     Credits:
       type: object
@@ -891,27 +1636,27 @@ components:
           type: array
           items: { $ref: '#/components/schemas/UsageLineItem' }
         has_more: { type: boolean }
-        next_cursor: { type: string, nullable: true }
+        next_cursor: { type: [string, 'null'] }
 
     SpendControls:
       type: object
       properties:
-        hard_cap_cents: { type: integer, nullable: true }
-        soft_alert_cents: { type: integer, nullable: true }
-        auto_pause_below_cents: { type: integer, nullable: true }
-        monthly_limit_cents: { type: integer, nullable: true }
+        hard_cap_cents: { type: [integer, 'null'] }
+        soft_alert_cents: { type: [integer, 'null'] }
+        auto_pause_below_cents: { type: [integer, 'null'] }
+        monthly_limit_cents: { type: [integer, 'null'] }
         period_resets_on: { type: integer, minimum: 1, maximum: 28 }
-        paused_at: { type: string, format: date-time, nullable: true }
-        pause_reason: { type: string, nullable: true }
+        paused_at: { type: [string, 'null'], format: date-time }
+        pause_reason: { type: [string, 'null'] }
         current_burn_rate_cents_per_day: { type: integer }
 
     SpendControlsUpdate:
       type: object
       properties:
-        hard_cap_cents: { type: integer, nullable: true }
-        soft_alert_cents: { type: integer, nullable: true }
-        auto_pause_below_cents: { type: integer, nullable: true }
-        monthly_limit_cents: { type: integer, nullable: true }
+        hard_cap_cents: { type: [integer, 'null'] }
+        soft_alert_cents: { type: [integer, 'null'] }
+        auto_pause_below_cents: { type: [integer, 'null'] }
+        monthly_limit_cents: { type: [integer, 'null'] }
         period_resets_on: { type: integer, minimum: 1, maximum: 28 }
 
     SpendAlert:
@@ -931,7 +1676,7 @@ components:
           type: array
           items: { $ref: '#/components/schemas/SpendAlert' }
         has_more: { type: boolean }
-        next_cursor: { type: string, nullable: true }
+        next_cursor: { type: [string, 'null'] }
 
     ThroughputConfig:
       type: object
@@ -1014,13 +1759,13 @@ components:
         scopes: { type: array, items: { $ref: '#/components/schemas/ApiKeyScope' } }
         allowed_models: { type: array, items: { type: string } }
         disabled: { type: boolean }
-        monthly_spend_cap_cents: { type: integer, nullable: true }
-        rate_limit_rpm: { type: integer, nullable: true }
+        monthly_spend_cap_cents: { type: [integer, 'null'] }
+        rate_limit_rpm: { type: [integer, 'null'] }
         ip_allowlist: { type: array, items: { type: string } }
-        moderation_profile: { type: string, nullable: true }
+        moderation_profile: { type: [string, 'null'] }
         provisioned_concurrency: { type: integer, default: 5 }
         created_at: { type: string, format: date-time }
-        last_used_at: { type: string, format: date-time, nullable: true }
+        last_used_at: { type: [string, 'null'], format: date-time }
 
     ApiKeyWithSecret:
       allOf:
@@ -1038,7 +1783,7 @@ components:
           type: array
           items: { $ref: '#/components/schemas/ApiKey' }
         has_more: { type: boolean }
-        next_cursor: { type: string, nullable: true }
+        next_cursor: { type: [string, 'null'] }
 
     WebhookEventType:
       type: string
@@ -1064,8 +1809,8 @@ components:
         events: { type: array, items: { $ref: '#/components/schemas/WebhookEventType' } }
         description: { type: string }
         disabled: { type: boolean }
-        last_delivery_at: { type: string, format: date-time, nullable: true }
-        last_delivery_status: { type: integer, nullable: true }
+        last_delivery_at: { type: [string, 'null'], format: date-time }
+        last_delivery_status: { type: [integer, 'null'] }
         created_at: { type: string, format: date-time }
 
     WebhookWithSecret:
@@ -1084,7 +1829,7 @@ components:
           type: array
           items: { $ref: '#/components/schemas/Webhook' }
         has_more: { type: boolean }
-        next_cursor: { type: string, nullable: true }
+        next_cursor: { type: [string, 'null'] }
 
     WebhookDelivery:
       type: object
@@ -1092,11 +1837,11 @@ components:
         id: { type: string }
         webhook_id: { type: string }
         event_type: { $ref: '#/components/schemas/WebhookEventType' }
-        status_code: { type: integer, nullable: true }
-        error: { type: string, nullable: true }
+        status_code: { type: [integer, 'null'] }
+        error: { type: [string, 'null'] }
         attempt: { type: integer }
-        next_retry_at: { type: string, format: date-time, nullable: true }
-        delivered_at: { type: string, format: date-time, nullable: true }
+        next_retry_at: { type: [string, 'null'], format: date-time }
+        delivered_at: { type: [string, 'null'], format: date-time }
         created_at: { type: string, format: date-time }
 
     WebhookDeliveryPage:
@@ -1107,15 +1852,15 @@ components:
           type: array
           items: { $ref: '#/components/schemas/WebhookDelivery' }
         has_more: { type: boolean }
-        next_cursor: { type: string, nullable: true }
+        next_cursor: { type: [string, 'null'] }
 
     BillingSettings:
       type: object
       properties:
-        company_name: { type: string, nullable: true }
-        tax_id: { type: string, nullable: true }
-        billing_email: { type: string, format: email, nullable: true }
-        country_region: { type: string, nullable: true }
+        company_name: { type: [string, 'null'] }
+        tax_id: { type: [string, 'null'] }
+        billing_email: { type: [string, 'null'], format: email }
+        country_region: { type: [string, 'null'] }
 
     LedgerEntry:
       type: object
@@ -1123,9 +1868,9 @@ components:
         id: { type: integer, format: int64 }
         org_id: { type: string }
         delta_credits: { type: integer }
-        delta_cents: { type: integer, nullable: true }
+        delta_cents: { type: [integer, 'null'] }
         reason: { type: string, enum: [signup_bonus, topup, consumption, reservation, reconciliation, refund, adjustment] }
-        job_id: { type: string, nullable: true }
+        job_id: { type: [string, 'null'] }
         note: { type: string }
         created_at: { type: string, format: date-time }
 
@@ -1140,12 +1885,41 @@ components:
         data:
           type: object
           properties:
+            video_id:
+              type: string
+              format: uuid
+              description: The video ID (UUID).
+            job_id:
+              type: string
+              format: uuid
+              description: >-
+                Legacy alias for video_id. Retained for backwards compatibility
+                with older SDKs. Always equal to video_id.
             video: { $ref: '#/components/schemas/Video' }
 
 webhooks:
   videoEvent:
     post:
-      summary: Outbound video.* event delivered to registered webhook URL.
+      summary: Outbound video event
+      description: >-
+        Outbound video.* event delivered to your registered webhook URL.
+        Signed with HMAC-SHA256; verify using X-NextAPI-Signature.
+      parameters:
+        - name: X-NextAPI-Signature
+          in: header
+          required: true
+          schema: { type: string, example: 't=1700000000,sha256=abcdef0123456789' }
+          description: "HMAC-SHA256 signature. Format: t=<unix>,sha256=<hex>."
+        - name: X-NextAPI-Timestamp
+          in: header
+          required: true
+          schema: { type: string, example: '1700000000' }
+          description: Unix epoch seconds when the event was dispatched.
+        - name: X-NextAPI-Event
+          in: header
+          required: true
+          schema: { type: string, example: 'video.succeeded' }
+          description: Event type matching WebhookEventType.
       requestBody:
         required: true
         content:

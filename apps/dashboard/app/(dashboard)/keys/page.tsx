@@ -14,7 +14,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Copy, Eye, EyeOff, KeyRound, Plus, Trash2 } from "lucide-react"
+import { Copy, Eye, EyeOff, Plus, Trash2 } from "lucide-react"
 import { useTranslations } from "@/lib/i18n/context"
 import { apiFetch } from "@/lib/api"
 import { toast } from "sonner"
@@ -44,7 +44,9 @@ export default function KeysPage() {
   const fetchKeys = useCallback(async () => {
     try {
       const res = await apiFetch("/v1/me/keys")
-      setKeys(res.data || [])
+      const all: ApiKey[] = res.data || []
+      // Hide internally-managed dashboard session keys; users didn't create them.
+      setKeys(all.filter((k) => k.name !== "dashboard-session"))
     } catch {
       toast.error("Failed to load API keys")
     } finally {
@@ -89,11 +91,6 @@ export default function KeysPage() {
     toast.success("Copied to clipboard")
   }
 
-  function handleUseKey(secret: string) {
-    localStorage.setItem("nextapi_api_key", secret)
-    toast.success("API key saved to session")
-  }
-
   return (
     <DashboardShell
       activeHref="/keys"
@@ -114,12 +111,13 @@ export default function KeysPage() {
         {newKeyResult && (
           <div className="rounded-xl border border-signal/30 bg-signal/5 p-5">
             <div className="flex items-start justify-between gap-4">
-              <div>
+              <div className="min-w-0 flex-1">
                 <h3 className="text-[14px] font-medium text-foreground">
                   {t.keys.create} — {newKeyResult.name}
                 </h3>
                 <p className="mt-1 text-[12.5px] text-muted-foreground">
-                  Copy this key now. It will not be shown again.
+                  Copy this key now. It will not be shown again. Use it from your own server / CLI;
+                  the dashboard signs in to the API on its own.
                 </p>
                 <div className="mt-3 flex items-center gap-2">
                   <code className="rounded-md border border-border/80 bg-background/60 px-3 py-1.5 font-mono text-[12px] text-foreground">
@@ -131,14 +129,34 @@ export default function KeysPage() {
                   >
                     <Copy className="size-3.5" />
                   </button>
-                  <button
-                    onClick={() => handleUseKey(newKeyResult.secret)}
-                    className="inline-flex h-8 items-center gap-1 rounded-md border border-signal/40 bg-signal/10 px-3 text-[12px] text-signal hover:bg-signal/20"
-                  >
-                    <KeyRound className="size-3" />
-                    Use this key
-                  </button>
                 </div>
+
+                {/* cURL preview */}
+                <div className="mt-4 rounded-md border border-border/80 bg-background/60">
+                  <div className="flex items-center justify-between border-b border-border/60 px-3 py-2">
+                    <span className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
+                      {t.keys.curlPreview.title}
+                    </span>
+                    <button
+                      onClick={() =>
+                        copyToClipboard(
+                          `curl -X POST https://api.nextapi.top/v1/videos \\\n  -H "Authorization: Bearer ${newKeyResult.secret}" \\\n  -H "Content-Type: application/json" \\\n  -d '{"model":"seedance-v2-pro","prompt":"a cat playing piano","duration":5}'`,
+                        )
+                      }
+                      className="inline-flex items-center gap-1.5 rounded-sm px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:bg-card hover:text-foreground"
+                    >
+                      <Copy className="size-3" />
+                      {t.keys.curlPreview.copy}
+                    </button>
+                  </div>
+                  <pre className="overflow-x-auto px-3 py-3 font-mono text-[11.5px] leading-relaxed text-foreground/90">
+                    {`curl -X POST https://api.nextapi.top/v1/videos \\
+  -H "Authorization: Bearer ${newKeyResult.secret}" \\
+  -H "Content-Type: application/json" \\
+  -d '{"model":"seedance-v2-pro","prompt":"a cat playing piano","duration":5}'`}
+                  </pre>
+                </div>
+                <p className="mt-2 text-[11.5px] text-muted-foreground">{t.keys.curlPreview.description}</p>
               </div>
               <button
                 onClick={() => setNewKeyResult(null)}

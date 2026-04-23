@@ -4,6 +4,22 @@ main = ".open-next/worker.js"
 compatibility_date = "2026-04-23"
 compatibility_flags = ["nodejs_compat"]
 
+routes = [
+  { pattern = "app.nextapi.top", custom_domain = true },
+]
+
+# Public env. NEXT_PUBLIC_* must be present at build time, so they live in
+# [vars] rather than as wrangler secrets. The Clerk publishable key below
+# is a TEST instance — when swapping Clerk to a production instance,
+# replace the value with the corresponding `pk_live_*` and redeploy.
+# Server-only secrets (CLERK_SECRET_KEY, etc.) MUST be set with
+#   `npx wrangler secret put <NAME>`
+# and are intentionally not committed to this file.
+[vars]
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY = "pk_test_YmlnLXZ1bHR1cmUtNi5jbGVyay5hY2NvdW50cy5kZXYk"
+NEXT_PUBLIC_API_URL = "https://api.nextapi.top"
+NEXT_PUBLIC_CLERK_ENV = "test"
+
 [assets]
 directory = ".open-next/assets"
 binding = "ASSETS"

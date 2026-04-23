@@ -81,7 +81,7 @@ export default function TermsPage() {
       <h2>12. Contact</h2>
       <p>
         For questions about these Terms, contact us at{" "}
-        <a href="mailto:legal@nextapi.dev">legal@nextapi.dev</a>.
+        <a href="mailto:legal@nextapi.top">legal@nextapi.top</a>.
       </p>
     </article>
   )

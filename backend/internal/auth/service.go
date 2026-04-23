@@ -3,12 +3,33 @@ package auth
 import (
 	"context"
 	"errors"
+	"os"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/sanidg/nextapi/backend/internal/domain"
 	"gorm.io/gorm"
 )
+
+// ErrTooManyKeys is returned when an org tries to create another API
+// key past the configured per-org cap (MAX_KEYS_PER_ORG, default 25).
+// Caps prevent a compromised dashboard session from spraying out
+// hundreds of keys before we notice.
+var ErrTooManyKeys = errors.New("too many active API keys for this org")
+
+// maxKeysPerOrg returns the per-org active-key cap. The
+// `dashboard-session` key is excluded from the count because it's
+// internally minted on every login and would otherwise bump real
+// production keys out of the budget.
+func maxKeysPerOrg() int {
+	if v := os.Getenv("MAX_KEYS_PER_ORG"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			return n
+		}
+	}
+	return 25
+}
 
 type Service struct {
 	db *gorm.DB
@@ -18,11 +39,12 @@ func NewService(db *gorm.DB) *Service { return &Service{db: db} }
 func (s *Service) DB() *gorm.DB          { return s.db }
 
 type ValidKey struct {
-	APIKey      *domain.APIKey
-	Org         *domain.Org
-	Kind        Kind
-	Env         Env
-	IPAllowlist string
+	APIKey       *domain.APIKey
+	Org          *domain.Org
+	Kind         Kind
+	Env          Env
+	IPAllowlist  string
+	RateLimitRPM int // 0 = unset = use the route-level default
 }
 
 // Validate looks up by prefix, verifies hash, checks not revoked / not disabled.
@@ -48,15 +70,23 @@ func (s *Service) Validate(ctx context.Context, raw string) (*ValidKey, error) {
 		return nil, ErrInvalidKey
 	}
 	var ext struct {
-		Disabled    bool   `gorm:"column:disabled"`
-		IPAllowlist string `gorm:"column:ip_allowlist"`
+		Disabled     bool   `gorm:"column:disabled"`
+		IPAllowlist  string `gorm:"column:ip_allowlist"`
+		RateLimitRPM *int   `gorm:"column:rate_limit_rpm"`
 	}
 	if err := s.db.WithContext(ctx).Raw(
-		`SELECT COALESCE(disabled, false) AS disabled, COALESCE(ip_allowlist, '{}') AS ip_allowlist FROM api_keys WHERE id = ?`, key.ID).Scan(&ext).Error; err != nil {
+		`SELECT COALESCE(disabled, false) AS disabled,
+		        COALESCE(ip_allowlist, '{}') AS ip_allowlist,
+		        rate_limit_rpm
+		   FROM api_keys WHERE id = ?`, key.ID).Scan(&ext).Error; err != nil {
 		return nil, err
 	}
 	if ext.Disabled {
 		return nil, ErrInvalidKey
+	}
+	rpm := 0
+	if ext.RateLimitRPM != nil && *ext.RateLimitRPM > 0 {
+		rpm = *ext.RateLimitRPM
 	}
 	var org domain.Org
 	if err := s.db.WithContext(ctx).First(&org, "id = ?", key.OrgID).Error; err != nil {
@@ -65,7 +95,7 @@ func (s *Service) Validate(ctx context.Context, raw string) (*ValidKey, error) {
 	now := time.Now()
 	s.db.WithContext(ctx).Model(&domain.APIKey{}).
 		Where("id = ?", key.ID).Update("last_used_at", now)
-	return &ValidKey{APIKey: &key, Org: &org, Kind: kind, Env: env, IPAllowlist: ext.IPAllowlist}, nil
+	return &ValidKey{APIKey: &key, Org: &org, Kind: kind, Env: env, IPAllowlist: ext.IPAllowlist, RateLimitRPM: rpm}, nil
 }
 
 type CreateKeyInput struct {
@@ -100,6 +130,18 @@ func (s *Service) CreateKey(ctx context.Context, in CreateKeyInput) (*CreateKeyR
 	if env == "" {
 		env = EnvLive
 	}
+	if in.Name != "dashboard-session" {
+		var active int64
+		if err := s.db.WithContext(ctx).Model(&domain.APIKey{}).
+			Where("org_id = ? AND revoked_at IS NULL AND name <> ?", in.OrgID, "dashboard-session").
+			Count(&active).Error; err != nil {
+			return nil, err
+		}
+		if int(active) >= maxKeysPerOrg() {
+			return nil, ErrTooManyKeys
+		}
+	}
+
 	full, prefix, err := NewKey(kind, env)
 	if err != nil {
 		return nil, err

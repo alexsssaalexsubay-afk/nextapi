@@ -1,4 +1,4 @@
-# STATUS — as of 2026-04-22
+# STATUS — as of 2026-04-23
 
 Legend: ✅ closed-loop (builds, tests pass, wired) · 🟡 compiles but not integration-tested · 🔴 stub / not started
 
@@ -19,7 +19,9 @@ Legend: ✅ closed-loop (builds, tests pass, wired) · 🟡 compiles but not int
 |------|----------|
 | Monorepo layout | `pnpm-workspace.yaml`, `go.work`, apps/{dashboard,admin,site}, packages/ui |
 | API key auth (generate + argon2id + verify) | `internal/auth/key_test.go` |
-| Key management on both auth groups | `sk_*` business keys + `ak_*` admin keys both hit `/v1/keys` handlers |
+| Key management on both auth groups | `sk_*` business keys hit `/v1/me/keys`; `ak_*` admin keys hit `/v1/keys` (no path collision) |
+| Clerk session → API key bridge (Group A) | `POST /v1/me/bootstrap` verifies Clerk JWT against JWKS, lazy-provisions User+Org+SignupBonus, revokes any prior `dashboard-session` key, mints a fresh `sk_live_*`. Dashboard `apiFetch` auto-bootstraps on first call and on 401 retry. Builds: backend ✅ / dashboard ✅ |
+| Clerk session → admin operator (Group A) | `POST /v1/me/admin-bootstrap` verifies Clerk JWT, requires `email ∈ ADMIN_EMAILS`, returns shared `ADMIN_TOKEN`. Admin `adminFetch` auto-bootstraps. Builds: backend ✅ / admin ✅ |
 | Seedance mock provider lifecycle | `internal/provider/seedance/mock_test.go` |
 | Seedance cost estimation pricing | `internal/provider/seedance/pricing_test.go` |
 | Job create + insufficient balance → 402 | `internal/job/service_test.go` |
@@ -58,7 +60,7 @@ Legend: ✅ closed-loop (builds, tests pass, wired) · 🟡 compiles but not int
 | Prometheus /metrics | Counters registered; never scraped against live traffic |
 | Admin API (`/v1/internal/admin/*`) | Gated by `X-Admin-Token`; real SSO/RBAC deferred |
 | Admin panel UI | All pages build, `adminFetch` wired to real API endpoints; no real API data tested |
-| Dashboard pages | All pages build, real fetches wired; needs Clerk session → API key bridge |
+| Dashboard pages | All pages build, real fetches wired, Clerk→API key bridge live (`POST /v1/me/bootstrap`); end-to-end requires `CLERK_ISSUER` + `CLERK_SECRET_KEY` set on backend |
 | Dashboard playground | POST + poll wired; end-to-end only with live Clerk + Seedance |
 | SDKs (python/node/go) | Full client + tests; not published to PyPI/npm/pkg.go.dev |
 | Mintlify docs | Content drafted; needs Mintlify cloud project |
@@ -94,15 +96,29 @@ Legend: ✅ closed-loop (builds, tests pass, wired) · 🟡 compiles but not int
 - Every `// TODO(claude):` is intentional — do not remove without addressing.
 - Clerk peer deps warn for React 19.0.0 compatibility; functional but should pin to 19.0.3+.
 
+## Live deployment (verified 2026-04-23)
+
+| Surface | URL | Where it runs | Status |
+|---------|-----|---------------|--------|
+| Marketing site | https://nextapi.top | Cloudflare Pages | HTTP/2 200 |
+| Customer dashboard | https://app.nextapi.top | Cloudflare Workers (OpenNext) | HTTP/2 200, Clerk-gated |
+| Admin panel | https://admin.nextapi.top | Cloudflare Workers (OpenNext) | HTTP/2 200, Clerk-gated |
+| API + worker | https://api.nextapi.top | Aliyun HK VPS 47.76.205.108 | `/v1/health` → ok, 401 on unauthenticated `/v1/auth/me` |
+
+DNS topology:
+- `api` is **DNS only (grey-cloud)** + Let's Encrypt cert (issued 2026-04-23, expires 2026-07-22, auto-renew via certbot.timer)
+- `app`, `admin`, `nextapi.top` are **proxied (orange-cloud)** through Cloudflare to Workers/Pages
+
+VPS hygiene:
+- Old `nextapi-dashboard` / `nextapi-admin` systemd units `disable`d (frontend now on Workers)
+- Nginx `sites-available/nextapi` only serves `api.nextapi.top` (force HTTPS via certbot redirect block)
+
+Dashboard/Jobs data integration (no longer mock):
+- Home page StatCards: `Available credits` and `Active keys` come from `/v1/auth/me` (handler returns `balance`, `api_keys_active`)
+- Home page "Recent jobs" + `/jobs` page rows come from `/v1/videos?limit=...`
+- Jobs filter counts (all/running/queued/succeeded/failed) computed from real data
+- `/webhooks` page still shows sample data and now displays a clear "PREVIEW" banner; backend webhook delivery-log API is the next milestone
+
 ## Before first real deploy
 
 See `docs/SETUP-GUIDE.md` for the complete step-by-step operator guide.
-
-Quick checklist:
-1. `pnpm install && cd backend && go mod tidy`
-2. `cd backend && go test ./...` (must pass)
-3. Fill `.env`: Clerk, VOLC_ARK_API_KEY, R2, Stripe, ADMIN_TOKEN, ADMIN_EMAILS
-4. Set Clerk webhook endpoint: `https://api.nextapi.top/v1/webhooks/clerk`
-5. DNS: A records for api/dash/admin + CF Pages for root domain
-6. VPS: install Docker, Nginx, Certbot → SSL → reverse proxy
-7. GitHub secrets: `DEPLOY_HOST`, `DEPLOY_SSH_KEY`, `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`

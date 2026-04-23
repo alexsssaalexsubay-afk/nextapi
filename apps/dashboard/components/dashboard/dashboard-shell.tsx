@@ -121,7 +121,7 @@ export function DashboardShell({
 
         <div className="border-t border-sidebar-border p-3">
           <a
-            href="mailto:support@nextapi.dev?subject=NextAPI%20support%20request"
+            href="mailto:support@nextapi.top?subject=NextAPI%20support%20request"
             className="flex items-center gap-2.5 rounded-md px-2 py-1.5 text-[13px] text-muted-foreground transition-colors hover:text-foreground"
           >
             <LifeBuoy className="size-4" />

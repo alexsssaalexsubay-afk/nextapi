@@ -24,7 +24,7 @@ export default function CursorIntegrationPage() {
   }
 }`}
         steps={[
-          "Sign up at dash.nextapi.top and create an API key.",
+          "Sign up at app.nextapi.top and create an API key.",
           "Add the MCP server configuration to your .cursor/mcp.json file.",
           "Restart Cursor to load the new MCP server.",
           "Ask your agent to generate a video — it will use the NextAPI tool automatically.",

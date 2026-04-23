@@ -29,10 +29,10 @@
 
 ## Domain conventions
 - API / code samples: `api.nextapi.top`, `cdn.nextapi.top`
-- Dashboard: `dash.nextapi.top`
+- Dashboard: `app.nextapi.top`
 - Admin: `admin.nextapi.top`
 - Marketing site: `nextapi.top`
-- Email addresses: `*@nextapi.dev` (separate domain)
+- Email addresses: `*@nextapi.top`
 
 ## Forbidden
 - Creating templates/workflows (was scrapped design).
