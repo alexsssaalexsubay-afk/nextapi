@@ -14,6 +14,7 @@ import { Logo } from "@/components/nextapi/logo"
 import { Kbd } from "@/components/nextapi/kbd"
 import { ThemeToggle } from "@/components/nextapi/theme-toggle"
 import { LocaleToggle } from "@/components/nextapi/locale-toggle"
+import { MfaBanner } from "@/components/admin/mfa-banner"
 import { useTranslations } from "@/lib/i18n/context"
 import { cn } from "@/lib/utils"
 
@@ -70,7 +71,9 @@ export function AdminShell({
   ]
 
   return (
-    <div className="flex min-h-screen bg-background">
+    <div className="flex min-h-screen flex-col bg-background">
+      <MfaBanner />
+      <div className="flex flex-1">
       <aside className="hidden w-[236px] shrink-0 flex-col border-r border-sidebar-border bg-sidebar md:flex">
         <div className="flex h-12 items-center justify-between border-b border-sidebar-border px-4">
           <Link href="https://nextapi.top" className="flex items-center gap-2">
@@ -221,6 +224,7 @@ export function AdminShell({
         )}
 
         <main className="flex-1">{children}</main>
+      </div>
       </div>
     </div>
   )

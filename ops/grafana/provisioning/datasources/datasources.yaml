@@ -1,0 +1,23 @@
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    # host network: localhost, not the docker bridge alias.
+    url: http://127.0.0.1:9090
+    isDefault: true
+    editable: false
+    jsonData:
+      timeInterval: 15s
+
+  # Loki not deployed yet — leave the entry so importing future
+  # log dashboards doesn't fail, but mark non-default. Remove if you
+  # never plan to ship Loki.
+  - name: Loki
+    type: loki
+    access: proxy
+    url: http://127.0.0.1:3100
+    editable: false
+    jsonData:
+      maxLines: 1000

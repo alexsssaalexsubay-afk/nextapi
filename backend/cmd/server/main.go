@@ -22,6 +22,7 @@ import (
 	"github.com/sanidg/nextapi/backend/internal/providerfactory"
 	"github.com/sanidg/nextapi/backend/internal/ratelimit"
 	"github.com/sanidg/nextapi/backend/internal/moderation"
+	"github.com/sanidg/nextapi/backend/internal/notify"
 	"github.com/sanidg/nextapi/backend/internal/spend"
 	"github.com/sanidg/nextapi/backend/internal/throughput"
 	"github.com/sanidg/nextapi/backend/internal/webhook"
@@ -57,11 +58,13 @@ func main() {
 	jobSvc.SetThroughput(throughputSvc)
 	jobSvc.SetModeration(modSvc)
 
+	notifier := notify.New()
+
 	h := gateway.New(authSvc, billSvc)
 	vh := &gateway.VideoHandlers{Jobs: jobSvc, DB: gormDB}
 	whh := &gateway.WebhookHandlers{DB: gormDB, Webhooks: whSvc}
 	wdh := &gateway.WebhookDeliveryHandlers{DB: gormDB, Webhooks: whSvc}
-	ah := &gateway.AdminHandlers{DB: gormDB, Billing: billSvc, Spend: spendSvc, Throughput: throughputSvc}
+	ah := &gateway.AdminHandlers{DB: gormDB, Billing: billSvc, Spend: spendSvc, Throughput: throughputSvc, Notify: notifier}
 	ph := gateway.NewPaymentHandlers(billSvc)
 	hook := &gateway.ClerkWebhook{DB: gormDB, Billing: billSvc}
 	models := gateway.ModelsHandlers{}
@@ -88,7 +91,7 @@ func main() {
 	// — that token is way too dangerous to hand to a scrape job.
 	r.GET("/metrics", metrics.Auth(), gin.WrapH(promhttp.Handler()))
 
-	sales := &gateway.SalesHandlers{}
+	sales := &gateway.SalesHandlers{Notify: notifier}
 
 	v1 := r.Group("/v1")
 	v1.GET("/health", okJSON)

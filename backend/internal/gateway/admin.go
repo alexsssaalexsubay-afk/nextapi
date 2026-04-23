@@ -2,6 +2,7 @@ package gateway
 
 import (
 	"crypto/subtle"
+	"fmt"
 	"net/http"
 	"os"
 	"strconv"
@@ -40,6 +41,11 @@ type AdminHandlers struct {
 	Billing    *billing.Service
 	Spend      *spend.Service
 	Throughput *throughput.Service
+	// Notify is optional; when set we email the owner on
+	// state-changing admin actions so audit + email are kept in sync.
+	Notify interface {
+		SendOwner(subject, text string)
+	}
 }
 
 func (h *AdminHandlers) Orgs(c *gin.Context) {
@@ -70,6 +76,13 @@ func (h *AdminHandlers) PauseOrg(c *gin.Context) {
 		return
 	}
 	RecordAudit(ctx, h.DB, c, "org.pause", "org", id, gin.H{"reason": reason})
+	if h.Notify != nil {
+		h.Notify.SendOwner(
+			fmt.Sprintf("[NextAPI] org paused — %s", id),
+			fmt.Sprintf("Operator %s paused org %s.\nReason: %s\nUnpause: POST /v1/internal/admin/orgs/%s/unpause",
+				c.GetHeader(AuditActorEmailHeader), id, reason, id),
+		)
+	}
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
@@ -128,6 +141,15 @@ func (h *AdminHandlers) AdjustCredits(c *gin.Context) {
 		"delta_cents": r.Delta,
 		"note":        r.Note,
 	})
+	if h.Notify != nil {
+		// Always email — credits adjustments are real money and absent
+		// MFA we want a second pair of eyes (the inbox) on every change.
+		h.Notify.SendOwner(
+			fmt.Sprintf("[NextAPI] credits adjusted %+d¢ on %s", r.Delta, r.OrgID),
+			fmt.Sprintf("Operator %s adjusted credits by %+d cents on org %s.\nNote: %s\nLedger: SELECT * FROM credits_ledger WHERE org_id='%s' ORDER BY created_at DESC LIMIT 5;",
+				c.GetHeader(AuditActorEmailHeader), r.Delta, r.OrgID, r.Note, r.OrgID),
+		)
+	}
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 

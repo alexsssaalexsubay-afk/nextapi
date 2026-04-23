@@ -2,6 +2,7 @@ package billing
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"time"
 
@@ -24,7 +25,14 @@ type ReconcileService struct {
 	DB         *gorm.DB
 	Billing    *Service
 	Hooks      WebhookEnqueuer
+	Notify     OwnerNotifier
 	StuckAfter time.Duration
+}
+
+// OwnerNotifier is the slim subset of notify.Notifier we need; declared
+// here as an interface so this package doesn't take a cycle on notify.
+type OwnerNotifier interface {
+	SendOwner(subject, text string)
 }
 
 // WebhookEnqueuer is the subset of webhook.Service we depend on. Kept
@@ -56,6 +64,21 @@ func (r *ReconcileService) Run(ctx context.Context) error {
 
 	for _, j := range jobs {
 		_ = r.fail(ctx, &j)
+	}
+
+	// Owner alert when the recon batch is large — a non-trivial
+	// reconciliation pass means either Seedance is down or our worker
+	// fleet is starved. Either way the boss should know within minutes,
+	// not when the customer notices their balance moving.
+	if r.Notify != nil && len(jobs) >= 5 {
+		r.Notify.SendOwner(
+			fmt.Sprintf("[NextAPI] reconcile recovered %d stuck jobs", len(jobs)),
+			fmt.Sprintf("The 10-minute reconcile pass refunded %d jobs that were queued/running for >%s.\n"+
+				"This usually means an upstream outage or a worker crash.\n\n"+
+				"Check:\n  systemctl status nextapi-worker\n  curl https://api.nextapi.top/health\n"+
+				"Then `SELECT id, org_id, error_code FROM jobs WHERE status='failed' AND error_code='stuck_job' ORDER BY completed_at DESC LIMIT 50;`",
+				len(jobs), stuckAfter),
+		)
 	}
 	return nil
 }

@@ -1,4 +1,11 @@
 # Prometheus config for the nextapi stack.
+#
+# /metrics is now behind Basic auth (METRICS_BASIC_AUTH on the Go
+# server) so this scrape uses the same credentials. Set them by
+# putting the literal `prometheus:<long-password>` into the server's
+# .env as METRICS_BASIC_AUTH and matching them here at install.
+#
+# The basic_auth file path is mounted read-only from the host.
 global:
   scrape_interval: 15s
   evaluation_interval: 15s
@@ -10,14 +17,18 @@ scrape_configs:
   - job_name: nextapi-backend
     metrics_path: /metrics
     static_configs:
-      - targets: ['backend:8080']
+      - targets: ['127.0.0.1:8080']
         labels:
           service: nextapi
+    basic_auth:
+      username: prometheus
+      # File mounted by docker-compose; contents = the password only.
+      password_file: /etc/prometheus/secrets/metrics-password
 
   - job_name: node-exporter
     static_configs:
-      - targets: ['node-exporter:9100']
+      - targets: ['127.0.0.1:9100']
 
   - job_name: redis-exporter
     static_configs:
-      - targets: ['redis-exporter:9121']
+      - targets: ['127.0.0.1:9121']

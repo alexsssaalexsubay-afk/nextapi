@@ -1,0 +1,75 @@
+# Observability stack for the production VPS.
+#
+#   docker compose -f ops/observability-compose.yml up -d
+#
+# Services bind to 127.0.0.1 only. Reach Grafana from your laptop with:
+#   ssh -L 3000:127.0.0.1:3000 root@<host>   →   http://localhost:3000
+# Login: admin / $GF_ADMIN_PASSWORD (set in /opt/nextapi/.env).
+#
+# Dashboards / datasources are provisioned from this repo so a fresh
+# Grafana container always shows the same panels — no clicking around.
+
+services:
+  prometheus:
+    image: prom/prometheus:v2.55.0
+    container_name: nextapi-prometheus
+    restart: unless-stopped
+    user: "65534:65534"
+    network_mode: host
+    volumes:
+      - /opt/nextapi/ops/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - /opt/nextapi/ops/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - /opt/nextapi/ops/prometheus/data:/prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=30d
+      - --web.listen-address=127.0.0.1:9090
+      - --web.external-url=http://localhost:9090
+
+  node-exporter:
+    image: prom/node-exporter:v1.8.2
+    container_name: nextapi-node-exporter
+    restart: unless-stopped
+    network_mode: host
+    pid: host
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - --path.procfs=/host/proc
+      - --path.sysfs=/host/sys
+      - --collector.filesystem.mount-points-exclude=^/(rootfs/)?(sys|proc|dev|host|etc)($$|/)
+      - --web.listen-address=127.0.0.1:9100
+
+  redis-exporter:
+    image: oliver006/redis_exporter:v1.62.0
+    container_name: nextapi-redis-exporter
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      REDIS_ADDR: "redis://127.0.0.1:6379"
+    command:
+      - --web.listen-address=127.0.0.1:9121
+
+  grafana:
+    image: grafana/grafana:11.3.0
+    container_name: nextapi-grafana
+    restart: unless-stopped
+    user: "472:472"
+    network_mode: host
+    env_file: /opt/nextapi/.env
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GF_ADMIN_PASSWORD:-changeme-set-in-env}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_SERVER_HTTP_ADDR: 127.0.0.1
+      GF_SERVER_HTTP_PORT: 3000
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+    volumes:
+      - /opt/nextapi/ops/grafana/provisioning:/etc/grafana/provisioning:ro
+      - /opt/nextapi/ops/grafana/dashboards:/etc/grafana/dashboards:ro
+      - /opt/nextapi/ops/grafana/data:/var/lib/grafana

@@ -16,6 +16,7 @@ import (
 	"github.com/sanidg/nextapi/backend/internal/infra/db"
 	rdc "github.com/sanidg/nextapi/backend/internal/infra/redis"
 	"github.com/sanidg/nextapi/backend/internal/job"
+	"github.com/sanidg/nextapi/backend/internal/notify"
 	"github.com/sanidg/nextapi/backend/internal/providerfactory"
 	"github.com/sanidg/nextapi/backend/internal/spend"
 	"github.com/sanidg/nextapi/backend/internal/throughput"
@@ -90,8 +91,10 @@ func main() {
 	// trades off "how long can a customer's balance stay locked by a
 	// dead worker" against "how chatty is recovery" — 10m feels right
 	// for a B2B gateway whose median job is 30s.
+	notifier := notify.New()
 	recon := &billing.ReconcileService{
 		DB: gormDB, Billing: billSvc, Hooks: whSvc,
+		Notify:     notifier,
 		StuckAfter: 1 * time.Hour,
 	}
 	bg.Add(1)
