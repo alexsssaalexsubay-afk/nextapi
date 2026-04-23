@@ -8,14 +8,12 @@ routes = [
   { pattern = "admin.nextapi.top", custom_domain = true },
 ]
 
-# See ../dashboard/wrangler.toml for env conventions. The publishable key
-# below is the TEST Clerk instance; swap to `pk_live_*` for production.
-# All sensitive values (CLERK_SECRET_KEY, ADMIN_TOKEN if ever proxied)
-# go through `npx wrangler secret put` — never into [vars].
+# See ../dashboard/wrangler.toml for the rationale. Same rule applies:
+# NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY is set per-environment via
+# `wrangler secret put`, never committed.
+
 [vars]
-NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY = "pk_test_YmlnLXZ1bHR1cmUtNi5jbGVyay5hY2NvdW50cy5kZXYk"
 NEXT_PUBLIC_API_URL = "https://api.nextapi.top"
-NEXT_PUBLIC_CLERK_ENV = "test"
 
 [assets]
 directory = ".open-next/assets"

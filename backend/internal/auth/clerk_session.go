@@ -55,6 +55,14 @@ type ClerkVerifier struct {
 
 var ErrClerkDisabled = errors.New("clerk verifier not configured")
 
+// FetchClerkUserEmail is exposed as a method too so callers that
+// hold the verifier interface (e.g. AdminMiddleware) don't need a
+// second dependency. Internally it just delegates to the package-
+// level helper that uses CLERK_SECRET_KEY directly.
+func (v *ClerkVerifier) FetchClerkUserEmail(ctx context.Context, userID string) (string, error) {
+	return FetchClerkUserEmail(ctx, userID)
+}
+
 // NewClerkVerifier returns nil if CLERK_ISSUER (or CLERK_FRONTEND_API) is not
 // set. Issuer should look like https://big-vulture-6.clerk.accounts.dev or your
 // production custom domain (e.g. https://clerk.yourdomain.com).

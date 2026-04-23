@@ -1,6 +1,7 @@
 package gateway
 
 import (
+	"context"
 	"crypto/subtle"
 	"fmt"
 	"net/http"
@@ -10,6 +11,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/sanidg/nextapi/backend/internal/auth"
 	"github.com/sanidg/nextapi/backend/internal/billing"
 	"github.com/sanidg/nextapi/backend/internal/domain"
 	"github.com/sanidg/nextapi/backend/internal/spend"
@@ -17,23 +19,87 @@ import (
 	"gorm.io/gorm"
 )
 
-// AdminMiddleware gates /v1/internal/admin/* by a simple shared token
-// (X-Admin-Token) plus optional email allowlist via ADMIN_EMAILS.
-// Real SSO / RBAC arrives in W8.
-func AdminMiddleware() gin.HandlerFunc {
+// AdminAuthHeader is the gin context key the middleware writes the
+// resolved operator email under, so RecordAudit can attribute actions
+// to a real human (Clerk JWT path) instead of just "shared token".
+const AdminActorCtxKey = "nextapi.admin.actor"
+
+// AdminMiddleware gates /v1/internal/admin/* with two accepted
+// credentials, in priority order:
+//
+//  1. Authorization: Bearer <Clerk JWT>
+//     Verified via Clerk JWKS, then `email` must be in ADMIN_EMAILS.
+//     This is what the admin web UI uses now — no shared secret ever
+//     reaches the browser.
+//
+//  2. X-Admin-Token: <ADMIN_TOKEN>
+//     Constant-time compare against env. Kept for cron jobs, internal
+//     scripts, prometheus probes, and any tooling that doesn't want a
+//     Clerk identity. Strongly discouraged for browsers.
+//
+// At least one of the two must be configured (CLERK_ISSUER+ADMIN_EMAILS
+// or ADMIN_TOKEN); a plain "no auth at all" deployment is rejected.
+func AdminMiddleware(verifier interface {
+	Verify(ctx context.Context, raw string) (*auth.ClerkClaims, error)
+	FetchClerkUserEmail(ctx context.Context, userID string) (string, error)
+}) gin.HandlerFunc {
+	want := os.Getenv("ADMIN_TOKEN")
+	allow := normalizeAdminEmails(os.Getenv("ADMIN_EMAILS"))
+
 	return func(c *gin.Context) {
-		want := os.Getenv("ADMIN_TOKEN")
-		if want == "" {
+		// Path 1: Clerk JWT (browser).
+		if h := c.GetHeader("Authorization"); strings.HasPrefix(h, "Bearer ") && verifier != nil {
+			tok := strings.TrimPrefix(h, "Bearer ")
+			claims, err := verifier.Verify(c.Request.Context(), tok)
+			if err == nil {
+				email := strings.ToLower(strings.TrimSpace(claims.Email))
+				if email == "" {
+					email, _ = verifier.FetchClerkUserEmail(c.Request.Context(), claims.Sub)
+					email = strings.ToLower(strings.TrimSpace(email))
+				}
+				if email != "" && allow[email] {
+					c.Set(AdminActorCtxKey, email)
+					c.Next()
+					return
+				}
+				c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": gin.H{
+					"code":    "not_in_admin_allowlist",
+					"message": "your Clerk email is not listed in ADMIN_EMAILS",
+				}})
+				return
+			}
+			// Bad JWT falls through to X-Admin-Token check below so an
+			// admin curl with the shared token still works even if the
+			// Clerk header is stale.
+		}
+
+		// Path 2: shared X-Admin-Token (cron / tools).
+		if want != "" {
+			got := c.GetHeader("X-Admin-Token")
+			if got != "" && subtle.ConstantTimeCompare([]byte(got), []byte(want)) == 1 {
+				c.Set(AdminActorCtxKey, "shared-token")
+				c.Next()
+				return
+			}
+		}
+
+		if want == "" && len(allow) == 0 {
 			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": gin.H{"code": "admin_disabled"}})
 			return
 		}
-		got := c.GetHeader("X-Admin-Token")
-		if subtle.ConstantTimeCompare([]byte(got), []byte(want)) != 1 {
-			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": gin.H{"code": "forbidden"}})
-			return
-		}
-		c.Next()
+		c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": gin.H{"code": "forbidden"}})
 	}
+}
+
+func normalizeAdminEmails(raw string) map[string]bool {
+	out := map[string]bool{}
+	for _, e := range strings.Split(raw, ",") {
+		t := strings.ToLower(strings.TrimSpace(e))
+		if t != "" && t != "<set-your-admin-email@example.com>" {
+			out[t] = true
+		}
+	}
+	return out
 }
 
 type AdminHandlers struct {
@@ -80,7 +146,7 @@ func (h *AdminHandlers) PauseOrg(c *gin.Context) {
 		h.Notify.SendOwner(
 			fmt.Sprintf("[NextAPI] org paused — %s", id),
 			fmt.Sprintf("Operator %s paused org %s.\nReason: %s\nUnpause: POST /v1/internal/admin/orgs/%s/unpause",
-				c.GetHeader(AuditActorEmailHeader), id, reason, id),
+				resolveActor(c), id, reason, id),
 		)
 	}
 	c.JSON(http.StatusOK, gin.H{"ok": true})
@@ -147,7 +213,7 @@ func (h *AdminHandlers) AdjustCredits(c *gin.Context) {
 		h.Notify.SendOwner(
 			fmt.Sprintf("[NextAPI] credits adjusted %+d¢ on %s", r.Delta, r.OrgID),
 			fmt.Sprintf("Operator %s adjusted credits by %+d cents on org %s.\nNote: %s\nLedger: SELECT * FROM credits_ledger WHERE org_id='%s' ORDER BY created_at DESC LIMIT 5;",
-				c.GetHeader(AuditActorEmailHeader), r.Delta, r.OrgID, r.Note, r.OrgID),
+				resolveActor(c), r.Delta, r.OrgID, r.Note, r.OrgID),
 		)
 	}
 	c.JSON(http.StatusOK, gin.H{"ok": true})

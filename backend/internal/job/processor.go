@@ -161,13 +161,14 @@ func (p *Processor) succeed(ctx context.Context, j *domain.Job, st *provider.Job
 		p.Spend.DecrInflight(ctx, j.OrgID, j.ReservedCredits)
 	}
 	if err == nil && p.Webhooks != nil {
-		// Carry both job_id (legacy SDK contract) and video_id (current /v1/videos
-		// surface) so customers on either generation of the SDK can pick up the
-		// event without code change.
+		// Resolve the actual videos.id row (its UUID is what GET /v1/videos/{id}
+		// expects) — the job UUID is internal-only. video_id falls back to the
+		// job id when no video row exists (legacy /video/generations callers).
+		videoID := lookupVideoID(ctx, p.DB, j.ID)
 		_ = p.Webhooks.Enqueue(ctx, j.OrgID, "job.succeeded", map[string]any{
-			"id":           j.ID,
+			"id":           videoID,
 			"job_id":       j.ID,
-			"video_id":     j.ID,
+			"video_id":     videoID,
 			"status":       "succeeded",
 			"video_url":    st.VideoURL,
 			"cost_credits": actualCredits,
@@ -175,6 +176,21 @@ func (p *Processor) succeed(ctx context.Context, j *domain.Job, st *provider.Job
 		})
 	}
 	return err
+}
+
+// lookupVideoID returns the UUID of the videos row whose upstream_job_id
+// equals jobID, or jobID itself when no video row exists (legacy callers
+// that hit /v1/video/generations directly). The fallback keeps webhook
+// payloads stable for old SDKs.
+func lookupVideoID(ctx context.Context, db *gorm.DB, jobID string) string {
+	var v struct{ ID string }
+	if err := db.WithContext(ctx).
+		Table("videos").Select("id").
+		Where("upstream_job_id = ?", jobID).
+		Limit(1).Scan(&v).Error; err == nil && v.ID != "" {
+		return v.ID
+	}
+	return jobID
 }
 
 func (p *Processor) fail(ctx context.Context, j *domain.Job, code, msg string) error {
@@ -216,10 +232,11 @@ func (p *Processor) fail(ctx context.Context, j *domain.Job, code, msg string) e
 		p.Spend.DecrInflight(ctx, j.OrgID, j.ReservedCredits)
 	}
 	if err == nil && p.Webhooks != nil {
+		videoID := lookupVideoID(ctx, p.DB, j.ID)
 		_ = p.Webhooks.Enqueue(ctx, j.OrgID, "job.failed", map[string]any{
-			"id":            j.ID,
+			"id":            videoID,
 			"job_id":        j.ID,
-			"video_id":      j.ID,
+			"video_id":      videoID,
 			"status":        "failed",
 			"error_code":    code,
 			"error_message": msg,

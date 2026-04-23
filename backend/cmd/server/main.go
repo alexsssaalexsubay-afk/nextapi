@@ -103,7 +103,7 @@ func main() {
 	// — that token is way too dangerous to hand to a scrape job.
 	r.GET("/metrics", metrics.Auth(), gin.WrapH(promhttp.Handler()))
 
-	sales := &gateway.SalesHandlers{Notify: notifier}
+	sales := &gateway.SalesHandlers{DB: gormDB, Notify: notifier}
 
 	v1 := r.Group("/v1")
 	v1.GET("/health", okJSON)
@@ -123,14 +123,17 @@ func main() {
 	// state-changing.
 	clerkVerifier := auth.NewClerkVerifier()
 	bh := &gateway.BootstrapHandlers{DB: gormDB, Auth: authSvc, Billing: billSvc, Clerk: clerkVerifier}
+	// Bootstrap endpoints intentionally do NOT require Turnstile:
+	// they already require a valid Clerk-signed JWT (RS256 + JWKS),
+	// which an unattended bot can't forge without a Clerk session,
+	// and they're rate-limited per-IP. Adding Turnstile would require
+	// the dashboard / admin SPA to mint a Cloudflare challenge token
+	// before its very first API call, which deadlocks the login flow
+	// on a cold tab. Keep Turnstile only for genuinely-public endpoints
+	// (sales/inquiry, future signup).
 	v1.POST("/me/bootstrap",
-		abuse.Turnstile(),
 		ratelimit.Middleware(rl, 30, time.Minute),
 		bh.MeBootstrap)
-	v1.POST("/me/admin-bootstrap",
-		abuse.Turnstile(),
-		ratelimit.Middleware(rl, 10, time.Minute),
-		bh.AdminBootstrap)
 
 	// Business surface (sk_* keys).
 	api := v1.Group("")
@@ -200,7 +203,7 @@ func main() {
 
 	// Internal operator panel (shared token, not bearer).
 	internal := v1.Group("/internal/admin")
-	internal.Use(gateway.AdminMiddleware())
+	internal.Use(gateway.AdminMiddleware(clerkVerifier))
 	internal.Use(ratelimit.Middleware(rl, 120, time.Minute))
 	internal.GET("/overview", ah.OverviewStats)
 	internal.GET("/users", ah.Users)

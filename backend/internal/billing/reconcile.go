@@ -132,10 +132,22 @@ func (r *ReconcileService) fail(ctx context.Context, j *domain.Job) error {
 		return err
 	}
 	if r.Hooks != nil {
+		// Same fix as job/processor — webhook payload uses the videos.id
+		// (the public-surface UUID) so customers can `GET /v1/videos/{id}`
+		// against it. Falls back to job id for the legacy /video/generations
+		// flow that doesn't write a videos row.
+		videoID := j.ID
+		var v struct{ ID string }
+		if err := r.DB.WithContext(ctx).
+			Table("videos").Select("id").
+			Where("upstream_job_id = ?", j.ID).
+			Limit(1).Scan(&v).Error; err == nil && v.ID != "" {
+			videoID = v.ID
+		}
 		_ = r.Hooks.Enqueue(ctx, j.OrgID, "job.failed", map[string]any{
-			"id":            j.ID,
+			"id":            videoID,
 			"job_id":        j.ID,
-			"video_id":      j.ID,
+			"video_id":      videoID,
 			"status":        "failed",
 			"error_code":    code,
 			"error_message": msg,

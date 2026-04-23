@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"net/http"
-	"os"
 	"strings"
 	"time"
 
@@ -102,57 +101,15 @@ func (b *BootstrapHandlers) MeBootstrap(c *gin.Context) {
 	})
 }
 
-// AdminBootstrap is the admin app's equivalent: verify Clerk JWT, then check
-// that the user's primary email is in ADMIN_EMAILS allowlist. If so, return
-// the shared ADMIN_TOKEN (current model). Future work will replace the shared
-// token with per-operator JWTs.
-func (b *BootstrapHandlers) AdminBootstrap(c *gin.Context) {
-	if b.Clerk == nil {
-		c.JSON(http.StatusServiceUnavailable, gin.H{"error": gin.H{"code": "clerk_not_configured"}})
-		return
-	}
-	tok := extractBearer(c)
-	if tok == "" {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": gin.H{"code": "missing_token"}})
-		return
-	}
-	adminToken := os.Getenv("ADMIN_TOKEN")
-	allow := splitCSV(os.Getenv("ADMIN_EMAILS"))
-	if adminToken == "" || len(allow) == 0 {
-		c.JSON(http.StatusServiceUnavailable, gin.H{"error": gin.H{"code": "admin_not_configured", "message": "set ADMIN_TOKEN and ADMIN_EMAILS"}})
-		return
-	}
-	ctx := c.Request.Context()
-	claims, err := b.Clerk.Verify(ctx, tok)
-	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": gin.H{"code": "invalid_token"}})
-		return
-	}
-	email := strings.ToLower(claims.Email)
-	if email == "" {
-		// JWT doesn't carry email by default; look up the user row first.
-		var u domain.User
-		if err := b.DB.WithContext(ctx).
-			Where("id = ?", claims.Sub).First(&u).Error; err == nil {
-			email = strings.ToLower(u.Email)
-		}
-	}
-	if email == "" {
-		// Last resort: ask Clerk Backend API.
-		if e, _ := auth.FetchClerkUserEmail(ctx, claims.Sub); e != "" {
-			email = strings.ToLower(e)
-		}
-	}
-	if email == "" || !contains(allow, email) {
-		c.JSON(http.StatusForbidden, gin.H{"error": gin.H{"code": "not_an_operator"}})
-		return
-	}
-	c.JSON(http.StatusOK, gin.H{
-		"admin_token": adminToken,
-		"email":       email,
-		"note":        "shared operator token — rotate via wrangler secret + restart backend.",
-	})
-}
+// AdminBootstrap is intentionally REMOVED.
+//
+// The previous design exchanged a Clerk JWT for the shared ADMIN_TOKEN
+// and dropped that token into sessionStorage. Whoever sniffed the
+// browser session got the master key to every tenant.
+//
+// Replacement: the admin SPA now sends its Clerk JWT on every admin
+// API call, and AdminMiddleware verifies it inline (jwks + email
+// allowlist). No long-lived shared secret leaves the server.
 
 func (b *BootstrapHandlers) ensureUserAndOrg(ctx context.Context, claims *auth.ClerkClaims) (*domain.Org, error) {
 	db := b.DB.WithContext(ctx)
