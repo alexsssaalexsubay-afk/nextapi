@@ -1,6 +1,7 @@
 package gateway
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -105,6 +106,38 @@ func (h *VideosHandlers) Create(c *gin.Context) {
 		IdempotencyKey:     req.IdempotencyKey,
 	}
 	if err := h.DB.WithContext(c.Request.Context()).Create(&vid).Error; err != nil {
+		// Catastrophic: the job was already queued + reservation taken,
+		// but we can't write the video row that the customer-facing API
+		// hangs off. The reconciliation worker will refund the reservation
+		// within an hour, but mark the job failed eagerly so the user
+		// doesn't see phantom progress.
+		bgCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = h.DB.WithContext(bgCtx).Model(&domain.Job{}).
+			Where("id = ?", res.JobID).
+			Updates(map[string]any{
+				"status":        domain.JobFailed,
+				"error_code":    "video_record_failed",
+				"error_message": "could not persist video record",
+				"completed_at":  time.Now(),
+			}).Error
+		if h.Throughput != nil {
+			_ = h.Throughput.ReleaseForKey(bgCtx, org.ID, apiKeyID, res.JobID)
+		}
+		// Refund inline so the customer's balance is correct before the
+		// next request lands; ledger uniqueness will deduplicate against
+		// any later reconcile pass.
+		if res.EstimatedCredits > 0 {
+			refundCents := res.EstimatedCredits
+			_ = h.DB.WithContext(bgCtx).Create(&domain.CreditsLedger{
+				OrgID:        org.ID,
+				DeltaCredits: res.EstimatedCredits,
+				DeltaCents:   &refundCents,
+				Reason:       domain.ReasonRefund,
+				JobID:        &res.JobID,
+				Note:         "refund: video record write failed",
+			}).Error
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "internal", "message": "failed to create video record"}})
 		return
 	}

@@ -17,12 +17,24 @@ import (
 )
 
 type Service struct {
-	db   *gorm.DB
-	http *http.Client
+	db    *gorm.DB
+	http  *http.Client
+	guard *SafeDialer
 }
 
 func NewService(db *gorm.DB) *Service {
-	return &Service{db: db, http: &http.Client{Timeout: 10 * time.Second}}
+	guard := newSafeDialer()
+	return &Service{
+		db:    db,
+		http:  guard.Client(10 * time.Second),
+		guard: guard,
+	}
+}
+
+// ValidateURL exposes the dialer's URL policy so handlers can reject
+// dangerous webhook URLs at create-time, not only at delivery-time.
+func (s *Service) ValidateURL(rawURL string) error {
+	return s.guard.Validate(rawURL)
 }
 
 // Enqueue stores a delivery row; worker picks up based on next_retry_at.
@@ -168,6 +180,16 @@ func (s *Service) deliver(ctx context.Context, d *domain.WebhookDelivery) error 
 	var h domain.Webhook
 	if err := s.db.WithContext(ctx).First(&h, "id = ?", d.WebhookID).Error; err != nil {
 		return err
+	}
+	// SSRF guard: re-validate the URL on every delivery. Validate-on-create
+	// is not enough because the customer can change DNS A-records to point
+	// at internal IPs after registering. The dialer's Control hook will
+	// block at the syscall layer too, but failing fast here saves a TCP RTT.
+	if s.guard != nil {
+		if err := s.guard.Validate(h.URL); err != nil {
+			msg := "url rejected by ssrf guard: " + err.Error()
+			return s.markFailure(ctx, d, nil, &msg)
+		}
 	}
 	ts := time.Now().Unix()
 	sig := signWithTimestamp(h.Secret, ts, d.Payload)

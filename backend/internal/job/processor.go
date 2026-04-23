@@ -41,7 +41,13 @@ func (p *Processor) HandleGenerate(ctx context.Context, t *asynq.Task) error {
 		return err
 	}
 	var req provider.GenerationRequest
-	_ = json.Unmarshal(j.Request, &req)
+	if err := json.Unmarshal(j.Request, &req); err != nil {
+		// Corrupt payload would have us send an empty prompt to Seedance,
+		// burning the customer's reservation on garbage. Hard-fail and
+		// refund instead so the row reaches a terminal state on the first
+		// attempt rather than after MaxRetry exponential backoff.
+		return p.fail(ctx, &j, "invalid_request_payload", "stored job payload could not be decoded")
+	}
 
 	providerID, err := p.Prov.GenerateVideo(ctx, req)
 	if err != nil {

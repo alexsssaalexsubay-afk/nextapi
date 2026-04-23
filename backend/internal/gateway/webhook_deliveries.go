@@ -8,10 +8,13 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/sanidg/nextapi/backend/internal/auth"
+	"github.com/sanidg/nextapi/backend/internal/domain"
 	"github.com/sanidg/nextapi/backend/internal/webhook"
+	"gorm.io/gorm"
 )
 
 type WebhookDeliveryHandlers struct {
+	DB       *gorm.DB
 	Webhooks *webhook.Service
 }
 
@@ -61,6 +64,8 @@ func (h *WebhookDeliveryHandlers) RotateSecret(c *gin.Context) {
 }
 
 // AdminReplay resets a delivery for re-attempt (operator action).
+// Looks up the owning webhook + org so the audit log records who got
+// re-pinged, and 404s if the delivery has already been purged.
 func (h *WebhookDeliveryHandlers) AdminReplay(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
@@ -68,9 +73,27 @@ func (h *WebhookDeliveryHandlers) AdminReplay(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "invalid_request", "message": "invalid delivery id"}})
 		return
 	}
-	if err := h.Webhooks.Replay(c.Request.Context(), id); err != nil {
+	ctx := c.Request.Context()
+
+	var d domain.WebhookDelivery
+	if err := h.DB.WithContext(ctx).First(&d, "id = ?", id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": gin.H{"code": "not_found"}})
+		return
+	}
+	var wh domain.Webhook
+	if err := h.DB.WithContext(ctx).First(&wh, "id = ?", d.WebhookID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": gin.H{"code": "webhook_missing"}})
+		return
+	}
+
+	if err := h.Webhooks.Replay(ctx, id); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "internal_error"}})
 		return
 	}
-	c.JSON(http.StatusAccepted, gin.H{"ok": true})
+	RecordAudit(ctx, h.DB, c, "webhook.replay", "webhook_delivery", strconv.FormatInt(id, 10), gin.H{
+		"webhook_id": d.WebhookID,
+		"org_id":     wh.OrgID,
+		"event_type": d.EventType,
+	})
+	c.JSON(http.StatusAccepted, gin.H{"ok": true, "org_id": wh.OrgID})
 }

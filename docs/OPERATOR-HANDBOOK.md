@@ -33,12 +33,14 @@
 
 ### 1.3 怎么在生产服务器执行（傻瓜版）
 
-SSH 上服务器（你之前给我的是 `47.76.205.108`）：
+SSH 上服务器（生产 IP / 凭据存于 1Password / Vault，**不要写进任何文件、不要发聊天**）：
 
 ```bash
-ssh root@47.76.205.108
-# 密码：<REDACTED-ROTATE-IMMEDIATELY>
+ssh root@<PROD_HOST>
+# 凭据见密码管理器条目 "nextapi-prod-ssh"
 ```
+
+> ⚠️ **如果这份文档曾经被推到公开仓库**：立即在控制台轮换 root 密码、改用 SSH key-only 登录（`PasswordAuthentication no`），并审计 `last`、`/var/log/auth.log` 是否有可疑登录。
 
 然后：
 

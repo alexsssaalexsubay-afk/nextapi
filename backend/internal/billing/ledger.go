@@ -14,6 +14,11 @@ type Service struct {
 
 func NewService(db *gorm.DB) *Service { return &Service{db: db} }
 
+// DB returns the underlying handle. Exposed so adjacent layers
+// (payment webhooks, reconcile) can do atomic SQL without bringing
+// the connection through their own constructor signatures.
+func (s *Service) DB() *gorm.DB { return s.db }
+
 // HasNote reports whether a ledger row exists with the given note (e.g. webhook idempotency).
 func (s *Service) HasNote(ctx context.Context, note string) (bool, error) {
 	var count int64

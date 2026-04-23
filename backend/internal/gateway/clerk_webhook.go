@@ -84,10 +84,18 @@ func (w *ClerkWebhook) Handle(c *gin.Context) {
 		}
 	case "user.deleted":
 		var u clerkUserData
-		_ = json.Unmarshal(ev.Data, &u)
+		if err := json.Unmarshal(ev.Data, &u); err != nil || u.ID == "" {
+			// Without an ID we'd silently soft-delete nothing — log and
+			// skip so monitoring can flag the malformed event.
+			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "invalid_user_payload"}})
+			return
+		}
 		now := time.Now()
-		w.DB.WithContext(ctx).Model(&domain.User{}).
-			Where("id = ?", u.ID).Update("deleted_at", now)
+		if err := w.DB.WithContext(ctx).Model(&domain.User{}).
+			Where("id = ?", u.ID).Update("deleted_at", now).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "delete_failed"}})
+			return
+		}
 	}
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }

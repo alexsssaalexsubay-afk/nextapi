@@ -182,7 +182,10 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*CreateResult, er
 	)
 	if enqErr != nil {
 		if s.throughput != nil {
-			_ = s.throughput.Release(context.Background(), in.OrgID, job.ID)
+			// Symmetric to AcquireForKey above — without this the per-key
+			// concurrency slot leaks and a noisy customer can exhaust their
+			// own quota without ever running anything.
+			_ = s.throughput.ReleaseForKey(context.Background(), in.OrgID, in.APIKeyID, job.ID)
 		}
 		if s.spend != nil {
 			s.spend.DecrInflight(context.Background(), in.OrgID, credits)

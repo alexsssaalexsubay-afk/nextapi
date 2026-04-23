@@ -163,7 +163,10 @@ func (h *AdminHandlers) CancelJob(c *gin.Context) {
 	}
 
 	if h.Throughput != nil {
-		h.Throughput.Release(ctx, job.OrgID, job.ID)
+		// Release the per-key slot too — without this, an admin
+		// cancelling a runaway key never frees the per-key concurrency
+		// budget and the customer hits "max in-flight" forever.
+		h.Throughput.ReleaseForKey(ctx, job.OrgID, job.APIKeyID, job.ID)
 	}
 	if h.Spend != nil {
 		h.Spend.DecrInflight(ctx, job.OrgID, job.ReservedCredits)
@@ -234,8 +237,12 @@ func (h *AdminHandlers) OverviewStats(c *gin.Context) {
 	h.DB.WithContext(ctx).Model(&domain.Job{}).
 		Where("created_at >= ?", time.Now().Add(-24*time.Hour)).
 		Count(&o.JobsLast24h)
+	// Sum every credit-consuming entry (anything with a negative delta:
+	// usage, reconciliation, manual debit). The previous query only saw
+	// `reconciliation` rows and reported a misleading "credits used"
+	// figure that was wildly low.
 	h.DB.WithContext(ctx).Model(&domain.CreditsLedger{}).
-		Where("reason = ?", domain.ReasonReconciliation).
+		Where("delta_credits < 0").
 		Select("COALESCE(SUM(-delta_credits), 0)").Scan(&o.CreditsUsedAll)
 	c.JSON(http.StatusOK, o)
 }

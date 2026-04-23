@@ -8,11 +8,15 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/sanidg/nextapi/backend/internal/auth"
 	"github.com/sanidg/nextapi/backend/internal/domain"
+	"github.com/sanidg/nextapi/backend/internal/webhook"
 	"github.com/lib/pq"
 	"gorm.io/gorm"
 )
 
-type WebhookHandlers struct{ DB *gorm.DB }
+type WebhookHandlers struct {
+	DB       *gorm.DB
+	Webhooks *webhook.Service
+}
 
 type createWebhookReq struct {
 	URL        string   `json:"url" binding:"required,url"`
@@ -25,6 +29,18 @@ func (h *WebhookHandlers) Create(c *gin.Context) {
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "bad_request", "message": "invalid request body"}})
 		return
+	}
+	// SSRF guard at create-time. Without this a malicious customer can
+	// register https://10.0.0.1/admin and have us POST signed traffic
+	// into our own private subnet on every event.
+	if h.Webhooks != nil {
+		if err := h.Webhooks.ValidateURL(req.URL); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{
+				"code":    "invalid_webhook_url",
+				"message": err.Error(),
+			}})
+			return
+		}
 	}
 	if len(req.EventTypes) == 0 {
 		req.EventTypes = []string{"job.succeeded", "job.failed"}

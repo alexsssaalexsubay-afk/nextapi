@@ -31,17 +31,15 @@ func New() *Provider {
 
 func (p *Provider) Name() string { return "stripe" }
 
-// CreateCheckout — TODO(claude): replace with real Stripe Checkout call (W7).
-// For now returns a signed stub URL so frontend can be wired.
+// CreateCheckout returns an explicit ErrNotImplemented until the real
+// Stripe Checkout integration ships. Returning a fake URL — even with
+// the secret configured — used to mislead operators into thinking the
+// flow worked, then surface as a 404 only when the customer clicked
+// the link. Better to fail loudly upstream so the dashboard shows the
+// "Coming soon" banner instead of a broken redirect.
 func (p *Provider) CreateCheckout(ctx context.Context, r payment.CheckoutRequest) (*payment.Checkout, error) {
-	if p.secretKey == "" {
-		return nil, errors.New("STRIPE_SECRET_KEY not set")
-	}
-	return &payment.Checkout{
-		Provider:   "stripe",
-		URL:        "https://checkout.stripe.com/c/pay/" + r.OrgID, // placeholder
-		ExternalID: "cs_test_" + r.OrgID,
-	}, nil
+	_ = r
+	return nil, payment.ErrNotImplemented
 }
 
 const stripeTimestampTolerance = 5 * time.Minute

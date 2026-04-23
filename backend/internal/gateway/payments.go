@@ -93,21 +93,40 @@ func (h *PaymentHandlers) Webhook(c *gin.Context) {
 	}
 	if ev != nil && ev.Type == "topup.succeeded" {
 		note := name + ":" + ev.ExternalID
-		exists, err := h.Billing.HasNote(c.Request.Context(), note)
-		if err != nil {
+		ctx := c.Request.Context()
+
+		// Database-level dedup. Atomic INSERT on the (provider,event_id)
+		// unique key ensures that even if two webhook deliveries land
+		// simultaneously (Stripe replays, our own retry, an attacker
+		// replaying a captured payload), only one ever reaches AddCredits.
+		// HasNote alone is not safe because there's a TOCTOU window
+		// between the read and the AddCredits write.
+		res := h.Billing.DB().WithContext(ctx).Exec(
+			`INSERT INTO payment_webhook_seen (provider, event_id, processed_at)
+			 VALUES (?, ?, now())
+			 ON CONFLICT (provider, event_id) DO NOTHING`,
+			name, ev.ExternalID)
+		if res.Error != nil {
 			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "ledger_read_failed"}})
 			return
 		}
-		if exists {
+		if res.RowsAffected == 0 {
+			// Already processed; ack with 200 so the provider stops retrying.
 			c.JSON(http.StatusOK, gin.H{"ok": true, "deduplicated": true})
 			return
 		}
-		if err := h.Billing.AddCredits(c.Request.Context(), billing.Entry{
+
+		if err := h.Billing.AddCredits(ctx, billing.Entry{
 			OrgID:  ev.OrgID,
 			Delta:  ev.Credits,
 			Reason: domain.ReasonTopup,
 			Note:   note,
 		}); err != nil {
+			// Roll back the dedup row so a retry can succeed; otherwise we
+			// would silently lose this top-up forever.
+			_ = h.Billing.DB().WithContext(ctx).Exec(
+				`DELETE FROM payment_webhook_seen WHERE provider = ? AND event_id = ?`,
+				name, ev.ExternalID).Error
 			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "ledger_write_failed"}})
 			return
 		}

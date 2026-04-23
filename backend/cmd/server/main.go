@@ -59,8 +59,8 @@ func main() {
 
 	h := gateway.New(authSvc, billSvc)
 	vh := &gateway.VideoHandlers{Jobs: jobSvc, DB: gormDB}
-	whh := &gateway.WebhookHandlers{DB: gormDB}
-	wdh := &gateway.WebhookDeliveryHandlers{Webhooks: whSvc}
+	whh := &gateway.WebhookHandlers{DB: gormDB, Webhooks: whSvc}
+	wdh := &gateway.WebhookDeliveryHandlers{DB: gormDB, Webhooks: whSvc}
 	ah := &gateway.AdminHandlers{DB: gormDB, Billing: billSvc, Spend: spendSvc, Throughput: throughputSvc}
 	ph := gateway.NewPaymentHandlers(billSvc)
 	hook := &gateway.ClerkWebhook{DB: gormDB, Billing: billSvc}
