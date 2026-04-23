@@ -43,7 +43,7 @@ export default function KeysPage() {
 
   const fetchKeys = useCallback(async () => {
     try {
-      const res = await apiFetch("/v1/keys")
+      const res = await apiFetch("/v1/me/keys")
       setKeys(res.data || [])
     } catch {
       toast.error("Failed to load API keys")
@@ -58,7 +58,7 @@ export default function KeysPage() {
     if (!formName.trim()) return
     setCreating(true)
     try {
-      const res = await apiFetch("/v1/keys", {
+      const res = await apiFetch("/v1/me/keys", {
         method: "POST",
         body: JSON.stringify({ name: formName, env: formEnv }),
       })
@@ -76,7 +76,7 @@ export default function KeysPage() {
 
   async function handleRevoke(id: string) {
     try {
-      await apiFetch(`/v1/keys/${id}`, { method: "DELETE" })
+      await apiFetch(`/v1/me/keys/${id}`, { method: "DELETE" })
       fetchKeys()
       toast.success("Key revoked")
     } catch {

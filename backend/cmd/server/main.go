@@ -118,11 +118,11 @@ func main() {
 	api.PATCH("/billing/settings", ob.UpdateBillingSettings)
 
 	// Self-service key management (sk_* keys can manage their own org's keys)
-	api.GET("/keys", h.ListKeys)
-	api.POST("/keys", h.CreateKey)
-	api.GET("/keys/:id", h.GetKey)
-	api.PATCH("/keys/:id", h.UpdateKey)
-	api.DELETE("/keys/:id", h.RevokeKey)
+	api.GET("/me/keys", h.ListKeys)
+	api.POST("/me/keys", h.CreateKey)
+	api.GET("/me/keys/:id", h.GetKey)
+	api.PATCH("/me/keys/:id", h.UpdateKey)
+	api.DELETE("/me/keys/:id", h.RevokeKey)
 
 	// Admin surface (ak_* keys).
 	admn := v1.Group("")
@@ -153,8 +153,7 @@ func main() {
 	admn.GET("/throughput", th.GetThroughput)
 	admn.GET("/moderation_profile", mh.GetProfile)
 	admn.PUT("/moderation_profile", mh.UpsertProfile)
-	admn.GET("/billing/settings", ob.GetBillingSettings)
-	admn.PATCH("/billing/settings", ob.UpdateBillingSettings)
+	// /billing/settings is on the api (Business) group — no duplicate here.
 
 	// Internal operator panel (shared token, not bearer).
 	internal := v1.Group("/internal/admin")
