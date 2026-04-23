@@ -14,6 +14,16 @@ type Service struct {
 
 func NewService(db *gorm.DB) *Service { return &Service{db: db} }
 
+// HasNote reports whether a ledger row exists with the given note (e.g. webhook idempotency).
+func (s *Service) HasNote(ctx context.Context, note string) (bool, error) {
+	var count int64
+	err := s.db.WithContext(ctx).Model(&domain.CreditsLedger{}).Where("note = ?", note).Count(&count).Error
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
 type Entry struct {
 	OrgID  string
 	Delta  int64

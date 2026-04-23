@@ -44,6 +44,10 @@ func (h *PaymentHandlers) Checkout(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "bad_request"}})
 		return
 	}
+	if r.Credits <= 0 || r.AmountCents < 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "invalid_amount", "message": "credits must be positive"}})
+		return
+	}
 	p, ok := h.Providers[r.Provider]
 	if !ok {
 		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "unknown_provider"}})
@@ -88,11 +92,21 @@ func (h *PaymentHandlers) Webhook(c *gin.Context) {
 		return
 	}
 	if ev != nil && ev.Type == "topup.succeeded" {
+		note := name + ":" + ev.ExternalID
+		exists, err := h.Billing.HasNote(c.Request.Context(), note)
+		if err != nil {
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "ledger_read_failed"}})
+			return
+		}
+		if exists {
+			c.JSON(http.StatusOK, gin.H{"ok": true, "deduplicated": true})
+			return
+		}
 		if err := h.Billing.AddCredits(c.Request.Context(), billing.Entry{
 			OrgID:  ev.OrgID,
 			Delta:  ev.Credits,
 			Reason: domain.ReasonTopup,
-			Note:   name + ":" + ev.ExternalID,
+			Note:   note,
 		}); err != nil {
 			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "ledger_write_failed"}})
 			return

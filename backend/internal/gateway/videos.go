@@ -232,26 +232,37 @@ func (h *VideosHandlers) Delete(c *gin.Context) {
 
 	ctx := c.Request.Context()
 	now := time.Now()
-	h.DB.WithContext(ctx).Model(&v).Updates(map[string]any{"status": "cancelled", "finished_at": now})
+	if err := h.DB.WithContext(ctx).Model(&v).Updates(map[string]any{"status": "cancelled", "finished_at": now}).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "internal_error"}})
+		return
+	}
 
 	if v.UpstreamJobID != nil {
 		var j domain.Job
 		if err := h.DB.WithContext(ctx).Where("id = ? AND org_id = ? AND status IN ('queued','running')", *v.UpstreamJobID, org.ID).First(&j).Error; err == nil {
-			h.DB.WithContext(ctx).Model(&j).Updates(map[string]any{
-				"status": domain.JobFailed, "error_code": "cancelled", "error_message": "cancelled by user", "completed_at": now,
-			})
+			if err := h.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+				if err := tx.Model(&j).Updates(map[string]any{
+					"status": domain.JobFailed, "error_code": "cancelled", "error_message": "cancelled by user", "completed_at": now,
+				}).Error; err != nil {
+					return err
+				}
+				if j.ReservedCredits > 0 {
+					refund := j.ReservedCredits
+					return tx.Create(&domain.CreditsLedger{
+						OrgID: j.OrgID, DeltaCredits: refund, DeltaCents: &refund,
+						Reason: domain.ReasonRefund, JobID: &j.ID, Note: "user cancelled video",
+					}).Error
+				}
+				return nil
+			}); err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "internal_error"}})
+				return
+			}
 			if h.Throughput != nil {
 				h.Throughput.Release(ctx, j.OrgID, j.ID)
 			}
 			if h.Spend != nil {
 				h.Spend.DecrInflight(ctx, j.OrgID, j.ReservedCredits)
-			}
-			if j.ReservedCredits > 0 {
-				refund := j.ReservedCredits
-				h.DB.WithContext(ctx).Create(&domain.CreditsLedger{
-					OrgID: j.OrgID, DeltaCredits: refund, DeltaCents: &refund,
-					Reason: domain.ReasonRefund, JobID: &j.ID, Note: "user cancelled video",
-				})
 			}
 		}
 	}

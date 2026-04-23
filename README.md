@@ -32,6 +32,7 @@ Health: `curl localhost:8080/health` → `{"status":"ok"}`
 ## One-click deploys
 
 - Backend: push to `main` → GitHub Actions builds image → SSH deploy to HK VPS.
-- Frontends: 3 Cloudflare Pages projects auto-deploy on push.
+- Marketing site: Cloudflare Pages static export for `nextapi.top`.
+- Dashboard/admin: Cloudflare Workers via OpenNext for `app.nextapi.top` and `admin.nextapi.top`.
 
 See [`ops/deploy/README.md`](./ops/deploy/README.md).

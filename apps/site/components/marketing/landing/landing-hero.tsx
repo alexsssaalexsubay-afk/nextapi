@@ -158,7 +158,7 @@ function HeroPlayerCard() {
               <div className="flex items-center justify-between border-b border-white/5 px-3 py-2">
                 <div className="flex items-center gap-2 text-[11px] font-mono text-zinc-400">
                   <Circle className="size-2 fill-indigo-400 text-indigo-400" />
-                  POST /v1/videos/generate
+                  POST /v1/video/generations
                 </div>
                 <button
                   type="button"
@@ -174,8 +174,9 @@ function HeroPlayerCard() {
                   {"\n"}
                   <span className="text-purple-400">await</span>{" "}
                   <span className="text-cyan-300">nextapi</span>.
-                  <span className="text-cyan-300">videos</span>.
-                  <span className="text-yellow-300">generate</span>
+                  <span className="text-cyan-300">video</span>.
+                  <span className="text-yellow-300">generations</span>.
+                  <span className="text-yellow-300">create</span>
                   {"({ "}
                   {"\n"}
                   {"  "}
@@ -193,7 +194,7 @@ function HeroPlayerCard() {
                   ,
                   {"\n"}
                   {"  "}
-                  <span className="text-cyan-300">duration</span>:{" "}
+                  <span className="text-cyan-300">duration_seconds</span>:{" "}
                   <span className="text-orange-300">6</span>
                   {"\n"}
                   {"})"}

@@ -30,13 +30,13 @@ export default function CursorIntegrationPage() {
           "Ask your agent to generate a video — it will use the NextAPI tool automatically.",
           "The generated video URL will be returned in the agent's response.",
         ]}
-        curlTest={`curl -X POST https://api.nextapi.top/v1/videos/generate \\
+        curlTest={`curl -X POST https://api.nextapi.top/v1/video/generations \\
   -H "Authorization: Bearer $NEXTAPI_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{
     "model": "seedance-2.0-pro",
     "prompt": "a gentle wave rolling onto a sandy beach",
-    "duration": 6,
+    "duration_seconds": 6,
     "resolution": "1080p"
   }'`}
       />

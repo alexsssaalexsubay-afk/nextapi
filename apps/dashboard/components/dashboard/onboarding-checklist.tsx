@@ -66,9 +66,10 @@ export function OnboardingChecklist() {
             {
               label: "curl",
               language: "bash",
-              code: `curl https://api.nextapi.top/v1/video/seedance \\
+              code: `curl https://api.nextapi.top/v1/video/generations \\
   -H "Authorization: Bearer $NEXTAPI_KEY" \\
-  -d '{"model":"seedance-2.0-pro","prompt":"Sunrise over the Alps","duration":6}'`,
+  -H "Content-Type: application/json" \\
+  -d '{"model":"seedance-2.0-pro","prompt":"Sunrise over the Alps","duration_seconds":6}'`,
             },
           ]}
           showLineNumbers={false}
@@ -89,7 +90,7 @@ export function OnboardingChecklist() {
               <span className="text-muted-foreground">test payload</span>
               <span className="text-muted-foreground">editable</span>
             </div>
-            <div className="text-foreground/90">{`{ "model": "seedance-2.0-pro", "prompt": "Aerial shot of a coastal road", "duration": 6, "resolution": "1080p" }`}</div>
+            <div className="text-foreground/90">{`{ "model": "seedance-2.0-pro", "prompt": "Aerial shot of a coastal road", "duration_seconds": 6, "resolution": "1080p" }`}</div>
           </div>
           <div className="flex items-center gap-2">
             <button className="inline-flex h-8 items-center gap-1.5 rounded-md bg-foreground px-3 text-[12.5px] font-medium text-background transition-opacity hover:opacity-90">

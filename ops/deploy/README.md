@@ -22,20 +22,29 @@
 - `DEPLOY_HOST` = `47.76.205.108`
 - `DEPLOY_SSH_KEY` = private key whose pub is in `authorized_keys`.
 
-## Cloudflare Pages (frontends)
+## Cloudflare frontends
 
-Three Pages projects, all from the same monorepo:
+### `nextapi.top` on Cloudflare Pages
 
-| Project             | Build command                     | Output dir                | Domain                  |
-|---------------------|-----------------------------------|---------------------------|-------------------------|
-| `nextapi-site`      | `pnpm i && pnpm -F @nextapi/site build`      | `apps/site/.next`      | `nextapi.top`           |
-| `nextapi-dashboard` | `pnpm i && pnpm -F @nextapi/dashboard build` | `apps/dashboard/.next` | `app.nextapi.top`       |
-| `nextapi-admin`     | `pnpm i && pnpm -F @nextapi/admin build`     | `apps/admin/.next`     | `admin.nextapi.top`     |
+| Project        | Build command                           | Output dir       | Domain        |
+|----------------|-----------------------------------------|------------------|---------------|
+| `nextapi-site` | `pnpm i && pnpm -F @nextapi/site build` | `apps/site/out`  | `nextapi.top` |
 
-Env on all three:
+### `app.nextapi.top` and `admin.nextapi.top` on Cloudflare Workers
+
+Both SSR apps deploy with the OpenNext adapter:
+
+| Worker              | Deploy command                               | Domain              |
+|---------------------|-----------------------------------------------|---------------------|
+| `nextapi-dashboard` | `pnpm i && pnpm -F @nextapi/dashboard deploy` | `app.nextapi.top`   |
+| `nextapi-admin`     | `pnpm i && pnpm -F @nextapi/admin deploy`     | `admin.nextapi.top` |
+
+Env on frontend deploys:
 - `NEXT_PUBLIC_API_URL=https://api.nextapi.top`
-- `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=...`
+- `NEXT_PUBLIC_DASHBOARD_URL=https://app.nextapi.top` (site)
+- `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=...` (dashboard + admin)
 - `CLERK_SECRET_KEY=...` (dashboard + admin)
+- `NEXT_PUBLIC_POSTHOG_KEY=...` (site, optional)
 
 Node 20, pnpm 9.
 

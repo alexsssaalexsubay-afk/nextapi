@@ -193,7 +193,7 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*CreateResult, er
 		_ = s.db.WithContext(cctx).Transaction(func(tx *gorm.DB) error {
 			now := time.Now()
 			code := "enqueue_failed"
-			msg := enqErr.Error()
+			msg := "job queue unavailable"
 			if err := tx.Model(&domain.Job{}).
 				Where("id = ?", job.ID).
 				Updates(map[string]any{

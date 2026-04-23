@@ -38,19 +38,15 @@ export default function NewJobPage() {
     "mode": "image-to-video",
     "image_url": "https://cdn.example.com/source.jpg",
     "prompt": "${prompt}",
-    "duration": ${duration},
-    "resolution": "${resolution}",
-    "seed": ${seed},
-    "webhook_url": "${webhook}"
+    "duration_seconds": ${duration},
+    "resolution": "${resolution}"
   }`
       : `{
     "model": "${model}",
     "mode": "text-to-video",
     "prompt": "${prompt}",
-    "duration": ${duration},
-    "resolution": "${resolution}",
-    "seed": ${seed},
-    "webhook_url": "${webhook}"
+    "duration_seconds": ${duration},
+    "resolution": "${resolution}"
   }`
 
   const running =
@@ -258,7 +254,7 @@ export default function NewJobPage() {
               {
                 label: t.jobs.new.liveCurl,
                 language: "bash",
-                code: `curl https://api.nextapi.top/v1/video/seedance \\
+                code: `curl https://api.nextapi.top/v1/video/generations \\
   -H "Authorization: Bearer $NEXTAPI_KEY" \\
   -H "Content-Type: application/json" \\
   -d '${curlBody}'`,

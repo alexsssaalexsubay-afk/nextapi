@@ -19,7 +19,7 @@ export function HowItWorks() {
       icon: Send,
       title: t.howItWorks.step2.title,
       description: t.howItWorks.step2.description,
-      mono: "POST /v1/video/seedance  →  job_id",
+      mono: "POST /v1/video/generations  →  id",
     },
     {
       n: "03",

@@ -487,7 +487,7 @@ function AttentionRow({
       </span>
       <span className="w-10 text-right text-muted-foreground">{age}</span>
       <Link
-        href="https://dash.nextapi.top/jobs/demo"
+        href={`https://dash.nextapi.top/jobs/${id}`}
         className="rounded-md border border-border/80 bg-card/40 px-2 py-0.5 text-[10.5px] text-foreground hover:bg-card"
       >
         {inspectLabel}

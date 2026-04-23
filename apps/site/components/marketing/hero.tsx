@@ -6,26 +6,22 @@ import { Button } from "@/components/ui/button"
 import { CodeBlock } from "@/components/nextapi/code-block"
 import { useTranslations } from "@/lib/i18n/context"
 
-const curlExample = `curl https://api.nextapi.top/v1/video/seedance \\
+const curlExample = `curl https://api.nextapi.top/v1/video/generations \\
   -H "Authorization: Bearer $NEXTAPI_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{
     "model": "seedance-2.0-pro",
     "prompt": "Drone orbiting a lighthouse at dusk",
-    "duration": 6,
+    "duration_seconds": 6,
     "resolution": "1080p"
   }'
 
-# 202 accepted — 1 credit reserved, refund on failure`
+# 202 accepted — credits estimated up-front, reconcile on completion`
 
 const jsonResponse = `{
-  "job_id": "job_7Hc9Xk2Lm3NpQ4rS",
+  "id": "job_7Hc9Xk2Lm3NpQ4rS",
   "status": "queued",
-  "model": "seedance-2.0-pro",
-  "credits_reserved": 1,
-  "webhook_signed": true,
-  "eta_seconds": 38,
-  "region": "us-east-1"
+  "estimated_credits": 1.0
 }`
 
 export function Hero() {

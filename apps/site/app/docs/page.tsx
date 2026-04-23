@@ -161,7 +161,7 @@ X-NextAPI-Environment: live`,
               <span className="rounded-md bg-status-success-dim px-2 py-0.5 font-mono text-[10.5px] uppercase tracking-wider text-status-success">
                 POST
               </span>
-              <span className="font-mono text-[13px] text-foreground">/v1/video/seedance</span>
+              <span className="font-mono text-[13px] text-foreground">/v1/video/generations</span>
             </div>
             <h2 className="mt-3 text-2xl font-semibold tracking-[-0.02em] text-foreground">
               {d.createJob.title}
@@ -181,14 +181,14 @@ X-NextAPI-Environment: live`,
                   {
                     label: d.createJob.requestTab,
                     language: "bash",
-                    code: `curl https://api.nextapi.top/v1/video/seedance \\
+                    code: `curl https://api.nextapi.top/v1/video/generations \\
   -H "Authorization: Bearer $NEXTAPI_KEY" \\
   -H "Idempotency-Key: 9c4fa1b2" \\
   -H "Content-Type: application/json" \\
   -d '{
     "model": "seedance-2.0-pro",
     "prompt": "Drone orbiting a lighthouse at dusk",
-    "duration": 6,
+    "duration_seconds": 6,
     "resolution": "1080p"
   }'`,
                   },
@@ -200,13 +200,9 @@ X-NextAPI-Environment: live`,
                     label: d.createJob.responseTab,
                     language: "json",
                     code: `{
-  "job_id": "job_7Hc9Xk2Lm3NpQ4rS",
+  "id": "job_7Hc9Xk2Lm3NpQ4rS",
   "status": "queued",
-  "model": "seedance-2.0-pro",
-  "reserved": 1.00,
-  "eta_seconds": 38,
-  "submitted_at": "2026-04-22T17:02:33Z",
-  "webhook_signed": true
+  "estimated_credits": 1.0
 }`,
                   },
                 ]}

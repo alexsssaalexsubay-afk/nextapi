@@ -22,7 +22,7 @@ class NextAPIVideoGenerate:
         return {
             "required": {
                 "prompt": ("STRING", {"multiline": True}),
-                "duration": ("INT", {"default": 6, "min": 1, "max": 30}),
+                "duration_seconds": ("INT", {"default": 6, "min": 1, "max": 30}),
                 "resolution": (["720p", "1080p", "4k"],),
             }
         }
@@ -32,9 +32,9 @@ class NextAPIVideoGenerate:
     FUNCTION = "generate"
     CATEGORY = "NextAPI"
 
-    def generate(self, prompt, duration, resolution):
+    def generate(self, prompt, duration_seconds, resolution):
         resp = requests.post(
-            "https://api.nextapi.top/v1/videos/generate",
+            "https://api.nextapi.top/v1/video/generations",
             headers={
                 "Authorization": f"Bearer {os.environ.get('NEXTAPI_KEY', '')}",
                 "Content-Type": "application/json",
@@ -42,7 +42,7 @@ class NextAPIVideoGenerate:
             json={
                 "model": "seedance-2.0-pro",
                 "prompt": prompt,
-                "duration": duration,
+                "duration_seconds": duration_seconds,
                 "resolution": resolution,
             },
         )
@@ -60,13 +60,13 @@ NODE_DISPLAY_NAME_MAPPINGS = {"NextAPIVideoGenerate": "NextAPI Video Generate"}`
           "Connect a text input to the prompt field and wire the video_url output to your pipeline.",
           "Execute the workflow — the node will call NextAPI and return the generated video URL.",
         ]}
-        curlTest={`curl -X POST https://api.nextapi.top/v1/videos/generate \\
+        curlTest={`curl -X POST https://api.nextapi.top/v1/video/generations \\
   -H "Authorization: Bearer $NEXTAPI_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{
     "model": "seedance-2.0-pro",
     "prompt": "ink spreading through water in slow motion",
-    "duration": 6,
+    "duration_seconds": 6,
     "resolution": "1080p"
   }'`}
       />

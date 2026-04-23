@@ -17,12 +17,12 @@ from pydantic import BaseModel, Field
 
 class VideoGenInput(BaseModel):
     prompt: str = Field(description="Text description of the video to generate")
-    duration: int = Field(default=6, description="Video duration in seconds")
+    duration_seconds: int = Field(default=6, description="Video duration in seconds")
     resolution: str = Field(default="1080p", description="Output resolution")
 
-def generate_video(prompt: str, duration: int = 6, resolution: str = "1080p") -> str:
+def generate_video(prompt: str, duration_seconds: int = 6, resolution: str = "1080p") -> str:
     resp = requests.post(
-        "https://api.nextapi.top/v1/videos/generate",
+        "https://api.nextapi.top/v1/video/generations",
         headers={
             "Authorization": f"Bearer {os.environ['NEXTAPI_KEY']}",
             "Content-Type": "application/json",
@@ -30,7 +30,7 @@ def generate_video(prompt: str, duration: int = 6, resolution: str = "1080p") ->
         json={
             "model": "seedance-2.0-pro",
             "prompt": prompt,
-            "duration": duration,
+            "duration_seconds": duration_seconds,
             "resolution": resolution,
         },
     )
@@ -51,13 +51,13 @@ nextapi_tool = StructuredTool.from_function(
           "Add the tool to your LangChain agent's tool list.",
           "The agent will call NextAPI when it decides video generation is needed.",
         ]}
-        curlTest={`curl -X POST https://api.nextapi.top/v1/videos/generate \\
+        curlTest={`curl -X POST https://api.nextapi.top/v1/video/generations \\
   -H "Authorization: Bearer $NEXTAPI_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{
     "model": "seedance-2.0-pro",
     "prompt": "a butterfly landing on a flower in slow motion",
-    "duration": 6,
+    "duration_seconds": 6,
     "resolution": "1080p"
   }'`}
       />

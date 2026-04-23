@@ -8,23 +8,21 @@ const tabs = [
   {
     label: "text-to-video",
     language: "bash",
-    code: `curl https://api.nextapi.top/v1/video/seedance \\
+    code: `curl https://api.nextapi.top/v1/video/generations \\
   -H "Authorization: Bearer $NEXTAPI_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{
     "model": "seedance-2.0-pro",
     "mode": "text-to-video",
     "prompt": "Drone orbiting a lighthouse at dusk, cinematic, 35mm",
-    "duration": 6,
-    "resolution": "1080p",
-    "seed": 42,
-    "webhook_url": "https://acme.com/hooks/nextapi"
+    "duration_seconds": 6,
+    "resolution": "1080p"
   }'`,
   },
   {
     label: "image-to-video",
     language: "bash",
-    code: `curl https://api.nextapi.top/v1/video/seedance \\
+    code: `curl https://api.nextapi.top/v1/video/generations \\
   -H "Authorization: Bearer $NEXTAPI_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -32,9 +30,8 @@ const tabs = [
     "mode": "image-to-video",
     "image_url": "https://cdn.acme.com/lighthouse.jpg",
     "prompt": "Camera slowly orbits around the lighthouse as waves crash below",
-    "duration": 6,
-    "resolution": "1080p",
-    "webhook_url": "https://acme.com/hooks/nextapi"
+    "duration_seconds": 6,
+    "resolution": "1080p"
   }'`,
   },
   {
@@ -44,19 +41,17 @@ const tabs = [
 
 const nextapi = new NextAPI(process.env.NEXTAPI_KEY)
 
-const job = await nextapi.video.seedance.create({
+const job = await nextapi.video.generations.create({
   model: "seedance-2.0-pro",
   mode: "text-to-video",
   prompt: "Drone orbiting a lighthouse at dusk, cinematic, 35mm",
-  duration: 6,
+  duration_seconds: 6,
   resolution: "1080p",
-  seed: 42,
-  webhook_url: "https://acme.com/hooks/nextapi",
 })
 
-// job.id         -> "job_7Hc9Xk2Lm3NpQ4rS"
-// job.status     -> "queued"
-// job.reserved   -> 1.00`,
+// job.id                 -> "job_7Hc9Xk2Lm3NpQ4rS"
+// job.status             -> "queued"
+// job.estimated_credits  -> 1.0`,
   },
   {
     label: "Python",
@@ -66,19 +61,18 @@ const job = await nextapi.video.seedance.create({
 client = NextAPI(api_key=os.environ["NEXTAPI_KEY"])
 
 # image-to-video — pass image_url alongside prompt
-job = client.video.seedance.create(
+job = client.video.generations.create(
     model="seedance-2.0-pro",
     mode="image-to-video",
     image_url="https://cdn.acme.com/lighthouse.jpg",
     prompt="Camera slowly orbits around the lighthouse",
-    duration=6,
+    duration_seconds=6,
     resolution="1080p",
-    webhook_url="https://acme.com/hooks/nextapi",
 )
 
-# job.id         -> "job_7Hc9Xk2Lm3NpQ4rS"
-# job.status     -> "queued"
-# job.reserved   -> 1.00`,
+# job.id                 -> "job_7Hc9Xk2Lm3NpQ4rS"
+# job.status             -> "queued"
+# job.estimated_credits  -> 1.0`,
   },
 ]
 
@@ -88,7 +82,7 @@ const webhookTab = [
     language: "json",
     code: `{
   "event": "job.succeeded",
-  "job_id": "job_7Hc9Xk2Lm3NpQ4rS",
+  "id": "job_7Hc9Xk2Lm3NpQ4rS",
   "model": "seedance-2.0-pro",
   "status": "succeeded",
   "duration_ms": 38420,
@@ -100,7 +94,7 @@ const webhookTab = [
     "duration_s": 6.0
   },
   "billing": {
-    "reserved": 1.00,
+    "estimated_credits": 1.00,
     "billed":   0.84,
     "refunded": 0.00,
     "currency": "credits"

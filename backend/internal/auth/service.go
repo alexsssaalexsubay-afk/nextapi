@@ -122,7 +122,7 @@ func (s *Service) CreateKey(ctx context.Context, in CreateKeyInput) (*CreateKeyR
 	if in.ProvisionedConcurrency != nil {
 		provConc = *in.ProvisionedConcurrency
 	}
-	s.db.WithContext(ctx).Exec(`
+	if err := s.db.WithContext(ctx).Exec(`
 		UPDATE api_keys SET
 			env = ?, kind = ?, allowed_models = ?,
 			monthly_spend_cap_cents = ?, rate_limit_rpm = ?,
@@ -134,7 +134,9 @@ func (s *Service) CreateKey(ctx context.Context, in CreateKeyInput) (*CreateKeyR
 		in.MonthlySpendCapCents, in.RateLimitRPM,
 		toPGArray(in.IPAllowlist), in.ModerationProfile,
 		provConc, row.ID,
-	)
+	).Error; err != nil {
+		return nil, err
+	}
 	return &CreateKeyResult{
 		ID: row.ID, FullKey: full, Prefix: prefix, Name: row.Name,
 		Kind: kind, Env: env,

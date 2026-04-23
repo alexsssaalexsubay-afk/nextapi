@@ -39,7 +39,7 @@ function generateMockResponse() {
     status: "succeeded",
     model: "seedance-2.0-pro",
     prompt: "drone orbiting a lighthouse at dusk",
-    duration: 6,
+    duration_seconds: 6,
     resolution: "1080p",
     url: `https://cdn.nextapi.top/v/${id}.mp4`,
     created_at: Math.floor(Date.now() / 1000),
@@ -57,13 +57,13 @@ export function DevexSection() {
   async function onCopy() {
     try {
       await navigator.clipboard.writeText(
-        `curl -X POST https://api.nextapi.top/v1/videos/generate \\
+        `curl -X POST https://api.nextapi.top/v1/video/generations \\
   -H "Authorization: Bearer $NEXTAPI_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{
     "model": "seedance-2.0-pro",
     "prompt": "drone orbiting a lighthouse at dusk",
-    "duration": 6,
+    "duration_seconds": 6,
     "resolution": "1080p"
   }'`,
       )
@@ -107,13 +107,13 @@ export function DevexSection() {
   const SNIPPETS: Record<Tab, React.ReactNode> = {
     cURL: (
       <>
-        <Line><Cmd>curl</Cmd> -X <Str>POST</Str> <Str>https://api.nextapi.top/v1/videos/generate</Str> \</Line>
+        <Line><Cmd>curl</Cmd> -X <Str>POST</Str> <Str>https://api.nextapi.top/v1/video/generations</Str> \</Line>
         <Line>{"  "}-H <Str>&quot;Authorization: Bearer $NEXTAPI_KEY&quot;</Str> \</Line>
         <Line>{"  "}-H <Str>&quot;Content-Type: application/json&quot;</Str> \</Line>
         <Line>{"  "}-d &apos;{"{"}</Line>
         <Line>{"    "}<Key>&quot;model&quot;</Key>: <Str>&quot;seedance-2.0-pro&quot;</Str>,</Line>
         <Line>{"    "}<Key>&quot;prompt&quot;</Key>: <Str>&quot;drone orbiting a lighthouse at dusk&quot;</Str>,</Line>
-        <Line>{"    "}<Key>&quot;duration&quot;</Key>: <Num>6</Num>,</Line>
+        <Line>{"    "}<Key>&quot;duration_seconds&quot;</Key>: <Num>6</Num>,</Line>
         <Line>{"    "}<Key>&quot;resolution&quot;</Key>: <Str>&quot;1080p&quot;</Str></Line>
         <Line>{"  "}{"}"}&apos;</Line>
       </>
@@ -124,10 +124,10 @@ export function DevexSection() {
         <Line />
         <Line>client = <Fn>NextAPI</Fn>(api_key=os.environ[<Str>&quot;NEXTAPI_KEY&quot;</Str>])</Line>
         <Line />
-        <Line>video = client.videos.<Fn>generate</Fn>(</Line>
+        <Line>video = client.video.<Fn>generations</Fn>.<Fn>create</Fn>(</Line>
         <Line>{"  "}model=<Str>&quot;seedance-2.0-pro&quot;</Str>,</Line>
         <Line>{"  "}prompt=<Str>&quot;drone orbiting a lighthouse at dusk&quot;</Str>,</Line>
-        <Line>{"  "}duration=<Num>6</Num>,</Line>
+        <Line>{"  "}duration_seconds=<Num>6</Num>,</Line>
         <Line>{"  "}resolution=<Str>&quot;1080p&quot;</Str>,</Line>
         <Line>)</Line>
         <Line />
@@ -142,10 +142,10 @@ export function DevexSection() {
         <Line>{"  "}apiKey: process.env.<Key>NEXTAPI_KEY</Key>,</Line>
         <Line>{"}"});</Line>
         <Line />
-        <Line><Kw>const</Kw> video = <Kw>await</Kw> client.videos.<Fn>generate</Fn>({"{"}</Line>
+        <Line><Kw>const</Kw> video = <Kw>await</Kw> client.video.<Fn>generations</Fn>.<Fn>create</Fn>({"{"}</Line>
         <Line>{"  "}model: <Str>&quot;seedance-2.0-pro&quot;</Str>,</Line>
         <Line>{"  "}prompt: <Str>&quot;drone orbiting a lighthouse at dusk&quot;</Str>,</Line>
-        <Line>{"  "}duration: <Num>6</Num>,</Line>
+        <Line>{"  "}duration_seconds: <Num>6</Num>,</Line>
         <Line>{"  "}resolution: <Str>&quot;1080p&quot;</Str>,</Line>
         <Line>{"}"});</Line>
       </>
@@ -162,7 +162,7 @@ export function DevexSection() {
         <Line>{"{"}</Line>
         <Line>{"  "}<Key>&quot;id&quot;</Key>: <Str>&quot;vid_01HX...&quot;</Str>,</Line>
         <Line>{"  "}<Key>&quot;status&quot;</Key>: <Str>&quot;succeeded&quot;</Str>,</Line>
-        <Line>{"  "}<Key>&quot;duration&quot;</Key>: <Num>6</Num>,</Line>
+        <Line>{"  "}<Key>&quot;duration_seconds&quot;</Key>: <Num>6</Num>,</Line>
         <Line>{"  "}<Key>&quot;model&quot;</Key>: <Str>&quot;seedance-2.0-pro&quot;</Str>,</Line>
         <Line>{"  "}<Key>&quot;url&quot;</Key>: <Str>&quot;https://cdn.nextapi.top/v/01HX...mp4&quot;</Str>,</Line>
         <Line>{"  "}<Key>&quot;created_at&quot;</Key>: <Num>1714579200</Num></Line>

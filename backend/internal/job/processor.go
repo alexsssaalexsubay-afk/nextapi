@@ -111,12 +111,7 @@ func (p *Processor) HandlePoll(ctx context.Context, t *asynq.Task) error {
 func (p *Processor) succeed(ctx context.Context, j *domain.Job, st *provider.JobStatus) error {
 	actualCredits := j.ReservedCredits
 	if st.ActualTokensUsed != nil {
-		var req provider.GenerationRequest
-		_ = json.Unmarshal(j.Request, &req)
-		_, estCredits, _ := p.Prov.EstimateCost(req)
-		if estCredits > 0 {
-			actualCredits = estCredits
-		}
+		actualCredits = *st.ActualTokensUsed
 	}
 	now := time.Now()
 	err := p.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
