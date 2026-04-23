@@ -14,11 +14,11 @@ interface ServiceResult {
   checkedAt: Date | null
 }
 
-const ENDPOINTS: { key: string; label: string; url: string; method: "GET" | "HEAD" }[] = [
-  { key: "api", label: "API Gateway", url: "https://api.nextapi.top/health", method: "GET" },
-  { key: "app", label: "Dashboard (app)", url: "https://app.nextapi.top", method: "HEAD" },
-  { key: "admin", label: "Admin", url: "https://admin.nextapi.top", method: "HEAD" },
-  { key: "home", label: "Marketing Site", url: "https://nextapi.top", method: "HEAD" },
+const ENDPOINTS: { key: string; label: string; url: string; method: "GET" | "HEAD"; cors: boolean }[] = [
+  { key: "api", label: "API Gateway", url: "https://api.nextapi.top/health", method: "GET", cors: true },
+  { key: "app", label: "Dashboard (app)", url: "https://app.nextapi.top/sign-in", method: "HEAD", cors: false },
+  { key: "admin", label: "Admin", url: "https://admin.nextapi.top/sign-in", method: "HEAD", cors: false },
+  { key: "home", label: "Marketing Site", url: "https://nextapi.top", method: "HEAD", cors: false },
 ]
 
 const TIMEOUT_MS = 5000
@@ -38,20 +38,29 @@ const STATUS_CONFIG: Record<
 async function checkEndpoint(
   url: string,
   method: "GET" | "HEAD",
+  cors: boolean,
 ): Promise<{ status: ServiceStatus; latencyMs: number | null }> {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS)
   const t0 = Date.now()
   try {
+    // For the API we read the real /health JSON so a 503 actually shows
+    // as "down" instead of being hidden behind a no-cors opaque response.
+    // For the SSR Workers (app / admin) and the static marketing site we
+    // stick to no-cors because we don't (and shouldn't) put CORS on a
+    // user-facing HTML response — the catch branch catches actual outages.
     const res = await fetch(url, {
       method,
-      mode: "no-cors",
+      mode: cors ? "cors" : "no-cors",
       cache: "no-store",
       signal: controller.signal,
     })
     const latencyMs = Date.now() - t0
-    const ok = res.ok || res.type === "opaque"
-    if (!ok) return { status: "down", latencyMs }
+    if (cors) {
+      // Real status visible: 2xx ok, 3xx ok, 4xx degraded, 5xx down.
+      if (res.status >= 500) return { status: "down", latencyMs }
+      if (res.status >= 400) return { status: "degraded", latencyMs }
+    }
     return {
       status: latencyMs > DEGRADED_THRESHOLD_MS ? "degraded" : "ok",
       latencyMs,
@@ -86,7 +95,7 @@ export default function StatusPage() {
     )
     const checks = await Promise.all(
       ENDPOINTS.map(async (ep) => {
-        const result = await checkEndpoint(ep.url, ep.method)
+        const result = await checkEndpoint(ep.url, ep.method, ep.cors)
         return [ep.key, { ...result, checkedAt: new Date() }] as const
       }),
     )

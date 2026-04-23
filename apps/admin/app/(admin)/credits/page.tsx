@@ -283,7 +283,11 @@ export default function CreditsPage() {
           </form>
         </section>
 
-        {/* Ledger */}
+        {/* Ledger — currently a static demo until /v1/internal/admin/credits/ledger ships. */}
+        <div className="rounded-md border border-yellow-500/30 bg-yellow-500/5 px-4 py-2 font-mono text-[11px] text-yellow-500">
+          PREVIEW · the rows below are sample data. Real adjustments are recorded in
+          <code className="mx-1">credits_ledger</code> and visible in <code>/audit</code> after every change.
+        </div>
         <section className="overflow-hidden rounded-xl border border-border/80 bg-card/40">
           <div className="grid grid-cols-[180px_160px_100px_1fr_120px_120px] items-center gap-4 border-b border-border/60 bg-background/40 px-5 py-2 font-mono text-[10.5px] uppercase tracking-[0.14em] text-muted-foreground">
             <span>{p.columns.timestamp}</span>

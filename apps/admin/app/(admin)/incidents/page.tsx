@@ -86,6 +86,11 @@ export default function IncidentsPage() {
       }
     >
       <div className="space-y-6 p-6">
+        <div className="rounded-md border border-yellow-500/30 bg-yellow-500/5 px-4 py-2 font-mono text-[11px] text-yellow-500">
+          PREVIEW · this page is a layout sample. Wire it up to real incident
+          tooling (status.io / Statuspage / a `/v1/internal/admin/incidents`
+          endpoint) before relying on it for runbooks.
+        </div>
         {/* SLO strip */}
         <section className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-border/80 bg-border/80 md:grid-cols-4">
           <SLO label={p.slo.apiAvailability} value="99.982%" targetLabel={p.slo.target} targetValue="99.95%" ok />
