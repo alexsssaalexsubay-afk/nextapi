@@ -56,8 +56,11 @@ CREATE INDEX IF NOT EXISTS idx_audit_log_action_at  ON audit_log (action, create
 -- in queued/running but have not been touched in > 1h (provider crash,
 -- worker SIGKILL'd, etc) and refunds the reservation.
 -- ---------------------------------------------------------------
-CREATE INDEX IF NOT EXISTS idx_jobs_status_started
-  ON jobs (status, started_at)
+-- jobs table only has created_at; videos has started_at. Use the
+-- correct column for each so the reconcile worker can do an index-only
+-- scan instead of a sequential one.
+CREATE INDEX IF NOT EXISTS idx_jobs_status_created
+  ON jobs (status, created_at)
   WHERE status IN ('queued','running');
 
 CREATE INDEX IF NOT EXISTS idx_videos_status_started

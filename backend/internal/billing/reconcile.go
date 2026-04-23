@@ -42,8 +42,10 @@ func (r *ReconcileService) Run(ctx context.Context) error {
 	cutoff := time.Now().Add(-stuckAfter)
 
 	var jobs []domain.Job
+	// jobs table doesn't carry a started_at column (only videos does);
+	// fall back to created_at as the staleness floor.
 	if err := r.DB.WithContext(ctx).
-		Where("status IN ('queued','running') AND COALESCE(started_at, created_at) < ?", cutoff).
+		Where("status IN ('queued','running') AND created_at < ?", cutoff).
 		Limit(500).Find(&jobs).Error; err != nil {
 		return err
 	}
