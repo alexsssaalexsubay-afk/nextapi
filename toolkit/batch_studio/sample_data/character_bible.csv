@@ -1,0 +1,6 @@
+character_id,character_name,gender,age_range,appearance_keywords,fixed_visual_traits,reference_image
+char_lin,Lin Yue,female,24-28,"slender, fair skin, almond eyes, long straight black hair, gentle expression","mole below left eye; pearl stud earrings; off-white wool coat in winter scenes",char_lin_ref.jpg
+char_chen,Chen Mo,male,28-32,"tall, athletic, sharp jawline, short dark hair brushed back, calm intense gaze","gold-rimmed glasses; thin silver bracelet on right wrist; charcoal blazer in city scenes",char_chen_ref.jpg
+char_su,Su Yan,female,30-35,"graceful, bob cut, defined eyebrows, confident smile","red lipstick; small diamond pendant necklace; tailored suits in office scenes",char_su_ref.jpg
+char_jin,Jin Wei,male,35-40,"medium build, salt-and-pepper hair, close-trimmed beard, weathered hands","silver wedding ring on left hand; dark wool overcoat; leather messenger bag",char_jin_ref.jpg
+char_an,An Qi,female,18-22,"petite, round face, expressive eyes, light brown long wavy hair","freckles across nose; oversized round glasses; pastel cardigans",char_an_ref.jpg

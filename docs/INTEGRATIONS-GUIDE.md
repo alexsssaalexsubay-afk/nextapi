@@ -1,5 +1,8 @@
 # NextAPI · 第三方对接指南（傻瓜版）
 
+> **刚接触本项目？** 请先读 [`BEGINNERS-GUIDE-ZH.md`](./BEGINNERS-GUIDE-ZH.md) 与 [`GLOSSARY-ZH.md`](./GLOSSARY-ZH.md)。  
+> 文档总目录：[`docs/README.md`](./README.md)。
+
 > 这份文档专门给你（老板）看，告诉你 4 件事怎么搞：
 >
 > 1. **Resend 邮件通知** — 5 分钟搞定，最值钱

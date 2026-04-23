@@ -1,5 +1,7 @@
 # docs/modules/
 
+> 零基础读者请改读 [`../BEGINNERS-GUIDE-ZH.md`](../BEGINNERS-GUIDE-ZH.md)；本目录面向 **设计与开发**。
+
 Per CLAUDE.md rule: **Before changing > 3 files, write or update `docs/modules/<name>.md` first.**
 
 Each module doc MUST declare:

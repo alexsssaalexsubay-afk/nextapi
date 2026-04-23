@@ -1,0 +1,48 @@
+# NextAPI 文档索引（仓库内）
+
+> **完全不懂代码？** 请先读 [`BEGINNERS-GUIDE-ZH.md`](./BEGINNERS-GUIDE-ZH.md)（中文、白话、从零开始）。  
+> **English, no code background:** start with the docs site page [Non-developers guide](../docs-site/docs/non-coder-guide.md) (also published when you build `docs-site`).
+
+---
+
+## 按角色选文档
+
+| 你是谁 | 建议阅读顺序 |
+|--------|----------------|
+| 老板 / 运营 / 零基础 | [`BEGINNERS-GUIDE-ZH.md`](./BEGINNERS-GUIDE-ZH.md) → [`GLOSSARY-ZH.md`](./GLOSSARY-ZH.md) → [`INTEGRATIONS-GUIDE.md`](./INTEGRATIONS-GUIDE.md)（邮件、监控等） |
+| 要自己或找人部署上线 | [`SETUP-GUIDE.md`](./SETUP-GUIDE.md) → [`deploy-cloudflare.md`](./deploy-cloudflare.md) → [`OPERATOR-HANDBOOK.md`](./OPERATOR-HANDBOOK.md) |
+| 日常管服务器、跑迁移、应急 | [`OPERATOR-HANDBOOK.md`](./OPERATOR-HANDBOOK.md) |
+| 开发者 / 对接 API | 仓库根目录 [`README.md`](../README.md) → [`backend/api/openapi.yaml`](../backend/api/openapi.yaml) → [`docs/modules/`](./modules/README.md) |
+| 批量视频、ComfyUI、本地工具 | [`toolkit/README.md`](../toolkit/README.md) 及其中 `docs/` |
+
+---
+
+## 文档清单（本目录）
+
+| 文件 | 内容 |
+|------|------|
+| **BEGINNERS-GUIDE-ZH.md** | 零基础中文指南：产品是啥、网址、怎么用控制台、名词解释入口 |
+| **GLOSSARY-ZH.md** | 中英文对照词汇表（API Key、积分、任务、Webhook 等） |
+| **SETUP-GUIDE.md** | 从 0 部署到生产：DNS、环境变量、systemd、检查清单 |
+| **OPERATOR-HANDBOOK.md** | 运维手册：数据库迁移、管理后台、Seedance 环境变量、应急 |
+| **INTEGRATIONS-GUIDE.md** | 第三方：Resend、Grafana、支付规划等（偏「老板操作」） |
+| **deploy-cloudflare.md** | Cloudflare Pages / Workers 与 GitHub Actions 部署说明 |
+| **modules/** | 各子系统设计（给开发/审代码用） |
+
+---
+
+## 对外用户文档站点（Docusaurus）
+
+产品说明、快速开始、批量指南、API 说明等面向客户的正文，在 **`docs-site/`** 里维护（构建后发布到你的文档域名）。
+
+- 中文入口：`docs-site/i18n/zh/docusaurus-plugin-content-docs/current/`
+- 英文入口：`docs-site/docs/`
+- 零基础专页：`non-coder-guide`（中/英各一份）
+
+---
+
+## 与代码同步
+
+- **API 行为** 以 `backend/api/openapi.yaml` 为准；改接口时记得改 OpenAPI 和对外文档。
+- **上线检查** 以 `SETUP-GUIDE.md` 第八节 + `OPERATOR-HANDBOOK.md` 环境变量清单为准。
+- **当前构建状态** 见仓库根目录 [`STATUS.md`](../STATUS.md)。

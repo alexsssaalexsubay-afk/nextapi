@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/sanidg/nextapi/backend/internal/domain"
+	"github.com/sanidg/nextapi/backend/internal/infra/metrics"
 	"gorm.io/gorm"
 )
 
@@ -214,10 +215,12 @@ func (s *Service) deliver(ctx context.Context, d *domain.WebhookDelivery) error 
 	defer resp.Body.Close()
 	code := resp.StatusCode
 	if code >= 200 && code < 300 {
+		metrics.WebhookDeliveryTotal.WithLabelValues(d.EventType, "success").Inc()
 		return s.db.WithContext(ctx).Model(d).Updates(map[string]any{
 			"delivered_at": now, "status_code": code,
 		}).Error
 	}
+	metrics.WebhookDeliveryTotal.WithLabelValues(d.EventType, "failure").Inc()
 	errStr := fmt.Sprintf("HTTP %d", code)
 	return s.markFailure(ctx, d, &code, &errStr)
 }

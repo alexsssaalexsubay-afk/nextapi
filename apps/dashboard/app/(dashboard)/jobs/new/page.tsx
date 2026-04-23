@@ -101,8 +101,7 @@ export default function NewJobPage() {
     if (err instanceof ApiError) {
       const code = err.code
       if (isKnownErrorCode(code)) {
-        // @ts-expect-error dynamic key lookup into i18n object
-        return (t.jobs.errors[code] as string) ?? err.message
+        return t.jobs.errors[code]
       }
       return err.message
     }

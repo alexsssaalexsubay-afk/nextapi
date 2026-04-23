@@ -1,0 +1,28 @@
+{
+  "id": "errors",
+  "title": "错误与排查",
+  "description": "NextAPI 每个错误码的通俗解释和具体修复方式。",
+  "source": "@site/i18n/zh/docusaurus-plugin-content-docs/current/errors.md",
+  "sourceDirName": ".",
+  "slug": "/errors",
+  "permalink": "/zh/errors",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/nextapi/docs/edit/main/docs-site/docs/errors.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {
+    "title": "错误与排查",
+    "sidebar_label": "错误与排查",
+    "description": "NextAPI 每个错误码的通俗解释和具体修复方式。"
+  },
+  "sidebar": "mainSidebar",
+  "previous": {
+    "title": "API 参考",
+    "permalink": "/zh/api-reference"
+  },
+  "next": {
+    "title": "常见问题",
+    "permalink": "/zh/faq"
+  }
+}

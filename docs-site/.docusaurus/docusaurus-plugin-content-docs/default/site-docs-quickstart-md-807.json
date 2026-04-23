@@ -1,0 +1,28 @@
+{
+  "id": "quickstart",
+  "title": "Quick Start",
+  "description": "Generate your first video in under 10 minutes with NextAPI Batch Studio.",
+  "source": "@site/docs/quickstart.md",
+  "sourceDirName": ".",
+  "slug": "/quickstart",
+  "permalink": "/quickstart",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/nextapi/docs/edit/main/docs-site/docs/quickstart.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {
+    "title": "Quick Start",
+    "sidebar_label": "Quick Start",
+    "description": "Generate your first video in under 10 minutes with NextAPI Batch Studio."
+  },
+  "sidebar": "mainSidebar",
+  "previous": {
+    "title": "Non-developers",
+    "permalink": "/non-coder-guide"
+  },
+  "next": {
+    "title": "Non-developers",
+    "permalink": "/non-coder-guide"
+  }
+}

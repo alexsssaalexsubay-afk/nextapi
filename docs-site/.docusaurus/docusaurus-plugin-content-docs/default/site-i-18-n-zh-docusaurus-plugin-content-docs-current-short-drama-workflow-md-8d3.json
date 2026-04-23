@@ -1,0 +1,28 @@
+{
+  "id": "short-drama-workflow",
+  "title": "短剧制作工作流",
+  "description": "从剧本到成片的六阶段短剧 AI 制作流程。",
+  "source": "@site/i18n/zh/docusaurus-plugin-content-docs/current/short-drama-workflow.md",
+  "sourceDirName": ".",
+  "slug": "/short-drama-workflow",
+  "permalink": "/zh/short-drama-workflow",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/nextapi/docs/edit/main/docs-site/docs/short-drama-workflow.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {
+    "title": "短剧制作工作流",
+    "sidebar_label": "短剧工作流",
+    "description": "从剧本到成片的六阶段短剧 AI 制作流程。"
+  },
+  "sidebar": "mainSidebar",
+  "previous": {
+    "title": "角色一致性",
+    "permalink": "/zh/consistency-guide"
+  },
+  "next": {
+    "title": "ComfyUI 指南",
+    "permalink": "/zh/comfyui-guide"
+  }
+}

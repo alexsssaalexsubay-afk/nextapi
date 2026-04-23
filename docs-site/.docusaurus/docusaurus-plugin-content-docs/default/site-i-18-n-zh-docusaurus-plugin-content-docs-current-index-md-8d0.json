@@ -1,0 +1,25 @@
+{
+  "id": "index",
+  "title": "NextAPI 文档",
+  "description": "NextAPI 视频生成网关 — 为短剧团队、电商创意和 AI 视频生产者打造的专业工具。",
+  "source": "@site/i18n/zh/docusaurus-plugin-content-docs/current/index.md",
+  "sourceDirName": ".",
+  "slug": "/",
+  "permalink": "/zh/",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/nextapi/docs/edit/main/docs-site/docs/index.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {
+    "slug": "/",
+    "title": "NextAPI 文档",
+    "sidebar_label": "概览",
+    "description": "NextAPI 视频生成网关 — 为短剧团队、电商创意和 AI 视频生产者打造的专业工具。"
+  },
+  "sidebar": "mainSidebar",
+  "next": {
+    "title": "零基础指南",
+    "permalink": "/zh/non-coder-guide"
+  }
+}

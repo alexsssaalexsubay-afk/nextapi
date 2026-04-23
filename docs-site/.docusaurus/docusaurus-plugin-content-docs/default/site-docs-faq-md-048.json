@@ -1,0 +1,24 @@
+{
+  "id": "faq",
+  "title": "FAQ",
+  "description": "Frequently asked questions about NextAPI video generation.",
+  "source": "@site/docs/faq.md",
+  "sourceDirName": ".",
+  "slug": "/faq",
+  "permalink": "/faq",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/nextapi/docs/edit/main/docs-site/docs/faq.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {
+    "title": "FAQ",
+    "sidebar_label": "FAQ",
+    "description": "Frequently asked questions about NextAPI video generation."
+  },
+  "sidebar": "mainSidebar",
+  "previous": {
+    "title": "Errors & Troubleshooting",
+    "permalink": "/errors"
+  }
+}

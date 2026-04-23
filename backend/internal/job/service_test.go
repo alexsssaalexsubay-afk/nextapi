@@ -30,7 +30,8 @@ func (f *fakeQueue) EnqueueContext(_ context.Context, _ *asynq.Task, _ ...asynq.
 
 func setupDB(t *testing.T) *gorm.DB {
 	t.Helper()
-	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared", t.Name())
+	dir := t.TempDir()
+	dsn := fmt.Sprintf("file:%s/svc.db?cache=shared", dir)
 	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{})
 	if err != nil {
 		t.Fatal(err)
@@ -40,12 +41,16 @@ func setupDB(t *testing.T) *gorm.DB {
 	db.Exec(`CREATE TABLE orgs (id TEXT PRIMARY KEY, name TEXT, owner_user_id TEXT, created_at DATETIME)`)
 	db.Exec(`CREATE TABLE jobs (
 		id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
-		org_id TEXT NOT NULL, api_key_id TEXT,
+		org_id TEXT NOT NULL, api_key_id TEXT, batch_run_id TEXT,
 		provider TEXT NOT NULL, provider_job_id TEXT, request TEXT NOT NULL,
 		status TEXT NOT NULL DEFAULT 'queued', video_url TEXT, tokens_used BIGINT,
 		cost_credits BIGINT, reserved_credits BIGINT NOT NULL DEFAULT 0,
 		error_code TEXT, error_message TEXT,
-		created_at DATETIME DEFAULT CURRENT_TIMESTAMP, completed_at DATETIME)`)
+		retry_count INTEGER NOT NULL DEFAULT 0,
+		last_error_code TEXT, last_error_msg TEXT, exec_metadata TEXT,
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		submitting_at DATETIME, running_at DATETIME, retrying_at DATETIME,
+		timed_out_at DATETIME, canceled_at DATETIME, completed_at DATETIME)`)
 	db.Exec(`CREATE TABLE credits_ledger (
 		id INTEGER PRIMARY KEY AUTOINCREMENT, org_id TEXT NOT NULL,
 		delta_credits BIGINT NOT NULL, delta_cents BIGINT, reason TEXT NOT NULL, job_id TEXT,

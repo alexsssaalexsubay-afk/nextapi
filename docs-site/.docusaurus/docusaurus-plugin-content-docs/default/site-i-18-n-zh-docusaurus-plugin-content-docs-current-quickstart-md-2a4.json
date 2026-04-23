@@ -1,0 +1,28 @@
+{
+  "id": "quickstart",
+  "title": "快速开始",
+  "description": "使用 NextAPI Batch Studio，10 分钟内生成第一个视频。",
+  "source": "@site/i18n/zh/docusaurus-plugin-content-docs/current/quickstart.md",
+  "sourceDirName": ".",
+  "slug": "/quickstart",
+  "permalink": "/zh/quickstart",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/nextapi/docs/edit/main/docs-site/docs/quickstart.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {
+    "title": "快速开始",
+    "sidebar_label": "快速开始",
+    "description": "使用 NextAPI Batch Studio，10 分钟内生成第一个视频。"
+  },
+  "sidebar": "mainSidebar",
+  "previous": {
+    "title": "零基础指南",
+    "permalink": "/zh/non-coder-guide"
+  },
+  "next": {
+    "title": "零基础指南",
+    "permalink": "/zh/non-coder-guide"
+  }
+}

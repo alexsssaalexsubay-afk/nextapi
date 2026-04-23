@@ -19,35 +19,55 @@ import (
 	"gorm.io/gorm"
 )
 
-// AdminAuthHeader is the gin context key the middleware writes the
-// resolved operator email under, so RecordAudit can attribute actions
-// to a real human (Clerk JWT path) instead of just "shared token".
+// AdminActorCtxKey is the gin context key that AdminMiddleware writes the
+// resolved operator email (or "shared-token") under, used by RecordAudit.
 const AdminActorCtxKey = "nextapi.admin.actor"
 
-// AdminMiddleware gates /v1/internal/admin/* with two accepted
-// credentials, in priority order:
+// AdminMiddleware gates /v1/internal/admin/* with three accepted credentials,
+// in priority order:
 //
-//  1. Authorization: Bearer <Clerk JWT>
-//     Verified via Clerk JWKS, then `email` must be in ADMIN_EMAILS.
-//     This is what the admin web UI uses now — no shared secret ever
-//     reaches the browser.
+//  1. X-Op-Session: ops_<token>  (primary — admin UI sessions, short-lived,
+//     DB-backed, revocable). Created via POST /v1/internal/admin/session.
 //
-//  2. X-Admin-Token: <ADMIN_TOKEN>
-//     Constant-time compare against env. Kept for cron jobs, internal
-//     scripts, prometheus probes, and any tooling that doesn't want a
-//     Clerk identity. Strongly discouraged for browsers.
+//  2. Authorization: Bearer <Clerk JWT>  (fallback for direct tooling and for
+//     the initial session creation call itself). JWT is verified via Clerk JWKS;
+//     the email claim must be in ADMIN_EMAILS.
 //
-// At least one of the two must be configured (CLERK_ISSUER+ADMIN_EMAILS
-// or ADMIN_TOKEN); a plain "no auth at all" deployment is rejected.
-func AdminMiddleware(verifier interface {
-	Verify(ctx context.Context, raw string) (*auth.ClerkClaims, error)
-	FetchClerkUserEmail(ctx context.Context, userID string) (string, error)
-}) gin.HandlerFunc {
+//  3. X-Admin-Token: <ADMIN_TOKEN>  (cron jobs, scripts, Prometheus probes).
+//     Constant-time compare against env. Strongly discouraged for browsers.
+//
+// At least one of (CLERK_ISSUER+ADMIN_EMAILS) or ADMIN_TOKEN must be set;
+// a deployment with neither configured is rejected with admin_disabled.
+func AdminMiddleware(
+	verifier interface {
+		Verify(ctx context.Context, raw string) (*auth.ClerkClaims, error)
+		FetchClerkUserEmail(ctx context.Context, userID string) (string, error)
+	},
+	db *gorm.DB,
+) gin.HandlerFunc {
 	want := os.Getenv("ADMIN_TOKEN")
 	allow := normalizeAdminEmails(os.Getenv("ADMIN_EMAILS"))
 
 	return func(c *gin.Context) {
-		// Path 1: Clerk JWT (browser).
+		// Path 1: operator session token (preferred for browser UI).
+		if tok := c.GetHeader(opSessionHeader); tok != "" && db != nil {
+			sess, err := lookupSession(c.Request.Context(), db, tok)
+			if err == nil {
+				c.Set(AdminActorCtxKey, sess.ActorEmail)
+				c.Next()
+				return
+			}
+			// Expired / revoked / idle — fall through so a concurrent
+			// Clerk-JWT retry (from admin-api.ts) can still succeed,
+			// but tell the client explicitly.
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": gin.H{
+				"code":    "session_invalid",
+				"message": "operator session expired or revoked; re-authenticate via POST /v1/internal/admin/session",
+			}})
+			return
+		}
+
+		// Path 2: Clerk JWT (browser initial auth + direct tooling).
 		if h := c.GetHeader("Authorization"); strings.HasPrefix(h, "Bearer ") && verifier != nil {
 			tok := strings.TrimPrefix(h, "Bearer ")
 			claims, err := verifier.Verify(c.Request.Context(), tok)
@@ -62,18 +82,18 @@ func AdminMiddleware(verifier interface {
 					c.Next()
 					return
 				}
+				// Authenticated Clerk account but NOT in allowlist — explicit denial.
 				c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": gin.H{
 					"code":    "not_in_admin_allowlist",
-					"message": "your Clerk email is not listed in ADMIN_EMAILS",
+					"message": fmt.Sprintf("the account %q is not authorised for this admin panel. ask the platform owner to add your email to ADMIN_EMAILS.", email),
 				}})
 				return
 			}
-			// Bad JWT falls through to X-Admin-Token check below so an
-			// admin curl with the shared token still works even if the
-			// Clerk header is stale.
+			// Bad / expired JWT: fall through to X-Admin-Token so a curl
+			// with the shared token still works in the same request.
 		}
 
-		// Path 2: shared X-Admin-Token (cron / tools).
+		// Path 3: shared X-Admin-Token (cron / scripts only — never browsers).
 		if want != "" {
 			got := c.GetHeader("X-Admin-Token")
 			if got != "" && subtle.ConstantTimeCompare([]byte(got), []byte(want)) == 1 {
@@ -84,14 +104,22 @@ func AdminMiddleware(verifier interface {
 		}
 
 		if want == "" && len(allow) == 0 {
-			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": gin.H{"code": "admin_disabled"}})
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": gin.H{
+				"code":    "admin_disabled",
+				"message": "no admin credentials are configured on this server",
+			}})
 			return
 		}
-		c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": gin.H{"code": "forbidden"}})
+		c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": gin.H{
+			"code":    "forbidden",
+			"message": "valid admin credentials required (X-Op-Session, Bearer JWT, or X-Admin-Token)",
+		}})
 	}
 }
 
-func normalizeAdminEmails(raw string) map[string]bool {
+// NormalizeAdminEmails parses a comma-separated ADMIN_EMAILS value into a
+// case-folded set. Exported so main.go can reuse it for AdminSessionHandlers.
+func NormalizeAdminEmails(raw string) map[string]bool {
 	out := map[string]bool{}
 	for _, e := range strings.Split(raw, ",") {
 		t := strings.ToLower(strings.TrimSpace(e))
@@ -100,6 +128,11 @@ func normalizeAdminEmails(raw string) map[string]bool {
 		}
 	}
 	return out
+}
+
+// normalizeAdminEmails is the package-private alias kept for in-package use.
+func normalizeAdminEmails(raw string) map[string]bool {
+	return NormalizeAdminEmails(raw)
 }
 
 type AdminHandlers struct {
@@ -124,6 +157,9 @@ func (h *AdminHandlers) Orgs(c *gin.Context) {
 }
 
 func (h *AdminHandlers) PauseOrg(c *gin.Context) {
+	if !RequireOTP(c, h.DB) {
+		return
+	}
 	id := c.Param("id")
 	var body struct {
 		Reason string `json:"reason"`
@@ -187,6 +223,9 @@ type adjustReq struct {
 }
 
 func (h *AdminHandlers) AdjustCredits(c *gin.Context) {
+	if !RequireOTP(c, h.DB) {
+		return
+	}
 	var r adjustReq
 	if err := c.ShouldBindJSON(&r); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "bad_request", "message": "invalid request body"}})

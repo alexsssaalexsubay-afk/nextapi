@@ -19,9 +19,14 @@ type VideoListItem = {
   id: string
   model: string
   status: string
+  prompt?: string
+  duration_seconds?: number
   estimated_cost_cents: number
   created_at: string
 }
+
+const VALID_STATUSES = ["queued", "submitting", "running", "retrying", "succeeded", "failed"] as const
+type FilterStatus = typeof VALID_STATUSES[number] | "all"
 
 function relTime(iso: string): string {
   const t = new Date(iso).getTime()
@@ -44,9 +49,10 @@ function toJobRow(v: VideoListItem): JobRow {
     id: v.id,
     status,
     model: v.model || "seedance-2.0",
-    prompt: "",
+    // Use real prompt from API; fall back to a readable placeholder
+    prompt: v.prompt || "(no prompt)",
     submitted: relTime(v.created_at),
-    duration: "—",
+    duration: v.duration_seconds ? `${v.duration_seconds}s` : "—",
     creditsAmount: credits,
     creditsKind: kind,
   }
@@ -62,39 +68,48 @@ export default function JobsPage() {
     ? (overrideRaw as ListState)
     : ""
 
-  const [rows, setRows] = React.useState<JobRow[] | null>(null)
+  const [allRows, setAllRows] = React.useState<JobRow[] | null>(null)
   const [fetchError, setFetchError] = React.useState<string | null>(null)
+  const [activeFilter, setActiveFilter] = React.useState<FilterStatus>("all")
 
-  React.useEffect(() => {
+  const loadJobs = React.useCallback((filterStatus: FilterStatus) => {
     let cancelled = false
-    apiFetch("/v1/videos?limit=50")
+    const url = filterStatus === "all"
+      ? "/v1/videos?limit=50"
+      : `/v1/videos?limit=50&status=${filterStatus}`
+    apiFetch(url)
       .then((res) => {
         if (cancelled) return
         if (res && Array.isArray(res.data)) {
-          setRows((res.data as VideoListItem[]).map(toJobRow))
+          setAllRows((res.data as VideoListItem[]).map(toJobRow))
+          setFetchError(null)
         } else {
-          setRows([])
+          setAllRows([])
         }
       })
       .catch((e) => {
         if (!cancelled) setFetchError(e instanceof Error ? e.message : "load failed")
       })
-    return () => {
-      cancelled = true
-    }
+    return () => { cancelled = true }
   }, [])
+
+  React.useEffect(() => {
+    return loadJobs(activeFilter)
+  }, [activeFilter, loadJobs])
 
   // Decide effective state: explicit ?state= overrides; otherwise infer from data.
   const state: ListState =
     override ||
-    (fetchError ? "error" : rows === null ? "loading" : rows.length === 0 ? "empty" : "default")
+    (fetchError ? "error" : allRows === null ? "loading" : allRows.length === 0 ? "empty" : "default")
+
+  const rows = allRows
 
   const counts = {
-    all: rows?.length ?? 0,
-    running: rows?.filter((r) => r.status === "running").length ?? 0,
-    queued: rows?.filter((r) => r.status === "queued").length ?? 0,
-    succeeded: rows?.filter((r) => r.status === "succeeded").length ?? 0,
-    failed: rows?.filter((r) => r.status === "failed").length ?? 0,
+    all: allRows?.length ?? 0,
+    running: allRows?.filter((r) => r.status === "running").length ?? 0,
+    queued: allRows?.filter((r) => r.status === "queued").length ?? 0,
+    succeeded: allRows?.filter((r) => r.status === "succeeded").length ?? 0,
+    failed: allRows?.filter((r) => r.status === "failed").length ?? 0,
   }
 
   const stateTabs: { key: ListState; label: string; hint: string }[] = [
@@ -106,15 +121,15 @@ export default function JobsPage() {
 
   const filters: {
     label: string
+    filterKey: FilterStatus
     status?: JobStatus
     count: number
-    active?: boolean
   }[] = [
-    { label: t.jobs.filters.all, count: counts.all, active: true },
-    { label: t.jobs.states.running, status: "running", count: counts.running },
-    { label: t.jobs.states.queued, status: "queued", count: counts.queued },
-    { label: t.jobs.states.succeeded, status: "succeeded", count: counts.succeeded },
-    { label: t.jobs.states.failed, status: "failed", count: counts.failed },
+    { label: t.jobs.filters.all, filterKey: "all", count: counts.all },
+    { label: t.jobs.states.running, filterKey: "running", status: "running", count: counts.running },
+    { label: t.jobs.states.queued, filterKey: "queued", status: "queued", count: counts.queued },
+    { label: t.jobs.states.succeeded, filterKey: "succeeded", status: "succeeded", count: counts.succeeded },
+    { label: t.jobs.states.failed, filterKey: "failed", status: "failed", count: counts.failed },
   ]
 
   return (
@@ -173,27 +188,35 @@ export default function JobsPage() {
             (state === "empty" || state === "error") && "pointer-events-none opacity-50",
           )}
         >
-          {filters.map((f) => (
-            <button
-              key={f.label}
-              disabled={state !== "default"}
-              className={cn(
-                "inline-flex items-center gap-2 rounded-md border px-2.5 py-1 text-[12.5px] transition-colors",
-                f.active && state === "default"
-                  ? "border-border bg-card text-foreground"
-                  : "border-border/60 bg-card/30 text-muted-foreground hover:border-border hover:text-foreground",
-              )}
-            >
-              {f.status ? (
-                <StatusPill status={f.status} label={f.label} />
-              ) : (
-                <span>{f.label}</span>
-              )}
-              <span className="font-mono text-[11px] text-muted-foreground">
-                {state === "default" ? f.count : "—"}
-              </span>
-            </button>
-          ))}
+          {filters.map((f) => {
+            const isActive = activeFilter === f.filterKey
+            return (
+              <button
+                key={f.filterKey}
+                disabled={state !== "default"}
+                onClick={() => {
+                  if (state === "default") {
+                    setActiveFilter(f.filterKey)
+                  }
+                }}
+                className={cn(
+                  "inline-flex items-center gap-2 rounded-md border px-2.5 py-1 text-[12.5px] transition-colors",
+                  isActive && state === "default"
+                    ? "border-border bg-card text-foreground"
+                    : "border-border/60 bg-card/30 text-muted-foreground hover:border-border hover:text-foreground",
+                )}
+              >
+                {f.status ? (
+                  <StatusPill status={f.status} label={f.label} />
+                ) : (
+                  <span>{f.label}</span>
+                )}
+                <span className="font-mono text-[11px] text-muted-foreground">
+                  {state === "default" ? f.count : "—"}
+                </span>
+              </button>
+            )
+          })}
           <div className="flex-1" />
           <button
             disabled={state !== "default"}

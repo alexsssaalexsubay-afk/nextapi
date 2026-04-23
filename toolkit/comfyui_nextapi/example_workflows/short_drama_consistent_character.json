@@ -1,0 +1,136 @@
+{
+  "last_node_id": 5,
+  "last_link_id": 6,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "NextAPIAuth",
+      "pos": [40, 80],
+      "size": [320, 160],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "outputs": [{ "name": "auth", "type": "NEXTAPI_AUTH", "links": [1] }],
+      "properties": { "Node name for S&R": "NextAPIAuth" },
+      "widgets_values": ["https://api.nextapi.top", "PASTE_YOUR_sk_live_KEY", 30.0, 4]
+    },
+    {
+      "id": 2,
+      "type": "NextAPIAssetResolver",
+      "pos": [40, 280],
+      "size": [320, 280],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "outputs": [
+        { "name": "character_url", "type": "STRING", "links": [2] },
+        { "name": "outfit_url", "type": "STRING", "links": [3] },
+        { "name": "scene_url", "type": "STRING", "links": [4] },
+        { "name": "reference_video_url", "type": "STRING", "links": null }
+      ],
+      "properties": { "Node name for S&R": "NextAPIAssetResolver" },
+      "widgets_values": [
+        "https://your-cdn.example.com/lin_yue_ref.jpg",
+        "https://your-cdn.example.com/white_coat.jpg",
+        "https://your-cdn.example.com/cafe_morning_ref.jpg",
+        "",
+        "",
+        ""
+      ]
+    },
+    {
+      "id": 3,
+      "type": "NextAPIGenerateVideo",
+      "pos": [400, 80],
+      "size": [420, 520],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [
+        { "name": "auth", "type": "NEXTAPI_AUTH", "link": 1 },
+        { "name": "character_url", "type": "STRING", "link": 2 },
+        { "name": "outfit_url", "type": "STRING", "link": 3 },
+        { "name": "scene_url", "type": "STRING", "link": 4 }
+      ],
+      "outputs": [
+        { "name": "job_id", "type": "STRING", "links": [5] },
+        { "name": "estimated_credits", "type": "INT", "links": null },
+        { "name": "status", "type": "STRING", "links": null }
+      ],
+      "properties": { "Node name for S&R": "NextAPIGenerateVideo" },
+      "widgets_values": [
+        "Lin Yue walks into a corner cafe, stops at the window-side table, gazes across the street, soft expression.",
+        5,
+        "16:9",
+        "distorted face, extra fingers, watermark, low quality",
+        "",
+        "",
+        "",
+        "",
+        "medium tracking shot",
+        "slow walk-in then pause",
+        "ep01_s01_lin_cafe",
+        "ep01_s01_001"
+      ]
+    },
+    {
+      "id": 4,
+      "type": "NextAPIPollJob",
+      "pos": [860, 80],
+      "size": [320, 200],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [
+        { "name": "auth", "type": "NEXTAPI_AUTH", "link": 1 },
+        { "name": "job_id", "type": "STRING", "link": 5 }
+      ],
+      "outputs": [
+        { "name": "status", "type": "STRING", "links": null },
+        { "name": "video_url", "type": "STRING", "links": [6] },
+        { "name": "error_code", "type": "STRING", "links": null },
+        { "name": "error_message", "type": "STRING", "links": null }
+      ],
+      "properties": { "Node name for S&R": "NextAPIPollJob" },
+      "widgets_values": [4.0, 15]
+    },
+    {
+      "id": 5,
+      "type": "NextAPIDownloadResult",
+      "pos": [1220, 80],
+      "size": [320, 220],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [{ "name": "video_url", "type": "STRING", "link": 6 }],
+      "outputs": [{ "name": "local_file_path", "type": "STRING", "links": null }],
+      "properties": { "Node name for S&R": "NextAPIDownloadResult" },
+      "widgets_values": ["nextapi", "ep01_s01_001", "nextapi"]
+    }
+  ],
+  "links": [
+    [1, 1, 0, 3, 0, "NEXTAPI_AUTH"],
+    [2, 2, 0, 3, 1, "STRING"],
+    [3, 2, 1, 3, 2, "STRING"],
+    [4, 2, 2, 3, 3, "STRING"],
+    [5, 3, 0, 4, 1, "STRING"],
+    [6, 4, 1, 5, 0, "STRING"]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {
+    "nextapi_template": {
+      "name": "Short Drama · consistent character",
+      "version": 1,
+      "description": "Single-shot template wired to keep one character + outfit + scene consistent across an episode. Duplicate nodes 3–5 (or use a Workflow → For Each loop) to fan out across a continuity_group.",
+      "instructions": [
+        "1. Open the NextAPIAuth node and paste your sk_live_… key.",
+        "2. Open NextAPIAssetResolver and replace the three placeholder URLs with hosted character / outfit / scene refs.",
+        "3. Edit the prompt + camera + motion on NextAPIGenerateVideo for the first shot.",
+        "4. Press Queue Prompt. Each generation typically completes in 30–90 s.",
+        "5. The downloaded MP4 path appears on NextAPIDownloadResult."
+      ]
+    }
+  },
+  "version": 0.4
+}

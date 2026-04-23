@@ -85,6 +85,7 @@ export const en = {
     autoRefresh: "Auto-refresh",
     page: "Page",
     of: "of",
+    preview: "PREVIEW",
   },
 
   hero: {
@@ -872,6 +873,8 @@ export const en = {
     help: {
       verification: "Verify signatures using the shared secret and the x-nextapi-signature header.",
     },
+    previewNote:
+      "Sample data — endpoint create + delivery log API ships in the next release.",
   },
 
   usage: {

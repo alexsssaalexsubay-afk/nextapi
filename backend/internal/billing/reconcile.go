@@ -50,10 +50,11 @@ func (r *ReconcileService) Run(ctx context.Context) error {
 	cutoff := time.Now().Add(-stuckAfter)
 
 	var jobs []domain.Job
-	// jobs table doesn't carry a started_at column (only videos does);
-	// fall back to created_at as the staleness floor.
+	// Include all non-terminal active states: 'submitting' and 'retrying' were
+	// added in migration 00011 but omitted from the original query, causing jobs
+	// stuck in those states to hold credit reservations indefinitely.
 	if err := r.DB.WithContext(ctx).
-		Where("status IN ('queued','running') AND created_at < ?", cutoff).
+		Where("status IN ('queued','running','submitting','retrying') AND created_at < ?", cutoff).
 		Limit(500).Find(&jobs).Error; err != nil {
 		return err
 	}
@@ -94,7 +95,8 @@ func (r *ReconcileService) fail(ctx context.Context, j *domain.Job) error {
 		if err := tx.Where("id = ?", j.ID).First(&fresh).Error; err != nil {
 			return err
 		}
-		if fresh.Status != domain.JobQueued && fresh.Status != domain.JobRunning {
+		// Re-check inside the txn — guard all non-terminal states.
+		if fresh.Status.IsTerminal() {
 			return nil
 		}
 		if err := tx.Model(&fresh).Updates(map[string]any{

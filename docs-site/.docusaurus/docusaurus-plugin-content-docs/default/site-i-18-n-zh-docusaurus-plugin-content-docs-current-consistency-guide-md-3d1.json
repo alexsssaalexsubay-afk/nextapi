@@ -1,0 +1,28 @@
+{
+  "id": "consistency-guide",
+  "title": "角色一致性",
+  "description": "使用参考图和连贯组，在批量生成的镜头中保持角色形象稳定。",
+  "source": "@site/i18n/zh/docusaurus-plugin-content-docs/current/consistency-guide.md",
+  "sourceDirName": ".",
+  "slug": "/consistency-guide",
+  "permalink": "/zh/consistency-guide",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/nextapi/docs/edit/main/docs-site/docs/consistency-guide.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {
+    "title": "角色一致性",
+    "sidebar_label": "角色一致性",
+    "description": "使用参考图和连贯组，在批量生成的镜头中保持角色形象稳定。"
+  },
+  "sidebar": "mainSidebar",
+  "previous": {
+    "title": "批量生成指南",
+    "permalink": "/zh/batch-guide"
+  },
+  "next": {
+    "title": "短剧工作流",
+    "permalink": "/zh/short-drama-workflow"
+  }
+}

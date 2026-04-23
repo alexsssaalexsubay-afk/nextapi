@@ -1,11 +1,12 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import {
   AlertTriangle,
   Copy,
   Download,
   ExternalLink,
+  Loader2,
   PauseCircle,
   Play,
   RefreshCcw,
@@ -15,95 +16,176 @@ import { StatusPill, type JobStatus } from "@/components/nextapi/status-pill"
 import { CodeBlock } from "@/components/nextapi/code-block"
 import { cn } from "@/lib/utils"
 import { useTranslations } from "@/lib/i18n/context"
+import { apiFetch } from "@/lib/api"
+
+// Shape returned by GET /v1/videos/:id
+type VideoDetail = {
+  id: string
+  model: string
+  status: string
+  input?: Record<string, unknown>
+  output?: { url?: string }
+  estimated_cost_cents: number
+  actual_cost_cents?: number
+  error_code?: string
+  error_message?: string
+  created_at: string
+  started_at?: string
+  finished_at?: string
+}
+
+const ACTIVE_STATUSES = new Set(["queued", "submitting", "running", "retrying"])
+const POLL_INTERVAL_MS = 4000
+
+function toJobStatus(s: string): JobStatus {
+  const valid: JobStatus[] = ["queued", "submitting", "running", "succeeded", "failed"]
+  return valid.includes(s as JobStatus) ? (s as JobStatus) : "queued"
+}
 
 export function JobDetail({ jobId }: { jobId: string }) {
   const t = useTranslations()
   const td = t.jobs.detail
-  const stateLabels = t.jobs.states
 
-  const [state, setState] = useState<JobStatus>("running")
+  const [video, setVideo] = useState<VideoDetail | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [actionLoading, setActionLoading] = useState(false)
+  const [copied, setCopied] = useState(false)
+  const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const tabs: { key: JobStatus; label: string }[] = [
-    { key: "submitting", label: stateLabels.submitting },
-    { key: "queued", label: stateLabels.queued },
-    { key: "running", label: stateLabels.running },
-    { key: "succeeded", label: stateLabels.succeeded },
-    { key: "failed", label: stateLabels.failed },
-  ]
+  const fetchJob = useCallback(async () => {
+    try {
+      const data = await apiFetch(`/v1/videos/${jobId}`)
+      setVideo(data)
+      setLoadError(null)
+      return data as VideoDetail
+    } catch (e) {
+      setLoadError(e instanceof Error ? e.message : "Failed to load job")
+      return null
+    }
+  }, [jobId])
+
+  // Poll while job is in an active (non-terminal) state
+  useEffect(() => {
+    let cancelled = false
+
+    const poll = async () => {
+      const data = await fetchJob()
+      if (cancelled) return
+      if (data && ACTIVE_STATUSES.has(data.status)) {
+        pollRef.current = setTimeout(poll, POLL_INTERVAL_MS)
+      }
+    }
+    poll()
+
+    return () => {
+      cancelled = true
+      if (pollRef.current) clearTimeout(pollRef.current)
+    }
+  }, [fetchJob])
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(jobId).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    })
+  }
+
+  const handleCancel = async () => {
+    setActionLoading(true)
+    try {
+      await apiFetch(`/v1/videos/${jobId}`, { method: "DELETE" })
+      await fetchJob()
+    } catch {
+      // ignore — status will refresh on next poll
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  if (loadError) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-3 p-20 text-center">
+        <AlertTriangle className="size-8 text-status-failed" />
+        <p className="text-[13.5px] font-medium">Failed to load job</p>
+        <p className="text-[12.5px] text-muted-foreground">{loadError}</p>
+        <button
+          onClick={() => fetchJob()}
+          className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border/80 bg-card/40 px-3 text-[12.5px] text-foreground hover:bg-card"
+        >
+          <RefreshCcw className="size-3.5" />
+          Retry
+        </button>
+      </div>
+    )
+  }
+
+  if (!video) {
+    return (
+      <div className="flex items-center justify-center gap-3 p-20 text-muted-foreground">
+        <Loader2 className="size-5 animate-spin" />
+        <span className="text-[13px]">Loading job…</span>
+      </div>
+    )
+  }
+
+  const state = toJobStatus(video.status)
+  const prompt = (video.input?.prompt as string) || "(no prompt)"
+  const videoURL = video.output?.url
+  const reservedCredits = (video.estimated_cost_cents / 100).toFixed(2)
+  const billedCredits = video.actual_cost_cents != null
+    ? (video.actual_cost_cents / 100).toFixed(2)
+    : null
+  const isActive = ACTIVE_STATUSES.has(video.status)
 
   return (
     <div className="space-y-6 p-6">
-      {/* State switcher — this is a design/prototype convenience so you can see every state */}
-      <div className="flex items-center justify-between rounded-lg border border-dashed border-border/80 bg-card/30 p-3">
-        <div className="flex items-center gap-2 text-[12px] text-muted-foreground">
-          <span className="font-mono uppercase tracking-[0.14em]">{td.previewStatus}</span>
-          <span className="text-muted-foreground/60">—</span>
-          <span>{td.previewHint}</span>
-        </div>
-        <div className="flex items-center gap-1">
-          {tabs.map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => setState(tab.key)}
-              className={cn(
-                "rounded-md px-2.5 py-1 text-[11.5px] transition-colors",
-                state === tab.key
-                  ? "bg-secondary text-foreground"
-                  : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="space-y-2">
           <div className="flex items-center gap-3">
             <StatusPill status={state} size="md" />
+            {isActive && <Loader2 className="size-3.5 animate-spin text-muted-foreground" />}
             <span className="font-mono text-[12.5px] text-muted-foreground">
               {jobId}
             </span>
             <button
               aria-label={t.common.copy}
+              onClick={handleCopy}
               className="inline-flex size-6 items-center justify-center rounded-md text-muted-foreground hover:text-foreground"
             >
-              <Copy className="size-3.5" />
+              {copied
+                ? <span className="text-[10px] text-status-success">✓</span>
+                : <Copy className="size-3.5" />
+              }
             </button>
           </div>
           <h1 className="max-w-[720px] text-[22px] font-medium leading-tight tracking-tight">
-            {state === "failed" ? td.promptFailed : td.promptSucceeded}
+            {prompt}
           </h1>
           <p className="text-[13px] text-muted-foreground">
-            {td.metaLine}
+            {video.model || "seedance-2.0"} · {new Date(video.created_at).toLocaleString()}
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {(state === "queued" || state === "running" || state === "submitting") && (
-            <button className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border/80 bg-card/40 px-3 text-[12.5px] text-foreground hover:bg-card">
+          {isActive && (
+            <button
+              disabled={actionLoading}
+              onClick={handleCancel}
+              className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border/80 bg-card/40 px-3 text-[12.5px] text-foreground hover:bg-card disabled:opacity-50"
+            >
               <XCircle className="size-3.5" />
               {td.cancelJob}
             </button>
           )}
-          {state === "failed" && (
-            <button className="inline-flex h-8 items-center gap-1.5 rounded-md bg-foreground px-3 text-[12.5px] font-medium text-background hover:bg-foreground/90">
-              <RefreshCcw className="size-3.5" />
-              {td.retrySame}
-            </button>
-          )}
-          {state === "succeeded" && (
-            <>
-              <button className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border/80 bg-card/40 px-3 text-[12.5px] text-foreground hover:bg-card">
-                <Download className="size-3.5" />
-                {td.downloadMp4}
-              </button>
-              <button className="inline-flex h-8 items-center gap-1.5 rounded-md bg-foreground px-3 text-[12.5px] font-medium text-background hover:bg-foreground/90">
-                <Play className="size-3.5" />
-                {td.regenerate}
-              </button>
-            </>
+          {state === "succeeded" && videoURL && (
+            <a
+              href={videoURL}
+              download
+              className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border/80 bg-card/40 px-3 text-[12.5px] text-foreground hover:bg-card"
+            >
+              <Download className="size-3.5" />
+              {td.downloadMp4}
+            </a>
           )}
         </div>
       </div>
@@ -111,23 +193,40 @@ export function JobDetail({ jobId }: { jobId: string }) {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_380px]">
         {/* Left column */}
         <div className="space-y-6">
-          <OutputPanel state={state} />
-          <PayloadPanel />
-          <EventsPanel state={state} />
+          <OutputPanel state={state} videoURL={videoURL} />
+          <PayloadPanel input={video.input} />
+          <EventsPanel
+            state={state}
+            errorCode={video.error_code}
+            errorMessage={video.error_message}
+          />
         </div>
 
         {/* Right column */}
         <div className="space-y-6">
-          <TimelinePanel state={state} />
-          <BillingPanel state={state} />
-          <UpstreamPanel state={state} />
+          <TimelinePanel
+            state={state}
+            createdAt={video.created_at}
+            startedAt={video.started_at}
+            finishedAt={video.finished_at}
+          />
+          <BillingPanel
+            state={state}
+            reserved={reservedCredits}
+            billed={billedCredits}
+          />
+          <UpstreamPanel
+            state={state}
+            errorCode={video.error_code}
+            model={video.model}
+          />
         </div>
       </div>
     </div>
   )
 }
 
-function OutputPanel({ state }: { state: JobStatus }) {
+function OutputPanel({ state, videoURL }: { state: JobStatus; videoURL?: string }) {
   const t = useTranslations()
   const td = t.jobs.detail
 
@@ -135,12 +234,14 @@ function OutputPanel({ state }: { state: JobStatus }) {
     <section className="overflow-hidden rounded-xl border border-border/80 bg-card/40">
       <div className="flex items-center justify-between border-b border-border/60 px-5 py-3">
         <h2 className="text-[13px] font-medium tracking-tight">{td.outputPanel.title}</h2>
-        {state === "succeeded" && (
+        {state === "succeeded" && videoURL && (
           <a
-            href="#"
+            href={videoURL}
+            target="_blank"
+            rel="noopener noreferrer"
             className="inline-flex items-center gap-1 font-mono text-[11.5px] text-muted-foreground hover:text-foreground"
           >
-            cdn.nextapi.top/out/7Hc9Xk2Lm3NpQ4rS.mp4
+            {videoURL.split("/").pop() ?? "video.mp4"}
             <ExternalLink className="size-3" />
           </a>
         )}
@@ -149,7 +250,7 @@ function OutputPanel({ state }: { state: JobStatus }) {
         {state === "submitting" && <SubmittingView />}
         {state === "queued" && <QueuedView />}
         {state === "running" && <RunningView />}
-        {state === "succeeded" && <SucceededView />}
+        {state === "succeeded" && <SucceededView videoURL={videoURL} />}
         {state === "failed" && <FailedView />}
       </div>
     </section>
@@ -214,32 +315,37 @@ function RunningView() {
           style={{ width: "86%" }}
         />
       </div>
-      <div className="font-mono text-[11px] text-muted-foreground">
-        {o.runningElapsed}
-      </div>
     </div>
   )
 }
 
-function SucceededView() {
+function SucceededView({ videoURL }: { videoURL?: string }) {
   const t = useTranslations()
   const o = t.jobs.detail.outputPanel
   return (
     <div className="absolute inset-0">
-      <div className="absolute inset-0 bg-dots opacity-30" />
-      <div className="absolute inset-0 bg-gradient-to-t from-[oklch(0.08_0.01_260)] via-[oklch(0.14_0.01_220)] to-[oklch(0.2_0.05_170)]" />
-      <div className="absolute inset-0 flex items-end p-6">
-        <div className="flex items-center gap-3 rounded-md border border-border/60 bg-background/60 px-3 py-2 backdrop-blur-md">
-          <button className="inline-flex size-8 items-center justify-center rounded-full bg-foreground text-background">
-            <Play className="size-3.5 translate-x-px" />
-          </button>
-          <div className="font-mono text-[11.5px] text-foreground/90">00:00 / 00:06</div>
-          <div className="mx-3 h-1 w-32 overflow-hidden rounded-full bg-border">
-            <div className="h-full w-0 bg-signal" />
+      {videoURL ? (
+        <video
+          src={videoURL}
+          controls
+          playsInline
+          className="absolute inset-0 h-full w-full object-contain"
+        />
+      ) : (
+        <>
+          <div className="absolute inset-0 bg-dots opacity-30" />
+          <div className="absolute inset-0 bg-gradient-to-t from-[oklch(0.08_0.01_260)] via-[oklch(0.14_0.01_220)] to-[oklch(0.2_0.05_170)]" />
+          <div className="absolute inset-0 flex items-end p-6">
+            <div className="flex items-center gap-3 rounded-md border border-border/60 bg-background/60 px-3 py-2 backdrop-blur-md">
+              <button className="inline-flex size-8 items-center justify-center rounded-full bg-foreground text-background">
+                <Play className="size-3.5 translate-x-px" />
+              </button>
+              <div className="font-mono text-[11.5px] text-foreground/90">00:00 / 00:06</div>
+              <span className="font-mono text-[11px] text-muted-foreground">{o.succeededFps}</span>
+            </div>
           </div>
-          <span className="font-mono text-[11px] text-muted-foreground">{o.succeededFps}</span>
-        </div>
-      </div>
+        </>
+      )}
     </div>
   )
 }
@@ -258,20 +364,19 @@ function FailedView() {
           {o.failedHint}
         </div>
       </div>
-      <a
-        href="#"
-        className="inline-flex items-center gap-1 text-[12px] text-muted-foreground hover:text-foreground"
-      >
-        {o.viewPayload}
-        <ExternalLink className="size-3" />
-      </a>
     </div>
   )
 }
 
-function PayloadPanel() {
+function PayloadPanel({ input }: { input?: Record<string, unknown> }) {
   const t = useTranslations()
   const r = t.jobs.detail.request
+
+  const inputJson = input
+    ? JSON.stringify(input, null, 2)
+    : `{
+  "prompt": "(loading…)"
+}`
 
   return (
     <CodeBlock
@@ -280,74 +385,50 @@ function PayloadPanel() {
         {
           label: r.submitted,
           language: "json",
-          code: `{
-  "model": "seedance-2.0-pro",
-  "prompt": "Drone orbiting a lighthouse at dusk, cinematic, 35mm",
-  "duration": 6,
-  "resolution": "1080p",
-  "seed": 42,
-  "webhook_url": "https://acme.com/hooks/nextapi"
-}`,
-        },
-        {
-          label: r.responseAccepted,
-          language: "json",
-          code: `{
-  "job_id": "job_7Hc9Xk2Lm3NpQ4rS",
-  "status": "queued",
-  "reserved": 1.00,
-  "eta_seconds": 38,
-  "submitted_at": "2026-04-22T17:02:33Z"
-}`,
+          code: inputJson,
         },
       ]}
     />
   )
 }
 
-function EventsPanel({ state }: { state: JobStatus }) {
+function EventsPanel({
+  state,
+  errorCode,
+  errorMessage,
+}: {
+  state: JobStatus
+  errorCode?: string
+  errorMessage?: string
+}) {
   const t = useTranslations()
   const e = t.jobs.detail.events
 
   const rows = [
-    { t: "17:02:33.124", ev: "job.submitted", note: "reservation=1.00, idem=9c4fa1b2", color: "queued" },
+    { ev: "job.submitted", note: "reservation taken", color: "queued" },
     state !== "submitting" && {
-      t: "17:02:33.412",
       ev: "job.queued",
-      note: "upstream_ack rid=seed_b12..e9",
+      note: "upstream acknowledged",
       color: "queued",
     },
     (state === "running" || state === "succeeded" || state === "failed") && {
-      t: "17:02:35.218",
       ev: "job.running",
-      note: "region=us-east-1, pool=A",
+      note: "rendering started",
       color: "running",
     },
     state === "succeeded" && {
-      t: "17:03:11.841",
       ev: "job.succeeded",
-      note: "billed=0.84, duration=38.7s",
+      note: "video available",
       color: "success",
     },
     state === "failed" && {
-      t: "17:02:46.902",
       ev: "job.failed",
-      note: "upstream_content_policy, refunded=1.00",
+      note: errorCode
+        ? `${errorCode}${errorMessage ? ": " + errorMessage : ""}`
+        : "see error details",
       color: "failed",
     },
-    state === "succeeded" && {
-      t: "17:03:12.061",
-      ev: "webhook.delivered",
-      note: "200 · https://acme.com/hooks/nextapi",
-      color: "success",
-    },
-    state === "failed" && {
-      t: "17:02:47.110",
-      ev: "webhook.delivered",
-      note: "200 · https://acme.com/hooks/nextapi",
-      color: "success",
-    },
-  ].filter(Boolean) as { t: string; ev: string; note: string; color: string }[]
+  ].filter(Boolean) as { ev: string; note: string; color: string }[]
 
   return (
     <section className="overflow-hidden rounded-xl border border-border/80 bg-card/40">
@@ -358,10 +439,9 @@ function EventsPanel({ state }: { state: JobStatus }) {
       <ul className="divide-y divide-border/60 font-mono text-[12px]">
         {rows.map((r, i) => (
           <li key={i} className="flex items-center gap-4 px-5 py-2.5">
-            <span className="w-24 shrink-0 text-muted-foreground">{r.t}</span>
             <span
               className={cn(
-                "w-32 shrink-0",
+                "w-36 shrink-0",
                 r.color === "success" && "text-status-success",
                 r.color === "failed" && "text-status-failed",
                 r.color === "running" && "text-status-running",
@@ -375,7 +455,6 @@ function EventsPanel({ state }: { state: JobStatus }) {
         ))}
         {(state === "submitting" || state === "queued" || state === "running") && (
           <li className="flex items-center gap-4 px-5 py-2.5 text-muted-foreground">
-            <span className="w-24 shrink-0">—</span>
             <span className="inline-flex items-center gap-2 text-muted-foreground">
               <span className="relative inline-flex h-1.5 w-1.5">
                 <span className="absolute inset-0 rounded-full bg-muted-foreground op-pulse" />
@@ -390,32 +469,50 @@ function EventsPanel({ state }: { state: JobStatus }) {
   )
 }
 
-function TimelinePanel({ state }: { state: JobStatus }) {
+function TimelinePanel({
+  state,
+  createdAt,
+  startedAt,
+  finishedAt,
+}: {
+  state: JobStatus
+  createdAt: string
+  startedAt?: string
+  finishedAt?: string
+}) {
   const t = useTranslations()
   const tp = t.jobs.detail.timelinePanel
+
+  function elapsed(from: string, to?: string): string {
+    const start = new Date(from).getTime()
+    const end = to ? new Date(to).getTime() : Date.now()
+    const ms = Math.max(0, end - start)
+    if (ms < 1000) return `${ms}ms`
+    return `${(ms / 1000).toFixed(1)}s`
+  }
 
   const steps = [
     {
       label: tp.submitted,
-      time: "0.000s",
-      done: state !== "submitting",
-      active: state === "submitting",
+      time: new Date(createdAt).toLocaleTimeString(),
+      done: true,
+      active: false,
     },
     {
       label: tp.queued,
-      time: "+0.28s",
+      time: startedAt ? "+" + elapsed(createdAt, startedAt) : "—",
       done: ["running", "succeeded", "failed"].includes(state),
       active: state === "queued",
     },
     {
       label: tp.running,
-      time: "+2.09s",
+      time: startedAt ? "+" + elapsed(createdAt, startedAt) : "—",
       done: ["succeeded", "failed"].includes(state),
       active: state === "running",
     },
     {
       label: state === "failed" ? tp.failed : tp.webhookDelivered,
-      time: state === "failed" ? "+13.78s" : "+38.92s",
+      time: finishedAt ? "+" + elapsed(createdAt, finishedAt) : "—",
       done: state === "succeeded" || state === "failed",
       failed: state === "failed",
       active: false,
@@ -423,11 +520,9 @@ function TimelinePanel({ state }: { state: JobStatus }) {
   ]
 
   const suffix =
-    state === "succeeded"
-      ? `${tp.totalPrefix} 38.92s`
-      : state === "failed"
-        ? `${tp.totalPrefix} 13.78s`
-        : tp.live
+    finishedAt
+      ? `${tp.totalPrefix} ${elapsed(createdAt, finishedAt)}`
+      : tp.live
 
   return (
     <section className="rounded-xl border border-border/80 bg-card/40 p-5">
@@ -476,31 +571,43 @@ function TimelinePanel({ state }: { state: JobStatus }) {
   )
 }
 
-function BillingPanel({ state }: { state: JobStatus }) {
+function BillingPanel({
+  state,
+  reserved,
+  billed,
+}: {
+  state: JobStatus
+  reserved: string
+  billed: string | null
+}) {
   const t = useTranslations()
   const b = t.jobs.detail.billingPanel
 
   const billedLabel =
     state === "failed" ? b.billedFailed : state === "succeeded" ? b.billedSuccess : b.pendingBill
 
+  const billedValue = billed ?? (state === "succeeded" ? "—" : state === "failed" ? "0.00" : "—")
+  const refundedValue = state === "failed" ? reserved : "0.00"
+  const netValue = billed ?? (state === "succeeded" ? "—" : "0.00")
+
   return (
     <section className="rounded-xl border border-border/80 bg-card/40 p-5">
       <h2 className="text-[13px] font-medium tracking-tight">{b.title}</h2>
       <dl className="mt-4 space-y-2.5 font-mono text-[12.5px]">
-        <Line label={b.reservedOnSubmit} value="1.00" />
+        <Line label={b.reservedOnSubmit} value={reserved} />
         <Line
           label={billedLabel}
-          value={state === "succeeded" ? "0.84" : state === "failed" ? "0.00" : "—"}
+          value={billedValue}
         />
         <Line
           label={b.refunded}
-          value={state === "failed" ? "1.00" : "0.00"}
+          value={refundedValue}
           highlight={state === "failed"}
         />
         <div className="h-px bg-border/60" />
         <Line
           label={b.netCredits}
-          value={state === "succeeded" ? "0.84" : state === "failed" ? "0.00" : "—"}
+          value={netValue}
           strong
         />
       </dl>
@@ -538,7 +645,15 @@ function Line({
   )
 }
 
-function UpstreamPanel({ state }: { state: JobStatus }) {
+function UpstreamPanel({
+  state,
+  errorCode,
+  model,
+}: {
+  state: JobStatus
+  errorCode?: string
+  model?: string
+}) {
   const t = useTranslations()
   const u = t.jobs.detail.upstreamPanel
 
@@ -547,12 +662,10 @@ function UpstreamPanel({ state }: { state: JobStatus }) {
       <h2 className="text-[13px] font-medium tracking-tight">{u.title}</h2>
       <dl className="mt-4 space-y-2.5 font-mono text-[12px]">
         <Line label={u.provider} value="seedance.bytedance" />
-        <Line label={u.model} value="seedance-2.0-pro" />
-        <Line label={u.requestId} value="seed_b12f3a…e9" />
-        <Line label={u.regionPool} value="us-east-1 / pool-A" />
+        <Line label={u.model} value={model || "seedance-2.0"} />
         <Line label={u.retries} value={u.retriesValue} />
-        {state === "failed" && (
-          <Line label={u.errorCode} value="content_policy.pre" highlight />
+        {state === "failed" && errorCode && (
+          <Line label={u.errorCode} value={errorCode} highlight />
         )}
       </dl>
     </section>

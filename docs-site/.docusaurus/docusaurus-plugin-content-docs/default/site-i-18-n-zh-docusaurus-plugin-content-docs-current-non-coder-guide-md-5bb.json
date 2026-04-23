@@ -1,0 +1,29 @@
+{
+  "id": "non-coder-guide",
+  "title": "零基础用户指南",
+  "description": "不写代码也能理解的 NextAPI 说明 — 网址、积分、API Key、该读哪些文档。",
+  "source": "@site/i18n/zh/docusaurus-plugin-content-docs/current/non-coder-guide.md",
+  "sourceDirName": ".",
+  "slug": "/non-coder-guide",
+  "permalink": "/zh/non-coder-guide",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/nextapi/docs/edit/main/docs-site/docs/non-coder-guide.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {
+    "title": "零基础用户指南",
+    "sidebar_label": "零基础指南",
+    "description": "不写代码也能理解的 NextAPI 说明 — 网址、积分、API Key、该读哪些文档。",
+    "slug": "/non-coder-guide"
+  },
+  "sidebar": "mainSidebar",
+  "previous": {
+    "title": "概览",
+    "permalink": "/zh/"
+  },
+  "next": {
+    "title": "快速开始",
+    "permalink": "/zh/quickstart"
+  }
+}

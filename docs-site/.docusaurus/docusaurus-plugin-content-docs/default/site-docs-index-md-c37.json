@@ -1,0 +1,25 @@
+{
+  "id": "index",
+  "title": "Overview",
+  "description": "NextAPI video generation gateway — for short drama teams, e-commerce creatives, and AI video producers.",
+  "source": "@site/docs/index.md",
+  "sourceDirName": ".",
+  "slug": "/overview",
+  "permalink": "/overview",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/nextapi/docs/edit/main/docs-site/docs/index.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {
+    "slug": "/overview",
+    "title": "Overview",
+    "sidebar_label": "Overview",
+    "description": "NextAPI video generation gateway — for short drama teams, e-commerce creatives, and AI video producers."
+  },
+  "sidebar": "mainSidebar",
+  "next": {
+    "title": "Non-developers",
+    "permalink": "/non-coder-guide"
+  }
+}

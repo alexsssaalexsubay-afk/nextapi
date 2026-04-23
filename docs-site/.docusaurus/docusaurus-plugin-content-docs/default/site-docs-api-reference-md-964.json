@@ -1,0 +1,28 @@
+{
+  "id": "api-reference",
+  "title": "API Reference",
+  "description": "Complete reference for POST /v1/video/generations and GET /v1/jobs/id.",
+  "source": "@site/docs/api-reference.md",
+  "sourceDirName": ".",
+  "slug": "/api-reference",
+  "permalink": "/api-reference",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/nextapi/docs/edit/main/docs-site/docs/api-reference.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {
+    "title": "API Reference",
+    "sidebar_label": "API Reference",
+    "description": "Complete reference for POST /v1/video/generations and GET /v1/jobs/id."
+  },
+  "sidebar": "mainSidebar",
+  "previous": {
+    "title": "API Keys",
+    "permalink": "/api-key-guide"
+  },
+  "next": {
+    "title": "Errors & Troubleshooting",
+    "permalink": "/errors"
+  }
+}

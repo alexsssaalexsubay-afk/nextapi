@@ -80,6 +80,15 @@ func TooManyRequests(c *gin.Context, code, msg string) {
 func Internal(c *gin.Context, msg string) {
 	WriteError(c, http.StatusInternalServerError, "internal_error", msg)
 }
+func InternalError(c *gin.Context, code, msg string) {
+	WriteError(c, http.StatusInternalServerError, code, msg)
+}
 func NotFound(c *gin.Context, msg string) {
 	WriteError(c, http.StatusNotFound, "not_found", msg)
+}
+func NotFoundCode(c *gin.Context, code, msg string) {
+	WriteError(c, http.StatusNotFound, code, msg)
+}
+func Forbidden(c *gin.Context, code, msg string) {
+	WriteError(c, http.StatusForbidden, code, msg)
 }

@@ -48,8 +48,8 @@ export default function WebhooksPage() {
         {/* Preview banner — backend wiring lands in the next release. */}
         <div className="flex items-center justify-between rounded-md border border-dashed border-border/80 bg-card/30 px-3 py-2 text-[12px] text-muted-foreground">
           <span>
-            <span className="font-mono uppercase tracking-[0.14em]">{t.common.preview ?? "PREVIEW"}</span>
-            <span className="ml-2">{t.webhooks.previewNote ?? "Sample data — endpoint create + delivery log API ships in the next release."}</span>
+            <span className="font-mono uppercase tracking-[0.14em]">{t.common.preview}</span>
+            <span className="ml-2">{t.webhooks.previewNote}</span>
           </span>
         </div>
 

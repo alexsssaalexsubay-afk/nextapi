@@ -1,0 +1,7 @@
+scene_id,scene_name,environment_keywords,lighting_keywords,mood_keywords,reference_image
+scene_cafe_morning,Morning Cafe,"corner cafe, large windows, wooden tables, brass pendant lights, latte art on table","soft morning sunlight from left, warm golden tones, gentle backlight on hair","calm, intimate, romantic morning",scene_cafe_morning_ref.jpg
+scene_office_night,Late Office,"open-plan office, glass partitions, city skyline through floor-to-ceiling windows","cold blue desk lamp, neon city glow, harsh overhead fluorescents off","tense, lonely, professional",scene_office_night_ref.jpg
+scene_rain_street,Rainy Street,"narrow neon-lit street, wet asphalt reflecting signs, scattered umbrellas","cyan and magenta neon, rain droplets in light beams, dim ambient","melancholic, cinematic, longing",scene_rain_street_ref.jpg
+scene_luxury_lobby,Luxury Hotel Lobby,"marble floor, crystal chandelier, velvet armchairs, gold trim","warm chandelier light, soft fill on faces, polished marble reflections","elegant, dramatic, high-stakes",scene_luxury_lobby_ref.jpg
+scene_park_afternoon,Park Afternoon,"tree-lined path, scattered cherry blossoms, wooden benches, soft background blur","golden hour side-lighting, dappled shadows through leaves","wistful, peaceful, hopeful",scene_park_afternoon_ref.jpg
+scene_studio_white,White Product Studio,"seamless white cyclorama, single subject, clean shadow under feet","large softbox key light from front-left, hair light from behind","clean, premium, ecommerce",scene_studio_white_ref.jpg

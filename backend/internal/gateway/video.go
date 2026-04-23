@@ -28,6 +28,16 @@ type generateReq struct {
 	DurationSeconds int     `json:"duration_seconds"`
 	Resolution      string  `json:"resolution"`
 	Mode            string  `json:"mode"`
+
+	// Parameters the upstream video model actually consumes. All
+	// optional. Validation lives in gateway/videoparams.go so both
+	// this legacy endpoint and the new /v1/videos surface agree.
+	AspectRatio   string `json:"aspect_ratio"`
+	FPS           int    `json:"fps"`
+	GenerateAudio *bool  `json:"generate_audio"`
+	Watermark     *bool  `json:"watermark"`
+	Seed          *int64 `json:"seed"`
+	CameraFixed   *bool  `json:"camera_fixed"`
 }
 
 func (h *VideoHandlers) Generate(c *gin.Context) {
@@ -62,14 +72,31 @@ func (h *VideoHandlers) Generate(c *gin.Context) {
 		}
 	}
 
+	// Validate the Seedance-facing parameters once, so both endpoints
+	// reject the same invalid values with the same error codes.
+	if err := validateVideoParams(req.AspectRatio, req.FPS, req.DurationSeconds); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{
+			"code":    "invalid_request",
+			"message": err.Error(),
+		}})
+		return
+	}
+
 	input := job.CreateInput{
 		OrgID: org.ID,
 		Request: provider.GenerationRequest{
+			Model:           req.Model,
 			Prompt:          req.Prompt,
 			ImageURL:        req.ImageURL,
 			DurationSeconds: req.DurationSeconds,
 			Resolution:      req.Resolution,
 			Mode:            req.Mode,
+			AspectRatio:     req.AspectRatio,
+			FPS:             req.FPS,
+			GenerateAudio:   req.GenerateAudio,
+			Watermark:       req.Watermark,
+			Seed:            req.Seed,
+			CameraFixed:     req.CameraFixed,
 		},
 	}
 	if apiKey := auth.APIKeyFrom(c); apiKey != nil {

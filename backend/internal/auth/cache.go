@@ -89,8 +89,8 @@ func (c *validateCache) put(it validateCacheItem, raw string) {
 	c.items[k] = it
 }
 
-// Invalidate is exposed so RevokeKey can punch the cache and short-
-// circuit the negative TTL window. Pass the raw key (not the hash).
+// Invalidate removes a cache entry by raw key (not the hash).
+// Call this after revoking or disabling a key when the raw secret is known.
 func (c *validateCache) Invalidate(raw string) {
 	if raw == "" {
 		return
@@ -99,4 +99,22 @@ func (c *validateCache) Invalidate(raw string) {
 	c.mu.Lock()
 	delete(c.items, k)
 	c.mu.Unlock()
+}
+
+// InvalidateByKeyID removes any cache entry whose APIKey.ID matches keyID.
+// This is slower than Invalidate (O(n) scan) but necessary when the caller
+// only has the key's database ID, not the raw secret — e.g. RevokeKey and
+// SetDisabled which operate by ID.
+func (c *validateCache) InvalidateByKeyID(keyID string) {
+	if keyID == "" {
+		return
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	for k, it := range c.items {
+		if it.ok && it.vk != nil && it.vk.APIKey != nil && it.vk.APIKey.ID == keyID {
+			delete(c.items, k)
+			return // key IDs are unique; stop after first match
+		}
+	}
 }

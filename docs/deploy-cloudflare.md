@@ -1,5 +1,7 @@
 # Cloudflare 部署指南
 
+> **零基础**：若你不熟悉「域名 / DNS / Workers」，请先读 [`BEGINNERS-GUIDE-ZH.md`](./BEGINNERS-GUIDE-ZH.md)，把整体拓扑搞清楚再动手。完整上线步骤仍以 [`SETUP-GUIDE.md`](./SETUP-GUIDE.md) 为主。
+
 ## 前置要求
 
 1. Cloudflare 账号

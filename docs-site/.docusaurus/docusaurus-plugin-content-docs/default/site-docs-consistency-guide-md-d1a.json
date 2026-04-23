@@ -1,0 +1,28 @@
+{
+  "id": "consistency-guide",
+  "title": "Character Consistency",
+  "description": "How to keep the same character, outfit, and scene across 100 shots using reference images and continuity groups.",
+  "source": "@site/docs/consistency-guide.md",
+  "sourceDirName": ".",
+  "slug": "/consistency-guide",
+  "permalink": "/consistency-guide",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/nextapi/docs/edit/main/docs-site/docs/consistency-guide.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {
+    "title": "Character Consistency",
+    "sidebar_label": "Character Consistency",
+    "description": "How to keep the same character, outfit, and scene across 100 shots using reference images and continuity groups."
+  },
+  "sidebar": "mainSidebar",
+  "previous": {
+    "title": "Batch Guide",
+    "permalink": "/batch-guide"
+  },
+  "next": {
+    "title": "Short Drama Workflow",
+    "permalink": "/short-drama-workflow"
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "id": "comfyui-guide",
+  "title": "ComfyUI 指南",
+  "description": "在 ComfyUI 工作流中安装和使用 NextAPI 节点包。",
+  "source": "@site/i18n/zh/docusaurus-plugin-content-docs/current/comfyui-guide.md",
+  "sourceDirName": ".",
+  "slug": "/comfyui-guide",
+  "permalink": "/zh/comfyui-guide",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/nextapi/docs/edit/main/docs-site/docs/comfyui-guide.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {
+    "title": "ComfyUI 指南",
+    "sidebar_label": "ComfyUI 指南",
+    "description": "在 ComfyUI 工作流中安装和使用 NextAPI 节点包。"
+  },
+  "sidebar": "mainSidebar",
+  "previous": {
+    "title": "短剧工作流",
+    "permalink": "/zh/short-drama-workflow"
+  },
+  "next": {
+    "title": "API 密钥",
+    "permalink": "/zh/api-key-guide"
+  }
+}

@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -10,19 +11,21 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sanidg/nextapi/backend/internal/abuse"
 	"github.com/sanidg/nextapi/backend/internal/auth"
+	batchsvc "github.com/sanidg/nextapi/backend/internal/batch"
 	"github.com/sanidg/nextapi/backend/internal/billing"
 	"github.com/sanidg/nextapi/backend/internal/gateway"
 	"github.com/sanidg/nextapi/backend/internal/idempotency"
 	"github.com/sanidg/nextapi/backend/internal/infra/config"
 	"github.com/sanidg/nextapi/backend/internal/infra/db"
 	"github.com/sanidg/nextapi/backend/internal/infra/httpx"
+	mw "github.com/sanidg/nextapi/backend/internal/infra/middleware"
 	"github.com/sanidg/nextapi/backend/internal/infra/metrics"
 	rdc "github.com/sanidg/nextapi/backend/internal/infra/redis"
 	"github.com/sanidg/nextapi/backend/internal/job"
-	"github.com/sanidg/nextapi/backend/internal/providerfactory"
-	"github.com/sanidg/nextapi/backend/internal/ratelimit"
 	"github.com/sanidg/nextapi/backend/internal/moderation"
 	"github.com/sanidg/nextapi/backend/internal/notify"
+	"github.com/sanidg/nextapi/backend/internal/providerfactory"
+	"github.com/sanidg/nextapi/backend/internal/ratelimit"
 	"github.com/sanidg/nextapi/backend/internal/spend"
 	"github.com/sanidg/nextapi/backend/internal/throughput"
 	"github.com/sanidg/nextapi/backend/internal/webhook"
@@ -68,7 +71,7 @@ func main() {
 	ph := gateway.NewPaymentHandlers(billSvc)
 	hook := &gateway.ClerkWebhook{DB: gormDB, Billing: billSvc}
 	models := gateway.ModelsHandlers{}
-	sh := &gateway.SpendHandlers{Svc: spendSvc}
+	sh := &gateway.SpendHandlers{Svc: spendSvc, DB: gormDB}
 	th := &gateway.ThroughputHandlers{Svc: throughputSvc}
 	mh := &gateway.ModerationHandlers{Svc: modSvc}
 	rl := &ratelimit.Limiter{Client: rClient}
@@ -87,7 +90,7 @@ func main() {
 		log.Fatalf("trusted proxies: %v", err)
 	}
 	r.RemoteIPHeaders = []string{"CF-Connecting-IP", "X-Real-IP", "X-Forwarded-For"}
-	r.Use(gin.Recovery(), httpx.RequestID(), metrics.Middleware())
+	r.Use(gin.Recovery(), httpx.RequestID(), metrics.Middleware(), mw.RequestLogger(gormDB))
 	r.Use(httpx.CORS([]string{
 		"https://nextapi.top",
 		"https://app.nextapi.top",
@@ -154,6 +157,16 @@ func main() {
 	// New /videos surface — full B2B pipeline (spend + throughput + moderation + idempotency).
 	vids := &gateway.VideosHandlers{Jobs: jobSvc, DB: gormDB, Spend: spendSvc, Throughput: throughputSvc}
 	api.POST("/videos", idem.Handle(), vids.Create)
+
+	// Batch runs — first-class batch entity.
+	batchService := batchsvc.NewService(gormDB, jobSvc)
+	bh2 := &gateway.BatchHandlers{Svc: batchService}
+	api.POST("/batch/runs", idem.Handle(), bh2.Create)
+	api.GET("/batch/runs", bh2.List)
+	api.GET("/batch/runs/:id", bh2.Get)
+	api.GET("/batch/runs/:id/jobs", bh2.ListJobs)
+	api.POST("/batch/runs/:id/retry-failed", bh2.RetryFailed)
+	api.GET("/batch/runs/:id/manifest", bh2.DownloadManifest)
 	api.GET("/videos", vids.List)
 	api.GET("/videos/:id", vids.Get)
 	api.DELETE("/videos/:id", vids.Delete)
@@ -201,9 +214,24 @@ func main() {
 	admn.PUT("/moderation_profile", mh.UpsertProfile)
 	// /billing/settings is on the api (Business) group — no duplicate here.
 
-	// Internal operator panel (shared token, not bearer).
+	// Admin session + OTP endpoints.
+	// Session creation uses Clerk JWT directly (not X-Op-Session — it creates one).
+	// OTP send and revocation require an existing session via AdminMiddleware.
+	ash := &gateway.AdminSessionHandlers{
+		DB:     gormDB,
+		Clerk:  clerkVerifier,
+		Notify: notifier,
+		Allow:  gateway.NormalizeAdminEmails(os.Getenv("ADMIN_EMAILS")),
+	}
+	adminMeta := v1.Group("/internal/admin")
+	adminMeta.POST("/session", ash.CreateSession)
+	adminMeta.Use(gateway.AdminMiddleware(clerkVerifier, gormDB))
+	adminMeta.DELETE("/session", ash.RevokeSession)
+	adminMeta.POST("/otp/send", ash.SendOTP)
+
+	// Internal operator panel (X-Op-Session, Clerk JWT, or X-Admin-Token).
 	internal := v1.Group("/internal/admin")
-	internal.Use(gateway.AdminMiddleware(clerkVerifier))
+	internal.Use(gateway.AdminMiddleware(clerkVerifier, gormDB))
 	internal.Use(ratelimit.Middleware(rl, 120, time.Minute))
 	internal.GET("/overview", ah.OverviewStats)
 	internal.GET("/users", ah.Users)
@@ -220,6 +248,16 @@ func main() {
 	internal.PATCH("/orgs/:id", ob.AdminUpdateOrg)
 	internal.POST("/webhooks/deliveries/:id/replay", wdh.AdminReplay)
 	internal.GET("/audit", ah.Audit)
+
+	// Enhanced admin job tools.
+	ajh := &gateway.AdminJobHandlers{DB: gormDB, JobSvc: jobSvc, Billing: billSvc}
+	internal.GET("/jobs/search", ajh.ListJobs)
+	internal.GET("/jobs/:id/detail", ajh.GetJob)
+	internal.POST("/jobs/:id/retry", ajh.RetryJob)
+	internal.POST("/jobs/:id/force-cancel", ajh.CancelJob)
+	internal.GET("/request-logs", ajh.ListRequestLogs)
+	internal.GET("/dead-letter", ajh.ListDeadLetter)
+	internal.POST("/dead-letter/:id/replay", ajh.ReplayDeadLetter)
 
 	log.Printf("nextapi server listening on %s (provider=%s)", cfg.ServerAddr, prov.Name())
 	if err := r.Run(cfg.ServerAddr); err != nil {

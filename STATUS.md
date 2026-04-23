@@ -1,4 +1,4 @@
-# STATUS — as of 2026-04-23
+# STATUS — as of 2026-04-24
 
 Legend: ✅ closed-loop (builds, tests pass, wired) · 🟡 compiles but not integration-tested · 🔴 stub / not started
 
@@ -11,6 +11,7 @@ Legend: ✅ closed-loop (builds, tests pass, wired) · 🟡 compiles but not int
 | Dashboard (Next.js) | `cd apps/dashboard && pnpm next build` | ✅ exit 0 |
 | Admin (Next.js) | `cd apps/admin && pnpm next build` | ✅ exit 0 (force-dynamic, no Clerk key needed at build) |
 | Site (Next.js) | `cd apps/site && pnpm next build` | ✅ exit 0 |
+| Docs site (Docusaurus) | `cd docs-site && pnpm build` | ✅ exit 0 (EN + zh) |
 | Node deps | `pnpm install` | ✅ (peer dep warnings for Clerk + React 19, non-blocking) |
 
 ## Closed-loop (code + tests + build-verified)
@@ -21,7 +22,7 @@ Legend: ✅ closed-loop (builds, tests pass, wired) · 🟡 compiles but not int
 | API key auth (generate + argon2id + verify) | `internal/auth/key_test.go` |
 | Key management on both auth groups | `sk_*` business keys hit `/v1/me/keys`; `ak_*` admin keys hit `/v1/keys` (no path collision) |
 | Clerk session → API key bridge (Group A) | `POST /v1/me/bootstrap` verifies Clerk JWT against JWKS, lazy-provisions User+Org+SignupBonus, revokes any prior `dashboard-session` key, mints a fresh `sk_live_*`. Dashboard `apiFetch` auto-bootstraps on first call and on 401 retry. Builds: backend ✅ / dashboard ✅ |
-| Clerk session → admin operator (Group A) | `POST /v1/me/admin-bootstrap` verifies Clerk JWT, requires `email ∈ ADMIN_EMAILS`, returns shared `ADMIN_TOKEN`. Admin `adminFetch` auto-bootstraps. Builds: backend ✅ / admin ✅ |
+| Admin operator session + email OTP | `POST /v1/internal/admin/session` exchanges a verified Clerk JWT for a short-lived `ops_*` session (8 h hard TTL, 2 h idle timeout, DB-backed, revocable). Browser stores it in `sessionStorage` and sends `X-Op-Session` on every admin call. High-risk operations (`credits.adjust`, `org.pause`, `org.unpause`, `webhook.replay`) additionally require an email OTP via `POST /v1/internal/admin/otp/send` → `X-Op-OTP: <id>.<6-digit>`. ADMIN_TOKEN is no longer sent to the browser. Builds: backend ✅ / admin ✅ |
 | Seedance mock provider lifecycle | `internal/provider/seedance/mock_test.go` |
 | Seedance cost estimation pricing | `internal/provider/seedance/pricing_test.go` |
 | Job create + insufficient balance → 402 | `internal/job/service_test.go` |
@@ -58,12 +59,12 @@ Legend: ✅ closed-loop (builds, tests pass, wired) · 🟡 compiles but not int
 | R2 storage client | Compiles with aws-sdk-go-v2; never uploaded a real object |
 | Rate limiter (Redis sliding window) | Middleware mounted; sliding window math untested |
 | Prometheus /metrics | Counters registered; never scraped against live traffic |
-| Admin API (`/v1/internal/admin/*`) | Gated by `X-Admin-Token`; real SSO/RBAC deferred |
+| Admin API (`/v1/internal/admin/*`) | Three credential paths in priority order: `X-Op-Session` (browser, primary), `Authorization: Bearer <Clerk JWT>` (initial bootstrap + tooling), `X-Admin-Token` (cron/scripts only — never browsers). Real SSO/RBAC and per-action role granularity deferred. |
 | Admin panel UI | All pages build, `adminFetch` wired to real API endpoints; no real API data tested |
 | Dashboard pages | All pages build, real fetches wired, Clerk→API key bridge live (`POST /v1/me/bootstrap`); end-to-end requires `CLERK_ISSUER` + `CLERK_SECRET_KEY` set on backend |
 | Dashboard playground | POST + poll wired; end-to-end only with live Clerk + Seedance |
 | SDKs (python/node/go) | Full client + tests; not published to PyPI/npm/pkg.go.dev |
-| Mintlify docs | Content drafted; needs Mintlify cloud project |
+| User docs site | `docs-site/` (Docusaurus EN/ZH) builds locally; production deploy separate |
 | Marketing/legal pages | Copy present; legal needs lawyer review |
 | CI (`.github/workflows/ci.yml`) | Backend `go test` + frontend `pnpm build`; never executed in GitHub Actions |
 | Deploy workflow | GHCR + SSH deploy; needs `DEPLOY_HOST`, `DEPLOY_SSH_KEY` secrets |
@@ -86,6 +87,39 @@ Legend: ✅ closed-loop (builds, tests pass, wired) · 🟡 compiles but not int
 | Video mirror Ark → R2 | 🔴 R2 upload is streaming-ready (`io.Reader`); mirror step not implemented |
 | Load testing | 🔴 15,000 concurrency target not validated |
 | Sales inquiry email delivery | 🔴 Currently logs only, needs Resend integration |
+
+## Admin security model (2026-04-23)
+
+We are intentionally **not** on Clerk Pro, so the built-in TOTP / passkey MFA
+features are unavailable. The admin panel instead uses a layered scheme that
+costs nothing extra and is honest about what it provides:
+
+| Layer | Mechanism | Coverage |
+|-------|-----------|----------|
+| Identity | Clerk JWT (free tier) verified via JWKS, must match `ADMIN_EMAILS` | Every initial admin call |
+| Session | `ops_*` token from `operator_sessions` table (8 h TTL, 2 h idle, revocable) | All subsequent admin calls via `X-Op-Session` |
+| Step-up auth | 6-digit email OTP (Resend), 10 min TTL, single-use, hash-stored | `credits.adjust`, `org.pause`, `org.unpause`, `webhook.replay` |
+| Allowlist enforcement | `ADMIN_EMAILS` check on JWT path AND OTP path | Server-side only — UI is decorative |
+| Auditing | Every state-changing call writes to `audit_log` with verified actor email | All `/v1/internal/admin/*` mutations |
+
+**This is explicitly NOT a full MFA solution.** Honest gaps:
+
+- Password / first factor still relies on the operator's Clerk account; if that
+  is compromised AND the attacker has access to the same email inbox, OTP fails
+  to protect. Compensating controls: short session TTL, server-side allowlist,
+  per-action audit log, owner email notification on credit changes.
+- OTP delivery relies on Resend; if `RESEND_API_KEY` is unset the OTP is
+  generated and persisted but never reaches the operator. The OTP gate is
+  therefore strict: no Resend = high-risk operations are blocked. Set the key
+  in production or fall back to the shared `X-Admin-Token` for one-off ops.
+- No backup codes — the recovery path is "the platform owner removes you from
+  `ADMIN_EMAILS` then re-adds with a new email" or rotates `ADMIN_TOKEN`.
+- Single-region OTP store; no geo-redundancy if the primary DB is down.
+
+**When to revisit:** if the customer base or risk profile grows, upgrade to
+Clerk Pro for native MFA + WebAuthn, or replace this with WorkOS / a self-hosted
+TOTP module. The data model (`operator_sessions`, `admin_otp`) is forward-
+compatible with either path.
 
 ## Known technical debt
 

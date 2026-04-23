@@ -11,6 +11,7 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/sanidg/nextapi/backend/internal/auth"
 	"github.com/sanidg/nextapi/backend/internal/domain"
+	"github.com/sanidg/nextapi/backend/internal/infra/metrics"
 )
 
 // Limiter is a Redis sliding-window counter.
@@ -106,6 +107,7 @@ func Middleware(l *Limiter, limit int, window time.Duration) gin.HandlerFunc {
 			if retryAfter <= 0 {
 				retryAfter = 1
 			}
+			metrics.RateLimitBlockTotal.WithLabelValues(c.FullPath()).Inc()
 			c.Header("Retry-After", strconv.Itoa(retryAfter))
 			c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{
 				"error": gin.H{

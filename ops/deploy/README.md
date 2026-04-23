@@ -1,5 +1,7 @@
 # Deploy
 
+> 零基础或完整环境变量清单：仓库 [`docs/SETUP-GUIDE.md`](../../docs/SETUP-GUIDE.md) 与 [`docs/OPERATOR-HANDBOOK.md`](../../docs/OPERATOR-HANDBOOK.md)。
+
 ## First-time (VPS)
 
 1. SSH into Aliyun HK VPS `47.76.205.108` as root (via Aliyun console).

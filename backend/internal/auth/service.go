@@ -262,6 +262,10 @@ func (s *Service) RevokeKey(ctx context.Context, orgID, keyID string) error {
 	if res.RowsAffected == 0 {
 		return ErrInvalidKey
 	}
+	// Punch the validation cache so the key stops working immediately —
+	// without this the key would remain valid for up to the positive TTL (5m)
+	// after revocation, which is a security promise we implicitly make.
+	s.cache.InvalidateByKeyID(keyID)
 	return nil
 }
 
@@ -269,5 +273,12 @@ func (s *Service) SetDisabled(ctx context.Context, orgID, keyID string, disabled
 	res := s.db.WithContext(ctx).Exec(
 		`UPDATE api_keys SET disabled = ? WHERE id = ? AND org_id = ?`,
 		disabled, keyID, orgID)
-	return res.Error
+	if res.Error != nil {
+		return res.Error
+	}
+	// Punch the cache on disable so the change takes effect immediately.
+	if disabled {
+		s.cache.InvalidateByKeyID(keyID)
+	}
+	return nil
 }

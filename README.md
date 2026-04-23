@@ -2,9 +2,13 @@
 
 Video AI API gateway. Official Volcengine Seedance partner (1 of 20 globally).
 
-→ **Full scope & weekly status:** [`STATUS.md`](./STATUS.md)
-→ **Architecture & agent rules:** [`CLAUDE.md`](./CLAUDE.md)
-→ **Module designs:** [`docs/modules/`](./docs/modules)
+→ **Full scope & weekly status:** [`STATUS.md`](./STATUS.md)  
+→ **Architecture & agent rules:** [`CLAUDE.md`](./CLAUDE.md)  
+→ **Human-readable doc index (incl. 零基础中文):** [`docs/README.md`](./docs/README.md)
+
+## 完全不懂代码？
+
+先读 [`docs/BEGINNERS-GUIDE-ZH.md`](./docs/BEGINNERS-GUIDE-ZH.md)（中文白话）和 [`docs/GLOSSARY-ZH.md`](./docs/GLOSSARY-ZH.md)（名词表）。对外文档站点源码在 **`docs-site/`**（Docusaurus），构建发布到 `docs.nextapi.top`。
 
 ## Quick start (local dev)
 
@@ -25,8 +29,9 @@ Health: `curl localhost:8080/health` → `{"status":"ok"}`
 - `apps/admin` — admin.nextapi.top operator panel
 - `packages/` — shared UI kit, tsconfig, eslint config, api-client
 - `sdks/{python,node,go}` — official SDKs
-- `docs/modules/` — per-module design docs
-- `docs/mintlify/` — docs.nextapi.top content
+- `docs/` — operator guides + **BEGINNERS-GUIDE-ZH** + glossary + `modules/` designs
+- `docs-site/` — Docusaurus user docs (EN/ZH) for docs.nextapi.top
+- `docs/mintlify/` — legacy Mintlify JSON (optional); prefer `docs-site/`
 - `ops/` — nginx, prometheus, grafana, loki, k6, deploy scripts
 
 ## One-click deploys

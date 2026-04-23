@@ -1,0 +1,28 @@
+{
+  "id": "api-key-guide",
+  "title": "API 密钥使用指南",
+  "description": "在 Batch Studio、ComfyUI、Python、curl、Postman 中使用你的 API 密钥，以及安全管理和多密钥策略。",
+  "source": "@site/i18n/zh/docusaurus-plugin-content-docs/current/api-key-guide.md",
+  "sourceDirName": ".",
+  "slug": "/api-key-guide",
+  "permalink": "/zh/api-key-guide",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/nextapi/docs/edit/main/docs-site/docs/api-key-guide.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {
+    "title": "API 密钥使用指南",
+    "sidebar_label": "API 密钥",
+    "description": "在 Batch Studio、ComfyUI、Python、curl、Postman 中使用你的 API 密钥，以及安全管理和多密钥策略。"
+  },
+  "sidebar": "mainSidebar",
+  "previous": {
+    "title": "ComfyUI 指南",
+    "permalink": "/zh/comfyui-guide"
+  },
+  "next": {
+    "title": "API 参考",
+    "permalink": "/zh/api-reference"
+  }
+}

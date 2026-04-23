@@ -1,0 +1,28 @@
+{
+  "id": "errors",
+  "title": "Errors & Troubleshooting",
+  "description": "Plain-English explanations for every NextAPI error code, with specific fixes.",
+  "source": "@site/docs/errors.md",
+  "sourceDirName": ".",
+  "slug": "/errors",
+  "permalink": "/errors",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/nextapi/docs/edit/main/docs-site/docs/errors.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {
+    "title": "Errors & Troubleshooting",
+    "sidebar_label": "Errors & Troubleshooting",
+    "description": "Plain-English explanations for every NextAPI error code, with specific fixes."
+  },
+  "sidebar": "mainSidebar",
+  "previous": {
+    "title": "API Reference",
+    "permalink": "/api-reference"
+  },
+  "next": {
+    "title": "FAQ",
+    "permalink": "/faq"
+  }
+}

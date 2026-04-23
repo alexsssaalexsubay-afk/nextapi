@@ -1,12 +1,13 @@
 "use client"
 
+import React from "react"
 import Link from "next/link"
 import {
   ArrowUpRight,
-  CheckCircle2,
   CreditCard,
   Download,
   Info,
+  Loader2,
   RefreshCw,
 } from "lucide-react"
 import { DashboardShell } from "@/components/dashboard/dashboard-shell"
@@ -18,6 +19,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import { apiFetch } from "@/lib/api"
 
 type Invoice = {
   id: string
@@ -30,51 +32,51 @@ type Invoice = {
   status: "paid" | "processing" | "open"
 }
 
-const invoices: Invoice[] = [
-  {
-    id: "inv_2026_04",
-    period: "Apr 1 – Apr 22, 2026",
-    issued: "—",
-    reserved: "218.00",
-    billed: "204.86",
-    refunded: "13.14",
-    net: "204.86",
-    status: "open",
-  },
-  {
-    id: "inv_2026_03",
-    period: "Mar 1 – Mar 31, 2026",
-    issued: "Apr 01, 2026",
-    reserved: "412.00",
-    billed: "394.22",
-    refunded: "17.78",
-    net: "394.22",
-    status: "paid",
-  },
-  {
-    id: "inv_2026_02",
-    period: "Feb 1 – Feb 29, 2026",
-    issued: "Mar 01, 2026",
-    reserved: "356.00",
-    billed: "342.10",
-    refunded: "13.90",
-    net: "342.10",
-    status: "paid",
-  },
-  {
-    id: "inv_2026_01",
-    period: "Jan 1 – Jan 31, 2026",
-    issued: "Feb 01, 2026",
-    reserved: "298.00",
-    billed: "286.44",
-    refunded: "11.56",
-    net: "286.44",
-    status: "paid",
-  },
-]
+type UsagePoint = {
+  date: string
+  reserved_cents: number
+  billed_cents: number
+  refunded_cents: number
+}
 
 export default function BillingPage() {
   const t = useTranslations()
+  const [balance, setBalance] = React.useState<number | null>(null)
+  const [usage, setUsage] = React.useState<UsagePoint[] | null>(null)
+  const [loading, setLoading] = React.useState(true)
+
+  const load = React.useCallback(() => {
+    setLoading(true)
+    Promise.allSettled([
+      apiFetch("/v1/balance"),
+      apiFetch("/v1/usage?days=30"),
+    ]).then(([balRes, usageRes]) => {
+      if (balRes.status === "fulfilled" && typeof balRes.value?.balance === "number") {
+        setBalance(balRes.value.balance)
+      }
+      if (usageRes.status === "fulfilled" && Array.isArray(usageRes.value?.data)) {
+        setUsage(usageRes.value.data as UsagePoint[])
+      }
+      setLoading(false)
+    })
+  }, [])
+
+  React.useEffect(() => { load() }, [load])
+
+  const displayBalance = balance != null
+    ? (balance / 100).toFixed(2)
+    : loading ? "…" : "—"
+
+  // Compute this-month billed from usage data
+  const monthBilled = usage
+    ? (usage.reduce((s, p) => s + (p.billed_cents ?? 0), 0) / 100).toFixed(2)
+    : "—"
+  const monthReserved = usage
+    ? (usage.reduce((s, p) => s + (p.reserved_cents ?? 0), 0) / 100).toFixed(2)
+    : "—"
+
+  // Invoices are not yet backed by a real endpoint — show an empty state.
+  const invoices: Invoice[] = []
 
   return (
     <DashboardShell
@@ -146,19 +148,22 @@ export default function BillingPage() {
         <section className="grid grid-cols-1 gap-4 md:grid-cols-4">
           <BalanceCard
             label={t.billing.balance.available}
-            value="142.80"
+            value={loading && balance == null ? "…" : displayBalance}
             sub={t.billing.balance.availableHint}
             accent
+            loading={loading && balance == null}
           />
           <BalanceCard
             label={t.billing.balance.reserved}
-            value="6.00"
+            value={monthReserved}
             sub={t.billing.balance.reservedHint}
+            loading={loading && usage == null}
           />
           <BalanceCard
             label={t.billing.balance.billedMonth}
-            value="204.86"
+            value={monthBilled}
             sub={t.billing.balance.billedMonthHint}
+            loading={loading && usage == null}
           />
           <BalanceCard
             label={t.billing.balance.autoTopUp}
@@ -220,8 +225,15 @@ export default function BillingPage() {
                   {t.billing.reconciliation.subtitle}
                 </div>
               </div>
-              <button className="flex items-center gap-1 font-mono text-[11px] text-muted-foreground hover:text-foreground">
-                <RefreshCw className="size-3" />
+              <button
+                onClick={load}
+                disabled={loading}
+                className="flex items-center gap-1 font-mono text-[11px] text-muted-foreground hover:text-foreground disabled:opacity-50"
+              >
+                {loading
+                  ? <Loader2 className="size-3 animate-spin" />
+                  : <RefreshCw className="size-3" />
+                }
                 {t.common.refresh.toLowerCase()}
               </button>
             </div>
@@ -229,17 +241,17 @@ export default function BillingPage() {
             <div className="grid grid-cols-3 divide-x divide-border/60">
               <LedgerRow
                 label={t.billing.reconciliation.reserved}
-                value="566.00"
+                value={monthReserved}
                 sub={t.billing.balance.reservedHint}
               />
               <LedgerRow
                 label={t.billing.reconciliation.billed}
-                value="547.30"
+                value={monthBilled}
                 sub={t.billing.balance.billedMonthHint}
               />
               <LedgerRow
                 label={t.billing.reconciliation.refunded}
-                value="18.70"
+                value="—"
                 sub={t.common.resolved.toLowerCase()}
                 tone="success"
               />
@@ -249,7 +261,9 @@ export default function BillingPage() {
               <Info className="mt-0.5 size-3.5 shrink-0 text-muted-foreground/70" />
               <span>
                 {t.billing.reconciliation.drift}:{" "}
-                <span className="font-mono text-foreground">0.00%</span>
+                <span className="font-mono text-foreground">
+                  {usage ? "live" : "—"}
+                </span>
               </span>
             </div>
           </div>
@@ -365,12 +379,14 @@ function BalanceCard({
   sub,
   accent,
   muted,
+  loading,
 }: {
   label: string
   value: string
   sub: string
   accent?: boolean
   muted?: boolean
+  loading?: boolean
 }) {
   return (
     <div
@@ -385,7 +401,8 @@ function BalanceCard({
       <div
         className={
           "mt-2 font-mono text-[26px] leading-none tracking-tight " +
-          (muted ? "text-muted-foreground" : "text-foreground")
+          (muted ? "text-muted-foreground" : "text-foreground") +
+          (loading ? " animate-pulse" : "")
         }
       >
         {value}

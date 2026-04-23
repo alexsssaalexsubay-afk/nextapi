@@ -66,7 +66,11 @@ func (h *WebhookDeliveryHandlers) RotateSecret(c *gin.Context) {
 // AdminReplay resets a delivery for re-attempt (operator action).
 // Looks up the owning webhook + org so the audit log records who got
 // re-pinged, and 404s if the delivery has already been purged.
+// Requires an email OTP because replaying a webhook triggers real external calls.
 func (h *WebhookDeliveryHandlers) AdminReplay(c *gin.Context) {
+	if !RequireOTP(c, h.DB) {
+		return
+	}
 	idStr := c.Param("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {

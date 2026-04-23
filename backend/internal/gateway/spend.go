@@ -12,6 +12,7 @@ import (
 
 type SpendHandlers struct {
 	Svc *spend.Service
+	DB  *gorm.DB // required for admin OTP gate on Unpause
 }
 
 func (h *SpendHandlers) Get(c *gin.Context) {
@@ -97,8 +98,12 @@ func (h *SpendHandlers) ListAlerts(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"data": rows, "has_more": false})
 }
 
-// Unpause — internal only (X-Admin-Token gated).
+// Unpause removes the pause flag on an org. This is a high-risk operation
+// (it re-enables billing) so it requires an email OTP in addition to admin auth.
 func (h *SpendHandlers) Unpause(c *gin.Context) {
+	if h.DB != nil && !RequireOTP(c, h.DB) {
+		return
+	}
 	id := c.Param("id")
 	if err := h.Svc.Unpause(c.Request.Context(), id); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "internal_error"}})

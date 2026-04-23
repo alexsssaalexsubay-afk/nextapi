@@ -47,9 +47,10 @@ func (s *Service) SetThroughput(tp *throughput.Service)   { s.throughput = tp }
 func (s *Service) SetModeration(ms *moderation.Service)   { s.moderation = ms }
 
 type CreateInput struct {
-	OrgID    string
-	APIKeyID *string
-	Request  provider.GenerationRequest
+	OrgID      string
+	APIKeyID   *string
+	BatchRunID *string
+	Request    provider.GenerationRequest
 }
 
 type CreateResult struct {
@@ -117,6 +118,7 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*CreateResult, er
 		job = domain.Job{
 			OrgID:           in.OrgID,
 			APIKeyID:        in.APIKeyID,
+			BatchRunID:      in.BatchRunID,
 			Provider:        s.prov.Name(),
 			Request:         reqJSON,
 			Status:          domain.JobQueued,
@@ -168,7 +170,10 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*CreateResult, er
 
 	enqOpts := []asynq.Option{
 		asynq.MaxRetry(3),
-		asynq.Timeout(30 * time.Second),
+		// 15 minutes: enough to cover the provider create call (~15s) plus
+		// the full polling window (MAX_POLL_MINUTES = 15). The old 30s value
+		// would race with a slow upstream create and orphan the job.
+		asynq.Timeout(15 * time.Minute),
 	}
 	if s.throughput != nil {
 		qName := s.throughput.QueueForKey(ctx, in.OrgID, in.APIKeyID)

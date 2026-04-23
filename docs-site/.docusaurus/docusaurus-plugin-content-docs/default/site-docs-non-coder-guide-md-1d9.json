@@ -1,0 +1,29 @@
+{
+  "id": "non-coder-guide",
+  "title": "For non-developers",
+  "description": "Plain-language overview of NextAPI — no programming required.",
+  "source": "@site/docs/non-coder-guide.md",
+  "sourceDirName": ".",
+  "slug": "/non-coder-guide",
+  "permalink": "/non-coder-guide",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/nextapi/docs/edit/main/docs-site/docs/non-coder-guide.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {
+    "slug": "/non-coder-guide",
+    "title": "For non-developers",
+    "sidebar_label": "Non-developers",
+    "description": "Plain-language overview of NextAPI — no programming required."
+  },
+  "sidebar": "mainSidebar",
+  "previous": {
+    "title": "Overview",
+    "permalink": "/overview"
+  },
+  "next": {
+    "title": "Quick Start",
+    "permalink": "/quickstart"
+  }
+}

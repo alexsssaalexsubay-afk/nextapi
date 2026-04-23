@@ -1,0 +1,28 @@
+{
+  "id": "batch-guide",
+  "title": "Batch Generation Guide",
+  "description": "Build a shot manifest CSV, control concurrency, monitor progress, and retry failed shots.",
+  "source": "@site/docs/batch-guide.md",
+  "sourceDirName": ".",
+  "slug": "/batch-guide",
+  "permalink": "/batch-guide",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/nextapi/docs/edit/main/docs-site/docs/batch-guide.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {
+    "title": "Batch Generation Guide",
+    "sidebar_label": "Batch Guide",
+    "description": "Build a shot manifest CSV, control concurrency, monitor progress, and retry failed shots."
+  },
+  "sidebar": "mainSidebar",
+  "previous": {
+    "title": "Non-developers",
+    "permalink": "/non-coder-guide"
+  },
+  "next": {
+    "title": "Character Consistency",
+    "permalink": "/consistency-guide"
+  }
+}

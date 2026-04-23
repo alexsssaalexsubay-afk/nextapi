@@ -1,0 +1,28 @@
+{
+  "id": "comfyui-guide",
+  "title": "ComfyUI Guide",
+  "description": "Install ComfyUI-NextAPI nodes, load example workflows, and generate videos from ComfyUI.",
+  "source": "@site/docs/comfyui-guide.md",
+  "sourceDirName": ".",
+  "slug": "/comfyui-guide",
+  "permalink": "/comfyui-guide",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/nextapi/docs/edit/main/docs-site/docs/comfyui-guide.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {
+    "title": "ComfyUI Guide",
+    "sidebar_label": "ComfyUI Guide",
+    "description": "Install ComfyUI-NextAPI nodes, load example workflows, and generate videos from ComfyUI."
+  },
+  "sidebar": "mainSidebar",
+  "previous": {
+    "title": "Short Drama Workflow",
+    "permalink": "/short-drama-workflow"
+  },
+  "next": {
+    "title": "API Keys",
+    "permalink": "/api-key-guide"
+  }
+}

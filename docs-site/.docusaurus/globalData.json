@@ -1,0 +1,83 @@
+{
+  "docusaurus-plugin-content-docs": {
+    "default": {
+      "path": "/zh/",
+      "versions": [
+        {
+          "name": "current",
+          "label": "Next",
+          "isLast": true,
+          "path": "/zh/",
+          "mainDocId": "index",
+          "docs": [
+            {
+              "id": "api-key-guide",
+              "path": "/zh/api-key-guide",
+              "sidebar": "mainSidebar"
+            },
+            {
+              "id": "api-reference",
+              "path": "/zh/api-reference",
+              "sidebar": "mainSidebar"
+            },
+            {
+              "id": "batch-guide",
+              "path": "/zh/batch-guide",
+              "sidebar": "mainSidebar"
+            },
+            {
+              "id": "comfyui-guide",
+              "path": "/zh/comfyui-guide",
+              "sidebar": "mainSidebar"
+            },
+            {
+              "id": "consistency-guide",
+              "path": "/zh/consistency-guide",
+              "sidebar": "mainSidebar"
+            },
+            {
+              "id": "errors",
+              "path": "/zh/errors",
+              "sidebar": "mainSidebar"
+            },
+            {
+              "id": "faq",
+              "path": "/zh/faq",
+              "sidebar": "mainSidebar"
+            },
+            {
+              "id": "index",
+              "path": "/zh/",
+              "sidebar": "mainSidebar"
+            },
+            {
+              "id": "non-coder-guide",
+              "path": "/zh/non-coder-guide",
+              "sidebar": "mainSidebar"
+            },
+            {
+              "id": "quickstart",
+              "path": "/zh/quickstart",
+              "sidebar": "mainSidebar"
+            },
+            {
+              "id": "short-drama-workflow",
+              "path": "/zh/short-drama-workflow",
+              "sidebar": "mainSidebar"
+            }
+          ],
+          "draftIds": [],
+          "sidebars": {
+            "mainSidebar": {
+              "link": {
+                "path": "/zh/",
+                "label": "Overview"
+              }
+            }
+          }
+        }
+      ],
+      "breadcrumbs": true
+    }
+  }
+}

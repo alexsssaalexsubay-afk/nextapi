@@ -41,6 +41,17 @@ type videoInput struct {
 	DurationSeconds int     `json:"duration_seconds"`
 	Resolution      string  `json:"resolution"`
 	Mode            string  `json:"mode"`
+
+	// Parameters that map 1:1 onto Volc Ark's video-task body. Left
+	// as pointers where "unset" and "false" mean different things
+	// (so we don't force-disable audio for a customer who just
+	// didn't pass the field).
+	AspectRatio   string `json:"aspect_ratio"`
+	FPS           int    `json:"fps"`
+	GenerateAudio *bool  `json:"generate_audio"`
+	Watermark     *bool  `json:"watermark"`
+	Seed          *int64 `json:"seed"`
+	CameraFixed   *bool  `json:"camera_fixed"`
 }
 
 // Create handles POST /v1/videos — new B2B surface.
@@ -85,6 +96,14 @@ func (h *VideosHandlers) Create(c *gin.Context) {
 		}
 	}
 
+	if err := validateVideoParams(input.AspectRatio, input.FPS, input.DurationSeconds); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{
+			"code":    "invalid_request",
+			"message": err.Error(),
+		}})
+		return
+	}
+
 	var apiKeyID *string
 	if ak := auth.APIKeyFrom(c); ak != nil {
 		apiKeyID = &ak.ID
@@ -93,11 +112,18 @@ func (h *VideosHandlers) Create(c *gin.Context) {
 		OrgID:    org.ID,
 		APIKeyID: apiKeyID,
 		Request: provider.GenerationRequest{
+			Model:           req.Model,
 			Prompt:          input.Prompt,
 			ImageURL:        input.ImageURL,
 			DurationSeconds: input.DurationSeconds,
 			Resolution:      input.Resolution,
 			Mode:            input.Mode,
+			AspectRatio:     input.AspectRatio,
+			FPS:             input.FPS,
+			GenerateAudio:   input.GenerateAudio,
+			Watermark:       input.Watermark,
+			Seed:            input.Seed,
+			CameraFixed:     input.CameraFixed,
 		},
 	})
 	if err != nil {
@@ -227,24 +253,39 @@ func (h *VideosHandlers) List(c *gin.Context) {
 	}
 
 	var videos []domain.Video
-	if err := h.DB.WithContext(c.Request.Context()).
-		Where("org_id = ?", org.ID).
-		Order("created_at DESC").
-		Limit(limit).Offset(offset).
-		Find(&videos).Error; err != nil {
+	q := h.DB.WithContext(c.Request.Context()).Where("org_id = ?", org.ID)
+	if statusFilter := c.Query("status"); statusFilter != "" {
+		q = q.Where("status = ?", statusFilter)
+	}
+	if err := q.Order("created_at DESC").Limit(limit).Offset(offset).Find(&videos).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "internal_error"}})
 		return
 	}
 
 	items := make([]gin.H, 0, len(videos))
 	for _, v := range videos {
-		items = append(items, gin.H{
+		item := gin.H{
 			"id":                   v.ID,
 			"model":                v.Model,
 			"status":               v.Status,
 			"estimated_cost_cents": v.EstimatedCostCents,
 			"created_at":           v.CreatedAt,
-		})
+		}
+		// Extract prompt and duration_seconds from the input blob so the
+		// dashboard list view can show the prompt without a per-row lookup.
+		if len(v.Input) > 0 {
+			var inp struct {
+				Prompt          string `json:"prompt"`
+				DurationSeconds int    `json:"duration_seconds"`
+			}
+			if err := json.Unmarshal(v.Input, &inp); err == nil {
+				item["prompt"] = inp.Prompt
+				if inp.DurationSeconds > 0 {
+					item["duration_seconds"] = inp.DurationSeconds
+				}
+			}
+		}
+		items = append(items, item)
 	}
 	c.JSON(http.StatusOK, gin.H{"data": items, "has_more": len(videos) == limit})
 }

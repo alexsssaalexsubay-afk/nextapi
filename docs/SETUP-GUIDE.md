@@ -1,5 +1,8 @@
 # NextAPI 部署上线操作指南
 
+> **零基础读者**：部署涉及 DNS、服务器、环境变量，请先读 [`BEGINNERS-GUIDE-ZH.md`](./BEGINNERS-GUIDE-ZH.md) 搞清「五个网址」和名词，再按本文逐步操作或交给技术人员。  
+> 文档总目录：[`docs/README.md`](./README.md)。
+
 > 本文档列出把 NextAPI 从代码变成可运营产品需要**你手动操作**的所有步骤。
 > 代码层面的工作已经全部完成。以下是需要你在各个平台上配置的事情。
 
@@ -209,8 +212,14 @@ CLERK_WEBHOOK_SECRET=whsec_xxxxx
 # 没设这个值时 POST /v1/me/bootstrap 会 503，dashboard 就拿不到业务 key。
 CLERK_ISSUER=https://big-vulture-6.clerk.accounts.dev
 
-# ===== Seedance / 火山引擎 =====
-VOLC_ARK_API_KEY=你的火山引擎API密钥
+# ===== Seedance / 火山引擎（方舟 Ark）=====
+# 与后端代码一致：读取的是 VOLC_API_KEY，不是 VOLC_ARK_API_KEY
+VOLC_API_KEY=你的方舟API密钥
+PROVIDER_MODE=live
+# 客户未传 model 时的默认 Ark 接入点 ID（须与控制台一致）
+SEEDANCE_MODEL=doubao-seedance-1-5-pro-251215
+# 必配：公开目录里每个 model → 控制台真实 doubao-seedance-*（逗号分隔 公开ID:ArkID）
+# SEEDANCE_MODEL_MAP=seedance-2.0:...,seedance-2.0-fast:...
 
 # ===== R2 对象存储（视频文件）=====
 R2_ENDPOINT=https://你的账户ID.r2.cloudflarestorage.com
@@ -312,8 +321,11 @@ certbot 会自动配置定时续期（systemd timer `certbot.timer`）。
 
 ### 6.1 火山引擎 Seedance API
 
-1. https://console.volcengine.com → 开通"方舟大模型平台"（Ark）
-2. 创建 API Key → `.env` 的 `VOLC_ARK_API_KEY`
+1. https://console.volcengine.com → 开通「方舟大模型平台」（Ark）
+2. 创建 API Key → 写入后端 `.env` 的 **`VOLC_API_KEY`**（与代码一致）
+3. 在方舟控制台记录你开通的每一个 Seedance 视频模型的 **Ark 接入点 ID**（`doubao-seedance-...`）
+4. 配置 **`SEEDANCE_MODEL_MAP`**：把对外 API 目录里的每个 `model`（如 `seedance-2.0`）映射到上一步的 Ark ID；并设置 **`SEEDANCE_MODEL`** 作为客户未传 `model` 时的默认上游 ID  
+   详见 `docs/OPERATOR-HANDBOOK.md` 第五节「Seedance 公开模型 ID → Ark 真 ID」。
 
 ### 6.2 Cloudflare R2
 
@@ -362,7 +374,8 @@ cat ~/.ssh/nextapi_deploy   # 复制到 GitHub Secret
 - [ ] `https://nextapi.top` 营销页可访问，logo 正常显示
 - [ ] `https://app.nextapi.top` 可注册/登录（Clerk）
 - [ ] 登录后可创建 API Key（`/v1/me/keys`）
-- [ ] 用创建的 Key 调用 `POST /v1/videos` 成功
+- [ ] 后端 `.env`：`VOLC_API_KEY`、`PROVIDER_MODE=live`、`SEEDANCE_MODEL`、`SEEDANCE_MODEL_MAP`（覆盖所有对外公开的 `model`）已按 `docs/OPERATOR-HANDBOOK.md` 核对
+- [ ] 用创建的 Key 调用 `POST /v1/videos` 成功（建议对**每一个**对外 `model` 各测一条最小请求，避免 Ark 报 `model not found`）
 - [ ] `https://admin.nextapi.top` 可登录，Overview 数据从 `/v1/internal/admin/overview` 加载
 - [ ] Clerk Webhook 创建用户事件能写入 DB
 

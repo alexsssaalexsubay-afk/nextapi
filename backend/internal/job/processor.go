@@ -8,6 +8,7 @@ import (
 	"github.com/hibiken/asynq"
 	"github.com/sanidg/nextapi/backend/internal/billing"
 	"github.com/sanidg/nextapi/backend/internal/domain"
+	"github.com/sanidg/nextapi/backend/internal/infra/metrics"
 	"github.com/sanidg/nextapi/backend/internal/provider"
 	"github.com/sanidg/nextapi/backend/internal/spend"
 	"github.com/sanidg/nextapi/backend/internal/throughput"
@@ -16,13 +17,24 @@ import (
 )
 
 type Processor struct {
-	DB         *gorm.DB
-	Billing    *billing.Service
-	Spend      *spend.Service
-	Prov       provider.Provider
-	Queue      *asynq.Client
-	Webhooks   *webhook.Service
-	Throughput *throughput.Service
+	DB          *gorm.DB
+	Billing     *billing.Service
+	Spend       *spend.Service
+	Prov        provider.Provider
+	Queue       *asynq.Client
+	Webhooks    *webhook.Service
+	Throughput  *throughput.Service
+	RetryPolicy RetryPolicy
+}
+
+func NewProcessor(db *gorm.DB, b *billing.Service, p provider.Provider, q *asynq.Client) *Processor {
+	return &Processor{
+		DB:          db,
+		Billing:     b,
+		Prov:        p,
+		Queue:       q,
+		RetryPolicy: DefaultRetryPolicy,
+	}
 }
 
 type payload struct {
@@ -30,8 +42,17 @@ type payload struct {
 }
 
 // HandleGenerate calls provider.GenerateVideo, stores provider_job_id,
-// flips status to running, enqueues first poll.
+// flips status to running/retrying, enqueues first poll.
+//
+// Retry strategy:
+//   - Retryable errors: update job to 'retrying', increment retry_count, return
+//     error so Asynq schedules the next attempt with backoff.
+//   - Non-retryable errors OR last attempt exhausted: call fail() immediately.
 func (p *Processor) HandleGenerate(ctx context.Context, t *asynq.Task) error {
+	retryCount, _ := asynq.GetRetryCount(ctx)
+	maxRetry, _ := asynq.GetMaxRetry(ctx)
+	isLastAttempt := retryCount >= maxRetry
+
 	var pl payload
 	if err := json.Unmarshal(t.Payload(), &pl); err != nil {
 		return err
@@ -40,23 +61,70 @@ func (p *Processor) HandleGenerate(ctx context.Context, t *asynq.Task) error {
 	if err := p.DB.WithContext(ctx).First(&j, "id = ?", pl.JobID).Error; err != nil {
 		return err
 	}
+
+	// Already terminal — Asynq may call us again on dead-task sweeps.
+	if j.Status.IsTerminal() {
+		return nil
+	}
+
+	// Mark as submitting (first transition from queued → submitting).
+	if j.Status == domain.JobQueued || j.Status == domain.JobRetrying {
+		now := time.Now()
+		p.DB.WithContext(ctx).Model(&j).Updates(map[string]any{
+			"status":         domain.JobSubmitting,
+			"submitting_at":  now,
+		})
+	}
+
 	var req provider.GenerationRequest
 	if err := json.Unmarshal(j.Request, &req); err != nil {
-		// Corrupt payload would have us send an empty prompt to Seedance,
-		// burning the customer's reservation on garbage. Hard-fail and
-		// refund instead so the row reaches a terminal state on the first
-		// attempt rather than after MaxRetry exponential backoff.
+		// Corrupt stored payload — hard fail, refund.
 		return p.fail(ctx, &j, "invalid_request_payload", "stored job payload could not be decoded")
 	}
 
+	provStarted := time.Now()
 	providerID, err := p.Prov.GenerateVideo(ctx, req)
+	provLatencyMs := time.Since(provStarted).Milliseconds()
+
 	if err != nil {
-		return p.fail(ctx, &j, "provider_error", "video generation failed")
+		classified := ClassifyError(err)
+
+		// Track the attempt on the job row.
+		now := time.Now()
+		p.DB.WithContext(ctx).Model(&j).Updates(map[string]any{
+			"retry_count":     retryCount + 1,
+			"last_error_code": classified.Code,
+			"last_error_msg":  classified.Msg,
+		})
+
+		if classified.Retryable && !isLastAttempt {
+			// Set retrying status and let Asynq retry.
+			p.DB.WithContext(ctx).Model(&j).Updates(map[string]any{
+				"status":      domain.JobRetrying,
+				"retrying_at": now,
+			})
+			metrics.RetryTotal.WithLabelValues(p.Prov.Name(), classified.Code).Inc()
+			return err // Asynq will re-schedule with backoff
+		}
+
+		// Non-retryable or exhausted — move to dead-letter and fail.
+		if j.RetryCount > 0 {
+			p.archiveDLQ(ctx, &j, classified.Code, classified.Msg)
+		}
+		metrics.JobsFailedTotal.WithLabelValues(p.Prov.Name(), classified.Code).Inc()
+		return p.fail(ctx, &j, classified.Code, "video generation failed after retries")
 	}
+
 	now := time.Now()
+	execMeta, _ := json.Marshal(map[string]any{
+		"provider_latency_ms": provLatencyMs,
+		"submit_attempt":      retryCount + 1,
+	})
 	if err := p.DB.WithContext(ctx).Model(&j).Updates(map[string]any{
 		"provider_job_id": providerID,
 		"status":          domain.JobRunning,
+		"running_at":      now,
+		"exec_metadata":   execMeta,
 	}).Error; err != nil {
 		return err
 	}
@@ -64,6 +132,9 @@ func (p *Processor) HandleGenerate(ctx context.Context, t *asynq.Task) error {
 		"status":     "running",
 		"started_at": now,
 	})
+
+	metrics.ProviderLatency.WithLabelValues(p.Prov.Name()).Observe(float64(provLatencyMs))
+
 	buf, _ := json.Marshal(payload{JobID: j.ID})
 	_, err = p.Queue.EnqueueContext(ctx,
 		asynq.NewTask(TaskPoll, buf),
@@ -83,7 +154,7 @@ func (p *Processor) HandlePoll(ctx context.Context, t *asynq.Task) error {
 	if err := p.DB.WithContext(ctx).First(&j, "id = ?", pl.JobID).Error; err != nil {
 		return err
 	}
-	if j.Status == domain.JobSucceeded || j.Status == domain.JobFailed {
+	if j.Status.IsTerminal() {
 		return nil
 	}
 	if j.ProviderJobID == nil {
@@ -91,6 +162,9 @@ func (p *Processor) HandlePoll(ctx context.Context, t *asynq.Task) error {
 	}
 	st, err := p.Prov.GetJobStatus(ctx, *j.ProviderJobID)
 	if err != nil {
+		// Provider poll errors are retried by Asynq automatically
+		// (MaxRetry(60)) — don't change job status here.
+		metrics.RetryTotal.WithLabelValues(p.Prov.Name(), "poll_error").Inc()
 		return err
 	}
 	switch st.Status {
@@ -101,9 +175,10 @@ func (p *Processor) HandlePoll(ctx context.Context, t *asynq.Task) error {
 		if st.ErrorCode != nil {
 			code = *st.ErrorCode
 		}
+		metrics.JobsFailedTotal.WithLabelValues(p.Prov.Name(), code).Inc()
 		return p.fail(ctx, &j, code, "video generation failed")
 	default:
-		// still running → re-enqueue poll
+		// Still running → re-enqueue poll
 		buf, _ := json.Marshal(payload{JobID: j.ID})
 		_, err = p.Queue.EnqueueContext(ctx,
 			asynq.NewTask(TaskPoll, buf),
@@ -146,12 +221,21 @@ func (p *Processor) succeed(ctx context.Context, j *domain.Job, st *provider.Job
 		}
 		outputJSON, _ := json.Marshal(map[string]any{"video_url": st.VideoURL})
 		tx.Model(&domain.Video{}).Where("upstream_job_id = ?", j.ID).Updates(map[string]any{
-			"status":           "succeeded",
-			"output":           outputJSON,
+			"status":            "succeeded",
+			"output":            outputJSON,
 			"actual_cost_cents": actualCredits,
-			"upstream_tokens":  st.ActualTokensUsed,
-			"finished_at":     now,
+			"upstream_tokens":   st.ActualTokensUsed,
+			"finished_at":       now,
 		})
+		// Update batch counters if this job belongs to a batch.
+		if j.BatchRunID != nil {
+			tx.Model(&domain.BatchRun{}).Where("id = ?", *j.BatchRunID).
+				Updates(map[string]any{
+					"succeeded_count": gorm.Expr("succeeded_count + 1"),
+					"running_count":   gorm.Expr("GREATEST(running_count - 1, 0)"),
+				})
+			p.maybeCloseBatch(ctx, tx, *j.BatchRunID)
+		}
 		return nil
 	})
 	if p.Throughput != nil {
@@ -160,28 +244,26 @@ func (p *Processor) succeed(ctx context.Context, j *domain.Job, st *provider.Job
 	if p.Spend != nil {
 		p.Spend.DecrInflight(ctx, j.OrgID, j.ReservedCredits)
 	}
-	if err == nil && p.Webhooks != nil {
-		// Resolve the actual videos.id row (its UUID is what GET /v1/videos/{id}
-		// expects) — the job UUID is internal-only. video_id falls back to the
-		// job id when no video row exists (legacy /video/generations callers).
-		videoID := lookupVideoID(ctx, p.DB, j.ID)
-		_ = p.Webhooks.Enqueue(ctx, j.OrgID, "job.succeeded", map[string]any{
-			"id":           videoID,
-			"job_id":       j.ID,
-			"video_id":     videoID,
-			"status":       "succeeded",
-			"video_url":    st.VideoURL,
-			"cost_credits": actualCredits,
-			"created_at":   now.UTC().Format(time.RFC3339),
-		})
+	if err == nil {
+		metrics.JobsTotal.WithLabelValues(p.Prov.Name(), "succeeded").Inc()
+		if p.Webhooks != nil {
+			videoID := lookupVideoID(ctx, p.DB, j.ID)
+			_ = p.Webhooks.Enqueue(ctx, j.OrgID, "job.succeeded", map[string]any{
+				"id":           videoID,
+				"job_id":       j.ID,
+				"video_id":     videoID,
+				"status":       "succeeded",
+				"video_url":    st.VideoURL,
+				"cost_credits": actualCredits,
+				"created_at":   now.UTC().Format(time.RFC3339),
+			})
+		}
 	}
 	return err
 }
 
 // lookupVideoID returns the UUID of the videos row whose upstream_job_id
-// equals jobID, or jobID itself when no video row exists (legacy callers
-// that hit /v1/video/generations directly). The fallback keeps webhook
-// payloads stable for old SDKs.
+// equals jobID, or jobID itself when no video row exists (legacy callers).
 func lookupVideoID(ctx context.Context, db *gorm.DB, jobID string) string {
 	var v struct{ ID string }
 	if err := db.WithContext(ctx).
@@ -194,8 +276,20 @@ func lookupVideoID(ctx context.Context, db *gorm.DB, jobID string) string {
 }
 
 func (p *Processor) fail(ctx context.Context, j *domain.Job, code, msg string) error {
+	// Idempotency guard — if already in a terminal state, skip.
+	if j.Status.IsTerminal() {
+		return nil
+	}
 	now := time.Now()
 	err := p.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// Re-check status inside transaction to avoid double-refund.
+		var current domain.Job
+		if err := tx.Select("status, reserved_credits").First(&current, "id = ?", j.ID).Error; err != nil {
+			return err
+		}
+		if current.Status.IsTerminal() {
+			return nil
+		}
 		if err := tx.Model(j).Updates(map[string]any{
 			"status":        domain.JobFailed,
 			"error_code":    code,
@@ -204,11 +298,11 @@ func (p *Processor) fail(ctx context.Context, j *domain.Job, code, msg string) e
 		}).Error; err != nil {
 			return err
 		}
-		if j.ReservedCredits > 0 {
-			refundCents := j.ReservedCredits
+		if current.ReservedCredits > 0 {
+			refundCents := current.ReservedCredits
 			if err := tx.Create(&domain.CreditsLedger{
 				OrgID:        j.OrgID,
-				DeltaCredits: j.ReservedCredits,
+				DeltaCredits: current.ReservedCredits,
 				DeltaCents:   &refundCents,
 				Reason:       domain.ReasonRefund,
 				JobID:        &j.ID,
@@ -223,6 +317,15 @@ func (p *Processor) fail(ctx context.Context, j *domain.Job, code, msg string) e
 			"error_message": msg,
 			"finished_at":   now,
 		})
+		// Update batch counters.
+		if j.BatchRunID != nil {
+			tx.Model(&domain.BatchRun{}).Where("id = ?", *j.BatchRunID).
+				Updates(map[string]any{
+					"failed_count":  gorm.Expr("failed_count + 1"),
+					"running_count": gorm.Expr("GREATEST(running_count - 1, 0)"),
+				})
+			p.maybeCloseBatch(ctx, tx, *j.BatchRunID)
+		}
 		return nil
 	})
 	if p.Throughput != nil {
@@ -244,4 +347,56 @@ func (p *Processor) fail(ctx context.Context, j *domain.Job, code, msg string) e
 		})
 	}
 	return err
+}
+
+// archiveDLQ moves an exhausted-retry job to the dead-letter queue.
+func (p *Processor) archiveDLQ(ctx context.Context, j *domain.Job, code, lastErr string) {
+	dlq := domain.DeadLetterJob{
+		JobID:      j.ID,
+		OrgID:      j.OrgID,
+		Reason:     code,
+		RetryCount: j.RetryCount,
+		LastError:  &lastErr,
+		ArchivedAt: time.Now(),
+	}
+	// Best-effort; if this fails the job still transitions to failed.
+	if err := p.DB.WithContext(ctx).Clauses().Create(&dlq).Error; err == nil {
+		metrics.DeadLetterTotal.WithLabelValues(p.Prov.Name(), code).Inc()
+	}
+}
+
+// maybeCloseBatch checks whether all jobs in a batch have reached a
+// terminal state and if so closes the batch run.
+func (p *Processor) maybeCloseBatch(ctx context.Context, tx *gorm.DB, batchID string) {
+	var br domain.BatchRun
+	if err := tx.First(&br, "id = ?", batchID).Error; err != nil {
+		return
+	}
+	// A batch is complete when queued + running == 0.
+	if br.QueuedCount > 0 || br.RunningCount > 0 {
+		return
+	}
+	now := time.Now()
+	status := "completed"
+	if br.FailedCount > 0 {
+		status = "partial_failure"
+	}
+	if br.SucceededCount == 0 && br.FailedCount > 0 {
+		status = "failed"
+	}
+	tx.Model(&domain.BatchRun{}).Where("id = ?", batchID).Updates(map[string]any{
+		"status":       status,
+		"completed_at": now,
+	})
+	// Fire batch.completed webhook.
+	if p.Webhooks != nil {
+		_ = p.Webhooks.Enqueue(ctx, br.OrgID, "batch.completed", map[string]any{
+			"batch_id":        batchID,
+			"status":          status,
+			"total_shots":     br.TotalShots,
+			"succeeded_count": br.SucceededCount,
+			"failed_count":    br.FailedCount,
+			"completed_at":    now.UTC().Format(time.RFC3339),
+		})
+	}
 }

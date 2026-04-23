@@ -1,71 +1,45 @@
 "use client"
 
-import { useUser } from "@clerk/nextjs"
-import { ShieldAlert, ShieldCheck, X } from "lucide-react"
-import { useEffect, useState } from "react"
+import { ShieldCheck } from "lucide-react"
+import { useState } from "react"
 
-const DISMISS_KEY = "nextapi.admin.mfaBannerDismissed"
-const DISMISS_TTL_MS = 24 * 60 * 60 * 1000
-
-// MfaBanner nags the operator to enable a second factor on their
-// Clerk identity. Shown only when the user has zero non-password
-// factors (no TOTP, no passkey, no backup codes). Stays dismissed
-// for 24h via localStorage so we don't blast the same warning
-// every page-nav.
+// SecurityBanner shows a one-time informational note about the admin
+// security model. Dismissed permanently per session once read.
+//
+// Note: Clerk Pro MFA (TOTP / passkey) is NOT available on the Hobby plan.
+// Admin security is provided by:
+//   1. Short-lived DB-backed operator sessions (8 h hard TTL, 2 h idle timeout)
+//   2. Email OTP for high-risk operations (credits.adjust, org pause/unpause,
+//      webhook.replay) — requires RESEND_API_KEY
+//   3. ADMIN_EMAILS allowlist enforced server-side on every request
 export function MfaBanner() {
-  const { isLoaded, isSignedIn, user } = useUser()
-  const [hidden, setHidden] = useState(true)
-
-  useEffect(() => {
-    if (!isLoaded || !isSignedIn || !user) return
-    const dismissedAt = Number(localStorage.getItem(DISMISS_KEY) ?? 0)
-    if (dismissedAt && Date.now() - dismissedAt < DISMISS_TTL_MS) return
-
-    const hasTotp = !!user.totpEnabled
-    const hasBackup = !!user.backupCodeEnabled
-    // Clerk exposes passkeys as web3Wallets / passkeys in newer SDKs;
-    // treat any factor beyond password as "good enough".
-    const hasPasskey =
-      typeof (user as unknown as { passkeys?: unknown[] }).passkeys !== "undefined" &&
-      ((user as unknown as { passkeys: unknown[] }).passkeys?.length ?? 0) > 0
-
-    if (!(hasTotp || hasBackup || hasPasskey)) setHidden(false)
-  }, [isLoaded, isSignedIn, user])
+  const [hidden, setHidden] = useState(() => {
+    if (typeof window === "undefined") return true
+    return sessionStorage.getItem("nextapi.admin.securityBannerDismissed") === "1"
+  })
 
   if (hidden) return null
 
   return (
-    <div className="border-b border-yellow-500/40 bg-yellow-500/10 px-4 py-2 font-mono text-[12px] text-yellow-500">
+    <div className="border-b border-signal/30 bg-signal/5 px-4 py-2 font-mono text-[12px] text-signal">
       <div className="mx-auto flex max-w-7xl items-center gap-3">
-        <ShieldAlert className="size-4 shrink-0" />
+        <ShieldCheck className="size-4 shrink-0" />
         <span className="flex-1">
-          Your admin account has no second factor. Anyone who steals your password
-          can spend credits, pause orgs, or change billing. Enable TOTP / passkey
-          in your{" "}
-          <a
-            href="https://big-vulture-6.clerk.accounts.dev/user"
-            target="_blank"
-            rel="noreferrer"
-            className="underline underline-offset-2 hover:text-yellow-300"
-          >
-            Clerk account settings
-          </a>
-          .
-        </span>
-        <span className="hidden items-center gap-1 text-yellow-500/80 sm:inline-flex">
-          <ShieldCheck className="size-3.5" />
-          recommended: TOTP + 8 backup codes
+          Admin access uses short-lived operator sessions (8 h) plus email OTP for
+          high-risk operations. No Clerk Pro MFA required.
         </span>
         <button
           type="button"
-          aria-label="Dismiss for 24h"
-          className="rounded p-1 hover:bg-yellow-500/20"
+          aria-label="Dismiss"
+          className="rounded px-2 py-0.5 text-[11px] hover:bg-signal/10"
           onClick={() => {
-            localStorage.setItem(DISMISS_KEY, String(Date.now()))
+            if (typeof window !== "undefined") {
+              sessionStorage.setItem("nextapi.admin.securityBannerDismissed", "1")
+            }
             setHidden(true)
           }}
         >
-          <X className="size-3.5" />
+          got it
         </button>
       </div>
     </div>

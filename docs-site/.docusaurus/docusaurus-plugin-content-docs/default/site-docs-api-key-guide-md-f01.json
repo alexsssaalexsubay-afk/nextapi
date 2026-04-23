@@ -1,0 +1,28 @@
+{
+  "id": "api-key-guide",
+  "title": "API Keys",
+  "description": "How to use your NextAPI key in Batch Studio, ComfyUI, Python, curl, and Postman — plus security and multi-key strategy.",
+  "source": "@site/docs/api-key-guide.md",
+  "sourceDirName": ".",
+  "slug": "/api-key-guide",
+  "permalink": "/api-key-guide",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/nextapi/docs/edit/main/docs-site/docs/api-key-guide.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {
+    "title": "API Keys",
+    "sidebar_label": "API Keys",
+    "description": "How to use your NextAPI key in Batch Studio, ComfyUI, Python, curl, and Postman — plus security and multi-key strategy."
+  },
+  "sidebar": "mainSidebar",
+  "previous": {
+    "title": "ComfyUI Guide",
+    "permalink": "/comfyui-guide"
+  },
+  "next": {
+    "title": "API Reference",
+    "permalink": "/api-reference"
+  }
+}

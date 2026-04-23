@@ -12,11 +12,25 @@ import (
 var ErrUpstreamUnavailable = errors.New("provider upstream unavailable")
 
 type GenerationRequest struct {
+	// Model is the public NextAPI model ID (e.g. "seedance-1.5-pro").
+	// Providers translate this to their own upstream model ID.
+	// Empty string means "use provider default".
+	Model           string
 	Prompt          string
 	ImageURL        *string
 	DurationSeconds int
 	Resolution      string // "480p" | "720p" | "1080p"
 	Mode            string // "fast" | "normal"
+
+	// The following map 1:1 onto Volcengine Ark / Seedance task params.
+	// Zero-value means "let the provider decide" rather than "off".
+	// See docs.volcengine.com/docs/82379 (video generation API).
+	AspectRatio   string // "16:9" | "9:16" | "1:1" | "4:3" | "3:4" | "21:9" | "adaptive"
+	FPS           int    // 24 | 30; 0 = provider default
+	GenerateAudio *bool  // only supported on doubao-seedance-1-5-pro and newer
+	Watermark     *bool
+	Seed          *int64 // [-1, 2^32-1]; -1 or omitted = random
+	CameraFixed   *bool  // lock the camera to reduce motion
 }
 
 type JobStatus struct {

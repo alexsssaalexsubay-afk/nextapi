@@ -87,6 +87,7 @@ export const zh: Messages = {
     autoRefresh: "自动刷新",
     page: "第",
     of: "页 / 共",
+    preview: "预览",
   },
 
   hero: {
@@ -862,6 +863,7 @@ export const zh: Messages = {
     help: {
       verification: "使用共享密钥和 x-nextapi-signature 头部校验签名。",
     },
+    previewNote: "示例数据 — 端点创建与投递日志 API 将在后续版本接入。",
   },
 
   usage: {

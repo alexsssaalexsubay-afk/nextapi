@@ -1,0 +1,28 @@
+{
+  "id": "short-drama-workflow",
+  "title": "Short Drama Workflow",
+  "description": "End-to-end workflow from script to deliverable short drama batch — 100 shots, repeatable, operator-friendly.",
+  "source": "@site/docs/short-drama-workflow.md",
+  "sourceDirName": ".",
+  "slug": "/short-drama-workflow",
+  "permalink": "/short-drama-workflow",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/nextapi/docs/edit/main/docs-site/docs/short-drama-workflow.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {
+    "title": "Short Drama Workflow",
+    "sidebar_label": "Short Drama Workflow",
+    "description": "End-to-end workflow from script to deliverable short drama batch — 100 shots, repeatable, operator-friendly."
+  },
+  "sidebar": "mainSidebar",
+  "previous": {
+    "title": "Character Consistency",
+    "permalink": "/consistency-guide"
+  },
+  "next": {
+    "title": "ComfyUI Guide",
+    "permalink": "/comfyui-guide"
+  }
+}

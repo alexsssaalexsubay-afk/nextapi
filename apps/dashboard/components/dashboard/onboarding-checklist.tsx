@@ -64,9 +64,11 @@ export function OnboardingChecklist() {
     }
   }, [visible])
 
-  // Auto-dismiss when all steps are done
+  // Auto-dismiss when the three core steps are done (webhook is optional).
+  // A user who set up an account, created a key, and ran a job is considered
+  // fully onboarded — webhook is a power feature, not a first-run blocker.
   useEffect(() => {
-    if (steps.accountCreated && steps.hasApiKey && steps.hasSucceededJob && steps.hasWebhook) {
+    if (steps.accountCreated && steps.hasApiKey && steps.hasSucceededJob) {
       if (typeof window !== "undefined") {
         localStorage.setItem(ONBOARDING_DONE_KEY, "1")
       }

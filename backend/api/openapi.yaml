@@ -1455,43 +1455,57 @@ components:
 
     VideoCreateRequest:
       type: object
-      required: [model, prompt]
+      required: [model, input]
+      description: >
+        Customer-facing body for POST /v1/videos. `input` carries the
+        generation parameters that are forwarded to the upstream model
+        (see VideoInput). Top-level model + webhook_url + idempotency_key
+        are gateway-level concerns and do not reach the upstream provider.
       properties:
         model:
           type: string
+          description: Public NextAPI model ID; mapped to the upstream Ark model by seedance.ResolveArkModel.
           enum: [seedance-2.0, seedance-2.0-fast, seedance-1.5-pro, seedance-1.0-pro, seedance-1.0-pro-fast, seedance-1.0-lite]
+        input: { $ref: '#/components/schemas/VideoInput' }
+        webhook_url: { type: string, format: uri }
+        idempotency_key: { type: string, maxLength: 255 }
+
+    VideoInput:
+      type: object
+      required: [prompt]
+      properties:
         prompt: { type: string, maxLength: 4000 }
-        negative_prompt: { type: string, maxLength: 1000 }
-        aspect_ratio: { $ref: '#/components/schemas/AspectRatio' }
+        image_url: { type: string, format: uri, description: "Optional source image for image-to-video." }
+        duration_seconds: { type: integer, minimum: 2, maximum: 15 }
         resolution: { $ref: '#/components/schemas/Resolution' }
-        duration_seconds: { type: integer, minimum: -1, maximum: 15 }
-        fps: { type: integer, enum: [24, 30], default: 24 }
-        seed: { type: integer, minimum: 0, maximum: 4294967295 }
-        watermark: { type: boolean, default: false }
-        first_frame_url: { type: string, format: uri }
-        last_frame_url: { type: string, format: uri }
-        reference_video_url: { type: string, format: uri }
+        mode: { type: string, enum: [fast, normal], default: normal }
+        aspect_ratio: { $ref: '#/components/schemas/AspectRatio' }
+        fps: { type: integer, enum: [24, 30] }
+        generate_audio: { type: boolean, description: "Only honored by doubao-seedance-1-5-pro and newer." }
+        watermark: { type: boolean }
+        seed: { type: integer, description: "Use -1 or omit for random; otherwise [0, 2^32-1]." }
+        camera_fixed: { type: boolean, description: "Lock the camera to reduce motion (Ark: camerafixed)." }
         references:
           type: array
           maxItems: 12
           items: { $ref: '#/components/schemas/ReferenceItem' }
-        webhook_url: { type: string, format: uri }
-        metadata:
-          type: object
-          additionalProperties: { type: string }
 
     VideoInputEcho:
       type: object
+      description: Server echoes the resolved input back so clients can confirm what was applied.
       properties:
         model: { type: string }
         prompt: { type: string }
-        negative_prompt: { type: string }
+        image_url: { type: string, format: uri }
         aspect_ratio: { $ref: '#/components/schemas/AspectRatio' }
         resolution: { $ref: '#/components/schemas/Resolution' }
         duration_seconds: { type: integer }
         fps: { type: integer }
-        seed: { type: integer }
+        mode: { type: string, enum: [fast, normal] }
+        generate_audio: { type: boolean }
         watermark: { type: boolean }
+        seed: { type: integer }
+        camera_fixed: { type: boolean }
         references:
           type: array
           items: { $ref: '#/components/schemas/ReferenceItem' }

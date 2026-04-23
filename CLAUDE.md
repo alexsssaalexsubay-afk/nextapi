@@ -4,6 +4,8 @@
 NextAPI is a video AI API gateway. We hold 1 of 20 global reseller licenses for
 ByteDance Volcengine Seedance. Vision: "OpenRouter for Video AI".
 
+**Documentation map (human readers):** [`docs/README.md`](docs/README.md) — includes Chinese beginner guide [`docs/BEGINNERS-GUIDE-ZH.md`](docs/BEGINNERS-GUIDE-ZH.md) and [`docs/GLOSSARY-ZH.md`](docs/GLOSSARY-ZH.md). User-facing Docusaurus site lives in **`docs-site/`**.
+
 ## Architecture (one glance)
 
 ```

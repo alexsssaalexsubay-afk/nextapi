@@ -1,5 +1,8 @@
 # NextAPI 运营手册（写给总管理者）
 
+> **零基础？** 请先读 [`BEGINNERS-GUIDE-ZH.md`](./BEGINNERS-GUIDE-ZH.md) 与 [`GLOSSARY-ZH.md`](./GLOSSARY-ZH.md)；本文假设你会用 SSH 和简单命令行。  
+> 文档总目录：[`docs/README.md`](./README.md)。
+
 > 这份文档专门写给"网站老板/总管理者"，不是给开发者看的。
 > 重点回答三件事：
 >
@@ -14,7 +17,7 @@
 ### 1.1 现在仓库里的迁移文件
 
 `backend/migrations/` 下面所有 `0000X_xxx.sql` 都是数据库变更脚本，按编号顺序执行。
-最新的是 `00008_hardening.sql`（这次新增的）：
+部署前请对照仓库里**实际文件列表**执行到最新编号：
 
 | 编号 | 内容 |
 |------|------|
@@ -25,7 +28,9 @@
 | 00005_b2b_gateway | 计费 ledger / spend cap / IP 白名单字段 |
 | 00006_procurement | 采购合规字段 |
 | 00007_queue_tiering | 队列分级 |
-| **00008_hardening** | **新增：审计日志 / Clerk webhook 去重 / 支付 webhook 去重 / 加速索引** |
+| 00008_hardening | 审计日志 / Clerk webhook 去重 / 支付 webhook 去重 / 加速索引 |
+| 00009_sales_leads | 销售线索等 |
+| **00010_admin_sessions** | **管理后台 `ops_*` 会话、OTP 相关表（若你拉过该迁移）** |
 
 ### 1.2 SQL 不会自动执行
 
@@ -256,9 +261,15 @@ SELECT * FROM credits_ledger
 DATABASE_URL=postgres://nextapi:...@127.0.0.1:5432/nextapi?sslmode=disable
 REDIS_ADDR=127.0.0.1:6379
 
-# ===== Seedance =====
-VOLC_API_KEY=...
-PROVIDER=seedance
+# ===== Seedance（火山方舟 Ark）=====
+VOLC_API_KEY=...                    # 方舟控制台创建的 API Key（与代码读取的变量名一致）
+PROVIDER_MODE=live                  # 生产写 live；本地可 mock
+# 客户请求里未传 model 时，上游默认使用的 Ark 模型 ID（须是你控制台已开通的接入点）
+SEEDANCE_MODEL=doubao-seedance-1-5-pro-251215
+# 可选：仅当你不用北京接入点时才改
+# SEEDANCE_BASE_URL=https://ark.cn-beijing.volces.com/api/v3
+# 必配：见下文「Seedance 公开模型 ID → Ark 真 ID」——把目录里每个对外 model 映射到控制台里的 doubao-seedance-*
+SEEDANCE_MODEL_MAP=seedance-2.0:你的2.0标准ID,seedance-2.0-fast:你的2.0快速ID
 
 # ===== Clerk（用户登录） =====
 CLERK_ISSUER=https://你的clerk frontend api  # 缺这个 dashboard 进不去
@@ -287,6 +298,25 @@ STRIPE_WEBHOOK_SECRET=...
 ALIPAY_APP_ID=...
 WECHAT_MCH_ID=...
 ```
+
+### Seedance 公开模型 ID → Ark 真 ID（上线前必核对）
+
+客户在 `POST /v1/videos` 里传的 `model` 是 **NextAPI 目录 ID**（如 `seedance-2.0`、`seedance-1.0-lite`）。网关会把它换成火山 **方舟控制台里显示的接入点模型名**（形如 `doubao-seedance-*-YYMMDD`）再调 `POST .../contents/generations/tasks`。
+
+- **代码里只内置了两条「已对照文档写死」的映射**：`seedance-1.0-pro`、`seedance-1.5-pro`。其余公开 ID **不会瞎猜**，避免写错 ID 导致计费/路由异常。
+- **你必须**在部署环境配置 `SEEDANCE_MODEL_MAP`，把你在营销/控制台里承诺给客户的每一个 `model` 都映射到当前账号里**真实开通**的 Ark ID。格式为逗号分隔的 `公开ID:ArkID`，例如：
+
+```bash
+export SEEDANCE_MODEL_MAP="seedance-2.0:doubao-seedance-2-0-pro-YYYYMMDD,seedance-2.0-fast:doubao-seedance-2-0-fast-YYYYMMDD,seedance-1.0-pro-fast:doubao-seedance-1-0-pro-fast-YYYYMMDD,seedance-1.0-lite:doubao-seedance-1-0-lite-YYYYMMDD"
+```
+
+（把 `YYYYMMDD` 换成你控制台里复制的完整字符串。）
+
+**怎么拿 Ark ID**：登录 [火山引擎控制台](https://console.volcengine.com) → 方舟大模型平台 → 推理 / 模型接入点，找到已开通的 Seedance 视频模型，复制 **Endpoint 或模型 ID** 一栏的完整名称。
+
+**上线前自检**：对每个对外 `model` 各发一条最小 `POST /v1/videos`（或 staging 环境），确认返回 2xx 且任务能跑完；若 Ark 报 `model not found`，多半是 `SEEDANCE_MODEL_MAP` 缺项或 ID 复制不全。
+
+官方接口说明索引：[火山方舟文档](https://www.volcengine.com/docs/82379)（视频生成 API / 创建视频生成任务）。
 
 ---
 

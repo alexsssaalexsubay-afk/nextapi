@@ -89,11 +89,27 @@ func (p *LiveProvider) EstimateCost(req provider.GenerationRequest) (int64, int6
 type arkCreateReq struct {
 	Model   string    `json:"model"`
 	Content []arkPart `json:"content"`
+
+	// Top-level Ark video-task params. Documented in
+	// volcengine.com/docs/82379 (视频生成 API / 创建视频生成任务).
+	// omitempty so we only forward fields the caller actually set —
+	// otherwise we'd override Ark's own defaults with zero-values.
+	Ratio         string `json:"ratio,omitempty"`
+	Resolution    string `json:"resolution,omitempty"`
+	Duration      int    `json:"duration,omitempty"`
+	FPS           int    `json:"fps,omitempty"`
+	GenerateAudio *bool  `json:"generate_audio,omitempty"`
+	Watermark     *bool  `json:"watermark,omitempty"`
+	Seed          *int64 `json:"seed,omitempty"`
+	CameraFixed   *bool  `json:"camerafixed,omitempty"`
 }
 type arkPart struct {
-	Type     string `json:"type"`
-	Text     string `json:"text,omitempty"`
-	ImageURL string `json:"image_url,omitempty"`
+	Type     string       `json:"type"`
+	Text     string       `json:"text,omitempty"`
+	ImageURL *arkImageURL `json:"image_url,omitempty"`
+}
+type arkImageURL struct {
+	URL string `json:"url"`
 }
 type arkCreateResp struct {
 	ID    string `json:"id"`
@@ -107,11 +123,29 @@ func (p *LiveProvider) GenerateVideo(ctx context.Context, req provider.Generatio
 	if !p.breaker.allow() {
 		return "", provider.ErrUpstreamUnavailable
 	}
+
+	// Resolve the upstream model: customer's choice wins, env-configured
+	// default covers the empty case. If the customer passed an unknown
+	// public ID, ResolveArkModel forwards it verbatim — see models.go.
+	arkModel := ResolveArkModel(req, p.model)
+
 	parts := []arkPart{{Type: "text", Text: req.Prompt}}
 	if req.ImageURL != nil && *req.ImageURL != "" {
-		parts = append(parts, arkPart{Type: "image_url", ImageURL: *req.ImageURL})
+		parts = append(parts, arkPart{Type: "image_url", ImageURL: &arkImageURL{URL: *req.ImageURL}})
 	}
-	body, _ := json.Marshal(arkCreateReq{Model: p.model, Content: parts})
+
+	body, _ := json.Marshal(arkCreateReq{
+		Model:         arkModel,
+		Content:       parts,
+		Ratio:         req.AspectRatio,
+		Resolution:    req.Resolution,
+		Duration:      req.DurationSeconds,
+		FPS:           req.FPS,
+		GenerateAudio: req.GenerateAudio,
+		Watermark:     req.Watermark,
+		Seed:          req.Seed,
+		CameraFixed:   req.CameraFixed,
+	})
 
 	var lastErr error
 	for attempt := 0; attempt < 3; attempt++ {

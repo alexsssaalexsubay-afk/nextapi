@@ -1,0 +1,28 @@
+{
+  "id": "batch-guide",
+  "title": "批量生成指南",
+  "description": "构建镜头清单 CSV，控制并发，监控进度，重试失败镜头。",
+  "source": "@site/i18n/zh/docusaurus-plugin-content-docs/current/batch-guide.md",
+  "sourceDirName": ".",
+  "slug": "/batch-guide",
+  "permalink": "/zh/batch-guide",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/nextapi/docs/edit/main/docs-site/docs/batch-guide.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {
+    "title": "批量生成指南",
+    "sidebar_label": "批量生成指南",
+    "description": "构建镜头清单 CSV，控制并发，监控进度，重试失败镜头。"
+  },
+  "sidebar": "mainSidebar",
+  "previous": {
+    "title": "零基础指南",
+    "permalink": "/zh/non-coder-guide"
+  },
+  "next": {
+    "title": "角色一致性",
+    "permalink": "/zh/consistency-guide"
+  }
+}
