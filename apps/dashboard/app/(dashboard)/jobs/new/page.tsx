@@ -83,6 +83,12 @@ export default function NewJobPage() {
     }
   }, [updateCost])
 
+  // Fresh form: clear Sonner toasts and inline error from a previous page / route.
+  useEffect(() => {
+    setSubmitError(null)
+    toast.dismiss()
+  }, [])
+
   const onImagePicked = async (file: File) => {
     if (!file.type.startsWith("image/")) {
       toast.error(t.jobs.new.form.imageUploadFailed)
@@ -178,8 +184,8 @@ export default function NewJobPage() {
           {t.jobs.detail.backToJobs}
         </Link>
       </div>
-      <div className="grid grid-cols-1 gap-6 p-6 lg:grid-cols-[1fr_420px]">
-        <section className="flex flex-col gap-5">
+      <div className="grid min-w-0 grid-cols-1 gap-6 p-6 lg:grid-cols-[minmax(0,1fr)_420px]">
+        <section className="flex min-w-0 flex-col gap-5">
           <div>
             <h1 className="text-[22px] font-medium tracking-tight">{t.jobs.new.title}</h1>
             <p className="mt-1 max-w-[560px] text-[13px] text-muted-foreground">
@@ -188,12 +194,12 @@ export default function NewJobPage() {
           </div>
 
           {submitError && (
-            <div className="rounded-md border border-destructive/40 bg-destructive/10 px-4 py-3 text-[13px] text-destructive">
+            <div className="break-words rounded-md border border-destructive/40 bg-destructive/10 px-4 py-3 text-[13px] text-destructive">
               {submitError}
             </div>
           )}
 
-          <div className="flex flex-col gap-5 rounded-xl border border-border/80 bg-card/40 p-6">
+          <div className="flex min-w-0 flex-col gap-5 rounded-xl border border-border/80 bg-card/40 p-6">
             <Field label={t.jobs.new.form.mode} hint={t.jobs.new.form.modeHint}>
               <div className="grid grid-cols-2 gap-2 rounded-md border border-border/80 bg-background p-1">
                 <ModeButton
@@ -284,7 +290,7 @@ export default function NewJobPage() {
                       )}
                     </div>
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <span className="mb-1 block text-[10.5px] text-muted-foreground">
                       {t.jobs.new.form.sourceImageOrPaste}
                     </span>
@@ -292,7 +298,7 @@ export default function NewJobPage() {
                       value={imageUrl}
                       onChange={(e) => setImageUrl(e.target.value)}
                       placeholder={t.jobs.new.form.sourceImageUrlPlaceholder}
-                      className="h-9 w-full rounded-md border border-border/80 bg-background px-2 font-mono text-[12px] text-foreground focus:border-signal/50 focus:outline-none"
+                      className="h-9 w-full min-w-0 max-w-full rounded-md border border-border/80 bg-background px-2 font-mono text-[12px] text-foreground focus:border-signal/50 focus:outline-none"
                     />
                   </div>
                   {imageUrl.trim() && (
@@ -392,7 +398,7 @@ export default function NewJobPage() {
           />
         </section>
 
-        <aside className="flex flex-col gap-4">
+        <aside className="flex min-w-0 flex-col gap-4">
           <div className="rounded-xl border border-border/80 bg-card/40 p-5">
             <h2 className="text-[13px] font-medium tracking-tight">
               {t.jobs.new.estimatedCost}
