@@ -3,7 +3,7 @@ package billing
 import (
 	"context"
 
-	"github.com/sanidg/nextapi/backend/internal/domain"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/domain"
 )
 
 const SignupBonusAmount int64 = 500

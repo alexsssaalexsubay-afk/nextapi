@@ -11,11 +11,11 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/sanidg/nextapi/backend/internal/auth"
-	"github.com/sanidg/nextapi/backend/internal/billing"
-	"github.com/sanidg/nextapi/backend/internal/domain"
-	"github.com/sanidg/nextapi/backend/internal/spend"
-	"github.com/sanidg/nextapi/backend/internal/throughput"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/auth"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/billing"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/domain"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/spend"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/throughput"
 	"gorm.io/gorm"
 )
 
@@ -200,6 +200,55 @@ func (h *AdminHandlers) Users(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"data": rows})
+}
+
+func (h *AdminHandlers) AllLedger(c *gin.Context) {
+	limit := 200
+	if v := c.Query("limit"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 && n <= 500 {
+			limit = n
+		}
+	}
+	var rows []domain.CreditsLedger
+	if err := h.DB.WithContext(c.Request.Context()).
+		Order("created_at DESC").Limit(limit).
+		Find(&rows).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "internal_error"}})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"data": rows})
+}
+
+func (h *AdminHandlers) Leads(c *gin.Context) {
+	q := strings.TrimSpace(c.Query("q"))
+	db := h.DB.WithContext(c.Request.Context()).Model(&domain.SalesLead{})
+	if q != "" {
+		db = db.Where("email ILIKE ? OR company ILIKE ?", "%"+q+"%", "%"+q+"%")
+	}
+	var rows []domain.SalesLead
+	if err := db.Order("created_at DESC").Limit(200).Find(&rows).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "internal_error"}})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"data": rows})
+}
+
+func (h *AdminHandlers) MarkLeadContacted(c *gin.Context) {
+	id := c.Param("id")
+	now := time.Now()
+	res := h.DB.WithContext(c.Request.Context()).
+		Model(&domain.SalesLead{}).Where("id = ?", id).
+		Update("contacted_at", now)
+	if res.Error != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "internal_error"}})
+		return
+	}
+	if res.RowsAffected == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": gin.H{"code": "not_found"}})
+		return
+	}
+	RecordAudit(c.Request.Context(), h.DB, c, "lead.contacted", "sales_lead", id, nil)
+	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
 func (h *AdminHandlers) Jobs(c *gin.Context) {

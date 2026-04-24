@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/redis/go-redis/v9"
-	"github.com/sanidg/nextapi/backend/internal/domain"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/domain"
 	"gorm.io/gorm"
 )
 
@@ -44,7 +44,7 @@ func (s *Service) getOrDefault(ctx context.Context, orgID string) (*domain.Throu
 		return &domain.ThroughputConfig{
 			OrgID:               orgID,
 			ReservedConcurrency: 2,
-			BurstConcurrency:    8,
+			BurstConcurrency:    200,
 			PriorityLane:        "standard",
 			RPMLimit:            60,
 		}, nil
@@ -57,6 +57,7 @@ type UpsertInput struct {
 	BurstConcurrency    *int
 	PriorityLane        *string
 	RPMLimit            *int
+	Unlimited           *bool
 }
 
 func (s *Service) Upsert(ctx context.Context, orgID string, in UpsertInput) (*domain.ThroughputConfig, error) {
@@ -86,6 +87,9 @@ func (s *Service) Upsert(ctx context.Context, orgID string, in UpsertInput) (*do
 	if in.RPMLimit != nil {
 		cfg.RPMLimit = *in.RPMLimit
 	}
+	if in.Unlimited != nil {
+		cfg.Unlimited = *in.Unlimited
+	}
 	cfg.UpdatedAt = time.Now()
 
 	var err error
@@ -101,25 +105,29 @@ func (s *Service) Upsert(ctx context.Context, orgID string, in UpsertInput) (*do
 }
 
 // AcquireForKey checks per-key concurrency limit before org-level limits.
+// Unlimited orgs bypass the org-level check but per-key limits still apply.
 func (s *Service) AcquireForKey(ctx context.Context, orgID, apiKeyID, jobID string) error {
 	if apiKeyID != "" {
-		var keyCap int
-		s.db.WithContext(ctx).Raw(
-			`SELECT COALESCE(provisioned_concurrency, 5) FROM api_keys WHERE id = ?`, apiKeyID).Scan(&keyCap)
-		if keyCap > 0 {
-			keySlotKey := keyPrefix + "key:" + apiKeyID
-			current, err := s.redis.SCard(ctx, keySlotKey).Result()
-			if err != nil && !errors.Is(err, redis.Nil) {
-				return err
-			}
-			if int(current) >= keyCap {
-				return ErrBurstExceeded
-			}
-			pipe := s.redis.Pipeline()
-			pipe.SAdd(ctx, keySlotKey, jobID)
-			pipe.Expire(ctx, keySlotKey, slotTTL)
-			if _, err = pipe.Exec(ctx); err != nil {
-				return err
+		cfg, _ := s.getOrDefault(ctx, orgID)
+		if !cfg.Unlimited {
+			var keyCap int
+			s.db.WithContext(ctx).Raw(
+				`SELECT COALESCE(provisioned_concurrency, 5) FROM api_keys WHERE id = ?`, apiKeyID).Scan(&keyCap)
+			if keyCap > 0 {
+				keySlotKey := keyPrefix + "key:" + apiKeyID
+				current, err := s.redis.SCard(ctx, keySlotKey).Result()
+				if err != nil && !errors.Is(err, redis.Nil) {
+					return err
+				}
+				if int(current) >= keyCap {
+					return ErrBurstExceeded
+				}
+				pipe := s.redis.Pipeline()
+				pipe.SAdd(ctx, keySlotKey, jobID)
+				pipe.Expire(ctx, keySlotKey, slotTTL)
+				if _, err = pipe.Exec(ctx); err != nil {
+					return err
+				}
 			}
 		}
 	}
@@ -128,23 +136,26 @@ func (s *Service) AcquireForKey(ctx context.Context, orgID, apiKeyID, jobID stri
 
 // Acquire attempts to claim a concurrency slot for a job. Returns
 // ErrBurstExceeded if burst_concurrency is already reached.
+// Unlimited orgs always succeed (slot is tracked but never rejected).
 func (s *Service) Acquire(ctx context.Context, orgID, jobID string) error {
 	cfg, _ := s.getOrDefault(ctx, orgID)
 	key := keyPrefix + orgID
 
-	current, err := s.redis.SCard(ctx, key).Result()
-	if err != nil && !errors.Is(err, redis.Nil) {
-		return err
-	}
-	if int(current) >= cfg.BurstConcurrency {
-		return ErrBurstExceeded
+	if !cfg.Unlimited {
+		current, err := s.redis.SCard(ctx, key).Result()
+		if err != nil && !errors.Is(err, redis.Nil) {
+			return err
+		}
+		if int(current) >= cfg.BurstConcurrency {
+			return ErrBurstExceeded
+		}
 	}
 
 	pipe := s.redis.Pipeline()
 	pipe.SAdd(ctx, key, jobID)
 	pipe.Expire(ctx, key, slotTTL)
-	_, err = pipe.Exec(ctx)
-	return err
+	_, pipeErr := pipe.Exec(ctx)
+	return pipeErr
 }
 
 // ReleaseForKey frees both per-key and per-org concurrency slots.
@@ -154,6 +165,52 @@ func (s *Service) ReleaseForKey(ctx context.Context, orgID string, apiKeyID *str
 		s.redis.SRem(ctx, keySlotKey, jobID)
 	}
 	return s.Release(ctx, orgID, jobID)
+}
+
+// AcquireBatch attempts to claim concurrency slots for multiple jobs at once.
+// Returns the number of jobs actually accepted. For unlimited orgs, all are
+// accepted. For capped orgs, accepted = min(count, burst - inFlight).
+// Accepted job IDs are added to the Redis set; the caller should only enqueue
+// the first `accepted` jobs.
+func (s *Service) AcquireBatch(ctx context.Context, orgID string, jobIDs []string) (int, error) {
+	cfg, err := s.getOrDefault(ctx, orgID)
+	if err != nil {
+		return 0, err
+	}
+	key := keyPrefix + orgID
+	count := len(jobIDs)
+
+	var accepted int
+	if cfg.Unlimited {
+		accepted = count
+	} else {
+		inFlight, err := s.InFlight(ctx, orgID)
+		if err != nil {
+			return 0, err
+		}
+		available := cfg.BurstConcurrency - inFlight
+		if available <= 0 {
+			return 0, ErrBurstExceeded
+		}
+		accepted = count
+		if accepted > available {
+			accepted = available
+		}
+	}
+
+	if accepted > 0 {
+		members := make([]interface{}, accepted)
+		for i := 0; i < accepted; i++ {
+			members[i] = jobIDs[i]
+		}
+		pipe := s.redis.Pipeline()
+		pipe.SAdd(ctx, key, members...)
+		pipe.Expire(ctx, key, slotTTL)
+		if _, err := pipe.Exec(ctx); err != nil {
+			return 0, err
+		}
+	}
+	return accepted, nil
 }
 
 // Release frees a concurrency slot when a job completes or fails.

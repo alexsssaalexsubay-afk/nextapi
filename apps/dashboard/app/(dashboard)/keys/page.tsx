@@ -14,7 +14,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Copy, Eye, EyeOff, Plus, Trash2 } from "lucide-react"
+import { Copy, Eye, EyeOff, Pencil, Plus, Trash2 } from "lucide-react"
 import { useTranslations } from "@/lib/i18n/context"
 import { apiFetch } from "@/lib/api"
 import { toast } from "sonner"
@@ -23,6 +23,13 @@ interface ApiKey {
   id: string
   prefix: string
   name: string
+  env: string
+  kind: string
+  allowed_models: string[]
+  monthly_spend_cap_cents: number | null
+  rate_limit_rpm: number | null
+  ip_allowlist: string[]
+  moderation_profile: string | null
   provisioned_concurrency: number
   last_used_at: string | null
   created_at: string
@@ -39,7 +46,21 @@ export default function KeysPage() {
 
   const [formName, setFormName] = useState("")
   const [formEnv, setFormEnv] = useState("live")
+  const [formSpendCap, setFormSpendCap] = useState("")
+  const [formRPM, setFormRPM] = useState("")
+  const [formConcurrency, setFormConcurrency] = useState("5")
+  const [formIPAllowlist, setFormIPAllowlist] = useState("")
+  const [formModels, setFormModels] = useState("")
   const [creating, setCreating] = useState(false)
+
+  /* edit dialog */
+  const [editKey, setEditKey] = useState<ApiKey | null>(null)
+  const [editSpendCap, setEditSpendCap] = useState("")
+  const [editRPM, setEditRPM] = useState("")
+  const [editConcurrency, setEditConcurrency] = useState("")
+  const [editIPAllowlist, setEditIPAllowlist] = useState("")
+  const [editModels, setEditModels] = useState("")
+  const [saving, setSaving] = useState(false)
 
   const fetchKeys = useCallback(async () => {
     try {
@@ -60,19 +81,58 @@ export default function KeysPage() {
     if (!formName.trim()) return
     setCreating(true)
     try {
+      const body: Record<string, unknown> = { name: formName, env: formEnv }
+      if (formSpendCap) body.monthly_spend_cap_cents = Number(formSpendCap) * 100
+      if (formRPM) body.rate_limit_rpm = Number(formRPM)
+      if (formConcurrency) body.provisioned_concurrency = Number(formConcurrency)
+      if (formIPAllowlist.trim()) body.ip_allowlist = formIPAllowlist.split(",").map((s) => s.trim()).filter(Boolean)
+      if (formModels.trim()) body.allowed_models = formModels.split(",").map((s) => s.trim()).filter(Boolean)
       const res = await apiFetch("/v1/me/keys", {
         method: "POST",
-        body: JSON.stringify({ name: formName, env: formEnv }),
+        body: JSON.stringify(body),
       })
       setNewKeyResult({ secret: res.secret, name: res.name })
       setShowCreate(false)
-      setFormName("")
+      setFormName(""); setFormSpendCap(""); setFormRPM(""); setFormConcurrency("5"); setFormIPAllowlist(""); setFormModels("")
       fetchKeys()
       toast.success(t.keys.create + " ✓")
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed to create key")
     } finally {
       setCreating(false)
+    }
+  }
+
+  function openEdit(k: ApiKey) {
+    setEditKey(k)
+    setEditSpendCap(k.monthly_spend_cap_cents != null ? String(k.monthly_spend_cap_cents / 100) : "")
+    setEditRPM(k.rate_limit_rpm != null ? String(k.rate_limit_rpm) : "")
+    setEditConcurrency(String(k.provisioned_concurrency))
+    setEditIPAllowlist((k.ip_allowlist ?? []).join(", "))
+    setEditModels((k.allowed_models ?? []).join(", "))
+  }
+
+  async function handleSaveEdit() {
+    if (!editKey) return
+    setSaving(true)
+    try {
+      const body: Record<string, unknown> = {}
+      body.monthly_spend_cap_cents = editSpendCap ? Number(editSpendCap) * 100 : 0
+      body.rate_limit_rpm = editRPM ? Number(editRPM) : 0
+      body.provisioned_concurrency = editConcurrency ? Number(editConcurrency) : 5
+      body.ip_allowlist = editIPAllowlist.trim() ? editIPAllowlist.split(",").map((s) => s.trim()).filter(Boolean) : []
+      body.allowed_models = editModels.trim() ? editModels.split(",").map((s) => s.trim()).filter(Boolean) : []
+      await apiFetch(`/v1/me/keys/${editKey.id}`, {
+        method: "PATCH",
+        body: JSON.stringify(body),
+      })
+      setEditKey(null)
+      fetchKeys()
+      toast.success("Key updated ✓")
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to update key")
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -175,7 +235,7 @@ export default function KeysPage() {
               <tr>
                 <th className="px-4 py-2.5 font-mono font-normal">{t.keys.columns.name}</th>
                 <th className="px-4 py-2.5 font-mono font-normal">{t.keys.columns.key}</th>
-                <th className="px-4 py-2.5 font-mono font-normal">{t.keys.columns.lastUsed}</th>
+                <th className="px-4 py-2.5 font-mono font-normal">{t.keys.columns.budget}</th>
                 <th className="px-4 py-2.5 font-mono font-normal">{t.keys.columns.created}</th>
                 <th className="px-4 py-2.5" />
               </tr>
@@ -216,24 +276,38 @@ export default function KeysPage() {
                         </button>
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-muted-foreground">
-                      {k.last_used_at
-                        ? new Date(k.last_used_at).toLocaleDateString()
-                        : t.keys.hints.neverUsed}
+                    <td className="px-4 py-3 text-xs text-muted-foreground">
+                      {k.monthly_spend_cap_cents != null && k.monthly_spend_cap_cents > 0
+                        ? `$${(k.monthly_spend_cap_cents / 100).toFixed(2)}`
+                        : t.keys.hints.noLimit}
+                      {k.rate_limit_rpm != null && k.rate_limit_rpm > 0 && (
+                        <span className="ml-2">· {k.rate_limit_rpm} RPM</span>
+                      )}
                     </td>
                     <td className="px-4 py-3 font-mono text-[12px] text-muted-foreground">
                       {new Date(k.created_at).toLocaleDateString()}
                     </td>
                     <td className="px-4 py-3">
-                      {!k.revoked_at && (
-                        <button
-                          onClick={() => handleRevoke(k.id)}
-                          aria-label={t.keys.actions.revoke}
-                          className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-card hover:text-status-failed"
-                        >
-                          <Trash2 className="size-3.5" />
-                        </button>
-                      )}
+                      <div className="flex items-center gap-1">
+                        {!k.revoked_at && (
+                          <button
+                            onClick={() => openEdit(k)}
+                            aria-label="Edit"
+                            className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-card hover:text-foreground"
+                          >
+                            <Pencil className="size-3.5" />
+                          </button>
+                        )}
+                        {!k.revoked_at && (
+                          <button
+                            onClick={() => handleRevoke(k.id)}
+                            aria-label={t.keys.actions.revoke}
+                            className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-card hover:text-status-failed"
+                          >
+                            <Trash2 className="size-3.5" />
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -281,6 +355,28 @@ export default function KeysPage() {
                 </SelectContent>
               </Select>
             </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex flex-col gap-1.5">
+                <Label>{t.keys.limits.spendCap}</Label>
+                <Input type="number" min={0} step={1} placeholder={t.keys.hints.noLimit} value={formSpendCap} onChange={(e) => setFormSpendCap(e.target.value)} />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label>{t.keys.limits.rpm}</Label>
+                <Input type="number" min={0} step={1} placeholder={t.keys.hints.noLimit} value={formRPM} onChange={(e) => setFormRPM(e.target.value)} />
+              </div>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label>{t.keys.limits.concurrency}</Label>
+              <Input type="number" min={1} max={100} value={formConcurrency} onChange={(e) => setFormConcurrency(e.target.value)} />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label>{t.keys.limits.ipAllowlist}</Label>
+              <Input placeholder={t.keys.limits.ipAllowlistHint} value={formIPAllowlist} onChange={(e) => setFormIPAllowlist(e.target.value)} />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label>{t.keys.limits.allowedModels}</Label>
+              <Input placeholder={t.keys.limits.allowedModelsHint} value={formModels} onChange={(e) => setFormModels(e.target.value)} />
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowCreate(false)}>
@@ -288,6 +384,48 @@ export default function KeysPage() {
             </Button>
             <Button onClick={handleCreate} disabled={creating || !formName.trim()}>
               {creating ? "Creating..." : t.keys.create}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit key dialog */}
+      <Dialog open={!!editKey} onOpenChange={(open) => !open && setEditKey(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t.keys.editTitle}</DialogTitle>
+            <DialogDescription>
+              {editKey?.name} ({editKey?.prefix.slice(0, 12)}…)
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-4 py-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex flex-col gap-1.5">
+                <Label>{t.keys.limits.spendCap}</Label>
+                <Input type="number" min={0} step={1} placeholder={t.keys.hints.noLimit} value={editSpendCap} onChange={(e) => setEditSpendCap(e.target.value)} />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label>{t.keys.limits.rpm}</Label>
+                <Input type="number" min={0} step={1} placeholder={t.keys.hints.noLimit} value={editRPM} onChange={(e) => setEditRPM(e.target.value)} />
+              </div>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label>{t.keys.limits.concurrency}</Label>
+              <Input type="number" min={1} max={100} value={editConcurrency} onChange={(e) => setEditConcurrency(e.target.value)} />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label>{t.keys.limits.ipAllowlist}</Label>
+              <Input placeholder={t.keys.limits.ipAllowlistHint} value={editIPAllowlist} onChange={(e) => setEditIPAllowlist(e.target.value)} />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label>{t.keys.limits.allowedModels}</Label>
+              <Input placeholder={t.keys.limits.allowedModelsHint} value={editModels} onChange={(e) => setEditModels(e.target.value)} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditKey(null)}>Cancel</Button>
+            <Button onClick={handleSaveEdit} disabled={saving}>
+              {saving ? "Saving..." : t.common.save}
             </Button>
           </DialogFooter>
         </DialogContent>

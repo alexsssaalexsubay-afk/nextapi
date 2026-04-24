@@ -14,7 +14,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sanidg/nextapi/backend/internal/payment"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/payment"
 )
 
 type Provider struct {

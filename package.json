@@ -7,7 +7,7 @@
     "dev": "pnpm -r --parallel dev",
     "build": "pnpm -r build",
     "lint": "pnpm -r lint",
-    "test": "pnpm -r test --run",
+    "test": "cd backend && go test -race -count=1 ./...",
     "typecheck": "pnpm -r typecheck"
   },
   "engines": {

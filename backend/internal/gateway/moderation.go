@@ -5,8 +5,8 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"github.com/sanidg/nextapi/backend/internal/auth"
-	"github.com/sanidg/nextapi/backend/internal/moderation"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/auth"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/moderation"
 )
 
 type ModerationHandlers struct {

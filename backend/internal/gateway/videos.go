@@ -10,15 +10,15 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/sanidg/nextapi/backend/internal/abuse"
-	"github.com/sanidg/nextapi/backend/internal/auth"
-	"github.com/sanidg/nextapi/backend/internal/domain"
-	"github.com/sanidg/nextapi/backend/internal/idempotency"
-	"github.com/sanidg/nextapi/backend/internal/job"
-	"github.com/sanidg/nextapi/backend/internal/moderation"
-	"github.com/sanidg/nextapi/backend/internal/provider"
-	"github.com/sanidg/nextapi/backend/internal/spend"
-	"github.com/sanidg/nextapi/backend/internal/throughput"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/abuse"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/auth"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/domain"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/idempotency"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/job"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/moderation"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/provider"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/spend"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/throughput"
 	"gorm.io/gorm"
 )
 
@@ -283,10 +283,28 @@ func (h *VideosHandlers) Get(c *gin.Context) {
 			c.JSON(http.StatusNotFound, gin.H{"error": gin.H{"code": "not_found"}})
 			return
 		}
-		c.JSON(http.StatusOK, gin.H{
-			"id":     j.ID,
-			"status": j.Status,
-		})
+		// Map legacy Job fields to the Video response shape.
+		resp := gin.H{
+			"id":                   j.ID,
+			"object":               "video",
+			"model":                j.Provider,
+			"status":               j.Status,
+			"estimated_cost_cents": j.ReservedCredits,
+			"actual_cost_cents":    j.CostCredits,
+			"error_code":           j.ErrorCode,
+			"error_message":        j.ErrorMessage,
+			"created_at":           j.CreatedAt,
+		}
+		if j.VideoURL != nil {
+			resp["output"] = gin.H{"url": *j.VideoURL}
+		}
+		if j.RunningAt != nil {
+			resp["started_at"] = j.RunningAt
+		}
+		if j.CompletedAt != nil {
+			resp["finished_at"] = j.CompletedAt
+		}
+		c.JSON(http.StatusOK, resp)
 		return
 	}
 	if err != nil {

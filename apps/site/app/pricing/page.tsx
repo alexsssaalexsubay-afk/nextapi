@@ -1,14 +1,50 @@
 "use client"
 
+import { useState } from "react"
 import { SiteNav } from "@/components/marketing/site-nav"
 import { SiteFooter } from "@/components/marketing/cta-footer"
 import { PricingPreview } from "@/components/marketing/pricing-preview"
-import { Check } from "lucide-react"
+import { Check, Loader2 } from "lucide-react"
 import { useTranslations } from "@/lib/i18n/context"
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://api.nextapi.top"
 
 export default function PricingPage() {
   const t = useTranslations()
   const p = t.pricingPage
+
+  const [email, setEmail] = useState("")
+  const [company, setCompany] = useState("")
+  const [volume, setVolume] = useState("")
+  const [submitting, setSubmitting] = useState(false)
+  const [submitted, setSubmitted] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!email.trim() || !company.trim()) return
+    setSubmitting(true)
+    setError(null)
+    try {
+      const res = await fetch(`${API_URL}/v1/sales/inquiry`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: company.trim(),
+          company: company.trim(),
+          email: email.trim(),
+          volume: volume.trim() || "not specified",
+          latency: "standard",
+        }),
+      })
+      if (!res.ok) throw new Error("Request failed")
+      setSubmitted(true)
+    } catch {
+      setError("Something went wrong. Please try again or email sales@nextapi.top.")
+    } finally {
+      setSubmitting(false)
+    }
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -124,29 +160,64 @@ export default function PricingPage() {
                 <p className="mt-1 text-[13px] text-muted-foreground">
                   {p.contact.subtitle}
                 </p>
-                <form className="mt-5 space-y-3 text-[13px]">
-                  {[
-                    { label: p.contact.workEmail, placeholder: p.contact.workEmailPlaceholder },
-                    { label: p.contact.company, placeholder: p.contact.companyPlaceholder },
-                    { label: p.contact.volume, placeholder: p.contact.volumePlaceholder },
-                  ].map((f) => (
-                    <label key={f.label} className="block">
+                {submitted ? (
+                  <div className="mt-6 flex flex-col items-center gap-3 rounded-lg border border-status-success/20 bg-status-success/5 p-6 text-center">
+                    <Check className="size-8 text-status-success" />
+                    <p className="text-[14px] font-medium text-foreground">Thank you!</p>
+                    <p className="text-[13px] text-muted-foreground">
+                      We&apos;ll be in touch within 24 hours.
+                    </p>
+                  </div>
+                ) : (
+                  <form className="mt-5 space-y-3 text-[13px]" onSubmit={handleSubmit}>
+                    <label className="block">
                       <span className="mb-1.5 block font-mono text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
-                        {f.label}
+                        {p.contact.workEmail}
                       </span>
                       <input
-                        placeholder={f.placeholder}
+                        type="email"
+                        required
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder={p.contact.workEmailPlaceholder}
                         className="h-9 w-full rounded-md border border-border/80 bg-background px-3 text-[13px] text-foreground placeholder:text-muted-foreground/60 focus:border-signal/50 focus:outline-none"
                       />
                     </label>
-                  ))}
-                  <button
-                    type="submit"
-                    className="mt-2 inline-flex h-10 w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-indigo-500 to-purple-600 text-[13.5px] font-medium text-white shadow-[0_0_24px_-8px] shadow-indigo-500/50 transition-all hover:shadow-indigo-500/70 hover:brightness-110"
-                  >
-                    {p.contact.submit}
-                  </button>
-                </form>
+                    <label className="block">
+                      <span className="mb-1.5 block font-mono text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+                        {p.contact.company}
+                      </span>
+                      <input
+                        required
+                        value={company}
+                        onChange={(e) => setCompany(e.target.value)}
+                        placeholder={p.contact.companyPlaceholder}
+                        className="h-9 w-full rounded-md border border-border/80 bg-background px-3 text-[13px] text-foreground placeholder:text-muted-foreground/60 focus:border-signal/50 focus:outline-none"
+                      />
+                    </label>
+                    <label className="block">
+                      <span className="mb-1.5 block font-mono text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+                        {p.contact.volume}
+                      </span>
+                      <input
+                        value={volume}
+                        onChange={(e) => setVolume(e.target.value)}
+                        placeholder={p.contact.volumePlaceholder}
+                        className="h-9 w-full rounded-md border border-border/80 bg-background px-3 text-[13px] text-foreground placeholder:text-muted-foreground/60 focus:border-signal/50 focus:outline-none"
+                      />
+                    </label>
+                    {error && (
+                      <p className="text-[12px] text-destructive">{error}</p>
+                    )}
+                    <button
+                      type="submit"
+                      disabled={submitting}
+                      className="mt-2 inline-flex h-10 w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-indigo-500 to-purple-600 text-[13.5px] font-medium text-white shadow-[0_0_24px_-8px] shadow-indigo-500/50 transition-all hover:shadow-indigo-500/70 hover:brightness-110 disabled:opacity-60"
+                    >
+                      {submitting ? <Loader2 className="size-4 animate-spin" /> : p.contact.submit}
+                    </button>
+                  </form>
+                )}
               </div>
             </div>
           </div>

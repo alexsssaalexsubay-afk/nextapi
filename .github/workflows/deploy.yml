@@ -32,8 +32,8 @@ jobs:
           context: ./backend
           push: true
           tags: |
-            ghcr.io/sanidg/nextapi-backend:${{ github.sha }}
-            ghcr.io/sanidg/nextapi-backend:main
+            ghcr.io/alexsssaalexsubay-afk/nextapi-backend:${{ github.sha }}
+            ghcr.io/alexsssaalexsubay-afk/nextapi-backend:main
 
   deploy:
     needs: build-push

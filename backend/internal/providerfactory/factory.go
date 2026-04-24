@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/sanidg/nextapi/backend/internal/provider"
-	"github.com/sanidg/nextapi/backend/internal/provider/seedance"
-	"github.com/sanidg/nextapi/backend/internal/provider/uptoken"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/provider"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/provider/seedance"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/provider/uptoken"
 )
 
 // Default returns the configured upstream video provider.

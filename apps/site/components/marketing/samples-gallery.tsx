@@ -61,6 +61,12 @@ export function SamplesGallery() {
                 className="group relative overflow-hidden rounded-xl border border-border/60 bg-card/40 transition-all duration-300 hover:scale-[1.02] hover:border-border"
               >
                 <div className={`relative ${aspectClass[s.aspect]} overflow-hidden bg-background`}>
+                  {/* Poster image always visible; video overlays when available */}
+                  <img
+                    src={s.poster}
+                    alt={item.prompt}
+                    className="h-full w-full object-cover"
+                  />
                   <video
                     src={s.video}
                     poster={s.poster}
@@ -70,7 +76,8 @@ export function SamplesGallery() {
                     playsInline
                     preload="metadata"
                     aria-label={item.prompt}
-                    className="h-full w-full object-cover"
+                    className="absolute inset-0 h-full w-full object-cover"
+                    onError={(e) => { (e.target as HTMLVideoElement).style.display = "none" }}
                   />
 
                   {/* Top-left tag chip */}

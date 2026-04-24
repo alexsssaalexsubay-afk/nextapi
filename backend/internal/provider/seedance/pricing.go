@@ -3,7 +3,7 @@ package seedance
 import (
 	"math"
 
-	"github.com/sanidg/nextapi/backend/internal/provider"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/provider"
 )
 
 // Credits are integer cents × 10 (1 credit = $0.001 = 0.1¢).

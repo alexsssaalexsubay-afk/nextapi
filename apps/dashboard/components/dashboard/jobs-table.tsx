@@ -22,69 +22,6 @@ export type JobRow = {
   credits?: string
 }
 
-export const sampleJobs: JobRow[] = [
-  {
-    id: "job_7Hc9Xk2Lm3NpQ4rS",
-    status: "running",
-    model: "seedance-2.0-pro",
-    prompt: "Drone orbiting a lighthouse at dusk, cinematic, 35mm",
-    submitted: "32s",
-    duration: "—",
-    creditsAmount: "1.00",
-    creditsKind: "reserved",
-  },
-  {
-    id: "job_6Gb8Wj1Kl2MoP3qR",
-    status: "queued",
-    model: "seedance-2.0-pro",
-    prompt: "Overhead shot of a ramen bowl, steam rising",
-    submitted: "48s",
-    duration: "—",
-    creditsAmount: "1.00",
-    creditsKind: "reserved",
-  },
-  {
-    id: "job_5Fa7Vi0Jk1LnO2pQ",
-    status: "succeeded",
-    model: "seedance-2.0-pro",
-    prompt: "Two climbers on a sunrise ridge, wide lens",
-    submitted: "4m",
-    duration: "41.2s",
-    creditsAmount: "0.84",
-    creditsKind: "billed",
-  },
-  {
-    id: "job_4E9z6Uh9Ij0KmN1o",
-    status: "succeeded",
-    model: "seedance-2.0-lite",
-    prompt: "Espresso pour in slow motion, macro",
-    submitted: "11m",
-    duration: "22.9s",
-    creditsAmount: "0.38",
-    creditsKind: "billed",
-  },
-  {
-    id: "job_3D8y5Tg8Hi9JlM0n",
-    status: "failed",
-    model: "seedance-2.0-pro",
-    prompt: "Abstract product shot with shifting liquid",
-    submitted: "19m",
-    duration: "12.4s",
-    creditsAmount: "0.00",
-    creditsKind: "refunded",
-  },
-  {
-    id: "job_2C7x4Sf7Gh8IkL9m",
-    status: "succeeded",
-    model: "seedance-2.0-pro",
-    prompt: "Low-angle tracking shot of a skateboarder",
-    submitted: "32m",
-    duration: "39.7s",
-    creditsAmount: "1.00",
-    creditsKind: "billed",
-  },
-]
-
 export function JobsTable({
   rows,
   compact = false,

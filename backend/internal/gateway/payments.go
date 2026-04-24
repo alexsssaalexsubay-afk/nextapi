@@ -6,13 +6,13 @@ import (
 	"os"
 
 	"github.com/gin-gonic/gin"
-	"github.com/sanidg/nextapi/backend/internal/auth"
-	"github.com/sanidg/nextapi/backend/internal/billing"
-	"github.com/sanidg/nextapi/backend/internal/domain"
-	"github.com/sanidg/nextapi/backend/internal/payment"
-	"github.com/sanidg/nextapi/backend/internal/payment/alipay"
-	"github.com/sanidg/nextapi/backend/internal/payment/stripe"
-	"github.com/sanidg/nextapi/backend/internal/payment/wechat"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/auth"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/billing"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/domain"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/payment"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/payment/alipay"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/payment/stripe"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/payment/wechat"
 )
 
 type PaymentHandlers struct {

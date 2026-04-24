@@ -25,13 +25,13 @@ import (
 	"github.com/alicebob/miniredis/v2"
 	"github.com/gin-gonic/gin"
 	"github.com/hibiken/asynq"
-	"github.com/sanidg/nextapi/backend/internal/auth"
-	"github.com/sanidg/nextapi/backend/internal/billing"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/auth"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/billing"
 
-	"github.com/sanidg/nextapi/backend/internal/domain"
-	"github.com/sanidg/nextapi/backend/internal/gateway"
-	"github.com/sanidg/nextapi/backend/internal/job"
-	"github.com/sanidg/nextapi/backend/internal/provider/seedance"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/domain"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/gateway"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/job"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/provider/seedance"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
@@ -88,6 +88,9 @@ func setupContractDB(t *testing.T) *gorm.DB {
 		status TEXT NOT NULL DEFAULT 'running', total_shots INT NOT NULL DEFAULT 0,
 		queued_count INT NOT NULL DEFAULT 0, running_count INT NOT NULL DEFAULT 0,
 		succeeded_count INT NOT NULL DEFAULT 0, failed_count INT NOT NULL DEFAULT 0,
+		max_parallel INT,
+		template_id TEXT,
+		project_id TEXT,
 		manifest TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, completed_at DATETIME)`)
 	return db
 }

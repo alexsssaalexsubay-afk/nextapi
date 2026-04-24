@@ -3,11 +3,12 @@ package gateway
 import (
 	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/sanidg/nextapi/backend/internal/auth"
-	"github.com/sanidg/nextapi/backend/internal/billing"
-	"github.com/sanidg/nextapi/backend/internal/domain"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/auth"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/billing"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/domain"
 )
 
 type Handlers struct {
@@ -89,6 +90,43 @@ func (h *Handlers) CreateKey(c *gin.Context) {
 	})
 }
 
+// parsePGArray converts a Postgres text[] literal like "{a,b}" to a Go slice.
+func parsePGArray(s string) []string {
+	s = strings.TrimPrefix(s, "{")
+	s = strings.TrimSuffix(s, "}")
+	if s == "" {
+		return []string{}
+	}
+	return strings.Split(s, ",")
+}
+
+// toPGArray converts a Go string slice to a Postgres text[] literal.
+func toPGArray(xs []string) string {
+	if len(xs) == 0 {
+		return "{}"
+	}
+	return "{" + strings.Join(xs, ",") + "}"
+}
+
+func keyToJSON(k domain.APIKey) gin.H {
+	return gin.H{
+		"id":                       k.ID,
+		"prefix":                   k.Prefix,
+		"name":                     k.Name,
+		"env":                      k.Env,
+		"kind":                     k.Kind,
+		"allowed_models":           parsePGArray(k.AllowedModels),
+		"monthly_spend_cap_cents":  k.MonthlySpendCapCents,
+		"rate_limit_rpm":           k.RateLimitRPM,
+		"ip_allowlist":             parsePGArray(k.IPAllowlist),
+		"moderation_profile":       k.ModerationProfile,
+		"provisioned_concurrency":  k.ProvisionedConcurrency,
+		"last_used_at":             k.LastUsedAt,
+		"created_at":               k.CreatedAt,
+		"revoked_at":               k.RevokedAt,
+	}
+}
+
 func (h *Handlers) ListKeys(c *gin.Context) {
 	org := auth.OrgFrom(c)
 	keys, err := h.Auth.ListKeys(c.Request.Context(), org.ID)
@@ -98,15 +136,7 @@ func (h *Handlers) ListKeys(c *gin.Context) {
 	}
 	out := make([]gin.H, 0, len(keys))
 	for _, k := range keys {
-		out = append(out, gin.H{
-			"id":                      k.ID,
-			"prefix":                  k.Prefix,
-			"name":                    k.Name,
-			"provisioned_concurrency": k.ProvisionedConcurrency,
-			"last_used_at":            k.LastUsedAt,
-			"created_at":              k.CreatedAt,
-			"revoked_at":              k.RevokedAt,
-		})
+		out = append(out, keyToJSON(k))
 	}
 	c.JSON(http.StatusOK, gin.H{"data": out})
 }
@@ -119,15 +149,7 @@ func (h *Handlers) GetKey(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": gin.H{"code": "not_found"}})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{
-		"id":                      key.ID,
-		"prefix":                  key.Prefix,
-		"name":                    key.Name,
-		"provisioned_concurrency": key.ProvisionedConcurrency,
-		"last_used_at":            key.LastUsedAt,
-		"created_at":              key.CreatedAt,
-		"revoked_at":              key.RevokedAt,
-	})
+	c.JSON(http.StatusOK, keyToJSON(*key))
 }
 
 func (h *Handlers) RevokeKey(c *gin.Context) {
@@ -141,8 +163,13 @@ func (h *Handlers) RevokeKey(c *gin.Context) {
 }
 
 type updateKeyReq struct {
-	Disabled               *bool `json:"disabled"`
-	ProvisionedConcurrency *int  `json:"provisioned_concurrency"`
+	Disabled               *bool    `json:"disabled"`
+	ProvisionedConcurrency *int     `json:"provisioned_concurrency"`
+	MonthlySpendCapCents   *int64   `json:"monthly_spend_cap_cents"`
+	RateLimitRPM           *int     `json:"rate_limit_rpm"`
+	IPAllowlist            []string `json:"ip_allowlist"`
+	AllowedModels          []string `json:"allowed_models"`
+	ModerationProfile      *string  `json:"moderation_profile"`
 }
 
 func (h *Handlers) UpdateKey(c *gin.Context) {
@@ -153,19 +180,46 @@ func (h *Handlers) UpdateKey(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "invalid_request"}})
 		return
 	}
+	db := h.Auth.DB().WithContext(c.Request.Context())
+
 	if r.Disabled != nil {
 		if err := h.Auth.SetDisabled(c.Request.Context(), org.ID, id, *r.Disabled); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "internal_error"}})
 			return
 		}
 	}
+	updates := map[string]any{}
 	if r.ProvisionedConcurrency != nil {
-		h.Auth.DB().WithContext(c.Request.Context()).
-			Model(&domain.APIKey{}).
-			Where("id = ? AND org_id = ?", id, org.ID).
-			Update("provisioned_concurrency", *r.ProvisionedConcurrency)
+		updates["provisioned_concurrency"] = *r.ProvisionedConcurrency
 	}
-	c.JSON(http.StatusOK, gin.H{"ok": true})
+	if r.MonthlySpendCapCents != nil {
+		updates["monthly_spend_cap_cents"] = *r.MonthlySpendCapCents
+	}
+	if r.RateLimitRPM != nil {
+		updates["rate_limit_rpm"] = *r.RateLimitRPM
+	}
+	if r.IPAllowlist != nil {
+		updates["ip_allowlist"] = toPGArray(r.IPAllowlist)
+	}
+	if r.AllowedModels != nil {
+		updates["allowed_models"] = toPGArray(r.AllowedModels)
+	}
+	if r.ModerationProfile != nil {
+		updates["moderation_profile"] = *r.ModerationProfile
+	}
+	if len(updates) > 0 {
+		if err := db.Model(&domain.APIKey{}).Where("id = ? AND org_id = ?", id, org.ID).Updates(updates).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "internal_error"}})
+			return
+		}
+	}
+	// Return updated key.
+	key, err := h.Auth.GetKey(c.Request.Context(), org.ID, id)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{"ok": true})
+		return
+	}
+	c.JSON(http.StatusOK, keyToJSON(*key))
 }
 
 // ---- Auth introspection ----

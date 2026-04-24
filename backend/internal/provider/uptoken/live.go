@@ -14,7 +14,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/sanidg/nextapi/backend/internal/provider"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/provider"
 )
 
 // uptokenBase is the default managed Seedance relay endpoint.

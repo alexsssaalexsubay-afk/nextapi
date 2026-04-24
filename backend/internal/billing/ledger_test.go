@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/sanidg/nextapi/backend/internal/domain"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/domain"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )

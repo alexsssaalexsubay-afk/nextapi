@@ -58,7 +58,7 @@ export default function NewJobPage() {
   const [model, setModel] = useState(FALLBACK_MODELS[0])
   const [duration, setDuration] = useState("6")
   const [resolution, setResolution] = useState("1080p")
-  const [prompt, setPrompt] = useState(t.jobs.new.form.promptPlaceholder)
+  const [prompt, setPrompt] = useState("")
   const [imageUrl, setImageUrl] = useState("")
   const [hasImage, setHasImage] = useState(false)
   const [estimatedCost, setEstimatedCost] = useState(1.0)

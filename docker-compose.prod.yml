@@ -1,6 +1,6 @@
 services:
   backend:
-    image: ghcr.io/sanidg/nextapi-backend:${IMAGE_TAG:-main}
+    image: ghcr.io/alexsssaalexsubay-afk/nextapi-backend:${IMAGE_TAG:-main}
     restart: unless-stopped
     env_file: .env
     command: ["/app/server"]
@@ -18,7 +18,7 @@ services:
       - "127.0.0.1:8080:8080"
 
   worker:
-    image: ghcr.io/sanidg/nextapi-backend:${IMAGE_TAG:-main}
+    image: ghcr.io/alexsssaalexsubay-afk/nextapi-backend:${IMAGE_TAG:-main}
     restart: unless-stopped
     env_file: .env
     command: ["/app/worker"]

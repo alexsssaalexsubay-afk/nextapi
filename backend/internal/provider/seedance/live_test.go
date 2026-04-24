@@ -8,7 +8,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/sanidg/nextapi/backend/internal/provider"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/provider"
 )
 
 // Capture the request body Ark receives so we can assert we didn't

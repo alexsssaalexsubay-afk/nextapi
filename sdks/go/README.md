@@ -5,7 +5,7 @@ Official Go SDK for [NextAPI](https://api.nextapi.top). No external dependencies
 ## Install
 
 ```bash
-go get github.com/sanidg/nextapi-go
+go get github.com/alexsssaalexsubay-afk/nextapi-go
 ```
 
 ## Usage
@@ -17,7 +17,7 @@ import (
 	"context"
 	"fmt"
 
-	nextapi "github.com/sanidg/nextapi-go"
+	nextapi "github.com/alexsssaalexsubay-afk/nextapi-go"
 )
 
 func main() {

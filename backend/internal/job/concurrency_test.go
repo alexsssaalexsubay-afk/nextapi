@@ -8,9 +8,9 @@ import (
 	"testing"
 
 	"github.com/hibiken/asynq"
-	"github.com/sanidg/nextapi/backend/internal/billing"
-	"github.com/sanidg/nextapi/backend/internal/domain"
-	"github.com/sanidg/nextapi/backend/internal/provider/seedance"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/billing"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/domain"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/provider/seedance"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )

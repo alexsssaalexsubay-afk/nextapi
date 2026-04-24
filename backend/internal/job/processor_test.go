@@ -10,9 +10,9 @@ import (
 
 	"github.com/alicebob/miniredis/v2"
 	"github.com/hibiken/asynq"
-	"github.com/sanidg/nextapi/backend/internal/billing"
-	"github.com/sanidg/nextapi/backend/internal/domain"
-	"github.com/sanidg/nextapi/backend/internal/provider"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/billing"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/domain"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/provider"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )

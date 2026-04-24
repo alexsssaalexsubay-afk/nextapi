@@ -1,8 +1,8 @@
 package uptoken
 
 import (
-	"github.com/sanidg/nextapi/backend/internal/provider"
-	"github.com/sanidg/nextapi/backend/internal/provider/seedance"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/provider"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/provider/seedance"
 )
 
 // Estimate reuses the Seedance token/credit model. The managed relay is a thin layer on

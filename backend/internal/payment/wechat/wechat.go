@@ -3,7 +3,7 @@ package wechat
 import (
 	"context"
 
-	"github.com/sanidg/nextapi/backend/internal/payment"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/payment"
 )
 
 type Provider struct{}

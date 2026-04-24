@@ -6,14 +6,14 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/sanidg/nextapi/backend/internal/abuse"
-	"github.com/sanidg/nextapi/backend/internal/auth"
-	"github.com/sanidg/nextapi/backend/internal/idempotency"
-	"github.com/sanidg/nextapi/backend/internal/job"
-	"github.com/sanidg/nextapi/backend/internal/moderation"
-	"github.com/sanidg/nextapi/backend/internal/provider"
-	"github.com/sanidg/nextapi/backend/internal/spend"
-	"github.com/sanidg/nextapi/backend/internal/throughput"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/abuse"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/auth"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/idempotency"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/job"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/moderation"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/provider"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/spend"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/throughput"
 	"gorm.io/gorm"
 )
 

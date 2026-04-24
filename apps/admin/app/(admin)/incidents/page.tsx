@@ -67,6 +67,10 @@ export default function IncidentsPage() {
       description={p.description}
       meta={
         <>
+          <span className="rounded border border-yellow-500/30 bg-yellow-500/10 px-2 py-0.5 font-mono text-[10px] text-yellow-500">
+            PREVIEW · static demo data
+          </span>
+          <span className="text-muted-foreground/50">·</span>
           <span>{p.meta.statusDegraded}</span>
           <span className="text-muted-foreground/50">·</span>
           <span>{p.meta.uptime}</span>

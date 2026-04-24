@@ -18,6 +18,7 @@ import {
 } from "lucide-react"
 import { DashboardShell } from "@/components/dashboard/dashboard-shell"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
   Select,
@@ -26,6 +27,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { ShotEditor } from "@/components/batch/shot-editor"
+import { ConcurrencyIndicator } from "@/components/batch/concurrency-indicator"
+import { ProgressGrid } from "@/components/batch/progress-grid"
 import { useTranslations } from "@/lib/i18n/context"
 import { apiFetch, ApiError } from "@/lib/api"
 import {
@@ -234,6 +238,13 @@ export default function BatchStudioPage() {
   const [running, setRunning] = useState(false)
   const [retrying, setRetrying] = useState(false)
   const [runLabel, setRunLabel] = useState<string | null>(null)
+  const [batchName, setBatchName] = useState("")
+  const [concurrency, setConcurrency] = useState<{
+    current_in_flight: number
+    org_burst_limit: number
+    org_unlimited: boolean
+    max_parallel?: number | null
+  } | null>(null)
 
   const prepared = validateResult?.prepared ?? []
   const hasErrors = (validateResult?.errors.length ?? 0) > 0
@@ -292,6 +303,17 @@ export default function BatchStudioPage() {
         setActiveRun(detail)
         setActiveRunManifest(manifest)
         setOutcomes(buildOutcomesFromRun(jobs, manifest))
+
+        // Extract concurrency info from the batch run response
+        const conc = detailRes.concurrency as Record<string, unknown> | undefined
+        if (conc) {
+          setConcurrency({
+            current_in_flight: Number(conc.current_in_flight ?? 0),
+            org_burst_limit: Number(conc.org_burst_limit ?? 200),
+            org_unlimited: Boolean(conc.org_unlimited),
+            max_parallel: conc.max_parallel != null ? Number(conc.max_parallel) : null,
+          })
+        }
       } catch (e) {
         const message = e instanceof Error ? e.message : tb.loadRunFailed
         toast.error(message)
@@ -371,8 +393,9 @@ export default function BatchStudioPage() {
     setRunning(true)
     setRunLabel(label)
     try {
+      const displayName = batchName.trim() || `${label} · ${new Date().toISOString().slice(0, 16)}`
       const body = {
-        name: `${label} · ${new Date().toISOString().slice(0, 16)}`,
+        name: displayName,
         shots: shots.map((shot) => toBatchShotRequest(shot, model, resolution)),
         manifest: {
           rows: shots.map((shot) => rawRows?.[shot.index] ?? { shot_id: shot.shot_id }),
@@ -529,6 +552,36 @@ export default function BatchStudioPage() {
               </div>
             )}
 
+            {/* Shot editor — editable table after CSV upload */}
+            {prepared.length > 0 && !activeRunId && (
+              <div className="space-y-3">
+                <Label className="text-[12px]">Edit Shots</Label>
+                <ShotEditor
+                  shots={prepared}
+                  onChange={(next) => {
+                    setValidateResult((prev) =>
+                      prev ? { ...prev, prepared: next } : null,
+                    )
+                  }}
+                  disabled={running}
+                />
+              </div>
+            )}
+
+            {/* Batch name input */}
+            {prepared.length > 0 && !activeRunId && (
+              <div className="space-y-1.5">
+                <Label className="text-[12px]">Batch Name (optional)</Label>
+                <Input
+                  value={batchName}
+                  onChange={(e) => setBatchName(e.target.value)}
+                  placeholder="e.g. EP01 Scene 1-10"
+                  className="h-8 max-w-sm text-xs"
+                  disabled={running}
+                />
+              </div>
+            )}
+
             {activeRun && activeSummary && (
               <section className="space-y-4 rounded-lg border border-border/60 bg-card/30 p-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">
@@ -571,6 +624,16 @@ export default function BatchStudioPage() {
                     </div>
                   ))}
                 </div>
+
+                {/* Live concurrency indicator */}
+                {concurrency && activeRun.status === "running" && (
+                  <ConcurrencyIndicator
+                    inFlight={concurrency.current_in_flight}
+                    burstLimit={concurrency.org_burst_limit}
+                    unlimited={concurrency.org_unlimited}
+                    maxParallel={concurrency.max_parallel}
+                  />
+                )}
               </section>
             )}
           </div>
@@ -720,6 +783,22 @@ export default function BatchStudioPage() {
         {outcomes && outcomes.length > 0 && (
           <section>
             <h2 className="mb-3 text-[13px] font-medium tracking-tight">{tb.results}</h2>
+
+            {/* Visual progress grid */}
+            <div className="mb-4">
+              <ProgressGrid
+                shots={outcomes.map((o) => ({
+                  shot_id: o.shot_id,
+                  prompt: o.shot_id,
+                  phase: o.phase as "idle" | "queued" | "running" | "succeeded" | "failed",
+                  jobId: o.jobId,
+                  videoUrl: o.videoUrl,
+                  error: o.error,
+                }))}
+              />
+            </div>
+
+            {/* Detailed table */}
             <div className="overflow-x-auto rounded-lg border border-border/60">
               <table className="w-full min-w-[640px] text-left text-[12px]">
                 <thead className="border-b border-border/60 bg-muted/30 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">

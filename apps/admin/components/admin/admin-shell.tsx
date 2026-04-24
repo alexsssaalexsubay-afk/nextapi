@@ -4,11 +4,14 @@ import Link from "next/link"
 import {
   AlertOctagon,
   Banknote,
+  Building2,
   Gauge,
   LifeBuoy,
+  Megaphone,
   ScrollText,
   ShieldCheck,
   Terminal,
+  Users,
 } from "lucide-react"
 import { Logo } from "@/components/nextapi/logo"
 import { Kbd } from "@/components/nextapi/kbd"
@@ -66,6 +69,14 @@ export function AdminShell({
       items: [
         { label: t.nav.admin.credits, href: "/credits", icon: Banknote },
         { label: t.nav.admin.audit, href: "/audit", icon: ScrollText },
+      ],
+    },
+    {
+      heading: t.nav.admin.customers,
+      items: [
+        { label: t.nav.admin.users, href: "/users", icon: Users },
+        { label: t.nav.admin.organizations, href: "/orgs", icon: Building2 },
+        { label: t.nav.admin.leads, href: "/leads", icon: Megaphone },
       ],
     },
   ]

@@ -10,7 +10,7 @@
 4. As `deploy`:
    ```bash
    cd /opt/nextapi
-   git clone https://github.com/sanidg/nextapi.git .
+   git clone https://github.com/alexsssaalexsubay-afk/nextapi.git .
    cp .env.example .env   # fill in real secrets
    docker compose -f docker-compose.prod.yml pull
    # First cert

@@ -34,10 +34,9 @@ type Invoice = {
 }
 
 type UsagePoint = {
-  date: string
-  reserved_cents: number
-  billed_cents: number
-  refunded_cents: number
+  day: string
+  jobs: number
+  credits_used: number
 }
 
 export default function BillingPage() {
@@ -68,12 +67,12 @@ export default function BillingPage() {
     ? (balance / 100).toFixed(2)
     : loading ? "…" : "—"
 
-  // Compute this-month billed from usage data
+  // Compute this-month usage from real data
   const monthBilled = usage
-    ? (usage.reduce((s, p) => s + (p.billed_cents ?? 0), 0) / 100).toFixed(2)
+    ? (usage.reduce((s, p) => s + (p.credits_used ?? 0), 0) / 100).toFixed(2)
     : "—"
-  const monthReserved = usage
-    ? (usage.reduce((s, p) => s + (p.reserved_cents ?? 0), 0) / 100).toFixed(2)
+  const monthJobs = usage
+    ? usage.reduce((s, p) => s + (p.jobs ?? 0), 0).toLocaleString()
     : "—"
 
   // Invoices are not yet backed by a real endpoint — show an empty state.
@@ -156,8 +155,8 @@ export default function BillingPage() {
           />
           <BalanceCard
             label={t.billing.balance.reserved}
-            value={monthReserved}
-            sub={t.billing.balance.reservedHint}
+            value={monthJobs}
+            sub={t.billing.balance.reservedHint ?? "Jobs this period"}
             loading={loading && usage == null}
           />
           <BalanceCard
@@ -242,8 +241,8 @@ export default function BillingPage() {
             <div className="grid grid-cols-3 divide-x divide-border/60">
               <LedgerRow
                 label={t.billing.reconciliation.reserved}
-                value={monthReserved}
-                sub={t.billing.balance.reservedHint}
+                value={monthJobs}
+                sub={t.billing.balance.reservedHint ?? "Jobs this period"}
               />
               <LedgerRow
                 label={t.billing.reconciliation.billed}
@@ -356,6 +355,11 @@ export default function BillingPage() {
                 ))}
               </tbody>
             </table>
+            {invoices.length === 0 && (
+              <div className="px-5 py-12 text-center text-[13px] text-muted-foreground">
+                No invoices yet. Invoices will appear here once billing is active.
+              </div>
+            )}
           </div>
         </section>
 

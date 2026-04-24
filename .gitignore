@@ -24,6 +24,7 @@ coverage/
 # Go
 /backend/bin/
 /backend/tmp/
+/backend/server
 *.test
 *.out
 coverage.out
@@ -42,3 +43,6 @@ logs/
 # Docker
 .docker/
 .wrangler/
+
+# Local MCP / browser artifacts
+.playwright-mcp/

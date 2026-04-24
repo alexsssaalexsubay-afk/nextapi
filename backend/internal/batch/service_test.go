@@ -6,11 +6,11 @@ import (
 	"testing"
 
 	"github.com/hibiken/asynq"
-	"github.com/sanidg/nextapi/backend/internal/billing"
-	"github.com/sanidg/nextapi/backend/internal/domain"
-	"github.com/sanidg/nextapi/backend/internal/job"
-	"github.com/sanidg/nextapi/backend/internal/provider"
-	"github.com/sanidg/nextapi/backend/internal/provider/seedance"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/billing"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/domain"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/job"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/provider"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/provider/seedance"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
@@ -61,6 +61,9 @@ func setupDB(t *testing.T) *gorm.DB {
 		running_count INT NOT NULL DEFAULT 0,
 		succeeded_count INT NOT NULL DEFAULT 0,
 		failed_count INT NOT NULL DEFAULT 0,
+		max_parallel INT,
+		template_id TEXT,
+		project_id TEXT,
 		manifest TEXT,
 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP, completed_at DATETIME)`)
 	return db

@@ -60,10 +60,11 @@ func (SpendAlert) TableName() string { return "spend_alerts" }
 type ThroughputConfig struct {
 	OrgID                string `gorm:"type:uuid;primaryKey"`
 	ReservedConcurrency  int    `gorm:"not null;default:2"`
-	BurstConcurrency     int    `gorm:"not null;default:8"`
+	BurstConcurrency     int    `gorm:"not null;default:200"`
 	PriorityLane         string `gorm:"not null;default:'standard'"`
 	RPMLimit             int    `gorm:"not null;default:60"`
 	QueueTier            string `gorm:"not null;default:'default'"`
+	Unlimited            bool   `gorm:"not null;default:false"`
 	UpdatedAt            time.Time
 }
 

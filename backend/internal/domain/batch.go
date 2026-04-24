@@ -17,6 +17,9 @@ type BatchRun struct {
 	RunningCount   int             `gorm:"not null;default:0;column:running_count"`
 	SucceededCount int             `gorm:"not null;default:0;column:succeeded_count"`
 	FailedCount    int             `gorm:"not null;default:0;column:failed_count"`
+	MaxParallel    *int            `gorm:"column:max_parallel"`
+	TemplateID     *string         `gorm:"type:uuid;column:template_id"`
+	ProjectID      *string         `gorm:"type:uuid;column:project_id"`
 	Manifest       json.RawMessage `gorm:"type:jsonb"`
 	CreatedAt      time.Time
 	CompletedAt    *time.Time

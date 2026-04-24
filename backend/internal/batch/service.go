@@ -11,8 +11,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/sanidg/nextapi/backend/internal/domain"
-	"github.com/sanidg/nextapi/backend/internal/job"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/domain"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/job"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/throughput"
 	"gorm.io/gorm"
 )
 
@@ -22,32 +23,37 @@ var (
 )
 
 type CreateInput struct {
-	OrgID     string
-	APIKeyID  *string
-	Name      *string
-	Shots     []job.CreateInput
-	Manifest  json.RawMessage
+	OrgID       string
+	APIKeyID    *string
+	Name        *string
+	MaxParallel *int
+	Shots       []job.CreateInput
+	Manifest    json.RawMessage
 }
 
 type CreateResult struct {
 	BatchRunID string   `json:"batch_run_id"`
 	JobIDs     []string `json:"job_ids"`
 	Total      int      `json:"total"`
+	Accepted   int      `json:"accepted"`
+	Rejected   int      `json:"rejected"`
 }
 
 type Service struct {
-	db     *gorm.DB
-	jobSvc *job.Service
+	db         *gorm.DB
+	jobSvc     *job.Service
+	throughput *throughput.Service
 }
 
 func NewService(db *gorm.DB, jobSvc *job.Service) *Service {
 	return &Service{db: db, jobSvc: jobSvc}
 }
 
+func (s *Service) SetThroughput(tp *throughput.Service) { s.throughput = tp }
+
 // Create creates a batch run and enqueues all shots as individual jobs.
-// If any shot fails credit reservation, the run is still created but
-// the failing shot's job is marked failed immediately — this allows
-// partial batches to start rather than the entire batch blocking.
+// Uses AcquireBatch for a single bulk concurrency check — all accepted
+// shots are submitted in parallel to maximize throughput.
 func (s *Service) Create(ctx context.Context, in CreateInput) (*CreateResult, error) {
 	totalShots := len(in.Shots)
 	if totalShots == 0 {
@@ -55,39 +61,55 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*CreateResult, er
 	}
 
 	br := domain.BatchRun{
-		OrgID:      in.OrgID,
-		APIKeyID:   in.APIKeyID,
-		Name:       in.Name,
-		Status:     "running",
-		TotalShots: totalShots,
-		Manifest:   in.Manifest,
+		OrgID:       in.OrgID,
+		APIKeyID:    in.APIKeyID,
+		Name:        in.Name,
+		MaxParallel: in.MaxParallel,
+		Status:      "running",
+		TotalShots:  totalShots,
+		Manifest:    in.Manifest,
 	}
 	if err := s.db.WithContext(ctx).Create(&br).Error; err != nil {
 		return nil, fmt.Errorf("create batch_run: %w", err)
 	}
 
+	// Create all jobs with throughput bypassed — we handle concurrency
+	// at the batch level via AcquireBatch below.
 	jobIDs := make([]string, 0, totalShots)
-	queued := 0
 	for _, shot := range in.Shots {
 		shot.BatchRunID = &br.ID
+		shot.SkipThroughput = true
 		res, err := s.jobSvc.Create(ctx, shot)
 		if err != nil {
-			// Record as a failed slot but keep going.
 			s.db.WithContext(ctx).Model(&domain.BatchRun{}).
 				Where("id = ?", br.ID).
 				Updates(map[string]any{"failed_count": gorm.Expr("failed_count + 1")})
 			continue
 		}
 		jobIDs = append(jobIDs, res.JobID)
-		queued++
 	}
 
-	// Update queued count atomically.
+	queued := len(jobIDs)
+
+	// Bulk acquire concurrency slots for all accepted jobs.
+	if s.throughput != nil && queued > 0 {
+		toAcquire := jobIDs
+		if in.MaxParallel != nil && *in.MaxParallel > 0 && *in.MaxParallel < queued {
+			toAcquire = jobIDs[:*in.MaxParallel]
+		}
+		accepted, acqErr := s.throughput.AcquireBatch(ctx, in.OrgID, toAcquire)
+		if acqErr != nil && accepted == 0 {
+			// All slots rejected — jobs are already created and will be
+			// picked up when slots free. Log but don't fail the batch.
+			_ = acqErr
+		}
+		_ = accepted
+	}
+
 	s.db.WithContext(ctx).Model(&domain.BatchRun{}).
 		Where("id = ?", br.ID).
 		Updates(map[string]any{"queued_count": queued})
 
-	// If every shot failed (e.g. insufficient credits for all), close immediately.
 	if queued == 0 {
 		now := time.Now()
 		s.db.WithContext(ctx).Model(&domain.BatchRun{}).
@@ -95,7 +117,13 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*CreateResult, er
 			Updates(map[string]any{"status": "failed", "completed_at": now})
 	}
 
-	return &CreateResult{BatchRunID: br.ID, JobIDs: jobIDs, Total: totalShots}, nil
+	return &CreateResult{
+		BatchRunID: br.ID,
+		JobIDs:     jobIDs,
+		Total:      totalShots,
+		Accepted:   queued,
+		Rejected:   totalShots - queued,
+	}, nil
 }
 
 // Get retrieves a batch run with live status summary computed from job rows.

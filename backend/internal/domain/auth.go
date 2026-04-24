@@ -46,12 +46,19 @@ type OrgMember struct {
 }
 
 type APIKey struct {
-	ID                     string `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
-	OrgID                  string `gorm:"type:uuid;not null;index"`
-	Prefix                 string `gorm:"not null;index"`
-	Hash                   string `gorm:"not null"`
-	Name                   string `gorm:"not null"`
-	ProvisionedConcurrency int    `gorm:"not null;default:5"`
+	ID                     string     `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
+	OrgID                  string     `gorm:"type:uuid;not null;index"`
+	Prefix                 string     `gorm:"not null;index"`
+	Hash                   string     `gorm:"not null"`
+	Name                   string     `gorm:"not null"`
+	Env                    string     `gorm:"column:env;not null;default:'live'"`
+	Kind                   string     `gorm:"column:kind;not null;default:'business'"`
+	AllowedModels          string     `gorm:"column:allowed_models;type:text[];default:'{}'"`
+	MonthlySpendCapCents   *int64     `gorm:"column:monthly_spend_cap_cents"`
+	RateLimitRPM           *int       `gorm:"column:rate_limit_rpm"`
+	IPAllowlist            string     `gorm:"column:ip_allowlist;type:text[];default:'{}'"`
+	ModerationProfile      *string    `gorm:"column:moderation_profile"`
+	ProvisionedConcurrency int        `gorm:"not null;default:5"`
 	LastUsedAt             *time.Time
 	CreatedAt              time.Time
 	RevokedAt              *time.Time

@@ -17,72 +17,6 @@ type Row = {
   severity: "high" | "medium" | "low"
 }
 
-const MOCK_ROWS: Row[] = [
-  {
-    id: "job_7Hc9Xk2Lm3NpQ4rS",
-    org: "linear-media",
-    rule: "upstream_timeout > 300s",
-    reason: "Seedance never returned · reservation 1.00 held",
-    age: "2m",
-    credits: "refund 1.00",
-    severity: "high",
-  },
-  {
-    id: "job_4Pt8Yz0Qj9WxVb1A",
-    org: "acme-prod",
-    rule: "webhook.retries > 5",
-    reason: "POST https://acme.com/hooks/nextapi returning 503",
-    age: "6m",
-    credits: "—",
-    severity: "high",
-  },
-  {
-    id: "job_2Lm0FhRk8NeGxT3C",
-    org: "parallax-studio",
-    rule: "queued > ETA + 60s",
-    reason: "Stuck in queued 340s over Seedance ETA of 28s",
-    age: "11m",
-    credits: "—",
-    severity: "medium",
-  },
-  {
-    id: "job_9Qr5Dp7Bj1OeNm6X",
-    org: "northwind-labs",
-    rule: "reservation.unsettled > 10m",
-    reason: "Upstream 202 but no terminal state · release hold",
-    age: "18m",
-    credits: "release 1.00",
-    severity: "medium",
-  },
-  {
-    id: "job_6Xw3Nv2Hc8MkLp4Y",
-    org: "acme-prod",
-    rule: "content_policy.manual_review",
-    reason: "Operator review requested by linked workflow",
-    age: "24m",
-    credits: "refund 1.00",
-    severity: "high",
-  },
-  {
-    id: "job_3Bf0Kq9Uj2IwAa5R",
-    org: "stellar-post",
-    rule: "billed != reserved",
-    reason: "Billed 2.00 vs reservation 1.00 · investigate ledger",
-    age: "31m",
-    credits: "hold",
-    severity: "high",
-  },
-  {
-    id: "job_8Vn7Mj4Tp1LyFb2Q",
-    org: "acme-prod",
-    rule: "cdn.upload.failed",
-    reason: "S3 PUT failed for output · 2 retries remaining",
-    age: "44m",
-    credits: "—",
-    severity: "low",
-  },
-]
-
 function formatJobAge(createdAt: string): string {
   const t0 = new Date(createdAt).getTime()
   if (Number.isNaN(t0)) return "—"
@@ -187,7 +121,7 @@ function mapModerationToRow(e: ApiModerationEvent, orgNames: Map<string, string>
 export default function AttentionQueuePage() {
   const t = useTranslations()
   const p = t.admin.attentionPage
-  const [rows, setRows] = useState<Row[]>(MOCK_ROWS)
+  const [rows, setRows] = useState<Row[]>([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
 
@@ -243,7 +177,7 @@ export default function AttentionQueuePage() {
         if (jobsOk || modOk) {
           setRows(merged.length > 0 ? merged : [])
         } else {
-          setRows(MOCK_ROWS)
+          setRows([])
         }
         if (errParts.length > 0) {
           setLoadError(`Failed to load: ${errParts.join(", ")}`)

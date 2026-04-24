@@ -13,7 +13,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/sanidg/nextapi/backend/internal/provider"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/provider"
 )
 
 // arkBase is the Volcengine Ark API endpoint that fronts Seedance models.

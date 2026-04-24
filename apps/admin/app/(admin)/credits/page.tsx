@@ -8,69 +8,21 @@ import { cn } from "@/lib/utils"
 import { useTranslations } from "@/lib/i18n/context"
 
 type Entry = {
-  ts: string
-  org: string
-  delta: string
-  reason: string
-  by: string
-  ref: string
-  approved?: string
+  ID?: number; id?: number
+  OrgID?: string; org_id?: string
+  DeltaCredits?: number; delta_credits?: number
+  DeltaCents?: number; delta_cents?: number
+  Reason?: string; reason?: string
+  Note?: string; note?: string
+  CreatedAt?: string; created_at?: string
 }
 
-const MOCK_LEDGER: Entry[] = [
-  {
-    ts: "2026-04-22 21:48:12",
-    org: "linear-media",
-    delta: "+120.00",
-    reason: "Goodwill · Seedance outage 2026-04-21",
-    by: "m. winters",
-    ref: "adj_7Hc9Xk",
-    approved: "j. li",
-  },
-  {
-    ts: "2026-04-22 19:12:03",
-    org: "acme-prod",
-    delta: "−8.42",
-    reason: "Correction · double-billed batch 4F2a",
-    by: "s. patel",
-    ref: "adj_4Pt8Yz",
-    approved: "m. winters",
-  },
-  {
-    ts: "2026-04-22 17:04:41",
-    org: "parallax-studio",
-    delta: "+500.00",
-    reason: "Annual top-up · invoice #2026-0412",
-    by: "billing-bot",
-    ref: "adj_2Lm0Fh",
-  },
-  {
-    ts: "2026-04-22 14:22:08",
-    org: "northwind-labs",
-    delta: "+14.00",
-    reason: "Refund · webhook retry storm",
-    by: "j. li",
-    ref: "adj_9Qr5Dp",
-    approved: "m. winters",
-  },
-  {
-    ts: "2026-04-22 11:51:19",
-    org: "stellar-post",
-    delta: "−4.20",
-    reason: "Chargeback reversal",
-    by: "billing-bot",
-    ref: "adj_6Xw3Nv",
-  },
-  {
-    ts: "2026-04-21 23:02:55",
-    org: "acme-prod",
-    delta: "+80.00",
-    reason: "SLA credit · p99 breach 2026-04-20",
-    by: "m. winters",
-    ref: "adj_3Bf0Kq",
-    approved: "j. li",
-  },
-]
+function eid(e: Entry) { return e.ID ?? e.id ?? 0 }
+function eorg(e: Entry) { return e.OrgID ?? e.org_id ?? "" }
+function edelta(e: Entry) { return e.DeltaCredits ?? e.delta_credits ?? 0 }
+function ereason(e: Entry) { return e.Reason ?? e.reason ?? "" }
+function enote(e: Entry) { return e.Note ?? e.note ?? "" }
+function ets(e: Entry) { return e.CreatedAt ?? e.created_at ?? "" }
 
 type ApiOrg = {
   ID?: string
@@ -99,6 +51,20 @@ export default function CreditsPage() {
   const [adjustOk, setAdjustOk] = useState(false)
   const [otpOpen, setOtpOpen] = useState(false)
   const [pendingAdjust, setPendingAdjust] = useState<{ orgId: string; delta: number; note: string } | null>(null)
+  const [ledger, setLedger] = useState<Entry[]>([])
+  const [ledgerLoading, setLedgerLoading] = useState(true)
+
+  function loadLedger() {
+    setLedgerLoading(true)
+    adminFetch("/billing/ledger?limit=200")
+      .then((res: any) => {
+        if (Array.isArray(res?.data)) setLedger(res.data)
+      })
+      .catch(() => {})
+      .finally(() => setLedgerLoading(false))
+  }
+
+  useEffect(() => { loadLedger() }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -170,6 +136,7 @@ export default function CreditsPage() {
       setAdjustOk(true)
       setDeltaInput("")
       setAdjustNote("")
+      loadLedger()
     } catch (err) {
       console.error(err)
       setAdjustError(err instanceof Error ? err.message : "Adjustment failed")
@@ -313,45 +280,38 @@ export default function CreditsPage() {
           </form>
         </section>
 
-        {/* Ledger — currently a static demo until /v1/internal/admin/credits/ledger ships. */}
-        <div className="rounded-md border border-yellow-500/30 bg-yellow-500/5 px-4 py-2 font-mono text-[11px] text-yellow-500">
-          PREVIEW · the rows below are sample data. Real adjustments are recorded in
-          <code className="mx-1">credits_ledger</code> and visible in <code>/audit</code> after every change.
-        </div>
+        {/* Ledger */}
         <section className="overflow-hidden rounded-xl border border-border/80 bg-card/40">
-          <div className="grid grid-cols-[180px_160px_100px_1fr_120px_120px] items-center gap-4 border-b border-border/60 bg-background/40 px-5 py-2 font-mono text-[10.5px] uppercase tracking-[0.14em] text-muted-foreground">
+          <div className="grid grid-cols-[180px_160px_100px_1fr_120px] items-center gap-4 border-b border-border/60 bg-background/40 px-5 py-2 font-mono text-[10.5px] uppercase tracking-[0.14em] text-muted-foreground">
             <span>{p.columns.timestamp}</span>
             <span>{p.columns.organization}</span>
             <span>{p.columns.delta}</span>
             <span>{p.columns.reason}</span>
-            <span>{p.columns.operator}</span>
             <span>{p.columns.ref}</span>
           </div>
           <ul className="divide-y divide-border/60 font-mono text-[11.5px]">
-            {MOCK_LEDGER.map((e) => {
-              const positive = e.delta.startsWith("+")
+            {ledgerLoading ? (
+              <li className="px-5 py-8 text-center text-muted-foreground">Loading…</li>
+            ) : ledger.length === 0 ? (
+              <li className="px-5 py-8 text-center text-muted-foreground">No ledger entries yet</li>
+            ) : ledger.map((e) => {
+              const delta = edelta(e)
+              const positive = delta > 0
               return (
                 <li
-                  key={e.ref}
-                  className="grid grid-cols-[180px_160px_100px_1fr_120px_120px] items-center gap-4 px-5 py-2.5 transition-colors hover:bg-card/60"
+                  key={eid(e)}
+                  className="grid grid-cols-[180px_160px_100px_1fr_120px] items-center gap-4 px-5 py-2.5 transition-colors hover:bg-card/60"
                 >
-                  <span className="text-muted-foreground">{e.ts}</span>
-                  <span className="truncate text-foreground">{e.org}</span>
+                  <span className="text-muted-foreground">{new Date(ets(e)).toLocaleString()}</span>
+                  <span className="truncate text-foreground">{eorg(e)}</span>
                   <span className={positive ? "text-status-success" : "text-status-failed"}>
-                    {e.delta}
+                    {positive ? "+" : ""}{delta.toFixed(2)}
                   </span>
                   <div className="min-w-0 text-muted-foreground">
-                    <span className="truncate text-foreground/90">{e.reason}</span>
+                    <span className="truncate text-foreground/90">{ereason(e)}</span>
+                    {enote(e) && <span className="ml-2 text-muted-foreground/70">· {enote(e)}</span>}
                   </div>
-                  <div className="flex flex-col">
-                    <span className="text-foreground/90">{e.by}</span>
-                    {e.approved && (
-                      <span className="text-[10px] text-muted-foreground">
-                        {p.approvedLabel} · {e.approved}
-                      </span>
-                    )}
-                  </div>
-                  <span className="text-signal">{e.ref}</span>
+                  <span className="text-signal">#{eid(e)}</span>
                 </li>
               )
             })}
@@ -359,6 +319,10 @@ export default function CreditsPage() {
         </section>
 
         {/* Reconciliation hint */}
+        {/* Reconciliation — static preview until real-time reconciliation ships */}
+        <div className="rounded-md border border-yellow-500/30 bg-yellow-500/5 px-4 py-2 font-mono text-[11px] text-yellow-500">
+          PREVIEW · reconciliation data below is illustrative. Real-time drift tracking is on the roadmap.
+        </div>
         <section className="rounded-xl border border-border/80 bg-card/40 p-5">
           <h2 className="text-[13.5px] font-medium tracking-tight">{p.reconciliation.title}</h2>
           <p className="mt-1 max-w-[680px] text-[12.5px] leading-relaxed text-muted-foreground">

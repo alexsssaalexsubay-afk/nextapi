@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sanidg/nextapi/backend/internal/domain"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/domain"
 	"gorm.io/gorm"
 )
 

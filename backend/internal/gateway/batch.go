@@ -7,17 +7,19 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/sanidg/nextapi/backend/internal/auth"
-	batchsvc "github.com/sanidg/nextapi/backend/internal/batch"
-	"github.com/sanidg/nextapi/backend/internal/domain"
-	"github.com/sanidg/nextapi/backend/internal/infra/httpx"
-	"github.com/sanidg/nextapi/backend/internal/job"
-	"github.com/sanidg/nextapi/backend/internal/provider"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/auth"
+	batchsvc "github.com/alexsssaalexsubay-afk/nextapi/backend/internal/batch"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/domain"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/infra/httpx"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/job"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/provider"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/throughput"
 )
 
 // BatchHandlers exposes first-class batch run endpoints under /v1/batch.
 type BatchHandlers struct {
-	Svc *batchsvc.Service
+	Svc        *batchsvc.Service
+	Throughput *throughput.Service
 }
 
 // POST /v1/batch/runs
@@ -42,9 +44,10 @@ func (h *BatchHandlers) Create(c *gin.Context) {
 	apiKeyID := getAPIKeyID(c)
 
 	var req struct {
-		Name     *string                      `json:"name"`
-		Shots    []provider.GenerationRequest `json:"shots" binding:"required,min=1,max=500"`
-		Manifest json.RawMessage              `json:"manifest"`
+		Name        *string                      `json:"name"`
+		MaxParallel *int                         `json:"max_parallel"`
+		Shots       []provider.GenerationRequest `json:"shots" binding:"required,min=1,max=500"`
+		Manifest    json.RawMessage              `json:"manifest"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		httpx.BadRequest(c, "invalid_request", "invalid request body")
@@ -61,11 +64,12 @@ func (h *BatchHandlers) Create(c *gin.Context) {
 	}
 
 	res, err := h.Svc.Create(c.Request.Context(), batchsvc.CreateInput{
-		OrgID:    orgID,
-		APIKeyID: apiKeyID,
-		Name:     req.Name,
-		Shots:    shots,
-		Manifest: req.Manifest,
+		OrgID:       orgID,
+		APIKeyID:    apiKeyID,
+		Name:        req.Name,
+		MaxParallel: req.MaxParallel,
+		Shots:       shots,
+		Manifest:    req.Manifest,
 	})
 	if err != nil {
 		httpx.InternalError(c, "batch_create_failed", "failed to create batch run")
@@ -76,6 +80,8 @@ func (h *BatchHandlers) Create(c *gin.Context) {
 		"batch_run_id": res.BatchRunID,
 		"job_ids":      res.JobIDs,
 		"total":        res.Total,
+		"accepted":     res.Accepted,
+		"rejected":     res.Rejected,
 		"status":       "running",
 		"created_at":   time.Now().UTC().Format(time.RFC3339),
 	})
@@ -101,13 +107,28 @@ func (h *BatchHandlers) Get(c *gin.Context) {
 		return
 	}
 
+	// Fetch live concurrency info for the response.
+	var concurrency gin.H
+	if h.Throughput != nil {
+		cfg, inFlight, _ := h.Throughput.Get(c.Request.Context(), orgID)
+		if cfg != nil {
+			concurrency = gin.H{
+				"max_parallel":     br.MaxParallel,
+				"org_burst_limit":  cfg.BurstConcurrency,
+				"org_unlimited":    cfg.Unlimited,
+				"current_in_flight": inFlight,
+			}
+		}
+	}
+
 	c.JSON(http.StatusOK, gin.H{
-		"id":         br.ID,
-		"org_id":     br.OrgID,
-		"name":       br.Name,
-		"status":     br.Status,
-		"summary":    summary,
-		"created_at": br.CreatedAt.UTC().Format(time.RFC3339),
+		"id":          br.ID,
+		"org_id":      br.OrgID,
+		"name":        br.Name,
+		"status":      br.Status,
+		"summary":     summary,
+		"concurrency": concurrency,
+		"created_at":  br.CreatedAt.UTC().Format(time.RFC3339),
 		"completed_at": func() *string {
 			if br.CompletedAt == nil {
 				return nil

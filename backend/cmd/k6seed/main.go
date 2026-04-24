@@ -12,11 +12,11 @@ import (
 	"os"
 	"time"
 
-	"github.com/sanidg/nextapi/backend/internal/auth"
-	"github.com/sanidg/nextapi/backend/internal/billing"
-	"github.com/sanidg/nextapi/backend/internal/domain"
-	"github.com/sanidg/nextapi/backend/internal/infra/config"
-	"github.com/sanidg/nextapi/backend/internal/infra/db"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/auth"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/billing"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/domain"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/infra/config"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/infra/db"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )

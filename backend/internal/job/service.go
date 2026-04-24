@@ -7,12 +7,12 @@ import (
 	"time"
 
 	"github.com/hibiken/asynq"
-	"github.com/sanidg/nextapi/backend/internal/billing"
-	"github.com/sanidg/nextapi/backend/internal/domain"
-	"github.com/sanidg/nextapi/backend/internal/moderation"
-	"github.com/sanidg/nextapi/backend/internal/provider"
-	"github.com/sanidg/nextapi/backend/internal/spend"
-	"github.com/sanidg/nextapi/backend/internal/throughput"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/billing"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/domain"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/moderation"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/provider"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/spend"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/throughput"
 	"gorm.io/gorm"
 )
 
@@ -47,10 +47,11 @@ func (s *Service) SetThroughput(tp *throughput.Service) { s.throughput = tp }
 func (s *Service) SetModeration(ms *moderation.Service) { s.moderation = ms }
 
 type CreateInput struct {
-	OrgID      string
-	APIKeyID   *string
-	BatchRunID *string
-	Request    provider.GenerationRequest
+	OrgID           string
+	APIKeyID        *string
+	BatchRunID      *string
+	SkipThroughput  bool // batch service handles throughput externally via AcquireBatch
+	Request         provider.GenerationRequest
 }
 
 type CreateResult struct {
@@ -155,7 +156,8 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*CreateResult, er
 	}
 
 	// Throughput: acquire concurrency slot before enqueuing.
-	if s.throughput != nil {
+	// Batch submissions handle throughput externally via AcquireBatch.
+	if s.throughput != nil && !in.SkipThroughput {
 		apiKeyStr := ""
 		if in.APIKeyID != nil {
 			apiKeyStr = *in.APIKeyID

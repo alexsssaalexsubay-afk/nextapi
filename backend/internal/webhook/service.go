@@ -13,8 +13,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/sanidg/nextapi/backend/internal/domain"
-	"github.com/sanidg/nextapi/backend/internal/infra/metrics"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/domain"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/infra/metrics"
 	"gorm.io/gorm"
 )
 

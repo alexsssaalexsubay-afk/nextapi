@@ -5,7 +5,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/sanidg/nextapi/backend/internal/provider"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/provider"
 )
 
 // Dreamina / Seedance 2.0 接入点（火山控制台「配置规格」中的模型名）。

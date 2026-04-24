@@ -11,26 +11,28 @@ import (
 	"github.com/hibiken/asynq"
 	"github.com/pressly/goose/v3"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/sanidg/nextapi/backend/internal/abuse"
-	"github.com/sanidg/nextapi/backend/internal/auth"
-	batchsvc "github.com/sanidg/nextapi/backend/internal/batch"
-	"github.com/sanidg/nextapi/backend/internal/billing"
-	"github.com/sanidg/nextapi/backend/internal/gateway"
-	"github.com/sanidg/nextapi/backend/internal/idempotency"
-	"github.com/sanidg/nextapi/backend/internal/infra/config"
-	"github.com/sanidg/nextapi/backend/internal/infra/db"
-	"github.com/sanidg/nextapi/backend/internal/infra/httpx"
-	"github.com/sanidg/nextapi/backend/internal/infra/metrics"
-	mw "github.com/sanidg/nextapi/backend/internal/infra/middleware"
-	rdc "github.com/sanidg/nextapi/backend/internal/infra/redis"
-	"github.com/sanidg/nextapi/backend/internal/job"
-	"github.com/sanidg/nextapi/backend/internal/moderation"
-	"github.com/sanidg/nextapi/backend/internal/notify"
-	"github.com/sanidg/nextapi/backend/internal/providerfactory"
-	"github.com/sanidg/nextapi/backend/internal/ratelimit"
-	"github.com/sanidg/nextapi/backend/internal/spend"
-	"github.com/sanidg/nextapi/backend/internal/throughput"
-	"github.com/sanidg/nextapi/backend/internal/webhook"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/abuse"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/auth"
+	batchsvc "github.com/alexsssaalexsubay-afk/nextapi/backend/internal/batch"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/billing"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/gateway"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/idempotency"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/infra/config"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/infra/db"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/infra/httpx"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/infra/metrics"
+	mw "github.com/alexsssaalexsubay-afk/nextapi/backend/internal/infra/middleware"
+	rdc "github.com/alexsssaalexsubay-afk/nextapi/backend/internal/infra/redis"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/job"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/moderation"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/notify"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/providerfactory"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/ratelimit"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/spend"
+	tmplsvc "github.com/alexsssaalexsubay-afk/nextapi/backend/internal/template"
+	projsvc "github.com/alexsssaalexsubay-afk/nextapi/backend/internal/project"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/throughput"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/webhook"
 )
 
 func main() {
@@ -187,13 +189,35 @@ func main() {
 
 	// Batch runs — first-class batch entity.
 	batchService := batchsvc.NewService(gormDB, jobSvc)
-	bh2 := &gateway.BatchHandlers{Svc: batchService}
+	batchService.SetThroughput(throughputSvc)
+	bh2 := &gateway.BatchHandlers{Svc: batchService, Throughput: throughputSvc}
 	api.POST("/batch/runs", idem.Handle(), bh2.Create)
 	api.GET("/batch/runs", bh2.List)
 	api.GET("/batch/runs/:id", bh2.Get)
 	api.GET("/batch/runs/:id/jobs", bh2.ListJobs)
 	api.POST("/batch/runs/:id/retry-failed", bh2.RetryFailed)
 	api.GET("/batch/runs/:id/manifest", bh2.DownloadManifest)
+
+	// Templates
+	tmplService := tmplsvc.NewService(gormDB)
+	tmplH := &gateway.TemplateHandlers{Svc: tmplService}
+	api.GET("/templates", tmplH.List)
+	api.GET("/templates/:id", tmplH.Get)
+	api.POST("/templates", tmplH.Create)
+	api.DELETE("/templates/:id", tmplH.Delete)
+
+	// Projects & workspace
+	projService := projsvc.NewService(gormDB)
+	projH := &gateway.ProjectHandlers{Svc: projService}
+	api.GET("/projects", projH.List)
+	api.POST("/projects", projH.Create)
+	api.GET("/projects/:id", projH.Get)
+	api.PATCH("/projects/:id", projH.Update)
+	api.DELETE("/projects/:id", projH.Delete)
+	api.GET("/projects/:id/assets", projH.ListAssets)
+	api.POST("/projects/:id/assets", projH.CreateAsset)
+	api.DELETE("/projects/:id/assets/:assetId", projH.DeleteAsset)
+
 	api.GET("/videos", vids.List)
 	api.GET("/videos/:id", vids.Get)
 	api.DELETE("/videos/:id", vids.Delete)
@@ -274,6 +298,9 @@ func main() {
 	internal.POST("/orgs/:id/pause", ah.PauseOrg)
 	internal.GET("/jobs", ah.Jobs)
 	internal.POST("/jobs/:id/cancel", ah.CancelJob)
+	internal.GET("/billing/ledger", ah.AllLedger)
+	internal.GET("/leads", ah.Leads)
+	internal.PATCH("/leads/:id/contacted", ah.MarkLeadContacted)
 	internal.POST("/credits/adjust", ah.AdjustCredits)
 	internal.POST("/orgs/:id/unpause", sh.Unpause)
 	internal.PUT("/orgs/:id/throughput", th.AdminUpsertThroughput)

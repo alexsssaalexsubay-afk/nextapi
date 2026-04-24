@@ -8,11 +8,11 @@ import (
 	"github.com/alicebob/miniredis/v2"
 	"github.com/hibiken/asynq"
 	"github.com/redis/go-redis/v9"
-	"github.com/sanidg/nextapi/backend/internal/billing"
-	"github.com/sanidg/nextapi/backend/internal/domain"
-	"github.com/sanidg/nextapi/backend/internal/provider"
-	"github.com/sanidg/nextapi/backend/internal/provider/seedance"
-	"github.com/sanidg/nextapi/backend/internal/throughput"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/billing"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/domain"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/provider"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/provider/seedance"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/throughput"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
@@ -60,8 +60,9 @@ func setupDB(t *testing.T) *gorm.DB {
 		note TEXT NOT NULL DEFAULT '', created_at DATETIME DEFAULT CURRENT_TIMESTAMP)`)
 	db.Exec(`CREATE TABLE throughput_config (
 		org_id TEXT PRIMARY KEY, reserved_concurrency INT NOT NULL DEFAULT 2,
-		burst_concurrency INT NOT NULL DEFAULT 8, priority_lane TEXT NOT NULL DEFAULT 'standard',
+		burst_concurrency INT NOT NULL DEFAULT 200, priority_lane TEXT NOT NULL DEFAULT 'standard',
 		rpm_limit INT NOT NULL DEFAULT 60, queue_tier TEXT NOT NULL DEFAULT 'default',
+		unlimited BOOLEAN NOT NULL DEFAULT 0,
 		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP)`)
 	return db
 }

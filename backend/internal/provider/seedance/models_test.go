@@ -4,7 +4,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/sanidg/nextapi/backend/internal/provider"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/provider"
 )
 
 func TestResolveArkModel_KnownPublicID(t *testing.T) {
