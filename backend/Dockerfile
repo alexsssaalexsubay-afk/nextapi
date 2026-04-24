@@ -6,12 +6,14 @@ RUN go mod download
 COPY . .
 RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o /out/server ./cmd/server
 RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o /out/worker ./cmd/worker
+RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o /out/accountctl ./cmd/accountctl
 
 FROM alpine:3.20
 RUN apk add --no-cache ca-certificates wget
 WORKDIR /app
 COPY --from=build /out/server /app/server
 COPY --from=build /out/worker /app/worker
+COPY --from=build /out/accountctl /app/accountctl
 COPY migrations /app/migrations
 EXPOSE 8080
 CMD ["/app/server"]
