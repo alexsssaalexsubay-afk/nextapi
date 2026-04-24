@@ -501,16 +501,18 @@ export default function BatchStudioPage() {
           <div className="space-y-4">
             <div>
               <Label className="text-[12px]">{tb.uploadCsv}</Label>
-              <label className="mt-2 flex cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed border-border/80 bg-muted/20 px-4 py-8 transition-colors hover:bg-muted/35">
-                <Upload className="mb-2 size-8 text-muted-foreground" />
-                <span className="text-[13px] text-foreground">{csvName ?? tb.dropHint}</span>
+              <div className="relative mt-2 min-h-[9rem] rounded-lg border border-dashed border-border/80 bg-muted/20 transition-colors hover:bg-muted/35">
                 <input
                   type="file"
                   accept=".csv,text/csv"
-                  className="hidden"
+                  className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
                   onChange={(e) => void onFile(e.target.files?.[0] ?? null)}
                 />
-              </label>
+                <div className="pointer-events-none flex min-h-[9rem] flex-col items-center justify-center px-4 py-8 text-center">
+                  <Upload className="mb-2 size-8 text-muted-foreground" />
+                  <span className="text-[13px] text-foreground">{csvName ?? tb.dropHint}</span>
+                </div>
+              </div>
             </div>
 
             {validateResult && (

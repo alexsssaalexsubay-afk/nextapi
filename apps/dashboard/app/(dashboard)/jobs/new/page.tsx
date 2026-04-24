@@ -9,6 +9,7 @@ import { CodeBlock } from "@/components/nextapi/code-block"
 import { useTranslations } from "@/lib/i18n/context"
 import { cn } from "@/lib/utils"
 import { apiFetch, ApiError } from "@/lib/api"
+import { jobApiErrorMessage } from "@/lib/api-error-i18n"
 import { toast } from "sonner"
 
 type Mode = "text" | "image"
@@ -33,21 +34,6 @@ function estimateCostCredits(duration: number, resolution: string, hasImage: boo
   return Math.ceil((current / base) * 100) / 100
 }
 
-const KNOWN_ERROR_CODES = [
-  "spend_cap_exceeded",
-  "moderation_blocked",
-  "insufficient_credits",
-  "rate_limited",
-  "idempotency_conflict",
-  "idempotent_request_in_progress",
-] as const
-
-type KnownErrorCode = typeof KNOWN_ERROR_CODES[number]
-
-function isKnownErrorCode(code: string | undefined): code is KnownErrorCode {
-  return KNOWN_ERROR_CODES.includes(code as KnownErrorCode)
-}
-
 export default function NewJobPage() {
   const t = useTranslations()
   const router = useRouter()
@@ -60,7 +46,7 @@ export default function NewJobPage() {
   const [resolution, setResolution] = useState("1080p")
   const [prompt, setPrompt] = useState("")
   const [imageUrl, setImageUrl] = useState("")
-  const [hasImage, setHasImage] = useState(false)
+  const [imageUploading, setImageUploading] = useState(false)
   const [estimatedCost, setEstimatedCost] = useState(1.0)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -85,10 +71,10 @@ export default function NewJobPage() {
     if (debounceRef.current) clearTimeout(debounceRef.current)
     debounceRef.current = setTimeout(() => {
       setEstimatedCost(
-        estimateCostCredits(Number(duration), resolution, mode === "image" && hasImage),
+        estimateCostCredits(Number(duration), resolution, mode === "image" && !!imageUrl.trim()),
       )
     }, 300)
-  }, [duration, resolution, mode, hasImage])
+  }, [duration, resolution, mode, imageUrl])
 
   useEffect(() => {
     updateCost()
@@ -97,15 +83,33 @@ export default function NewJobPage() {
     }
   }, [updateCost])
 
-  const getErrorMessage = (err: unknown): string => {
-    if (err instanceof ApiError) {
-      const code = err.code
-      if (isKnownErrorCode(code)) {
-        return t.jobs.errors[code]
-      }
-      return err.message
+  const onImagePicked = async (file: File) => {
+    if (!file.type.startsWith("image/")) {
+      toast.error(t.jobs.new.form.imageUploadFailed)
+      return
     }
-    return t.jobs.errors.unknown
+    setImageUploading(true)
+    try {
+      const body = new FormData()
+      body.append("file", file)
+      const res = (await apiFetch("/v1/me/uploads/image", {
+        method: "POST",
+        body,
+      })) as { url?: string }
+      if (typeof res?.url === "string" && res.url) {
+        setImageUrl(res.url)
+        return
+      }
+      toast.error(t.jobs.new.form.imageUploadFailed)
+    } catch (e) {
+      if (e instanceof ApiError && e.code === "uploads_unavailable") {
+        toast.error(t.jobs.new.form.uploadsUnavailable)
+      } else {
+        toast.error(t.jobs.new.form.imageUploadFailed)
+      }
+    } finally {
+      setImageUploading(false)
+    }
   }
 
   const submitJob = async () => {
@@ -117,8 +121,8 @@ export default function NewJobPage() {
       duration_seconds: Number(duration),
       resolution,
     }
-    if (mode === "image" && imageUrl) {
-      input.image_url = imageUrl
+    if (mode === "image" && imageUrl.trim()) {
+      input.image_url = imageUrl.trim()
     }
     const body = { model, input }
     try {
@@ -135,7 +139,7 @@ export default function NewJobPage() {
         router.push("/jobs")
       }
     } catch (err) {
-      const msg = getErrorMessage(err)
+      const msg = jobApiErrorMessage(t, err)
       setSubmitError(msg)
       toast.error(msg)
     } finally {
@@ -242,41 +246,80 @@ export default function NewJobPage() {
                 label={t.jobs.new.form.sourceImage}
                 hint={t.jobs.new.form.sourceImageHint}
               >
-                {hasImage ? (
-                  <div className="flex items-center gap-3 rounded-md border border-border/80 bg-background p-3">
-                    <div className="relative size-16 shrink-0 overflow-hidden rounded-md border border-border/60 bg-[oklch(0.14_0.01_220)]">
-                      <div className="absolute inset-0 bg-gradient-to-br from-[oklch(0.25_0.05_170)] via-[oklch(0.18_0.03_200)] to-[oklch(0.11_0.004_260)]" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <input
-                        value={imageUrl}
-                        onChange={(e) => setImageUrl(e.target.value)}
-                        placeholder="https://cdn.example.com/image.jpg"
-                        className="h-8 w-full rounded-md border border-border/80 bg-background px-2 font-mono text-[12px] text-foreground focus:border-signal/50 focus:outline-none"
-                      />
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => { setHasImage(false); setImageUrl("") }}
-                      className="inline-flex size-7 items-center justify-center rounded-md border border-border/80 text-muted-foreground hover:text-foreground"
-                      aria-label={t.jobs.new.form.sourceImageReplace}
-                    >
-                      <X className="size-3.5" />
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setHasImage(true)}
-                    className="group flex w-full flex-col items-center justify-center gap-2 rounded-md border border-dashed border-border/80 bg-background py-6 text-muted-foreground transition-colors hover:border-signal/50 hover:text-foreground"
+                <div className="space-y-3">
+                  <div
+                    className="relative min-h-[120px] overflow-hidden rounded-md border border-dashed border-border/80 bg-background transition-colors hover:border-signal/50"
+                    onDragOver={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      const f = e.dataTransfer.files?.[0]
+                      if (f) void onImagePicked(f)
+                    }}
                   >
-                    <Upload className="size-5" />
-                    <span className="text-[12.5px]">{t.jobs.new.form.sourceImageDrop}</span>
-                    <span className="font-mono text-[11px] text-muted-foreground">
-                      Enter image URL
+                    <input
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp,image/gif"
+                      className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
+                      disabled={imageUploading}
+                      onChange={(e) => {
+                        const f = e.target.files?.[0]
+                        e.target.value = ""
+                        if (f) void onImagePicked(f)
+                      }}
+                    />
+                    <div className="pointer-events-none flex min-h-[120px] flex-col items-center justify-center gap-1.5 py-5 text-center text-muted-foreground">
+                      {imageUploading ? (
+                        <span className="text-[12.5px] text-foreground/80">
+                          {t.jobs.new.form.imageUploading}
+                        </span>
+                      ) : (
+                        <>
+                          <Upload className="size-5" />
+                          <span className="text-[12.5px]">{t.jobs.new.form.sourceImageDrop}</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                  <div>
+                    <span className="mb-1 block text-[10.5px] text-muted-foreground">
+                      {t.jobs.new.form.sourceImageOrPaste}
                     </span>
-                  </button>
-                )}
+                    <input
+                      value={imageUrl}
+                      onChange={(e) => setImageUrl(e.target.value)}
+                      placeholder={t.jobs.new.form.sourceImageUrlPlaceholder}
+                      className="h-9 w-full rounded-md border border-border/80 bg-background px-2 font-mono text-[12px] text-foreground focus:border-signal/50 focus:outline-none"
+                    />
+                  </div>
+                  {imageUrl.trim() && (
+                    <div className="flex items-center gap-3 rounded-md border border-border/80 bg-background p-2 pr-1">
+                      {/* eslint-disable-next-line @next/next/no-img-element -- user-supplied or presigned URL */}
+                      <img
+                        src={imageUrl.trim()}
+                        alt=""
+                        className="h-16 w-16 shrink-0 rounded object-cover"
+                      />
+                      <p className="min-w-0 flex-1 truncate font-mono text-[11px] text-muted-foreground">
+                        {imageUrl.trim()}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => setImageUrl("")}
+                        className="inline-flex size-7 shrink-0 items-center justify-center rounded-md border border-border/80 text-muted-foreground hover:text-foreground"
+                        aria-label={t.jobs.new.form.sourceImageReplace}
+                      >
+                        <X className="size-3.5" />
+                      </button>
+                    </div>
+                  )}
+                  <p className="text-[10.5px] leading-relaxed text-muted-foreground">
+                    {t.jobs.new.form.apiCapabilitiesNote}
+                  </p>
+                </div>
               </Field>
             )}
 
@@ -313,10 +356,10 @@ export default function NewJobPage() {
               </div>
               <button
                 onClick={submitJob}
-                disabled={submitting || (mode === "image" && !hasImage)}
+                disabled={submitting || (mode === "image" && !imageUrl.trim())}
                 className={cn(
                   "inline-flex h-9 items-center gap-1.5 rounded-md bg-foreground px-4 text-[13px] font-medium text-background transition-all",
-                  (submitting || (mode === "image" && !hasImage)) && "opacity-60",
+                  (submitting || (mode === "image" && !imageUrl.trim())) && "opacity-60",
                 )}
               >
                 {submitting ? (

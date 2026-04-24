@@ -33,6 +33,7 @@ import (
 	projsvc "github.com/alexsssaalexsubay-afk/nextapi/backend/internal/project"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/throughput"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/webhook"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/storage/r2"
 )
 
 func main() {
@@ -236,6 +237,14 @@ func main() {
 	api.POST("/webhooks/:id/rotate", wdh.RotateSecret)
 
 	// Self-service key management (sk_* keys can manage their own org's keys)
+	uploadH := &gateway.MediaUploadHandlers{}
+	if r2c, r2err := r2.New(); r2err == nil {
+		uploadH.R2 = r2c
+	} else {
+		log.Printf("r2: %v (dashboard image upload disabled; configure R2 env)", r2err)
+	}
+	api.POST("/me/uploads/image", uploadH.PostImage)
+
 	api.GET("/me/keys", h.ListKeys)
 	api.POST("/me/keys", h.CreateKey)
 	api.GET("/me/keys/:id", h.GetKey)

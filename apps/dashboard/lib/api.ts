@@ -154,7 +154,9 @@ export async function apiFetch(path: string, options: RequestInit = {}) {
     const headers: Record<string, string> = {
       ...(key ? { Authorization: `Bearer ${key}` } : {}),
     }
-    if (options.body) headers["Content-Type"] = "application/json"
+    if (options.body && !(options.body instanceof FormData)) {
+      headers["Content-Type"] = "application/json"
+    }
     Object.assign(headers, options.headers as Record<string, string> | undefined)
     return fetch(`${API_URL}${path}`, { ...options, headers })
   }
@@ -169,7 +171,8 @@ export async function apiFetch(path: string, options: RequestInit = {}) {
   }
 
   // 5xx network errors: retry once with exponential backoff (500ms, 1000ms).
-  if (res.status >= 500) {
+  // Do not retry mutating FormData (e.g. R2 upload) to avoid duplicate objects.
+  if (res.status >= 500 && !(options.body instanceof FormData)) {
     await sleep(500)
     res = await doFetch(key)
     if (res.status >= 500) {

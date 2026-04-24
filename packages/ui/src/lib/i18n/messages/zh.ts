@@ -861,9 +861,17 @@ export const zh: Messages = {
         modeImageToVideo: "图生视频",
         modeHint: "Seedance 2.0 双模式通用，Pro 最高支持 4K / 30s。",
         sourceImage: "源图",
-        sourceImageHint: "PNG 或 JPG，最大 8 MB。将作为生成视频的首帧。",
+        sourceImageHint:
+          "PNG 或 JPG，最大 8 MB。需可公网访问的 https:// 链接，除非已配置 R2 本地上传。将作为生成首帧。",
         sourceImageDrop: "拖入图片或点击上传",
+        sourceImageOrPaste: "或粘贴公网 https 图片链接",
+        sourceImageUrlPlaceholder: "https://…",
+        imageUploading: "正在上传图片… / Uploading image…",
+        imageUploadFailed: "上传失败。请使用公网 https 图片，或检查文件（≤8 MB、图片类型）。/ Could not upload. Try a direct https link or check file type.",
+        uploadsUnavailable: "当前环境未开放本地上传。请在下方填写公网 https 图片链。/ File upload is not enabled. Paste a public https URL below.",
         sourceImageReplace: "更换图片",
+        apiCapabilitiesNote:
+          "OpenAPI 另支持 `video_urls`（视频参考/类视频生视频）、`image_urls` 多图、首/尾帧、长宽比、音轨、seed 等。详见火山/豆包（Ark）「视频生成」官方文档。/ The public API also supports V2V-style video_urls, first/last frame, aspect ratio, and more.",
         duration: "时长",
         resolution: "分辨率",
         aspectRatio: "长宽比",
