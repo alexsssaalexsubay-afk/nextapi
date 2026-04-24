@@ -75,6 +75,15 @@ func main() {
 			}
 		}
 		if *credits > 0 {
+			var creditRows int64
+			if err := tx.Model(&domain.CreditsLedger{}).
+				Where("org_id = ? AND note = ?", org.ID, "initial credits by accountctl").
+				Count(&creditRows).Error; err != nil {
+				return err
+			}
+			if creditRows > 0 {
+				return nil
+			}
 			return tx.Create(&domain.CreditsLedger{
 				OrgID:        org.ID,
 				DeltaCredits: *credits,
