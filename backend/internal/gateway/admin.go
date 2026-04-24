@@ -3,19 +3,21 @@ package gateway
 import (
 	"context"
 	"crypto/subtle"
+	"encoding/json"
 	"fmt"
+	"math"
 	"net/http"
 	"os"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/auth"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/billing"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/domain"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/spend"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/throughput"
+	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
 
@@ -372,9 +374,9 @@ func (h *AdminHandlers) CancelJob(c *gin.Context) {
 	}
 
 	RecordAudit(ctx, h.DB, c, "job.cancel", "job", job.ID, gin.H{
-		"org_id":           job.OrgID,
-		"refunded_cents":   job.ReservedCredits,
-		"original_status":  job.Status,
+		"org_id":          job.OrgID,
+		"refunded_cents":  job.ReservedCredits,
+		"original_status": job.Status,
 	})
 
 	c.JSON(http.StatusOK, gin.H{"affected": res.RowsAffected})
@@ -417,6 +419,16 @@ type Overview struct {
 	CreditsUsedAll int64 `json:"credits_used_all_time"`
 }
 
+// countCreditsUsedAllTime sums -delta_credits for every spending row across
+// all orgs (usage, consumption, reconciliation, manual debits, etc.).
+func countCreditsUsedAllTime(ctx context.Context, db *gorm.DB) int64 {
+	var n int64
+	_ = db.WithContext(ctx).Model(&domain.CreditsLedger{}).
+		Where("delta_credits < 0").
+		Select("COALESCE(SUM(-delta_credits), 0)").Scan(&n)
+	return n
+}
+
 func (h *AdminHandlers) OverviewStats(c *gin.Context) {
 	ctx := c.Request.Context()
 	var o Overview
@@ -424,12 +436,111 @@ func (h *AdminHandlers) OverviewStats(c *gin.Context) {
 	h.DB.WithContext(ctx).Model(&domain.Job{}).
 		Where("created_at >= ?", time.Now().Add(-24*time.Hour)).
 		Count(&o.JobsLast24h)
-	// Sum every credit-consuming entry (anything with a negative delta:
-	// usage, reconciliation, manual debit). The previous query only saw
-	// `reconciliation` rows and reported a misleading "credits used"
-	// figure that was wildly low.
-	h.DB.WithContext(ctx).Model(&domain.CreditsLedger{}).
-		Where("delta_credits < 0").
-		Select("COALESCE(SUM(-delta_credits), 0)").Scan(&o.CreditsUsedAll)
+	o.CreditsUsedAll = countCreditsUsedAllTime(ctx, h.DB)
 	c.JSON(http.StatusOK, o)
+}
+
+type operatorBudgetResp struct {
+	BudgetCredits      *int64     `json:"budget_credits"`
+	CreditsUsedAllTime int64      `json:"credits_used_all_time"`
+	RemainingCredits   *int64     `json:"remaining_credits"`
+	UpdatedAt          *time.Time `json:"updated_at"`
+}
+
+// GetOperatorBudget returns the row in operator_platform_budget plus derived usage.
+// Used is the same aggregate as the overview (all negative ledger deltas, all orgs).
+func (h *AdminHandlers) GetOperatorBudget(c *gin.Context) {
+	ctx := c.Request.Context()
+	used := countCreditsUsedAllTime(ctx, h.DB)
+	var row domain.OperatorPlatformBudget
+	if err := h.DB.WithContext(ctx).Where("id = ?", 1).First(&row).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusOK, operatorBudgetResp{
+				CreditsUsedAllTime: used,
+			})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "internal_error"}})
+		return
+	}
+	resp := operatorBudgetResp{
+		BudgetCredits:      row.BudgetCredits,
+		CreditsUsedAllTime: used,
+		UpdatedAt:          &row.UpdatedAt,
+	}
+	if row.BudgetCredits != nil {
+		rem := *row.BudgetCredits - used
+		if rem < 0 {
+			rem = 0
+		}
+		resp.RemainingCredits = &rem
+	}
+	c.JSON(http.StatusOK, resp)
+}
+
+// PutOperatorBudget sets or clears the operator upstream budget. Requires email OTP.
+// Body must include key "budget_credits": a non‑negative number, or null to clear.
+// Omitted "budget_credits" key is rejected to avoid accidentally wiping the row.
+func (h *AdminHandlers) PutOperatorBudget(c *gin.Context) {
+	if !RequireOTP(c, h.DB) {
+		return
+	}
+	raw, err := c.GetRawData()
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "bad_request", "message": "invalid request body"}})
+		return
+	}
+	var m map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &m); err != nil || len(m) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "bad_request", "message": "expected JSON with budget_credits key"}})
+		return
+	}
+	rawBC, has := m["budget_credits"]
+	if !has {
+		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "bad_request", "message": "budget_credits is required (number or null to clear)"}})
+		return
+	}
+	var budgetVal *int64
+	if len(rawBC) == 0 || string(rawBC) == "null" {
+		budgetVal = nil
+	} else {
+		var f float64
+		if err := json.Unmarshal(rawBC, &f); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "bad_request", "message": "budget_credits must be a number or null"}})
+			return
+		}
+		if f < 0 || f > float64(math.MaxInt64) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "bad_request", "message": "budget_credits out of range"}})
+			return
+		}
+		// Reject non-integers
+		if float64(int64(f)) != f {
+			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "bad_request", "message": "budget_credits must be a whole number"}})
+			return
+		}
+		n := int64(f)
+		budgetVal = &n
+	}
+	now := time.Now()
+	row := domain.OperatorPlatformBudget{
+		ID:            1,
+		BudgetCredits: budgetVal,
+		UpdatedAt:     now,
+	}
+	ctx := c.Request.Context()
+	if err := h.DB.WithContext(ctx).Save(&row).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "internal_error"}})
+		return
+	}
+	RecordAudit(ctx, h.DB, c, "operator.budget", "operator_platform_budget", "1", gin.H{
+		"budget_credits": budgetVal,
+	})
+	if h.Notify != nil {
+		h.Notify.SendOwner(
+			"[NextAPI] platform upstream budget updated",
+			fmt.Sprintf("Operator %s set platform budget to %v credits (row id=1).",
+				resolveActor(c), budgetVal),
+		)
+	}
+	h.GetOperatorBudget(c)
 }

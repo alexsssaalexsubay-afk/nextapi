@@ -299,6 +299,8 @@ func main() {
 	internal.GET("/jobs", ah.Jobs)
 	internal.POST("/jobs/:id/cancel", ah.CancelJob)
 	internal.GET("/billing/ledger", ah.AllLedger)
+	internal.GET("/operator-budget", ah.GetOperatorBudget)
+	internal.PUT("/operator-budget", ah.PutOperatorBudget)
 	internal.GET("/leads", ah.Leads)
 	internal.PATCH("/leads/:id/contacted", ah.MarkLeadContacted)
 	internal.POST("/credits/adjust", ah.AdjustCredits)

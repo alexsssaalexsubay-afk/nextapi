@@ -20,6 +20,7 @@ export const zh: Messages = {
 
   common: {
     signIn: "登录",
+    signOut: "登出",
     getStarted: "开始使用",
     docs: "开发文档",
     pricing: "定价",
@@ -543,6 +544,7 @@ export const zh: Messages = {
       attention: "待处理队列",
       incidents: "事故",
       credits: "点数调整",
+      platformBudget: "平台总预算",
       audit: "审计日志",
       users: "用户",
       organizations: "组织",
@@ -1358,6 +1360,32 @@ export const zh: Messages = {
           d30: "近 30 天",
         },
       },
+    },
+    budgetPage: {
+      title: "上游总预算（平台）",
+      description:
+        "填写你针对 uptoken/中继 管控的总点数（与账本单位一致：1 点 ≈ ¥0.01）。不会自动请求上游余额；请按对方提供的额度或控制台手工同步。",
+      statusHeading: "当前状态",
+      used: "全平台历史消耗（点）",
+      usedHint: "所有组织账本中负向点数之和，与概览一致。",
+      budget: "你设定的总预算（点）",
+      budgetHint: "手填。不填则只显示消耗、不显示进度条。",
+      remaining: "剩余（预算 − 已用）",
+      remainingHint: "最低为 0。清除预算后不再显示进度。",
+      noRemaining: "未设上限",
+      barLabel: "已用 / 总预算",
+      formTitle: "设置或清除预算",
+      formSub:
+        "保存到数据库，需邮件 OTP。不会修改上游 key；key 在服务器 .env 中（PROVIDER_MODE、SEEDANCE_RELAY_API_KEY 等）。",
+      clearCheck: "清除总预算（仅看消耗、不设上限）",
+      save: "保存（需 OTP）",
+      saved: "已保存。",
+      errorInvalid: "请输入非负整数，或勾选「清除总预算」。",
+      disclaimer:
+        "此为内部对账。中继/uptoken 账户实有余额在供应商侧，请从对方控制台或商务侧同步到本页总预算，便于在 NextAPI 里看剩余。",
+      otpClear: "清除平台总预算上限",
+      otpSet: "将上限设为",
+      updated: "最近更新",
     },
     leadsPage: {
       title: "销售线索",

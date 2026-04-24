@@ -37,6 +37,28 @@ function clearSession() {
   document.cookie = `${SESSION_COOKIE}=; path=/; max-age=0; SameSite=Lax; Secure`
 }
 
+const opSessionHeader = "X-Op-Session"
+
+/**
+ * Revokes the operator session on the server (best-effort) and clears
+ * local storage + cookie. Safe to call when already logged out.
+ */
+export async function logoutAdmin(): Promise<void> {
+  if (typeof window === "undefined") return
+  const token = sessionStorage.getItem(SESSION_KEY)
+  if (token) {
+    try {
+      await fetch(`${API_URL}/v1/internal/admin/session`, {
+        method: "DELETE",
+        headers: { [opSessionHeader]: token },
+      })
+    } catch {
+      // still clear local state
+    }
+  }
+  clearSession()
+}
+
 export async function loginAdmin(email: string, password: string): Promise<void> {
   const res = await fetch(`${API_URL}/v1/internal/admin/session/password`, {
     method: "POST",
@@ -154,5 +176,4 @@ export async function requestOTP(
 }
 
 // Header name constants mirrored from Go (keep in sync with admin_session.go).
-const opSessionHeader = "X-Op-Session"
 const opOTPHeader = "X-Op-OTP"

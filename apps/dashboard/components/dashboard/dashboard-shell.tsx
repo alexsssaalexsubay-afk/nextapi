@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import {
   Activity,
   BookOpen,
@@ -11,6 +12,7 @@ import {
   Key,
   LayoutDashboard,
   LifeBuoy,
+  LogOut,
   Search,
   Webhook,
 } from "lucide-react"
@@ -20,7 +22,7 @@ import { ThemeToggle } from "@/components/nextapi/theme-toggle"
 import { LocaleToggle } from "@/components/nextapi/locale-toggle"
 import { useTranslations } from "@/lib/i18n/context"
 import { cn } from "@/lib/utils"
-import { apiFetch } from "@/lib/api"
+import { apiFetch, logoutAccount } from "@/lib/api"
 
 export function DashboardShell({
   children,
@@ -36,9 +38,23 @@ export function DashboardShell({
   actions?: React.ReactNode
 }) {
   const t = useTranslations()
+  const router = useRouter()
   const [orgName, setOrgName] = useState<string | null>(null)
   const [balance, setBalance] = useState<number | null>(null)
   const [initials, setInitials] = useState<string>("—")
+  const [signingOut, setSigningOut] = useState(false)
+
+  async function onSignOut() {
+    if (signingOut) return
+    setSigningOut(true)
+    try {
+      await logoutAccount()
+    } finally {
+      setSigningOut(false)
+      router.push("/sign-in")
+      router.refresh()
+    }
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -197,6 +213,17 @@ export function DashboardShell({
             >
               {t.common.topUp}
             </Link>
+            <button
+              type="button"
+              onClick={() => {
+                void onSignOut()
+              }}
+              disabled={signingOut}
+              className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border/80 bg-card/50 px-2.5 text-[12px] text-muted-foreground transition-colors hover:border-border hover:bg-card hover:text-foreground disabled:opacity-50"
+            >
+              <LogOut className="size-3.5" />
+              {signingOut ? t.common.loading : t.common.signOut}
+            </button>
             <LocaleToggle />
             <ThemeToggle />
             <div className="flex size-7 items-center justify-center rounded-full border border-border/80 bg-card font-mono text-[11px] text-foreground">

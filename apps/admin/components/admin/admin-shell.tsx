@@ -1,17 +1,21 @@
 "use client"
 
 import Link from "next/link"
+import { useRouter } from "next/navigation"
+import { useState } from "react"
 import {
   AlertOctagon,
   Banknote,
   Building2,
   Gauge,
   LifeBuoy,
+  LogOut,
   Megaphone,
   ScrollText,
   ShieldCheck,
   Terminal,
   Users,
+  Wallet,
 } from "lucide-react"
 import { Logo } from "@/components/nextapi/logo"
 import { Kbd } from "@/components/nextapi/kbd"
@@ -19,6 +23,7 @@ import { ThemeToggle } from "@/components/nextapi/theme-toggle"
 import { LocaleToggle } from "@/components/nextapi/locale-toggle"
 import { MfaBanner } from "@/components/admin/mfa-banner"
 import { useTranslations } from "@/lib/i18n/context"
+import { logoutAdmin } from "@/lib/admin-api"
 import { cn } from "@/lib/utils"
 
 type NavItem = {
@@ -44,6 +49,20 @@ export function AdminShell({
   meta?: React.ReactNode
 }) {
   const t = useTranslations()
+  const router = useRouter()
+  const [signingOut, setSigningOut] = useState(false)
+
+  async function onSignOut() {
+    if (signingOut) return
+    setSigningOut(true)
+    try {
+      await logoutAdmin()
+    } finally {
+      setSigningOut(false)
+      router.push("/sign-in")
+      router.refresh()
+    }
+  }
 
   const sections: { heading: string; items: NavItem[] }[] = [
     {
@@ -68,6 +87,7 @@ export function AdminShell({
       heading: t.nav.admin.ledger,
       items: [
         { label: t.nav.admin.credits, href: "/credits", icon: Banknote },
+        { label: t.nav.admin.platformBudget, href: "/budget", icon: Wallet },
         { label: t.nav.admin.audit, href: "/audit", icon: ScrollText },
       ],
     },
@@ -204,6 +224,17 @@ export function AdminShell({
               </span>
               api · 142 rps · p99 412ms
             </div>
+            <button
+              type="button"
+              onClick={() => {
+                void onSignOut()
+              }}
+              disabled={signingOut}
+              className="inline-flex h-7 items-center gap-1.5 rounded-md border border-border/80 bg-card/40 px-2.5 text-[11.5px] text-muted-foreground transition-colors hover:border-border hover:bg-card hover:text-foreground disabled:opacity-50"
+            >
+              <LogOut className="size-3.5" />
+              {signingOut ? t.common.loading : t.common.signOut}
+            </button>
             <LocaleToggle />
             <ThemeToggle />
           </div>

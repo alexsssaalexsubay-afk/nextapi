@@ -18,6 +18,7 @@ export const en = {
 
   common: {
     signIn: "Sign in",
+    signOut: "Sign out",
     getStarted: "Get started",
     docs: "Documentation",
     pricing: "Pricing",
@@ -552,6 +553,7 @@ export const en = {
       attention: "Attention queue",
       incidents: "Incidents",
       credits: "Credit adjustments",
+      platformBudget: "Platform budget",
       audit: "Audit log",
       users: "Users",
       organizations: "Organizations",
@@ -1370,6 +1372,31 @@ export const en = {
           d30: "last 30d",
         },
       },
+    },
+    budgetPage: {
+      title: "Platform upstream budget",
+      description:
+        "Set a total point ceiling you track against uptoken/relay (same unit as the ledger: 1 pt ≈ ¥0.01). Does not call the upstream API for balance; fill from your handoff or console.",
+      statusHeading: "Status",
+      used: "All-time usage (platform)",
+      usedHint: "Sum of all negative credit deltas in every org — same as overview.",
+      budget: "Your budget cap (points)",
+      budgetHint: "Hand-entered. Leave unset to only show usage, no bar.",
+      remaining: "Remaining (cap − used)",
+      remainingHint: "Floored at zero. Clear the cap to hide the bar.",
+      noRemaining: "Not set (no cap)",
+      barLabel: "Used of cap",
+      formTitle: "Set or clear the cap",
+      formSub: "Saves to the database. Email OTP required. Does not change upstream keys; configure those in server .env (PROVIDER_MODE, SEEDANCE_RELAY_API_KEY, etc.).",
+      clearCheck: "Clear cap (no total budget / show usage only)",
+      save: "Save (OTP)",
+      saved: "Saved.",
+      errorInvalid: "Enter a non-negative whole number, or check “clear cap”.",
+      disclaimer:
+        "This is internal bookkeeping. Your relay/uptoken account balance is on the vendor side; sync this number manually (e.g. from their console) so you can see headroom in one place.",
+      otpClear: "Clear platform budget cap (show usage only)",
+      otpSet: "Set cap to",
+      updated: "last updated",
     },
     leadsPage: {
       title: "Sales leads",
