@@ -34,6 +34,8 @@
 
 ### `app.nextapi.top` and `admin.nextapi.top` on Cloudflare Workers
 
+**Database:** frontends do **not** connect to PostgreSQL. Only the **API** on the VPS does (`DATABASE_URL` in `/opt/nextapi/.env` inside Docker). Workers and Pages call **`NEXT_PUBLIC_API_URL` → `https://api.nextapi.top`**, which is the single path to your data.
+
 Both SSR apps deploy with the OpenNext adapter:
 
 | Worker              | Deploy command                               | Domain              |
