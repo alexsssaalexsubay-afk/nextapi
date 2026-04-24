@@ -12,6 +12,17 @@ const (
 	CtxRequestID    = "nextapi.request_id"
 )
 
+// SecureHeaders sets baseline security response headers on every request.
+func SecureHeaders() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Header("X-Content-Type-Options", "nosniff")
+		c.Header("X-Frame-Options", "DENY")
+		c.Header("Referrer-Policy", "strict-origin-when-cross-origin")
+		c.Header("Strict-Transport-Security", "max-age=63072000; includeSubDomains; preload")
+		c.Next()
+	}
+}
+
 // RequestID middleware assigns a UUID per request, puts it in context and
 // sets response header.
 func RequestID() gin.HandlerFunc {

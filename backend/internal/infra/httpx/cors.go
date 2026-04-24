@@ -15,6 +15,11 @@ func CORS(allowedOrigins []string) gin.HandlerFunc {
 
 	return func(c *gin.Context) {
 		origin := c.GetHeader("Origin")
+
+		// Vary: Origin must be set unconditionally so shared caches
+		// (CDN, browser) never serve a response with the wrong ACAO.
+		c.Header("Vary", "Origin")
+
 		if origin == "" {
 			c.Next()
 			return

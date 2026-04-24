@@ -110,7 +110,7 @@ func main() {
 		log.Fatalf("trusted proxies: %v", err)
 	}
 	r.RemoteIPHeaders = []string{"CF-Connecting-IP", "X-Real-IP", "X-Forwarded-For"}
-	r.Use(gin.Recovery(), httpx.RequestID(), metrics.Middleware(), mw.RequestLogger(gormDB))
+	r.Use(gin.Recovery(), httpx.SecureHeaders(), httpx.RequestID(), metrics.Middleware(), mw.RequestLogger(gormDB))
 	r.Use(httpx.CORS([]string{
 		"https://nextapi.top",
 		"https://app.nextapi.top",

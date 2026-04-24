@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -90,6 +91,15 @@ func (h *VideosHandlers) Create(c *gin.Context) {
 	}
 	if input.DurationSeconds <= 0 {
 		input.DurationSeconds = 5
+	}
+
+	if strings.TrimSpace(input.Prompt) == "" && input.ImageURL == nil &&
+		len(input.ImageURLs) == 0 && len(input.VideoURLs) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{
+			"code":    "invalid_request",
+			"message": "prompt or at least one media input is required",
+		}})
+		return
 	}
 
 	// SSRF guard: the worker fetches image_url server-side. Block
