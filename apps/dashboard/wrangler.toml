@@ -3,6 +3,10 @@ name = "nextapi-dashboard"
 main = ".open-next/worker.js"
 compatibility_date = "2026-04-23"
 compatibility_flags = ["nodejs_compat"]
+# OpenNext bundles with esbuild keep_names; next-themes injects a stringified
+# script that calls __name(), which is undefined in the browser → console error.
+# https://opennext.js.org/cloudflare/howtos/keep_names
+keep_names = false
 
 routes = [
   { pattern = "app.nextapi.top", custom_domain = true },

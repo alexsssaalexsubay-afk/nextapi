@@ -11,10 +11,12 @@ info:
 
     Conventions:
       * Bearer auth. Business key (sk_live_* / sk_test_*) for /videos, /models,
-        /auth/me, /billing/settings, and /me/*; admin key (ak_live_* / ak_test_*)
-        for /keys, /credits, /billing/ledger, /billing/usage, /billing/recharge,
-        /billing/checkout, /webhooks, /spend_controls, /usage, and export endpoints.
-      * Internal operator panel uses X-Admin-Token header for /v1/internal/admin/*.
+        /auth/me, /billing/settings, /me/*, and /webhooks (customer webhook CRUD);
+        admin key (ak_live_* / ak_test_*) for /keys, /credits, /billing/ledger,
+        /billing/usage, /billing/recharge, /billing/checkout, /spend_controls,
+        /usage, and export endpoints.
+      * Internal operator panel uses short-lived X-Op-Session tokens for browser
+        admin calls; X-Admin-Token is reserved for scripts and emergency ops.
       * Idempotency-Key header on POSTs. 24h de-dup window.
       * All timestamps are RFC 3339 UTC unless stated otherwise.
       * Cursor pagination on list endpoints.
@@ -53,7 +55,7 @@ tags:
     description: Clerk JWT → API key exchange endpoints used by dashboard SPAs on first load.
   - name: sales
   - name: internal
-    description: Operator panel endpoints secured by X-Admin-Token. Not for external use.
+    description: Operator panel endpoints secured by X-Op-Session, Clerk JWT, or script-only X-Admin-Token. Not for external use.
 
 paths:
   /health:
@@ -835,16 +837,16 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
 
-  /me/admin-bootstrap:
+  /internal/admin/session:
     post:
       tags: [bridge]
-      summary: Bootstrap admin token
-      operationId: meAdminBootstrap
+      summary: Create admin operator session
+      operationId: createAdminOperatorSession
       security: []
       description: >-
-        Exchange a Clerk JWT for an admin token. Only succeeds for users whose
-        email is listed in ADMIN_EMAILS. Rate-limited to 10 req/min.
-        Pass the Clerk session token as `Authorization: Bearer <clerk_jwt>`.
+        Exchange a Clerk JWT for a short-lived `ops_*` operator session.
+        Only succeeds for users whose email is listed in ADMIN_EMAILS.
+        The shared ADMIN_TOKEN is never returned to browsers.
       parameters:
         - name: Authorization
           in: header
@@ -853,29 +855,94 @@ paths:
           description: Clerk session JWT.
       responses:
         '200':
-          description: Admin token issued.
+          description: Operator session issued.
           content:
             application/json:
               schema:
                 type: object
-                required: [admin_token]
+                required: [session_token, actor_email, expires_at, idle_ttl_secs]
                 properties:
-                  admin_token: { type: string }
-                  expires_at:
-                    type: [string, 'null']
-                    format: date-time
+                  session_token: { type: string, example: ops_0123456789abcdef }
+                  actor_email: { type: string, format: email }
+                  expires_at: { type: string, format: date-time }
+                  idle_ttl_secs: { type: integer, example: 7200 }
         '401':
           description: Invalid or missing Clerk JWT (invalid_token / missing_token).
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
         '403':
-          description: Authenticated user is not in ADMIN_EMAILS (not_admin).
+          description: Authenticated user is not in ADMIN_EMAILS.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
         '503':
           description: Clerk integration not configured (clerk_not_configured).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+    delete:
+      tags: [bridge]
+      summary: Revoke admin operator session
+      operationId: revokeAdminOperatorSession
+      security: []
+      parameters:
+        - name: X-Op-Session
+          in: header
+          required: true
+          schema: { type: string, example: ops_0123456789abcdef }
+      responses:
+        '200':
+          description: Session revoked.
+
+  /internal/admin/otp/send:
+    post:
+      tags: [bridge]
+      summary: Send admin OTP
+      operationId: sendAdminOtp
+      security: []
+      description: >-
+        Sends a one-time email code for high-risk admin operations.
+        Requires an existing operator session. Returns an OTP id; the
+        plaintext code is delivered by email and must be submitted as
+        `X-Op-OTP: <otp_id>.<6-digit-code>` on the protected operation.
+      parameters:
+        - name: X-Op-Session
+          in: header
+          required: true
+          schema: { type: string, example: ops_0123456789abcdef }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [action]
+              properties:
+                action: { type: string, example: credits.adjust }
+                target_id: { type: string }
+                hint: { type: string }
+      responses:
+        '200':
+          description: OTP id issued and email delivery attempted.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [otp_id, expires_at, hint]
+                properties:
+                  otp_id: { type: string }
+                  expires_at: { type: string, format: date-time }
+                  hint: { type: string }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: Operator session is missing, expired, or not allowed.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '503':
+          description: OTP email delivery is not configured.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
@@ -1289,7 +1356,7 @@ components:
       scheme: bearer
       bearerFormat: sk_live_xxx
       description: >-
-        Business API key for /v1/videos, /v1/models, /v1/auth/me, /v1/me/*.
+        Business API key for /v1/videos, /v1/models, /v1/auth/me, /v1/me/*, /v1/webhooks.
         Format: `sk_live_<hex>` (production) or `sk_test_<hex>` (test mode).
     bearerAuth:
       type: http
@@ -1298,7 +1365,7 @@ components:
       description: >-
         Admin API key for /v1/keys/*, /v1/credits, /v1/billing/ledger,
         /v1/billing/usage, /v1/billing/recharge, /v1/billing/checkout,
-        /v1/webhooks/*, /v1/spend_controls, /v1/spend_alerts, /v1/throughput,
+        /v1/spend_controls, /v1/spend_alerts, /v1/throughput,
         /v1/moderation_profile, and export endpoints.
         Format: `ak_live_<hex>` (production) or `ak_test_<hex>` (test mode).
     adminToken:
@@ -1306,8 +1373,8 @@ components:
       in: header
       name: X-Admin-Token
       description: >-
-        Shared operator token for /v1/internal/admin/* endpoints.
-        Not a per-org bearer key — used only by the internal operator panel.
+        Shared operator token for scripts, cron jobs, and emergency ops.
+        Browser admin calls should use X-Op-Session instead.
 
   parameters:
     Limit:

@@ -3,6 +3,7 @@ name = "nextapi-admin"
 main = ".open-next/worker.js"
 compatibility_date = "2026-04-23"
 compatibility_flags = ["nodejs_compat"]
+keep_names = false
 
 routes = [
   { pattern = "admin.nextapi.top", custom_domain = true },

@@ -211,12 +211,9 @@ func main() {
 	admn.GET("/spend_controls", sh.Get)
 	admn.PUT("/spend_controls", sh.Put)
 	admn.GET("/spend_alerts", sh.ListAlerts)
-	admn.GET("/webhooks", whh.List)
-	admn.POST("/webhooks", whh.Create)
-	admn.GET("/webhooks/:id", whh.Get)
-	admn.DELETE("/webhooks/:id", whh.Delete)
-	admn.GET("/webhooks/:id/deliveries", wdh.ListDeliveries)
-	admn.POST("/webhooks/:id/rotate", wdh.RotateSecret)
+	// Webhook CRUD lives only on the business (sk_*) group above. Registering
+	// the same paths here too makes Gin panic ("handlers are already registered").
+	// ak_* keys that need webhook ops should use a live sk_* from the same org.
 	admn.GET("/throughput", th.GetThroughput)
 	admn.GET("/moderation_profile", mh.GetProfile)
 	admn.PUT("/moderation_profile", mh.UpsertProfile)
