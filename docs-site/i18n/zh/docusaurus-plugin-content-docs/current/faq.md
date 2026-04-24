@@ -131,11 +131,11 @@ ComfyUI 默认串行执行队列（一次一个）。超过 5 条镜头以上，
 
 ### 支持 Webhook 通知任务完成吗？
 
-当前公开 API 不支持。请轮询 `GET /v1/jobs/{id}` 直到状态变为 `succeeded` 或 `failed`。推荐轮询间隔为 4 秒。
+支持。你可以 (1) 用 `POST /v1/webhooks` 为组织登记端点并订阅 **`job.succeeded`**、**`job.failed`** 等事件（创建时默认即包含；匹配器也支持如 `video.*` 通配）；(2) 在单次 `POST /v1/videos` 中传 `webhook_url`；(3) 或轮询 `GET /v1/videos/{id}`（及旧版 `GET /v1/jobs/{id}`）直到终态。详见 [Webhooks](./webhooks) 与 [API 参考](./api-reference)。若轮询，间隔数秒即可。
 
 ### 可以取消正在运行的任务吗？
 
-暂不支持取消。任务一旦提交就会运行到完成或失败。服务商原因导致的取消，积分会自动退回。
+主 API 在任务未达终态时，可调用 `DELETE /v1/videos/{id}` 取消。已进入 `succeeded` / `failed` 的无法取消。预扣/结算以你组织计费与 Webhook 约定为准。
 
 ### 视频链接有效期多长？
 

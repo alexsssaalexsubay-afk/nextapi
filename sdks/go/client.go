@@ -37,9 +37,9 @@ type GenerateRequest struct {
 }
 
 type GenerateResponse struct {
-	ID               string `json:"id"`
-	Status           string `json:"status"`
-	EstimatedCredits int    `json:"estimated_credits"`
+	ID                 string `json:"id"`
+	Status             string `json:"status"`
+	EstimatedCostCents int    `json:"estimated_cost_cents"`
 }
 
 type Job struct {
@@ -152,19 +152,32 @@ func (c *Client) Generate(ctx context.Context, req GenerateRequest) (*GenerateRe
 	if req.Mode == "" {
 		req.Mode = "normal"
 	}
+	input := req
+	input.Model = ""
+	payload := struct {
+		Model string          `json:"model"`
+		Input GenerateRequest `json:"input"`
+	}{
+		Model: req.Model,
+		Input: input,
+	}
 	var out GenerateResponse
-	if err := c.do(ctx, http.MethodPost, "/v1/video/generations", req, &out); err != nil {
+	if err := c.do(ctx, http.MethodPost, "/v1/videos", payload, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+func (c *Client) GetVideo(ctx context.Context, videoID string) (*Job, error) {
+	var out Job
+	if err := c.do(ctx, http.MethodGet, "/v1/videos/"+videoID, nil, &out); err != nil {
 		return nil, err
 	}
 	return &out, nil
 }
 
 func (c *Client) GetJob(ctx context.Context, jobID string) (*Job, error) {
-	var out Job
-	if err := c.do(ctx, http.MethodGet, "/v1/jobs/"+jobID, nil, &out); err != nil {
-		return nil, err
-	}
-	return &out, nil
+	return c.GetVideo(ctx, jobID)
 }
 
 func (c *Client) Wait(ctx context.Context, jobID string, timeout, pollInterval time.Duration) (*Job, error) {
@@ -176,7 +189,7 @@ func (c *Client) Wait(ctx context.Context, jobID string, timeout, pollInterval t
 	}
 	deadline := time.Now().Add(timeout)
 	for {
-		job, err := c.GetJob(ctx, jobID)
+		job, err := c.GetVideo(ctx, jobID)
 		if err != nil {
 			return nil, err
 		}

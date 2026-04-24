@@ -9,7 +9,8 @@ description: NextAPI 视频生成网关 — 为短剧团队、电商创意和 AI
 
 **NextAPI** 是基于 Seedance 构建的视频生成网关。它处理好了认证、计费、限速和参考图管理，让你专注于生成内容本身。
 
-**不写代码？** 请先读 **[零基础用户指南](./non-coder-guide)**（老板、运营、制片适用）。名词解释见仓库内 `docs/GLOSSARY-ZH.md`。
+**不写代码？** 请先读 **[零基础用户指南](./non-coder-guide)**（老板、运营、制片适用）。  
+**克隆了 Git 仓库？** 还可读 `docs/REPO-TOUR-ZH.md`（文件夹地图）、`docs/FLOW-ZH.md`（一次生成怎么走）、`docs/FAQ-ZH.md`。名词表：`docs/GLOSSARY-ZH.md`。
 
 ---
 

@@ -40,7 +40,7 @@ description: NextAPI 每个错误码的通俗解释和具体修复方式。
 
 ```bash
 # 直接测一下你的密钥
-curl https://api.nextapi.top/v1/jobs/does-not-exist \
+curl https://api.nextapi.top/v1/videos/does-not-exist \
   -H "Authorization: Bearer sk_live_yourkey"
 # 应该返回 404，而不是 401
 ```
@@ -92,9 +92,9 @@ curl https://api.nextapi.top/v1/jobs/does-not-exist \
 
 | 错误提示 | 修复方式 |
 |---------|---------|
-| `"prompt is required"` | 在清单里加上非空的 `prompt_en` 列 |
-| `"duration out of range"` | `duration` 必须在 2–12 之间 |
-| `"unsupported aspect_ratio"` | 使用：`16:9`、`9:16`、`1:1`、`4:3`、`3:4`、`21:9` |
+| `"prompt is required"` | 对 `POST /v1/videos` 需在 `input` 中提供 `prompt`；Batch Studio 清单里加非空 `prompt_en`（或模板要求的那一列） |
+| `"duration out of range"` / `duration_seconds` | 主接口使用 `input.duration_seconds`；旧版平铺体使用 `duration_seconds`；有值时一般为 **2–15** 秒 |
+| `"unsupported aspect_ratio"` | 使用：`16:9`、`9:16`、`1:1`、`4:3`、`3:4`、`21:9`、`adaptive` |
 | `"invalid reference url"` | 参考图必须是 `https://` 开头且可公开访问的链接 |
 
 提交批量任务之前，先点 **🔍 验证 CSV**——大部分 400 类错误在验证阶段就能发现，不会消耗积分。
@@ -118,7 +118,7 @@ curl https://api.nextapi.top/v1/jobs/does-not-exist \
 
 ## 5xx — 服务端错误
 
-**发生了什么：** NextAPI 或上游服务商出现异常。
+**发生了什么：** NextAPI 或视频生成服务侧出现异常。
 
 **修复方式：**
 
@@ -134,12 +134,12 @@ curl https://api.nextapi.top/v1/jobs/does-not-exist \
 
 任务已成功创建并开始渲染，但在生成过程中失败了。
 
-查看 `GET /v1/jobs/{id}` 返回的 `error_code` 和 `error_message`：
+查看 `GET /v1/videos/{id}` 的 `error_code` 和 `error_message`（或旧版 `GET /v1/jobs/{id}` 若你仍用老创建端点）：
 
 | error_code | 含义 | 修复方式 |
 |------------|------|---------|
 | `content_policy.post` | 生成的内容被事后审核拦截 | 软化提示词；检查内容审核配置 |
-| `provider_error` | 上游服务商返回错误 | 重试，通常是偶发性问题 |
+| `provider_error` | Seedance / 模型侧返回错误 | 重试，通常是偶发性问题 |
 | `timeout` | 超过 15 分钟生成窗口 | 服务商拥堵，错峰重试 |
 | `quota_exceeded` | 该组织的服务商配额已满 | 联系支持提升配额 |
 

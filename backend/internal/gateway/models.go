@@ -2,12 +2,14 @@ package gateway
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 )
 
-// Static catalogue of Seedance models exposed to customers. Prices are in
-// USD cents per output second. Update when pricing changes.
+// Static catalogue of models exposed to customers via GET /v1/models.
+// IDs are stable public names; routing to backends is handled inside the gateway.
+// Prices are USD cents per output second. Update when pricing changes.
 type publicModel struct {
 	ID                    string            `json:"id"`
 	Family                string            `json:"family"`
@@ -25,12 +27,12 @@ type publicModel struct {
 
 var models = []publicModel{
 	{
-		ID: "seedance-2.0", Family: "seedance",
-		Description:        "Top-quality Seedance 2.0, text / image / multimodal to video.",
+		ID: "seedance-2.0-pro", Family: "seedance",
+		Description:        "Video generation — Pro quality, up to 15s.",
 		MaxDurationSeconds: 15, MinDurationSeconds: 4, SupportsAutoDuration: true,
 		SupportedResolutions:  []string{"480p", "720p", "1080p"},
-		SupportedAspectRatios: []string{"16:9", "9:16", "1:1", "4:3", "3:4", "21:9"},
-		SupportsAudioOutput:   true,
+		SupportedAspectRatios: []string{"16:9", "9:16", "1:1", "4:3", "3:4", "21:9", "adaptive"},
+		SupportsAudioOutput: true,
 		ModalitySupport: map[string]bool{
 			"text_to_video": true, "image_to_video": true,
 			"video_to_video": true, "audio_to_video": true,
@@ -41,10 +43,11 @@ var models = []publicModel{
 	},
 	{
 		ID: "seedance-2.0-fast", Family: "seedance",
-		Description:        "Low-latency variant of Seedance 2.0 at reduced unit cost.",
+		Description:        "Video generation — Fast, up to 15s.",
 		MaxDurationSeconds: 15, MinDurationSeconds: 4, SupportsAutoDuration: true,
 		SupportedResolutions:  []string{"480p", "720p", "1080p"},
-		SupportedAspectRatios: []string{"16:9", "9:16", "1:1"},
+		SupportedAspectRatios: []string{"16:9", "9:16", "1:1", "4:3", "3:4", "21:9", "adaptive"},
+		SupportsAudioOutput:   true,
 		ModalitySupport: map[string]bool{
 			"text_to_video": true, "image_to_video": true,
 		},
@@ -52,38 +55,31 @@ var models = []publicModel{
 		Status:              "ga",
 	},
 	{
-		ID: "seedance-1.5-pro", Family: "seedance",
-		MaxDurationSeconds: 10, MinDurationSeconds: 4,
-		SupportedResolutions:  []string{"720p", "1080p"},
-		SupportedAspectRatios: []string{"16:9", "9:16"},
-		ModalitySupport:       map[string]bool{"text_to_video": true, "image_to_video": true},
-		PriceCentsPerSecond:   map[string]int{"720p": 9, "1080p": 14},
-		Status:                "ga",
+		ID: "seedream-5.0-lite", Family: "seedream",
+		Description:        "Lite tier — fast and cost-efficient text / image-driven video.",
+		MaxDurationSeconds: 15, MinDurationSeconds: 4, SupportsAutoDuration: true,
+		SupportedResolutions:  []string{"480p", "720p"},
+		SupportedAspectRatios: []string{"16:9", "9:16", "1:1", "4:3", "3:4", "21:9"},
+		SupportsAudioOutput:   true,
+		ModalitySupport: map[string]bool{
+			"text_to_video": true, "image_to_video": true,
+		},
+		PriceCentsPerSecond: map[string]int{"480p": 4, "720p": 6},
+		Status:              "ga",
 	},
-	{
-		ID: "seedance-1.0-pro", Family: "seedance",
-		MaxDurationSeconds: 10, SupportedResolutions: []string{"720p", "1080p"},
-		SupportedAspectRatios: []string{"16:9", "9:16"},
-		ModalitySupport:       map[string]bool{"text_to_video": true, "image_to_video": true},
-		PriceCentsPerSecond:   map[string]int{"720p": 8, "1080p": 12},
-		Status:                "deprecated",
-	},
-	{
-		ID: "seedance-1.0-pro-fast", Family: "seedance",
-		MaxDurationSeconds: 10, SupportedResolutions: []string{"720p"},
-		SupportedAspectRatios: []string{"16:9", "9:16"},
-		ModalitySupport:       map[string]bool{"text_to_video": true},
-		PriceCentsPerSecond:   map[string]int{"720p": 5},
-		Status:                "deprecated",
-	},
-	{
-		ID: "seedance-1.0-lite", Family: "seedance",
-		MaxDurationSeconds: 5, SupportedResolutions: []string{"480p"},
-		SupportedAspectRatios: []string{"16:9"},
-		ModalitySupport:       map[string]bool{"text_to_video": true},
-		PriceCentsPerSecond:   map[string]int{"480p": 3},
-		Status:                "ga",
-	},
+}
+
+// canonicalModelID maps legacy public IDs to the current catalogue entry
+// so older clients keep working and PriceFor stays consistent.
+func canonicalModelID(id string) string {
+	switch strings.TrimSpace(id) {
+	case "seedance-2.0", "seedance-1.5-pro", "seedance-1.0-pro":
+		return "seedance-2.0-pro"
+	case "seedance-1.0-pro-fast", "seedance-1.0-lite":
+		return "seedance-2.0-fast"
+	default:
+		return strings.TrimSpace(id)
+	}
 }
 
 type ModelsHandlers struct{}
@@ -94,8 +90,9 @@ func (ModelsHandlers) List(c *gin.Context) {
 
 func (ModelsHandlers) Get(c *gin.Context) {
 	id := c.Param("model_id")
+	lookup := canonicalModelID(id)
 	for _, m := range models {
-		if m.ID == id {
+		if m.ID == lookup {
 			c.JSON(http.StatusOK, m)
 			return
 		}
@@ -105,8 +102,9 @@ func (ModelsHandlers) Get(c *gin.Context) {
 
 // PriceFor returns cents/sec for (modelID, resolution).
 func PriceFor(modelID, resolution string) (int, bool) {
+	lookup := canonicalModelID(modelID)
 	for _, m := range models {
-		if m.ID != modelID {
+		if m.ID != lookup {
 			continue
 		}
 		if p, ok := m.PriceCentsPerSecond[resolution]; ok {

@@ -42,7 +42,7 @@ type videoInput struct {
 	Resolution      string  `json:"resolution"`
 	Mode            string  `json:"mode"`
 
-	// Parameters that map 1:1 onto Volc Ark's video-task body. Left
+	// Parameters forwarded to the generation pipeline (Seedance-family models). Left
 	// as pointers where "unset" and "false" mean different things
 	// (so we don't force-disable audio for a customer who just
 	// didn't pass the field).
@@ -83,9 +83,9 @@ func (h *VideosHandlers) Create(c *gin.Context) {
 		input.DurationSeconds = 5
 	}
 
-	// Vendor-SSRF guard: Seedance fetches image_url server-side. Block
-	// the obvious metadata/loopback hosts so a customer can't make our
-	// upstream walk into our (or AWS's) internal network on our dime.
+	// SSRF guard: the worker fetches image_url server-side. Block
+	// the obvious metadata/loopback hosts so a customer can't make the
+	// generation pipeline hit internal networks.
 	if input.ImageURL != nil {
 		if err := abuse.ValidatePublicURL(*input.ImageURL); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{
@@ -184,6 +184,7 @@ func (h *VideosHandlers) Create(c *gin.Context) {
 
 	resp := gin.H{
 		"id":                   vid.ID,
+		"object":               "video",
 		"model":                vid.Model,
 		"status":               vid.Status,
 		"estimated_cost_cents": vid.EstimatedCostCents,
@@ -225,6 +226,7 @@ func (h *VideosHandlers) Get(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"id":                   v.ID,
+		"object":               "video",
 		"model":                v.Model,
 		"status":               v.Status,
 		"input":                v.Input,
@@ -266,6 +268,7 @@ func (h *VideosHandlers) List(c *gin.Context) {
 	for _, v := range videos {
 		item := gin.H{
 			"id":                   v.ID,
+			"object":               "video",
 			"model":                v.Model,
 			"status":               v.Status,
 			"estimated_cost_cents": v.EstimatedCostCents,

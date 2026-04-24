@@ -54,7 +54,7 @@ export function LandingHero() {
 
           {/* Subtitle */}
           <p className="mt-6 max-w-xl text-pretty text-[16px] leading-relaxed text-muted-foreground">
-            Power your products with state-of-the-art Seedance 2.0 video
+            Power your products with state-of-the-art video
             generation. Zero queue times, enterprise SLAs, and configurable
             trust &amp; safety.
           </p>
@@ -158,7 +158,7 @@ function HeroPlayerCard() {
               <div className="flex items-center justify-between border-b border-white/5 px-3 py-2">
                 <div className="flex items-center gap-2 text-[11px] font-mono text-zinc-400">
                   <Circle className="size-2 fill-indigo-400 text-indigo-400" />
-                  POST /v1/video/generations
+                  POST /v1/videos
                 </div>
                 <button
                   type="button"
@@ -174,9 +174,7 @@ function HeroPlayerCard() {
                   {"\n"}
                   <span className="text-purple-400">await</span>{" "}
                   <span className="text-cyan-300">nextapi</span>.
-                  <span className="text-cyan-300">video</span>.
-                  <span className="text-yellow-300">generations</span>.
-                  <span className="text-yellow-300">create</span>
+                  <span className="text-yellow-300">generate</span>
                   {"({ "}
                   {"\n"}
                   {"  "}
@@ -187,15 +185,21 @@ function HeroPlayerCard() {
                   ,
                   {"\n"}
                   {"  "}
+                  <span className="text-cyan-300">input</span>: {"{"}
+                  {"\n"}
+                  {"    "}
                   <span className="text-cyan-300">prompt</span>:{" "}
                   <span className="text-emerald-300">
                     &quot;drone orbiting a lighthouse&quot;
                   </span>
                   ,
                   {"\n"}
-                  {"  "}
+                  {"    "}
                   <span className="text-cyan-300">duration_seconds</span>:{" "}
                   <span className="text-orange-300">6</span>
+                  {"\n"}
+                  {"  "}
+                  {"}"}
                   {"\n"}
                   {"})"}
                 </code>

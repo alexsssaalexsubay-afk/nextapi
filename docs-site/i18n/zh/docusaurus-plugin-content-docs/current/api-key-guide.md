@@ -82,35 +82,42 @@ headers = {
     "Content-Type": "application/json",
 }
 
-# 提交生成任务
+# 创建视频（主 API：input 嵌套）
 resp = requests.post(
-    f"{BASE_URL}/v1/video/generations",
+    f"{BASE_URL}/v1/videos",
     json={
-        "prompt": "林悦走进咖啡馆，柔和的晨光",
-        "duration": 5,
-        "aspect_ratio": "16:9",
+        "model": "seedance-2.0-pro",
+        "input": {
+            "prompt": "林悦走进咖啡馆，柔和的晨光",
+            "duration_seconds": 5,
+            "aspect_ratio": "16:9",
+        },
     },
     headers=headers,
     timeout=30,
 )
 resp.raise_for_status()
-job = resp.json()
-print(f"任务 ID: {job['id']}  预估积分: {job['estimated_credits']}")
+video = resp.json()
+print(
+    f"ID: {video['id']}  object={video.get('object')}  "
+    f"预估美元美分: {video.get('estimated_cost_cents')}"
+)
 
 # 轮询结果
 import time
 while True:
-    r = requests.get(f"{BASE_URL}/v1/jobs/{job['id']}", headers=headers)
+    r = requests.get(f"{BASE_URL}/v1/videos/{video['id']}", headers=headers)
     data = r.json()
     print(f"状态: {data['status']}")
-    if data["status"] in ("succeeded", "failed"):
+    if data["status"] in ("succeeded", "failed", "cancelled"):
         break
     time.sleep(4)
 
 if data["status"] == "succeeded":
-    print(f"视频地址: {data['video_url']}")
+    out = data.get("output") or {}
+    print(f"视频地址: {out.get('video_url')}")
 else:
-    print(f"失败: {data['error_code']} — {data['error_message']}")
+    print(f"失败: {data.get('error_code')} — {data.get('error_message')}")
 ```
 
 ### 异步写法（aiohttp）
@@ -128,20 +135,28 @@ async def generate_and_poll(prompt: str) -> str | None:
     async with aiohttp.ClientSession(headers=headers) as session:
         # 提交
         async with session.post(
-            f"{BASE_URL}/v1/video/generations",
-            json={"prompt": prompt, "duration": 5, "aspect_ratio": "16:9"},
+            f"{BASE_URL}/v1/videos",
+            json={
+                "model": "seedance-2.0-pro",
+                "input": {
+                    "prompt": prompt,
+                    "duration_seconds": 5,
+                    "aspect_ratio": "16:9",
+                },
+            },
         ) as resp:
-            job = await resp.json()
-            job_id = job["id"]
+            v = await resp.json()
+            vid = v["id"]
 
         # 轮询
         while True:
-            async with session.get(f"{BASE_URL}/v1/jobs/{job_id}") as resp:
+            async with session.get(f"{BASE_URL}/v1/videos/{vid}") as resp:
                 data = await resp.json()
             if data["status"] == "succeeded":
-                return data["video_url"]
+                out = data.get("output") or {}
+                return out.get("video_url")
             if data["status"] == "failed":
-                print(f"失败: {data['error_code']}")
+                print(f"失败: {data.get('error_code')}")
                 return None
             await asyncio.sleep(4)
 
@@ -157,7 +172,16 @@ from api_client import ClientConfig, NextAPIClient
 
 cfg = ClientConfig(base_url="https://api.nextapi.top", api_key="sk_live_…")
 async with NextAPIClient(cfg) as client:
-    resp = await client.submit_generation({"prompt": "…", "duration": 5, "aspect_ratio": "16:9"})
+    resp = await client.submit_generation(
+        {
+            "model": "seedance-2.0-pro",
+            "input": {
+                "prompt": "…",
+                "duration_seconds": 5,
+                "aspect_ratio": "16:9",
+            },
+        }
+    )
 ```
 :::
 
@@ -168,20 +192,23 @@ async with NextAPIClient(cfg) as client:
 提交生成任务：
 
 ```bash
-curl -X POST https://api.nextapi.top/v1/video/generations \
+curl -X POST https://api.nextapi.top/v1/videos \
   -H "Authorization: Bearer sk_live_yourkey" \
   -H "Content-Type: application/json" \
   -d '{
-    "prompt": "林悦走进咖啡馆，柔和的晨光",
-    "duration": 5,
-    "aspect_ratio": "16:9"
+    "model": "seedance-2.0-pro",
+    "input": {
+      "prompt": "林悦走进咖啡馆，柔和的晨光",
+      "duration_seconds": 5,
+      "aspect_ratio": "16:9"
+    }
   }'
 ```
 
-查询任务状态：
+查询状态：
 
 ```bash
-curl https://api.nextapi.top/v1/jobs/job_abc123 \
+curl https://api.nextapi.top/v1/videos/vid_abc123 \
   -H "Authorization: Bearer sk_live_yourkey"
 ```
 
@@ -190,33 +217,36 @@ curl https://api.nextapi.top/v1/jobs/job_abc123 \
 ```bash
 export NEXTAPI_KEY=sk_live_yourkey
 
-curl -X POST https://api.nextapi.top/v1/video/generations \
+curl -X POST https://api.nextapi.top/v1/videos \
   -H "Authorization: Bearer $NEXTAPI_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"prompt": "...", "duration": 5, "aspect_ratio": "16:9"}'
+  -d '{"model":"seedance-2.0-pro","input":{"prompt":"...","duration_seconds":5,"aspect_ratio":"16:9"}}'
 ```
 
 ---
 
 ## 在 Postman 中使用密钥
 
-1. 新建请求 → **POST** → `https://api.nextapi.top/v1/video/generations`
+1. 新建请求 → **POST** → `https://api.nextapi.top/v1/videos`
 2. 切换到 **Authorization** 标签页 → 类型选 **Bearer Token** → 粘贴密钥
 3. 切换到 **Body** 标签页 → **raw** → **JSON**
 4. 填写请求体：
 
 ```json
 {
-  "prompt": "林悦走进咖啡馆，柔和的晨光",
-  "duration": 5,
-  "aspect_ratio": "16:9"
+  "model": "seedance-2.0-pro",
+  "input": {
+    "prompt": "林悦走进咖啡馆，柔和的晨光",
+    "duration_seconds": 5,
+    "aspect_ratio": "16:9"
+  }
 }
 ```
 
 5. 点击 **Send**
 
-**查询任务：**  
-复制这个请求 → 改成 **GET** 方法 → 地址改为 `https://api.nextapi.top/v1/jobs/{job_id}` → 把 `{job_id}` 替换成第一步返回的 ID。
+**查询状态：**  
+复制这个请求 → 改成 **GET** 方法 → 地址改为 `https://api.nextapi.top/v1/videos/{id}` → 用第一步 `202` 响应里的 `id` 替换。
 
 ---
 

@@ -57,14 +57,16 @@ export function DevexSection() {
   async function onCopy() {
     try {
       await navigator.clipboard.writeText(
-        `curl -X POST https://api.nextapi.top/v1/video/generations \\
+        `curl -X POST https://api.nextapi.top/v1/videos \\
   -H "Authorization: Bearer $NEXTAPI_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{
     "model": "seedance-2.0-pro",
-    "prompt": "drone orbiting a lighthouse at dusk",
-    "duration_seconds": 6,
-    "resolution": "1080p"
+    "input": {
+      "prompt": "drone orbiting a lighthouse at dusk",
+      "duration_seconds": 6,
+      "resolution": "1080p"
+    }
   }'`,
       )
       setCopied(true)
@@ -107,45 +109,48 @@ export function DevexSection() {
   const SNIPPETS: Record<Tab, React.ReactNode> = {
     cURL: (
       <>
-        <Line><Cmd>curl</Cmd> -X <Str>POST</Str> <Str>https://api.nextapi.top/v1/video/generations</Str> \</Line>
+        <Line><Cmd>curl</Cmd> -X <Str>POST</Str> <Str>https://api.nextapi.top/v1/videos</Str> \</Line>
         <Line>{"  "}-H <Str>&quot;Authorization: Bearer $NEXTAPI_KEY&quot;</Str> \</Line>
         <Line>{"  "}-H <Str>&quot;Content-Type: application/json&quot;</Str> \</Line>
         <Line>{"  "}-d &apos;{"{"}</Line>
         <Line>{"    "}<Key>&quot;model&quot;</Key>: <Str>&quot;seedance-2.0-pro&quot;</Str>,</Line>
-        <Line>{"    "}<Key>&quot;prompt&quot;</Key>: <Str>&quot;drone orbiting a lighthouse at dusk&quot;</Str>,</Line>
-        <Line>{"    "}<Key>&quot;duration_seconds&quot;</Key>: <Num>6</Num>,</Line>
-        <Line>{"    "}<Key>&quot;resolution&quot;</Key>: <Str>&quot;1080p&quot;</Str></Line>
+        <Line>{"    "}<Key>&quot;input&quot;</Key>: {"{"}</Line>
+        <Line>{"      "}<Key>&quot;prompt&quot;</Key>: <Str>&quot;drone orbiting a lighthouse at dusk&quot;</Str>,</Line>
+        <Line>{"      "}<Key>&quot;duration_seconds&quot;</Key>: <Num>6</Num>,</Line>
+        <Line>{"      "}<Key>&quot;resolution&quot;</Key>: <Str>&quot;1080p&quot;</Str></Line>
+        <Line>{"    "}{"}"}</Line>
         <Line>{"  "}{"}"}&apos;</Line>
       </>
     ),
     Python: (
       <>
-        <Line><Kw>from</Kw> nextapi <Kw>import</Kw> NextAPI</Line>
+        <Line><Kw>import</Kw> os</Line>
+        <Line><Kw>from</Kw> nextapi <Kw>import</Kw> Client</Line>
         <Line />
-        <Line>client = <Fn>NextAPI</Fn>(api_key=os.environ[<Str>&quot;NEXTAPI_KEY&quot;</Str>])</Line>
+        <Line>client = <Fn>Client</Fn>(api_key=os.environ[<Str>&quot;NEXTAPI_KEY&quot;</Str>])</Line>
         <Line />
-        <Line>video = client.video.<Fn>generations</Fn>.<Fn>create</Fn>(</Line>
+        <Line>video = client.<Fn>generate</Fn>(</Line>
         <Line>{"  "}model=<Str>&quot;seedance-2.0-pro&quot;</Str>,</Line>
         <Line>{"  "}prompt=<Str>&quot;drone orbiting a lighthouse at dusk&quot;</Str>,</Line>
         <Line>{"  "}duration_seconds=<Num>6</Num>,</Line>
         <Line>{"  "}resolution=<Str>&quot;1080p&quot;</Str>,</Line>
         <Line>)</Line>
         <Line />
-        <Line><Fn>print</Fn>(video.url)</Line>
+        <Line><Fn>print</Fn>(video[<Str>&quot;id&quot;</Str>])</Line>
       </>
     ),
     "Node.js": (
       <>
-        <Line><Kw>import</Kw> NextAPI <Kw>from</Kw> <Str>&quot;@nextapi/sdk&quot;</Str>;</Line>
+        <Line><Kw>import</Kw> {"{"} NextAPI {"}"} <Kw>from</Kw> <Str>&quot;nextapi&quot;</Str>;</Line>
         <Line />
         <Line><Kw>const</Kw> client = <Kw>new</Kw> <Fn>NextAPI</Fn>({"{"}</Line>
         <Line>{"  "}apiKey: process.env.<Key>NEXTAPI_KEY</Key>,</Line>
         <Line>{"}"});</Line>
         <Line />
-        <Line><Kw>const</Kw> video = <Kw>await</Kw> client.video.<Fn>generations</Fn>.<Fn>create</Fn>({"{"}</Line>
+        <Line><Kw>const</Kw> video = <Kw>await</Kw> client.<Fn>generate</Fn>({"{"}</Line>
         <Line>{"  "}model: <Str>&quot;seedance-2.0-pro&quot;</Str>,</Line>
         <Line>{"  "}prompt: <Str>&quot;drone orbiting a lighthouse at dusk&quot;</Str>,</Line>
-        <Line>{"  "}duration_seconds: <Num>6</Num>,</Line>
+        <Line>{"  "}durationSeconds: <Num>6</Num>,</Line>
         <Line>{"  "}resolution: <Str>&quot;1080p&quot;</Str>,</Line>
         <Line>{"}"});</Line>
       </>

@@ -20,7 +20,7 @@ export interface GenerateParams {
 export interface VideoGenerationResponse {
   id: string;
   status: string;
-  estimated_credits: number;
+  estimated_cost_cents: number;
   [key: string]: unknown;
 }
 
@@ -91,19 +91,25 @@ export class NextAPI {
   }
 
   generate(params: GenerateParams): Promise<VideoGenerationResponse> {
-    const payload: Record<string, unknown> = {
+    const input: Record<string, unknown> = {
       prompt: params.prompt,
-      model: params.model ?? "seedance-v2-pro",
       duration_seconds: params.durationSeconds ?? 5,
       resolution: params.resolution ?? "1080p",
       mode: params.mode ?? "normal",
     };
-    if (params.imageUrl !== undefined) payload.image_url = params.imageUrl;
-    return this.request<VideoGenerationResponse>("POST", "/v1/video/generations", payload);
+    if (params.imageUrl !== undefined) input.image_url = params.imageUrl;
+    return this.request<VideoGenerationResponse>("POST", "/v1/videos", {
+      model: params.model ?? "seedance-v2-pro",
+      input,
+    });
+  }
+
+  getVideo(videoId: string): Promise<JobResponse> {
+    return this.request<JobResponse>("GET", `/v1/videos/${encodeURIComponent(videoId)}`);
   }
 
   getJob(jobId: string): Promise<JobResponse> {
-    return this.request<JobResponse>("GET", `/v1/jobs/${encodeURIComponent(jobId)}`);
+    return this.getVideo(jobId);
   }
 
   async wait(
@@ -114,7 +120,7 @@ export class NextAPI {
     const pollIntervalMs = opts.pollIntervalMs ?? 5_000;
     const deadline = Date.now() + timeoutMs;
     for (;;) {
-      const job = await this.getJob(jobId);
+      const job = await this.getVideo(jobId);
       if (TERMINAL.has(String(job.status).toLowerCase())) return job;
       if (Date.now() >= deadline) {
         throw new NextAPIError("timeout", `job ${jobId} did not finish within ${timeoutMs}ms`);

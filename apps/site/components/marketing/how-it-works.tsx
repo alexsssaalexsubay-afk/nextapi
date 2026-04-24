@@ -19,14 +19,14 @@ export function HowItWorks() {
       icon: Send,
       title: t.howItWorks.step2.title,
       description: t.howItWorks.step2.description,
-      mono: "POST /v1/video/generations  →  id",
+      mono: "POST /v1/videos  →  id",
     },
     {
       n: "03",
       icon: Webhook,
       title: t.howItWorks.step3.title,
       description: t.howItWorks.step3.description,
-      mono: "webhook.signed  ·  job.succeeded",
+      mono: "webhook.signed  ·  video.succeeded",
     },
   ]
 

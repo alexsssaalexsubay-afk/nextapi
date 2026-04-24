@@ -130,11 +130,11 @@ ComfyUI queues workflows serially (one queue item at a time by default). For mor
 
 ### Is there a webhook for job completion?
 
-Not in the current public API. Poll `GET /v1/jobs/{id}` until the status is `succeeded` or `failed`. The recommended polling interval is every 4 seconds.
+Yes. You can (1) register an organisation endpoint with `POST /v1/webhooks` and subscribe to events such as **`job.succeeded`** and **`job.failed`** (defaults on create; wildcards like `video.*` are supported in the matcher), (2) pass a per-request `webhook_url` on `POST /v1/videos`, or (3) poll `GET /v1/videos/{id}` (or the legacy `GET /v1/jobs/{id}`) until a terminal `status`. See the [Webhooks](./webhooks) page and [API reference](./api-reference) for details. A polling interval of a few seconds is enough.
 
 ### Can I cancel a running job?
 
-Cancellation is not currently supported. Once submitted, a job runs to completion (or failure). Credits for cancelled-by-provider jobs are refunded automatically.
+For the primary API, call `DELETE /v1/videos/{id}` when the video is not yet in a terminal state. Once a run reaches `succeeded` or `failed`, cancellation is no longer applicable. Reserve/settlement rules follow the billing and webhook contract for your org.
 
 ### How long are video URLs valid?
 

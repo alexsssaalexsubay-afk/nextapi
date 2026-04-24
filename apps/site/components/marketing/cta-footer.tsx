@@ -71,7 +71,7 @@ export function SiteFooter() {
             {
               heading: t.footer.product,
               links: [
-                ["Seedance", "/docs#create"],
+                ["Models", "/docs#create"],
                 [t.webhooks.title, "/docs#events"],
                 [t.common.docs, "/docs"],
               ] as [string, string][],

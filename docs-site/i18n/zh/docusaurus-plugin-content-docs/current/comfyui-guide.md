@@ -68,19 +68,19 @@ pip install -r requirements.txt
 
 ### NextAPI · Generate Video
 
-**作用：** 提交一个视频生成任务，返回 Job ID。
+**作用：** 调用 NextAPI 的 **`POST /v1/video/generations`**（平铺 JSON），返回 Job ID。自带节点为兼容 ComfyUI 工作流使用该路径；若你自行请求 HTTP 接口，请优先使用 **`POST /v1/videos`**（`model` + 嵌套 `input`），见 [API 参考](./api-reference)。
 
 **输入：**
 - `auth_config` — 来自 Auth 节点
 - `prompt` — 生成提示词
-- `duration` — 时长（2–12 秒）
+- `duration` — 节点内 2–12 秒；直连 API 时 `duration_seconds` 在网关侧允许 **2–15** 秒
 - `aspect_ratio` — 画面比例
 - `negative_prompt`（可选）
 - `character_url`（可选）— 来自 Asset Resolver
 - `outfit_url`（可选）— 来自 Asset Resolver
 - `scene_url`（可选）— 来自 Asset Resolver
 
-**输出：** `job_id` — 传给 Poll Job 节点
+**输出：** `job_id`、预估 `estimated_credits` 等 — 传给 Poll Job 节点
 
 ---
 

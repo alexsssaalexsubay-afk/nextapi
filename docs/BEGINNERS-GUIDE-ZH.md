@@ -100,18 +100,22 @@
 | 我想…… | 文档 |
 |--------|------|
 | 搞懂名词 | [`GLOSSARY-ZH.md`](./GLOSSARY-ZH.md) |
+| **仓库每个文件夹干什么** | [`REPO-TOUR-ZH.md`](./REPO-TOUR-ZH.md) |
+| **点一次生成背后发生什么** | [`FLOW-ZH.md`](./FLOW-ZH.md) |
+| **常见问题一句话** | [`FAQ-ZH.md`](./FAQ-ZH.md) |
 | 部署上线 | [`SETUP-GUIDE.md`](./SETUP-GUIDE.md) |
 | 每天管服务器、跑数据库升级 | [`OPERATOR-HANDBOOK.md`](./OPERATOR-HANDBOOK.md) |
 | 配邮件通知、监控 | [`INTEGRATIONS-GUIDE.md`](./INTEGRATIONS-GUIDE.md) |
-| 批量视频、CSV | [`toolkit/docs/batch_studio_guide.md`](../toolkit/docs/batch_studio_guide.md) |
+| 批量视频、CSV | [`toolkit/docs/batch_studio_guide.md`](../toolkit/docs/batch_studio_guide.md) · 中文导读 [`toolkit/README.zh.md`](../toolkit/README.zh.md) |
 | 接口字段、报错码 | [`backend/api/openapi.yaml`](../backend/api/openapi.yaml) + 文档站 **Errors** |
+| 程序员接 SDK | [`sdks/README.md`](../sdks/README.md) |
 | 整个仓库文档总目录 | [`docs/README.md`](./README.md) |
 
 ---
 
 ## 10. 最后：遇到问题怎么办？
 
-1. 打开文档站的 **常见问题 / 错误排查**（`docs-site` 里 `faq`、`errors`）。  
+1. 先看本仓库 [`FAQ-ZH.md`](./FAQ-ZH.md)；再打开文档站的 **常见问题 / 错误排查**（`docs-site` 里 `faq`、`errors`）。  
 2. 看本仓库 [`STATUS.md`](../STATUS.md) 里哪些功能已闭环、哪些还在脚手架阶段。  
 3. 把 **请求时间、任务 ID、HTTP 状态码、是否改过 Key** 告诉技术支持——信息越具体，越快定位。
 

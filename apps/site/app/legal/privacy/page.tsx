@@ -17,8 +17,8 @@ export default function PrivacyPage() {
       </p>
       <h3>Content Data</h3>
       <p>
-        Prompt text and reference images submitted via the API are forwarded to the upstream model
-        provider (Seedance) for processing. Generated videos are stored temporarily in our CDN
+        Prompt text and reference images submitted via the API are processed through our video
+        generation infrastructure. Generated videos are stored temporarily in our CDN
         for delivery and deleted after the retention period configured in your account (default: 7 days).
       </p>
 
@@ -34,7 +34,7 @@ export default function PrivacyPage() {
       <h2>3. Data Sharing</h2>
       <p>We do not sell your personal data. We share data only with:</p>
       <ul>
-        <li><strong>Upstream Model Provider (Seedance)</strong> — prompt text and reference images for video generation</li>
+        <li><strong>Model inference</strong> — prompt text and reference images you submit for video generation</li>
         <li><strong>Authentication (Clerk)</strong> — identity verification and session management</li>
         <li><strong>Infrastructure (Cloudflare, Aliyun)</strong> — hosting, CDN, and DDoS protection</li>
         <li><strong>Payment Processing</strong> — billing and invoice management</li>

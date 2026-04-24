@@ -112,15 +112,15 @@ export default function NewJobPage() {
     setSubmitting(true)
     setSubmitError(null)
     const idempotencyKey = crypto.randomUUID()
-    const body: Record<string, unknown> = {
-      model,
+    const input: Record<string, unknown> = {
       prompt,
-      duration: Number(duration),
+      duration_seconds: Number(duration),
       resolution,
     }
     if (mode === "image" && imageUrl) {
-      body.image_url = imageUrl
+      input.image_url = imageUrl
     }
+    const body = { model, input }
     try {
       const res = await apiFetch("/v1/videos", {
         method: "POST",
@@ -147,16 +147,20 @@ export default function NewJobPage() {
     mode === "image"
       ? `{
   "model": "${model}",
-  "image_url": "https://cdn.example.com/source.jpg",
-  "prompt": "${prompt}",
-  "duration": ${duration},
-  "resolution": "${resolution}"
+  "input": {
+    "prompt": "${prompt}",
+    "image_url": "https://cdn.example.com/source.jpg",
+    "duration_seconds": ${duration},
+    "resolution": "${resolution}"
+  }
 }`
       : `{
   "model": "${model}",
-  "prompt": "${prompt}",
-  "duration": ${duration},
-  "resolution": "${resolution}"
+  "input": {
+    "prompt": "${prompt}",
+    "duration_seconds": ${duration},
+    "resolution": "${resolution}"
+  }
 }`
 
   return (

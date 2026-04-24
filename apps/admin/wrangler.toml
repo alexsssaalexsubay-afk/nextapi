@@ -10,8 +10,9 @@ routes = [
 ]
 
 # See ../dashboard/wrangler.toml for the rationale. Same rule applies:
-# NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY is set per-environment via
-# `wrangler secret put`, never committed.
+# NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY is not committed — set in CI/Cloudflare
+# build environment (and wrangler/secret as you use for deploy). See
+# ../../scripts/check-clerk-env.mjs
 
 [vars]
 NEXT_PUBLIC_API_URL = "https://api.nextapi.top"

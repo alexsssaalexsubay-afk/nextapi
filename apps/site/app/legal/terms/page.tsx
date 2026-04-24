@@ -13,7 +13,7 @@ export default function TermsPage() {
 
       <h2>2. Description of Service</h2>
       <p>
-        NextAPI provides an API gateway for AI video generation powered by Seedance models.
+        NextAPI provides a unified API for AI video generation using the models we expose in our catalogue.
         The Service includes API access, dashboard tools, webhook delivery, billing management,
         and related developer infrastructure.
       </p>

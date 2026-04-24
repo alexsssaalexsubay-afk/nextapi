@@ -21,7 +21,7 @@ import (
 
 const (
 	opSessionHeader  = "X-Op-Session"
-	opOTPHeader      = "X-Op-OTP"   // format: "<otp_id>.<6-digit-code>"
+	opOTPHeader      = "X-Op-OTP" // format: "<otp_id>.<6-digit-code>"
 	opSessionTTL     = 8 * time.Hour
 	opSessionIdleTTL = 2 * time.Hour // invalidated if unused for this long
 	otpCodeTTL       = 10 * time.Minute
@@ -32,13 +32,13 @@ const (
 // OperatorSession is the DB model for short-lived, revocable admin sessions.
 // GORM maps this to the operator_sessions table from migration 00010.
 type OperatorSession struct {
-	ID          string     `gorm:"primaryKey"`
-	ActorEmail  string     `gorm:"not null;index"`
-	IPCreated   string
-	CreatedAt   time.Time
-	ExpiresAt   time.Time
-	LastUsedAt  time.Time
-	RevokedAt   *time.Time
+	ID         string `gorm:"primaryKey"`
+	ActorEmail string `gorm:"not null;index"`
+	IPCreated  string
+	CreatedAt  time.Time
+	ExpiresAt  time.Time
+	LastUsedAt time.Time
+	RevokedAt  *time.Time
 }
 
 func (OperatorSession) TableName() string { return "operator_sessions" }
@@ -46,10 +46,10 @@ func (OperatorSession) TableName() string { return "operator_sessions" }
 // AdminOTP is the DB model for single-use 6-digit OTP codes.
 // GORM maps this to the admin_otp table from migration 00010.
 type AdminOTP struct {
-	ID         string     `gorm:"primaryKey"`
-	ActorEmail string     `gorm:"not null;index"`
-	CodeHash   string     `gorm:"not null"`
-	Action     string     `gorm:"not null"`
+	ID         string `gorm:"primaryKey"`
+	ActorEmail string `gorm:"not null;index"`
+	CodeHash   string `gorm:"not null"`
+	Action     string `gorm:"not null"`
 	TargetID   string
 	Hint       string
 	ExpiresAt  time.Time
@@ -62,8 +62,8 @@ func (AdminOTP) TableName() string { return "admin_otp" }
 // AdminSessionHandlers creates and manages short-lived operator sessions
 // and email OTP flows for high-risk operations.
 type AdminSessionHandlers struct {
-	DB     *gorm.DB
-	Clerk  interface {
+	DB    *gorm.DB
+	Clerk interface {
 		Verify(ctx context.Context, raw string) (*auth.ClerkClaims, error)
 		FetchClerkUserEmail(ctx context.Context, userID string) (string, error)
 	}
@@ -171,6 +171,14 @@ func (h *AdminSessionHandlers) SendOTP(c *gin.Context) {
 		return
 	}
 
+	if h.Notify == nil || !h.Notify.Enabled() {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": gin.H{
+			"code":    "otp_delivery_not_configured",
+			"message": "admin OTP email delivery is not configured. Set RESEND_API_KEY before confirming high-risk operations.",
+		}})
+		return
+	}
+
 	// Rate-limit: max otpRateMax OTP sends per window per email.
 	var recentCount int64
 	h.DB.WithContext(c.Request.Context()).
@@ -207,17 +215,14 @@ func (h *AdminSessionHandlers) SendOTP(c *gin.Context) {
 		return
 	}
 
-	// Send via Resend. If Resend is not configured, still return the OTP ID
-	// but log a warning — better than blocking the operator entirely.
-	if h.Notify != nil && h.Notify.Enabled() {
-		hint := body.Hint
-		if hint == "" {
-			hint = body.Action
-		}
-		h.Notify.Send(notify.Mail{
-			To:      []string{actor},
-			Subject: fmt.Sprintf("[NextAPI Admin] Your verification code: %s", code),
-			Text: fmt.Sprintf(`NextAPI Admin — verification code
+	hint := body.Hint
+	if hint == "" {
+		hint = body.Action
+	}
+	h.Notify.Send(notify.Mail{
+		To:      []string{actor},
+		Subject: fmt.Sprintf("[NextAPI Admin] Your verification code: %s", code),
+		Text: fmt.Sprintf(`NextAPI Admin — verification code
 
 Code:    %s
 Action:  %s
@@ -230,13 +235,8 @@ If you did not request this, someone may be using your admin session — revoke 
 
 — NextAPI Security
 `, code, body.Action, body.TargetID, hint, otp.ExpiresAt.UTC().Format("15:04:05")),
-			Tag: "admin-otp",
-		})
-	} else {
-		// Resend not configured: log the code for local dev / testing.
-		// In production you MUST configure RESEND_API_KEY.
-		_ = fmt.Sprintf("⚠️  RESEND not configured — OTP for %s (action=%s): %s", actor, body.Action, code)
-	}
+		Tag: "admin-otp",
+	})
 
 	// Return only the OTP ID (never the code) to the frontend.
 	// The frontend combines it as "<otp_id>.<code>" in X-Op-OTP header.
@@ -315,12 +315,12 @@ func createOperatorSession(ctx context.Context, db *gorm.DB, email, ip string) (
 	}
 	now := time.Now()
 	sess := &OperatorSession{
-		ID:          id,
-		ActorEmail:  email,
-		IPCreated:   ip,
-		CreatedAt:   now,
-		ExpiresAt:   now.Add(opSessionTTL),
-		LastUsedAt:  now,
+		ID:         id,
+		ActorEmail: email,
+		IPCreated:  ip,
+		CreatedAt:  now,
+		ExpiresAt:  now.Add(opSessionTTL),
+		LastUsedAt: now,
 	}
 	if err := db.WithContext(ctx).Create(sess).Error; err != nil {
 		return nil, err

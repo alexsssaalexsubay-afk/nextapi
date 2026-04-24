@@ -11,6 +11,14 @@ const nextConfig = {
   turbopack: {
     root: path.resolve(__dirname, "../.."),
   },
+  // (dashboard) is a route group — it does not appear in the URL. Some users
+  // guess /dashboard/jobs/...; send them to the real paths.
+  async redirects() {
+    return [
+      { source: "/dashboard", destination: "/", permanent: true },
+      { source: "/dashboard/:path*", destination: "/:path*", permanent: true },
+    ]
+  },
 }
 
 export default nextConfig

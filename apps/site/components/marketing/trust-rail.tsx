@@ -11,7 +11,7 @@ export function TrustRail() {
       icon: BadgeCheck,
       title: t.trust.official.title,
       copy: t.trust.official.description,
-      mono: "partner-tier: stable",
+      mono: "production: stable",
     },
     {
       icon: Lock,

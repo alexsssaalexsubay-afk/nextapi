@@ -19,12 +19,12 @@ NextAPI is a video generation gateway built on top of Seedance. It handles authe
 ## How it works
 
 ```
-API Key  →  POST /v1/video/generations  →  job_id
+API Key  →  POST /v1/videos  →  video_id
                                               ↓
-                          poll GET /v1/jobs/id  →  video_url  →  download
+                          poll GET /v1/videos/id  →  video_url  →  download
 ```
 
-Every video generation is a **job**. You submit a job, get back a `job_id`, then poll until the job reaches `succeeded` or `failed`. Batch Studio and the ComfyUI nodes handle this loop automatically.
+Every video generation creates an asynchronous **video** resource. You submit a request, get back a `video_id`, then poll until the video reaches `succeeded` or `failed`. Batch Studio and the ComfyUI nodes handle this loop automatically.
 
 ## Where to start
 

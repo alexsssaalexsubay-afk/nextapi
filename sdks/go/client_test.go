@@ -17,7 +17,7 @@ func newTestClient(h http.Handler) (*Client, *httptest.Server) {
 
 func TestGenerate(t *testing.T) {
 	c, srv := newTestClient(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost || r.URL.Path != "/v1/video/generations" {
+		if r.Method != http.MethodPost || r.URL.Path != "/v1/videos" {
 			t.Fatalf("unexpected %s %s", r.Method, r.URL.Path)
 		}
 		if got := r.Header.Get("Authorization"); got != "Bearer sk-test" {
@@ -28,11 +28,12 @@ func TestGenerate(t *testing.T) {
 		}
 		var body map[string]any
 		_ = json.NewDecoder(r.Body).Decode(&body)
-		if body["prompt"] != "hi" {
-			t.Fatalf("prompt = %v", body["prompt"])
+		input, _ := body["input"].(map[string]any)
+		if input["prompt"] != "hi" {
+			t.Fatalf("prompt = %v", input["prompt"])
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"id":"job_123","status":"queued","estimated_credits":42}`))
+		_, _ = w.Write([]byte(`{"id":"vid_123","status":"queued","estimated_cost_cents":42}`))
 	}))
 	defer srv.Close()
 
@@ -40,21 +41,21 @@ func TestGenerate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if out.ID != "job_123" || out.Status != "queued" || out.EstimatedCredits != 42 {
+	if out.ID != "vid_123" || out.Status != "queued" || out.EstimatedCostCents != 42 {
 		t.Fatalf("unexpected: %+v", out)
 	}
 }
 
 func TestGetJob(t *testing.T) {
 	c, srv := newTestClient(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/v1/jobs/job_123" {
+		if r.URL.Path != "/v1/videos/vid_123" {
 			t.Fatalf("path = %s", r.URL.Path)
 		}
-		_, _ = w.Write([]byte(`{"id":"job_123","status":"succeeded"}`))
+		_, _ = w.Write([]byte(`{"id":"vid_123","status":"succeeded"}`))
 	}))
 	defer srv.Close()
 
-	job, err := c.GetJob(context.Background(), "job_123")
+	job, err := c.GetJob(context.Background(), "vid_123")
 	if err != nil {
 		t.Fatal(err)
 	}

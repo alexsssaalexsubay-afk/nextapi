@@ -48,6 +48,8 @@ Env on frontend deploys:
 - `CLERK_SECRET_KEY=...` (dashboard + admin)
 - `NEXT_PUBLIC_POSTHOG_KEY=...` (site, optional)
 
+**Build-time vs Worker runtime (dashboard / admin).** `NEXT_PUBLIC_*` is **inlined at `next build`**. Names you add only under the Worker’s **Settings → Variables and secrets** are for the **running** Worker. The **CI build** that runs `opennextjs-cloudflare build` / `pnpm -F @nextapi/… build` often **does not** receive those values, so the build can fail with “`NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` is not set” even when the key exists on the Worker. Fix: add the same `pk_…` value to the project’s **build** environment (Workers Builds: **Settings → Builds** and set **Build variables** / environment for the build — exact labels vary). The publishable key is safe to store as a non-secret “variable” for builds; `CLERK_SECRET_KEY` stays a secret and remains runtime-only as appropriate.
+
 Node 20, pnpm 9.
 
 ## Rollback
@@ -60,3 +62,5 @@ recorded in `.last-prev-tag`.
 - `deploy.sh` — pull new image, compose up, health gate, auto-rollback on failure.
 - `rollback.sh` — revert to `.last-prev-tag`.
 - `vps-bootstrap.sh` — one-time VPS setup.
+- `production.env.template` — copy to `/opt/nextapi/.env` on the VPS (see comments inside).
+- `REMOTE-SSH-CURSOR.md` — use Cursor **Remote-SSH** so the agent runs commands on the server.

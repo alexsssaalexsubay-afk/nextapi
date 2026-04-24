@@ -8,30 +8,34 @@ const tabs = [
   {
     label: "text-to-video",
     language: "bash",
-    code: `curl https://api.nextapi.top/v1/video/generations \\
+    code: `curl https://api.nextapi.top/v1/videos \\
   -H "Authorization: Bearer $NEXTAPI_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{
     "model": "seedance-2.0-pro",
-    "mode": "text-to-video",
-    "prompt": "Drone orbiting a lighthouse at dusk, cinematic, 35mm",
-    "duration_seconds": 6,
-    "resolution": "1080p"
+    "input": {
+      "mode": "text-to-video",
+      "prompt": "Drone orbiting a lighthouse at dusk, cinematic, 35mm",
+      "duration_seconds": 6,
+      "resolution": "1080p"
+    }
   }'`,
   },
   {
     label: "image-to-video",
     language: "bash",
-    code: `curl https://api.nextapi.top/v1/video/generations \\
+    code: `curl https://api.nextapi.top/v1/videos \\
   -H "Authorization: Bearer $NEXTAPI_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{
     "model": "seedance-2.0-pro",
-    "mode": "image-to-video",
-    "image_url": "https://cdn.acme.com/lighthouse.jpg",
-    "prompt": "Camera slowly orbits around the lighthouse as waves crash below",
-    "duration_seconds": 6,
-    "resolution": "1080p"
+    "input": {
+      "mode": "image-to-video",
+      "image_url": "https://cdn.acme.com/lighthouse.jpg",
+      "prompt": "Camera slowly orbits around the lighthouse as waves crash below",
+      "duration_seconds": 6,
+      "resolution": "1080p"
+    }
   }'`,
   },
   {
@@ -39,29 +43,29 @@ const tabs = [
     language: "javascript",
     code: `import { NextAPI } from "nextapi"
 
-const nextapi = new NextAPI(process.env.NEXTAPI_KEY)
+const nextapi = new NextAPI({ apiKey: process.env.NEXTAPI_KEY })
 
-const job = await nextapi.video.generations.create({
+const video = await nextapi.generate({
   model: "seedance-2.0-pro",
   mode: "text-to-video",
   prompt: "Drone orbiting a lighthouse at dusk, cinematic, 35mm",
-  duration_seconds: 6,
+  durationSeconds: 6,
   resolution: "1080p",
 })
 
-// job.id                 -> "job_7Hc9Xk2Lm3NpQ4rS"
-// job.status             -> "queued"
-// job.estimated_credits  -> 1.0`,
+// video.id                   -> "vid_7Hc9Xk2Lm3NpQ4rS"
+// video.status               -> "queued"
+// video.estimated_cost_cents -> 100`,
   },
   {
     label: "Python",
     language: "python",
-    code: `from nextapi import NextAPI
+    code: `from nextapi import Client
 
-client = NextAPI(api_key=os.environ["NEXTAPI_KEY"])
+client = Client(api_key=os.environ["NEXTAPI_KEY"])
 
 # image-to-video — pass image_url alongside prompt
-job = client.video.generations.create(
+video = client.generate(
     model="seedance-2.0-pro",
     mode="image-to-video",
     image_url="https://cdn.acme.com/lighthouse.jpg",
@@ -70,9 +74,9 @@ job = client.video.generations.create(
     resolution="1080p",
 )
 
-# job.id                 -> "job_7Hc9Xk2Lm3NpQ4rS"
-# job.status             -> "queued"
-# job.estimated_credits  -> 1.0`,
+# video["id"]                   -> "vid_7Hc9Xk2Lm3NpQ4rS"
+# video["status"]               -> "queued"
+# video["estimated_cost_cents"] -> 100`,
   },
 ]
 
@@ -81,8 +85,10 @@ const webhookTab = [
     label: "webhook payload",
     language: "json",
     code: `{
-  "event": "job.succeeded",
-  "id": "job_7Hc9Xk2Lm3NpQ4rS",
+  "event": "video.succeeded",
+  "id": "vid_7Hc9Xk2Lm3NpQ4rS",
+  "job_id": "job_7Hc9Xk2Lm3NpQ4rS",
+  "video_id": "vid_7Hc9Xk2Lm3NpQ4rS",
   "model": "seedance-2.0-pro",
   "status": "succeeded",
   "duration_ms": 38420,
@@ -94,10 +100,10 @@ const webhookTab = [
     "duration_s": 6.0
   },
   "billing": {
-    "estimated_credits": 1.00,
-    "billed":   0.84,
-    "refunded": 0.00,
-    "currency": "credits"
+    "estimated_cost_cents": 100,
+    "billed_cents": 84,
+    "refunded_cents": 0,
+    "currency": "USD"
   },
   "delivered_at": "2025-04-22T17:03:11Z"
 }`,

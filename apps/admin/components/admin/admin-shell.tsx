@@ -80,7 +80,7 @@ export function AdminShell({
             <Logo />
           </Link>
           <span className="rounded-sm border border-status-failed/40 bg-status-failed/10 px-1.5 py-0.5 font-mono text-[9.5px] uppercase tracking-[0.18em] text-status-failed">
-            admin
+            {t.admin.shell.sidebarBadge}
           </span>
         </div>
 
@@ -145,7 +145,7 @@ export function AdminShell({
 
         <div className="border-t border-sidebar-border p-3">
           <a
-            href="https://runbooks.nextapi.top"
+            href="https://docs.nextapi.top"
             target="_blank"
             rel="noreferrer"
             className="mb-2 flex items-center gap-2.5 rounded-md px-2 py-1.5 text-[12.5px] text-muted-foreground transition-colors hover:text-foreground"

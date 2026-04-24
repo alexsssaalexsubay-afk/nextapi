@@ -26,7 +26,8 @@ routes = [
 #         pnpm --filter @nextapi/dashboard exec wrangler secret put \
 #             NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
 #     and the deploy step will pick it up. The build asserts its
-#     presence (see scripts/check-clerk-env.mjs).
+#     presence (see ../../scripts/check-clerk-env.mjs). For Cloudflare
+#     Pages, also set it on the build (NEXT_PUBLIC_* is inlined at build).
 #
 #   * CLERK_SECRET_KEY is server-only and MUST go through wrangler
 #     secret put as before.

@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useRef, useState } from "react"
 import { KeyRound, Loader2, Mail, ShieldCheck, X } from "lucide-react"
 import { requestOTP } from "@/lib/admin-api"
+import { useTranslations } from "@/lib/i18n/context"
 import { cn } from "@/lib/utils"
 
 export type OTPDialogResult =
@@ -25,6 +26,8 @@ interface OTPDialogProps {
 type Phase = "idle" | "sending" | "awaiting" | "verifying" | "error"
 
 export function OTPDialog({ open, action, targetId, hint, onResult }: OTPDialogProps) {
+  const t = useTranslations()
+  const o = t.admin.otpDialog
   const [phase, setPhase] = useState<Phase>("idle")
   const [otpId, setOtpId] = useState("")
   const [expiresAt, setExpiresAt] = useState("")
@@ -62,7 +65,7 @@ export function OTPDialog({ open, action, targetId, hint, onResult }: OTPDialogP
       setServerHint(resp.hint)
       setPhase("awaiting")
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to send verification code")
+      setError(err instanceof Error ? err.message : o.sendFailed)
       setPhase("error")
     }
   }
@@ -71,7 +74,7 @@ export function OTPDialog({ open, action, targetId, hint, onResult }: OTPDialogP
     e.preventDefault()
     const trimmed = code.trim().replace(/\s/g, "")
     if (trimmed.length !== 6 || !/^\d{6}$/.test(trimmed)) {
-      setError("Please enter the 6-digit code from your email.")
+      setError(o.invalidCode)
       return
     }
     setPhase("verifying")
@@ -94,7 +97,7 @@ export function OTPDialog({ open, action, targetId, hint, onResult }: OTPDialogP
               <KeyRound className="size-4 text-status-failed" />
             </div>
             <div>
-              <h2 className="text-[13.5px] font-medium tracking-tight">Confirm with email code</h2>
+              <h2 className="text-[13.5px] font-medium tracking-tight">{o.title}</h2>
               <p className="mt-0.5 font-mono text-[11px] text-muted-foreground">
                 {action}
               </p>
@@ -102,7 +105,7 @@ export function OTPDialog({ open, action, targetId, hint, onResult }: OTPDialogP
           </div>
           <button
             type="button"
-            aria-label="Cancel"
+            aria-label={o.cancelAria}
             onClick={handleCancel}
             className="rounded p-1 text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
           >
@@ -114,7 +117,7 @@ export function OTPDialog({ open, action, targetId, hint, onResult }: OTPDialogP
           {/* Operation hint */}
           <div className="rounded-md border border-border/60 bg-background/40 px-4 py-3">
             <p className="font-mono text-[11px] text-muted-foreground uppercase tracking-[0.12em] mb-1">
-              operation
+              {o.operation}
             </p>
             <p className="font-mono text-[12.5px] text-foreground">{hint || action}</p>
           </div>
@@ -123,7 +126,7 @@ export function OTPDialog({ open, action, targetId, hint, onResult }: OTPDialogP
           {phase === "sending" && (
             <div className="flex items-center gap-2.5 rounded-md border border-border/60 bg-background/40 px-4 py-3 font-mono text-[12px] text-muted-foreground">
               <Loader2 className="size-4 animate-spin" />
-              Sending verification code…
+              {o.sending}
             </div>
           )}
 
@@ -135,7 +138,7 @@ export function OTPDialog({ open, action, targetId, hint, onResult }: OTPDialogP
                 onClick={sendOTP}
                 className="ml-3 underline underline-offset-2 hover:no-underline"
               >
-                retry
+                {o.retry}
               </button>
             </div>
           )}
@@ -144,12 +147,12 @@ export function OTPDialog({ open, action, targetId, hint, onResult }: OTPDialogP
             <form onSubmit={handleSubmit} className="space-y-3">
               <div className="flex items-start gap-2 rounded-md border border-border/60 bg-background/40 px-4 py-3 font-mono text-[12px] text-muted-foreground">
                 <Mail className="mt-0.5 size-3.5 shrink-0" />
-                <span>{serverHint || `Code sent to your admin email`}</span>
+                <span>{serverHint || o.codeSentFallback}</span>
               </div>
 
               {expiresAt && (
                 <p className="font-mono text-[11px] text-muted-foreground">
-                  Code expires at{" "}
+                  {o.expiresAtPrefix}{" "}
                   <span className="text-foreground">
                     {new Date(expiresAt).toLocaleTimeString()}
                   </span>
@@ -158,7 +161,7 @@ export function OTPDialog({ open, action, targetId, hint, onResult }: OTPDialogP
 
               <div>
                 <label className="mb-1 block font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
-                  6-digit verification code
+                  {o.codeLabel}
                 </label>
                 <input
                   ref={inputRef}
@@ -192,7 +195,7 @@ export function OTPDialog({ open, action, targetId, hint, onResult }: OTPDialogP
                   disabled={phase === "verifying"}
                   className="flex-1 rounded-md border border-border/80 bg-card/40 py-2 text-[12.5px] text-foreground hover:bg-card disabled:opacity-50"
                 >
-                  Cancel
+                  {o.cancel}
                 </button>
                 <button
                   type="submit"
@@ -202,12 +205,12 @@ export function OTPDialog({ open, action, targetId, hint, onResult }: OTPDialogP
                   {phase === "verifying" ? (
                     <>
                       <Loader2 className="size-3.5 animate-spin" />
-                      Confirming…
+                      {o.confirming}
                     </>
                   ) : (
                     <>
                       <ShieldCheck className="size-3.5" />
-                      Confirm
+                      {o.confirm}
                     </>
                   )}
                 </button>
@@ -218,7 +221,7 @@ export function OTPDialog({ open, action, targetId, hint, onResult }: OTPDialogP
                 onClick={sendOTP}
                 className="w-full font-mono text-[11px] text-muted-foreground hover:text-foreground underline underline-offset-2"
               >
-                Didn&apos;t receive it? Resend code
+                {o.resend}
               </button>
             </form>
           )}

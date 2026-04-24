@@ -186,7 +186,7 @@ GET /v1/batch/runs/br_abc123/manifest
 | `api_key_id` | 使用的 API Key |
 | `job_id` | 若调用创建了任务，则为任务 UUID |
 | `batch_run_id` | 若为批量任务的一部分 |
-| `endpoint` | 路由路径（如 `/v1/video/generations`） |
+| `endpoint` | 路由路径（如 `/v1/videos` 或旧版 `/v1/video/generations`） |
 | `method` | HTTP 方法 |
 | `request_hash` | 请求体的 SHA-256 哈希，用于重复检测 |
 | `response_status` | 返回的 HTTP 状态码 |

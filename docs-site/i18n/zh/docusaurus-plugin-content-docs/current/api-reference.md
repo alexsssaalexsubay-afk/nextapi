@@ -1,244 +1,139 @@
 ---
 title: API 参考
 sidebar_label: API 参考
-description: POST /v1/video/generations 和 GET /v1/jobs/id 的完整接口文档。
+description: 视频生成 — /v1/models、/v1/videos 与旧版兼容端点说明。
 ---
 
 # API 参考
 
-NextAPI 提供两个视频生成接口：
+**权威说明：** 以仓库内 OpenAPI 文件（`backend/api/openapi.yaml`）为准。本文是面向阅读的摘要，以 OpenAPI 为准。
 
-- **`POST /v1/video/generations`** — 提交生成任务
-- **`GET /v1/jobs/{job_id}`** — 查询任务状态
+**基地址：** `https://api.nextapi.top/v1`（本地开发一般为 `http://localhost:8080/v1`）
 
-所有请求均需在 `Authorization` 请求头中携带 Bearer Token。
-
----
-
-## 认证
-
-```http
-Authorization: Bearer sk_live_yourkey
-```
-
-每个请求都必须包含此请求头。缺少时返回 `401 Unauthorized`。
+**鉴权：** 在 `Authorization` 中携带 `Bearer sk_live_…` 或 `sk_test_…`（下表所列的对外路由）。
 
 ---
 
-## POST /v1/video/generations
+## 推荐使用的主接口
 
-提交一个新的视频生成任务。请求立即返回 `job_id`，生成过程异步进行。
+| 方法 | 路径 | 说明 |
+|--------|------|---------|
+| `GET` | `/models` | 公开模型目录（游标分页） |
+| `GET` | `/models/{model_id}` | 获取单个模型 |
+| `POST` | `/videos` | 创建 **video** 任务（异步，返回 `202`） |
+| `GET` | `/videos` | 列表，支持 `status`、`model`、时间范围等筛选 |
+| `GET` | `/videos/{id}` | 查询状态、入参回显、输出、费用、错误信息 |
+| `DELETE` | `/videos/{id}` | 取消或删除（非终态时） |
+| `GET` | `/videos/{id}/wait` | 长轮询直至终态（可带 `timeout`） |
 
-### 请求体
+对支持幂等的 **`POST`** 请携带 **`Idempotency-Key`** 请求头（同 key+同 body 在 24 小时窗口内去重，见 OpenAPI）。部分响应会返回 **`X-Request-Id`**。
+
+### 公开 model ID
+
+产品目录主 ID：`seedance-2.0-pro`、`seedance-2.0-fast`、`seedream-5.0-lite`。旧 ID（如 `seedance-2.0`）仍可能被接受并映射到同档位（以 `GET /models` 为准）。
+
+### `POST /videos` — 请求体
+
+顶层必填字段：**`model`**、**`input`**；**`input`** 内须包含 **`prompt`**。
 
 ```json
 {
-  "prompt": "林悦走进咖啡馆，柔和的晨光",
-  "duration": 5,
-  "aspect_ratio": "16:9",
-  "negative_prompt": "水印, 变形面部, 多余手指",
-  "camera": "中景跟拍",
-  "motion": "缓慢走进后停顿",
-  "references": {
-    "character_image_url": "https://cdn.example.com/char_lin.jpg",
-    "outfit_image_url": "https://cdn.example.com/white_coat.jpg",
-    "scene_image_url": "https://cdn.example.com/cafe_morning.jpg"
+  "model": "seedance-2.0-pro",
+  "input": {
+    "prompt": "一个人走进洒满阳光的房间",
+    "duration_seconds": 5,
+    "resolution": "1080p",
+    "image_url": "https://example.com/optional-first-frame.png"
   },
-  "metadata": {
-    "continuity_group": "ep01_s01_lin_cafe",
-    "shot_id": "ep01_s01_001"
-  }
+  "webhook_url": "https://example.com/hooks/nextapi"
 }
 ```
 
-### 请求字段说明
+`input` 中可选字段（视模型能力而定）包括：`mode`（`fast` / `normal`）、`aspect_ratio`、`fps`（`24` / `30`）、`generate_audio`、`watermark`、`seed`、`camera_fixed`，以及 `references` 对象数组。完整定义与限制见 OpenAPI 的 `VideoInput`（如填写 `duration_seconds` 时一般需在 **2～15** 秒之间）。
 
-| 字段 | 类型 | 是否必填 | 说明 |
-|------|------|---------|------|
-| `prompt` | string | ✅ | 英文生成提示词，最少 4 个字符，推荐 30–200 词 |
-| `duration` | integer | ✅ | 视频时长（秒），范围 2–12 |
-| `aspect_ratio` | string | ✅ | `16:9` · `9:16` · `1:1` · `4:3` · `3:4` · `21:9` |
-| `negative_prompt` | string | — | 反向提示词，逗号分隔 |
-| `camera` | string | — | 镜头运动描述 |
-| `motion` | string | — | 主体动作描述 |
-| `references` | object | — | 参考图（见子字段） |
-| `metadata` | object | — | 透传字段，用于连贯组等自定义标记 |
-
-### references 子字段
-
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| `character_image_url` | string（URL） | 角色外貌参考图 |
-| `outfit_image_url` | string（URL） | 服装/造型参考图 |
-| `scene_image_url` | string（URL） | 背景/场地参考图 |
-| `reference_video_url` | string（URL） | 动作或风格参考视频 |
-
-所有参考图必须是可公开访问的 `https://` 链接。本地文件路径 API 不接受——用 Batch Studio 或 ComfyUI Asset Resolver 节点处理上传。
-
-### 响应体 — 200 OK
+### `POST /videos` — 成功响应（`202`）
 
 ```json
 {
-  "id": "job_a3k9m2x1",
+  "id": "vid_01HXXX",
+  "object": "video",
   "status": "queued",
-  "estimated_credits": 12
+  "model": "seedance-2.0-pro",
+  "created_at": "2026-04-24T12:00:00Z",
+  "estimated_cost_cents": 50
 }
 ```
 
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| `id` | string | 任务 ID，用于查询状态 |
-| `status` | string | 创建时始终为 `queued` |
-| `estimated_credits` | integer | 预估积分消耗，完成后按实际结算 |
+### `GET /videos/{id}`
 
-### 错误响应
+返回同一条 `video` 资源，在成功时带 `input`、`output`；失败时带 `error_code`、`error_message`。成功时 `output.video_url` 为短期有效的签名地址，请下载后自存。
 
-| HTTP 状态 | 错误码 | 含义 |
-|-----------|-------|------|
-| `400` | `invalid_request` | 缺少必填字段或字段值不合法 |
-| `400` | `content_policy.pre` | 提示词被内容审核拦截 |
-| `401` | `unauthorized` | 密钥缺失或无效 |
-| `402` | `insufficient_balance` | 组织积分不足 |
-| `429` | `rate_limit_exceeded` | 超过密钥 RPM 限制 |
-| `5xx` | — | 服务端或服务商错误，建议退避重试 |
+**轮询间隔：** 数秒一次即可；也可使用 `GET /v1/videos/{id}/wait`，或为组织在控制台配置 [Webhooks](./webhooks) 接收完成事件。
 
-### 调用示例
-
-**curl：**
+### 示例：curl
 
 ```bash
-curl -X POST https://api.nextapi.top/v1/video/generations \
+curl -sS -X POST "https://api.nextapi.top/v1/videos" \
   -H "Authorization: Bearer sk_live_yourkey" \
   -H "Content-Type: application/json" \
+  -H "Idempotency-Key: $(uuidgen)" \
   -d '{
-    "prompt": "Lin Yue walks into the cafe, soft morning light from the left",
-    "duration": 5,
-    "aspect_ratio": "16:9",
-    "negative_prompt": "watermark, distorted face",
-    "references": {
-      "character_image_url": "https://cdn.example.com/char_lin.jpg"
+    "model": "seedance-2.0-pro",
+    "input": {
+      "prompt": "一个人走进洒满阳光的房间",
+      "duration_seconds": 5,
+      "resolution": "1080p"
     }
   }'
 ```
 
-**Python：**
-
-```python
-import requests
-
-resp = requests.post(
-    "https://api.nextapi.top/v1/video/generations",
-    headers={"Authorization": "Bearer sk_live_yourkey"},
-    json={
-        "prompt": "Lin Yue walks into the cafe, soft morning light",
-        "duration": 5,
-        "aspect_ratio": "16:9",
-        "references": {
-            "character_image_url": "https://cdn.example.com/char_lin.jpg"
-        },
-    },
-    timeout=30,
-)
-job = resp.json()
-print(job["id"], job["estimated_credits"])
-```
-
----
-
-## GET /v1/jobs/\{id\}
-
-查询生成任务的当前状态。
-
-### 路径参数
-
-| 参数 | 说明 |
-|------|------|
-| `id` | 生成接口返回的任务 ID |
-
-### 响应体 — 200 OK
-
-```json
-{
-  "id": "job_a3k9m2x1",
-  "status": "succeeded",
-  "video_url": "https://storage.nextapi.top/videos/job_a3k9m2x1.mp4?token=...",
-  "error_code": null,
-  "error_message": null
-}
-```
-
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| `id` | string | 任务 ID |
-| `status` | string | 当前状态（见下方流转图） |
-| `video_url` | string \| null | 视频签名链接，仅在 `status = succeeded` 时有值，**24 小时后过期** |
-| `error_code` | string \| null | 失败时的错误码 |
-| `error_message` | string \| null | 失败时的错误描述 |
-
-### 任务状态流转
-
-```
-queued  →  running  →  succeeded
-                    ↘  failed
-```
-
-| 状态 | 含义 |
-|------|------|
-| `queued` | 已接受，在服务商队列中等待 |
-| `running` | 正在生成中 |
-| `succeeded` | 完成，`video_url` 有效 |
-| `failed` | 失败，`error_code` 和 `error_message` 有内容 |
-
-**推荐轮询间隔：** 4 秒。每 2 秒以上轮询不会提升速度，只会消耗 RPM 配额。
-
-### 调用示例
-
-**curl：**
-
 ```bash
-curl https://api.nextapi.top/v1/jobs/job_a3k9m2x1 \
+curl -sS "https://api.nextapi.top/v1/videos/vid_01HXXX" \
   -H "Authorization: Bearer sk_live_yourkey"
 ```
 
-**Python 轮询循环：**
+---
 
-```python
-import time
-import requests
+## 旧版兼容（仍提供）
 
-headers = {"Authorization": "Bearer sk_live_yourkey"}
+与 `/v1/videos` 共用同一条生成链路，但请求体为 **平铺** JSON，返回为 **任务（job）形态** 的 JSON（**没有** `object: "video"` 包一层）。
 
-while True:
-    resp = requests.get("https://api.nextapi.top/v1/jobs/job_a3k9m2x1", headers=headers)
-    data = resp.json()
-    print(f"状态: {data['status']}")
+| 方法 | 路径 | 说明 |
+|--------|------|--------|
+| `POST` | `/video/generations` | 必填 `prompt`；使用 **`duration_seconds`**（**不要** 使用字段名 `duration`）；另有 `model`、`image_url`、`resolution`、`aspect_ratio` 等，与 `VideoHandlers.Generate` 一致 |
+| `GET` | `/jobs/{id}` | 用旧接口创建时返回的 **任务 id** 做轮询 |
 
-    if data["status"] == "succeeded":
-        print(f"视频地址: {data['video_url']}")
-        break
-    elif data["status"] == "failed":
-        print(f"失败: {data['error_code']} — {data['error_message']}")
-        break
+**旧版创建（`202`）响应：** `id`、`status`、`estimated_credits`。  
+**旧版 `GET`：** 返回 `id`、`status`、`video_url`、`error_code`、`error_message`、`created_at`、`completed_at` 等。
 
-    time.sleep(4)
+**新对接请优先用 `POST /v1/videos` + `GET /v1/videos/{id}`**，字段与 OpenAPI 以及仪表盘/SDK 更一致。
+
+---
+
+## Webhook 与计费
+
+- **单次请求**：可在 `POST /v1/videos` 中传 `webhook_url`（见 OpenAPI）。  
+- **组织级**：在控制台用 `POST /v1/webhooks` 登记端点，事件带 HMAC 签名，详见 [Webhooks](./webhooks)。
+
+`Video` 资源上 `/v1/videos` 使用以 **美分 USD** 计价的 `estimated_cost_cents` / `actual_cost_cents`。部分旧版字段或说明仍用「积分」表述时，**以新接口的 OpenAPI `Video` 为准**。
+
+---
+
+## 限流
+
+- 业务面默认对 **已鉴权** 请求有 **每 Key 约 600 次/分钟** 的路由级限流，响应中可见 `X-RateLimit-*`。
+- 若 Key 在 **控制台 → 密钥** 中配置了 **`rate_limit_rpm`**，会 **再叠加** 该 Key 专属上限；可能返回 **`429`** 且 `error.code` 为 **`key_rate_limited`**。
+
+请根据 **`X-RateLimit-*` / `X-RateLimit-Key-*`** 调整重试与并发。
+
+---
+
+## 错误体
+
+一般形式：
+
+```json
+{ "error": { "code": "invalid_request", "message": "…" } }
 ```
 
----
-
-## 速率限制
-
-| 默认值 | 说明 |
-|--------|------|
-| 30 RPM | 每分钟每密钥最多请求数 |
-| 5 并发 | 每密钥同时进行中的生成任务数 |
-
-两个限制均可在控制台 → **密钥 → 编辑** 中调整。
-
----
-
-## 积分结算
-
-- 任务进入 `queued` 时**预占积分**
-- 任务失败时，预占积分**全额退回**
-- 最终结算按实际生成成本计算，可能与 `estimated_credits` 有轻微差异
-- 积分余额在控制台 → **计费** 中查看
+具体 HTTP 与业务码以 OpenAPI `responses` 与 [错误说明](./errors.md) 为准。

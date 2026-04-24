@@ -19,19 +19,19 @@ queued → running → succeeded
 | `running` | Provider is generating. |
 | `succeeded` | Terminal. `output` is populated. |
 | `failed` | Terminal. `error` is populated. |
-| `canceled` | Terminal. You called `DELETE /v1/jobs/{id}`. |
+| `canceled` | Terminal. You called `DELETE /v1/videos/{id}`. |
 
 Typical end-to-end time for a 5s Seedance generation is **30–90 seconds**.
 
 ## Polling
 
-Poll `GET /v1/jobs/{id}` every 2–5 seconds. Back off on any `429`. Our recommended ceiling is 1 poll / 2s per job.
+Poll `GET /v1/videos/{id}` every 2–5 seconds. Back off on any `429`. Our recommended ceiling is 1 poll / 2s per video.
 
 ## Webhooks
 
 Polling is fine for scripts; webhooks are better for production.
 
-Register an endpoint in **Dashboard → Webhooks** or pass `webhook_url` on job creation:
+Register an endpoint in **Dashboard → Webhooks** or pass `webhook_url` when creating a video:
 
 ```json
 {

@@ -48,7 +48,7 @@ function toJobRow(v: VideoListItem): JobRow {
   return {
     id: v.id,
     status,
-    model: v.model || "seedance-2.0",
+    model: v.model || "seedance-2.0-pro",
     // Use real prompt from API; fall back to a readable placeholder
     prompt: v.prompt || "(no prompt)",
     submitted: relTime(v.created_at),

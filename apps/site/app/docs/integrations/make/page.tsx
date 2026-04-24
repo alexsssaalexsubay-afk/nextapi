@@ -12,7 +12,7 @@ export default function MakeIntegrationPage() {
         configLang="json"
         configSnippet={`// Make HTTP Module Configuration
 {
-  "url": "https://api.nextapi.top/v1/video/generations",
+  "url": "https://api.nextapi.top/v1/videos",
   "method": "POST",
   "headers": [
     {
@@ -26,28 +26,32 @@ export default function MakeIntegrationPage() {
   ],
   "body": {
     "model": "seedance-2.0-pro",
-    "prompt": "{{1.prompt}}",
-    "duration_seconds": 6,
-    "resolution": "1080p"
+    "input": {
+      "prompt": "{{1.prompt}}",
+      "duration_seconds": 6,
+      "resolution": "1080p"
+    }
   },
   "parseResponse": true
 }`}
         steps={[
           "In Make, create a new scenario and add an HTTP → \"Make a request\" module.",
-          "Set the URL to https://api.nextapi.top/v1/video/generations and method to POST.",
+          "Set the URL to https://api.nextapi.top/v1/videos and method to POST.",
           "Add the Authorization header with your Bearer token.",
-          "Set the body type to JSON and configure the request body with model, prompt, duration_seconds, and resolution.",
+          "Set the body type to JSON and configure model plus an input object containing prompt, duration_seconds, and resolution.",
           "Enable \"Parse response\" to work with the JSON output.",
           "Connect downstream modules to process the video URL from the response data.",
         ]}
-        curlTest={`curl -X POST https://api.nextapi.top/v1/video/generations \\
+        curlTest={`curl -X POST https://api.nextapi.top/v1/videos \\
   -H "Authorization: Bearer $NEXTAPI_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{
     "model": "seedance-2.0-pro",
-    "prompt": "northern lights dancing over a frozen lake",
-    "duration_seconds": 6,
-    "resolution": "1080p"
+    "input": {
+      "prompt": "northern lights dancing over a frozen lake",
+      "duration_seconds": 6,
+      "resolution": "1080p"
+    }
   }'`}
       />
       <LandingFooter />

@@ -39,7 +39,7 @@ In Batch Studio, the `error_code` and `error_message` appear directly in the res
 
 ```bash
 # Test your key directly
-curl https://api.nextapi.top/v1/jobs/does-not-exist \
+curl https://api.nextapi.top/v1/videos/does-not-exist \
   -H "Authorization: Bearer sk_live_yourkey"
 # Should return 404, not 401
 ```
@@ -91,9 +91,9 @@ If all 4 retries hit 429, the row is marked `failed` with `error_code: http_429`
 
 | Sub-message | Fix |
 |-------------|-----|
-| `"prompt is required"` | Add a non-empty `prompt_en` column to your manifest |
-| `"duration out of range"` | Set `duration` to a value between 2 and 12 |
-| `"unsupported aspect_ratio"` | Use one of: `16:9`, `9:16`, `1:1`, `4:3`, `3:4`, `21:9` |
+| `"prompt is required"` | For `POST /v1/videos`, include `input.prompt`; in Batch Studio manifests, add a non-empty `prompt_en` (or the column your template expects) |
+| `"duration out of range"` / `duration_seconds` | Set `input.duration_seconds` (or legacy `duration_seconds`) between **2 and 15** when you pass a value |
+| `"unsupported aspect_ratio"` | Use one of: `16:9`, `9:16`, `1:1`, `4:3`, `3:4`, `21:9`, `adaptive` |
 | `"invalid reference url"` | Ensure reference URLs start with `https://` and are reachable |
 
 Run **🔍 Validate CSV** in Batch Studio before submitting — it catches most 400-class issues before any credits are spent.
@@ -132,7 +132,7 @@ If you believe the rejection was incorrect, try rephrasing using more neutral la
 
 **What happened:** The job was created and started rendering, but failed during generation.
 
-Check `error_code` and `error_message` from `GET /v1/jobs/{id}`:
+Check `error_code` and `error_message` from `GET /v1/videos/{id}` (or legacy `GET /v1/jobs/{id}` for job IDs from the old create path):
 
 | error_code | Meaning | Fix |
 |------------|---------|-----|

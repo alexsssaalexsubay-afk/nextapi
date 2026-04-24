@@ -4,7 +4,9 @@
 NextAPI is a video AI API gateway. We hold 1 of 20 global reseller licenses for
 ByteDance Volcengine Seedance. Vision: "OpenRouter for Video AI".
 
-**Documentation map (human readers):** [`docs/README.md`](docs/README.md) — includes Chinese beginner guide [`docs/BEGINNERS-GUIDE-ZH.md`](docs/BEGINNERS-GUIDE-ZH.md) and [`docs/GLOSSARY-ZH.md`](docs/GLOSSARY-ZH.md). User-facing Docusaurus site lives in **`docs-site/`**.
+**i18n:** UI copy lives in `packages/ui/src/lib/i18n/messages/{en,zh}.ts` — keys must match; run `pnpm --filter @nextapi/ui check-i18n` after edits.
+
+**Documentation map (human readers):** [`docs/README.md`](docs/README.md) — Chinese paths for non-coders: [`docs/BEGINNERS-GUIDE-ZH.md`](docs/BEGINNERS-GUIDE-ZH.md), [`docs/REPO-TOUR-ZH.md`](docs/REPO-TOUR-ZH.md), [`docs/FLOW-ZH.md`](docs/FLOW-ZH.md), [`docs/FAQ-ZH.md`](docs/FAQ-ZH.md), [`docs/GLOSSARY-ZH.md`](docs/GLOSSARY-ZH.md). Docusaurus: **`docs-site/`**.
 
 ## Architecture (one glance)
 
@@ -46,7 +48,7 @@ Deployment topology (live as of 2026-04):
 
 Other invariants:
 - Single Go binary serves api.nextapi.top; workers share the same binary with `cmd/worker`.
-- Provider Adapter pattern: only Seedance implemented in v1; Kling/Zhipu are interface stubs.
+- Provider Adapter pattern: two live backends in v1 — Volcengine Ark direct (`PROVIDER_MODE=live`) and UpToken relay (`PROVIDER_MODE=uptoken`, `https://uptoken.cc/docs`). Kling/Zhipu are interface stubs. Provider is selected once at startup via `providerfactory.Default()`.
 - Async job model: POST creates job → worker calls provider → webhook notifies customer OR customer polls.
 - Mintlify handles docs.nextapi.top externally (not in this repo).
 - Single region for MVP: Aliyun HK. Multi-region in roadmap (not Q1).
@@ -67,7 +69,7 @@ nextapi-v3/
 │   │   ├── infra/              # Config, DB, Redis, HTTP utils, metrics
 │   │   ├── job/                # Job service + processor (create, poll, succeed, fail)
 │   │   ├── moderation/         # Content moderation profiles
-│   │   ├── provider/           # Provider interface + Seedance implementation
+│   │   ├── provider/           # Provider interface + Seedance (Ark) + UpToken implementations
 │   │   ├── providerfactory/    # Provider factory
 │   │   ├── ratelimit/          # Redis sliding window rate limiter
 │   │   ├── spend/              # Spend controls, budget caps, auto-pause, kill switch
@@ -132,7 +134,7 @@ nextapi-v3/
 │   ├── /webhooks               CRUD    Webhook endpoints
 │   └── /throughput, /moderation GET/PUT Throughput & moderation
 │
-└── Internal operator (X-Admin-Token auth, rate limited)
+└── Internal operator (X-Op-Session / Clerk JWT / script-only X-Admin-Token, rate limited)
     └── /internal/admin/
         ├── /overview           GET     Platform stats
         ├── /users              GET     User list
@@ -174,9 +176,9 @@ nextapi-v3/
 1. User signs up on app.nextapi.top → receives 500 free credits.
 2. Creates API key in dashboard (shown once, prefix-only after).
 3. Reads docs.nextapi.top → copies curl example.
-4. POST /v1/video/generations { prompt, model:"seedance-v2-pro", image_url? }
-   → returns { id:"job_xxx", status:"queued", estimated_credits:N }
-5. Polls GET /v1/jobs/:id OR registers webhook URL.
+4. POST /v1/videos { model:"seedance-v2-pro", input:{ prompt, image_url? } }
+   → returns { id:"vid_xxx", status:"queued", estimated_cost_cents:N }
+5. Polls GET /v1/videos/:id OR registers webhook URL.
 6. Job completes → status:"succeeded", video_url:"<r2 presigned URL>".
 7. Credits deducted based on real token usage from Seedance.
 8. Customer tops up via dashboard (Stripe / Alipay / WeChat).

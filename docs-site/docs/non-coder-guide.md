@@ -15,9 +15,9 @@ NextAPI is a **managed video generation API**:
 
 - Your team signs up, tops up **credits**, and creates **API keys**.
 - Applications (or our Batch Studio / ComfyUI tools) send a **prompt** and optional **reference image**.
-- NextAPI handles **auth, billing, queuing, upstream video models, refunds on failure, and job history**.
+- NextAPI handles **auth, billing, queuing, Seedance-family video models, refunds on failure, and job history**.
 
-You do **not** need to use the cloud vendor console for day-to-day generation once the server is configured.
+You call **`https://api.nextapi.top/v1`** with your **`sk_` key** and a public **model** id (e.g. `seedance-2.0-pro`); you do not need to sign up with third-party model vendors yourself.
 
 ## The five URLs
 
@@ -49,12 +49,13 @@ If there is no playground, hand the key to a developer and point them to [API Re
 Ask them to read the repo docs (not just this site):
 
 - `docs/SETUP-GUIDE.md` — production deployment.
-- `docs/OPERATOR-HANDBOOK.md` — env vars, DB migrations, Seedance / Dreamina mapping.
+- `docs/OPERATOR-HANDBOOK.md` — env vars, DB migrations, production checks.
 - `backend/api/openapi.yaml` — authoritative API schema.
 
 ## More detail in Chinese
 
-A longer beginner guide (Chinese) lives in the repository: `docs/BEGINNERS-GUIDE-ZH.md`.
+A longer beginner guide (Chinese) lives in the repository: `docs/BEGINNERS-GUIDE-ZH.md`.  
+Same folder for **repo map** (`REPO-TOUR-ZH.md`), **request lifecycle** (`FLOW-ZH.md`), and **FAQ** (`FAQ-ZH.md`) — useful if you clone the monorepo.
 
 ## Glossary
 

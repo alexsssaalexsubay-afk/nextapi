@@ -15,6 +15,14 @@
 | **API Key** | 一串以 `sk_live_…` 开头的密钥，用来调用 `api.nextapi.top`。等同于「通行证」，**绝不能**发到公开网页或聊天群。 |
 | **任务 / Job** | 一次视频生成请求在后端对应一条异步任务：排队 → 运行 → 成功或失败。 |
 
+### 三种常见凭证（混用会报错）
+
+| 前缀 / 形式 | 谁用 | 典型场景 |
+|-------------|------|----------|
+| **`sk_live_…`** | 客户业务侧 | `POST /v1/videos`、管理自己的密钥与 Webhook。 |
+| **`ak_…`** | 管理员自动化 | 管理类 API（与客户 `sk_` 路由组不同）。 |
+| **`ops_…`（运维会话）** | 登录 Admin 网页后 | 浏览器存会话，调 `/v1/internal/admin/...`；高危操作要 **OTP**。 |
+
 ---
 
 ## 网站与入口
@@ -64,5 +72,8 @@
 ## 相关文档
 
 - 零基础总览：[`BEGINNERS-GUIDE-ZH.md`](./BEGINNERS-GUIDE-ZH.md)
+- 仓库地图：[`REPO-TOUR-ZH.md`](./REPO-TOUR-ZH.md)
+- 请求流程：[`FLOW-ZH.md`](./FLOW-ZH.md)
+- 常见问题：[`FAQ-ZH.md`](./FAQ-ZH.md)
 - 运维与环境变量：[`OPERATOR-HANDBOOK.md`](./OPERATOR-HANDBOOK.md)
 - 部署步骤：[`SETUP-GUIDE.md`](./SETUP-GUIDE.md)

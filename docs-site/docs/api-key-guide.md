@@ -81,35 +81,43 @@ headers = {
     "Content-Type": "application/json",
 }
 
-# Submit a generation job
+# Create a video (primary API: nested input)
 resp = requests.post(
-    f"{BASE_URL}/v1/video/generations",
+    f"{BASE_URL}/v1/videos",
     json={
-        "prompt": "Lin Yue walks into the cafe, soft morning light",
-        "duration": 5,
-        "aspect_ratio": "16:9",
+        "model": "seedance-2.0-pro",
+        "input": {
+            "prompt": "Lin Yue walks into the cafe, soft morning light",
+            "duration_seconds": 5,
+            "resolution": "1080p",
+            "aspect_ratio": "16:9",
+        },
     },
     headers=headers,
     timeout=30,
 )
 resp.raise_for_status()
-job = resp.json()
-print(f"Job ID: {job['id']}  Estimated credits: {job['estimated_credits']}")
+video = resp.json()
+print(
+    f"ID: {video['id']}  object={video.get('object')}  "
+    f"estimated USD cents: {video.get('estimated_cost_cents')}"
+)
 
 # Poll for completion
 import time
 while True:
-    r = requests.get(f"{BASE_URL}/v1/jobs/{job['id']}", headers=headers)
+    r = requests.get(f"{BASE_URL}/v1/videos/{video['id']}", headers=headers)
     data = r.json()
     print(f"Status: {data['status']}")
-    if data["status"] in ("succeeded", "failed"):
+    if data["status"] in ("succeeded", "failed", "cancelled"):
         break
     time.sleep(4)
 
 if data["status"] == "succeeded":
-    print(f"Video URL: {data['video_url']}")
+    out = data.get("output") or {}
+    print(f"Video URL: {out.get('video_url')}")
 else:
-    print(f"Failed: {data['error_code']} — {data['error_message']}")
+    print(f"Failed: {data.get('error_code')} — {data.get('error_message')}")
 ```
 
 ### Asynchronous (aiohttp)
@@ -127,20 +135,28 @@ async def generate_and_poll(prompt: str) -> str | None:
     async with aiohttp.ClientSession(headers=headers) as session:
         # Submit
         async with session.post(
-            f"{BASE_URL}/v1/video/generations",
-            json={"prompt": prompt, "duration": 5, "aspect_ratio": "16:9"},
+            f"{BASE_URL}/v1/videos",
+            json={
+                "model": "seedance-2.0-pro",
+                "input": {
+                    "prompt": prompt,
+                    "duration_seconds": 5,
+                    "aspect_ratio": "16:9",
+                },
+            },
         ) as resp:
-            job = await resp.json()
-            job_id = job["id"]
+            v = await resp.json()
+            vid = v["id"]
 
         # Poll
         while True:
-            async with session.get(f"{BASE_URL}/v1/jobs/{job_id}") as resp:
+            async with session.get(f"{BASE_URL}/v1/videos/{vid}") as resp:
                 data = await resp.json()
             if data["status"] == "succeeded":
-                return data["video_url"]
+                out = data.get("output") or {}
+                return out.get("video_url")
             if data["status"] == "failed":
-                print(f"Error: {data['error_code']}")
+                print(f"Error: {data.get('error_code')}")
                 return None
             await asyncio.sleep(4)
 
@@ -156,7 +172,16 @@ from api_client import ClientConfig, NextAPIClient
 
 cfg = ClientConfig(base_url="https://api.nextapi.top", api_key="sk_live_…")
 async with NextAPIClient(cfg) as client:
-    resp = await client.submit_generation({"prompt": "...", "duration": 5, "aspect_ratio": "16:9"})
+    resp = await client.submit_generation(
+        {
+            "model": "seedance-2.0-pro",
+            "input": {
+                "prompt": "...",
+                "duration_seconds": 5,
+                "aspect_ratio": "16:9",
+            },
+        }
+    )
 ```
 :::
 
@@ -167,20 +192,23 @@ async with NextAPIClient(cfg) as client:
 Submit a generation job:
 
 ```bash
-curl -X POST https://api.nextapi.top/v1/video/generations \
+curl -X POST https://api.nextapi.top/v1/videos \
   -H "Authorization: Bearer sk_live_yourkey" \
   -H "Content-Type: application/json" \
   -d '{
-    "prompt": "Lin Yue walks into the cafe, soft morning light",
-    "duration": 5,
-    "aspect_ratio": "16:9"
+    "model": "seedance-2.0-pro",
+    "input": {
+      "prompt": "Lin Yue walks into the cafe, soft morning light",
+      "duration_seconds": 5,
+      "aspect_ratio": "16:9"
+    }
   }'
 ```
 
-Poll job status:
+Poll video status:
 
 ```bash
-curl https://api.nextapi.top/v1/jobs/job_abc123 \
+curl https://api.nextapi.top/v1/videos/vid_abc123 \
   -H "Authorization: Bearer sk_live_yourkey"
 ```
 
@@ -189,33 +217,36 @@ To store the key in a shell variable instead of repeating it:
 ```bash
 export NEXTAPI_KEY=sk_live_yourkey
 
-curl -X POST https://api.nextapi.top/v1/video/generations \
+curl -X POST https://api.nextapi.top/v1/videos \
   -H "Authorization: Bearer $NEXTAPI_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"prompt": "...", "duration": 5, "aspect_ratio": "16:9"}'
+  -d '{"model":"seedance-2.0-pro","input":{"prompt":"...","duration_seconds":5,"aspect_ratio":"16:9"}}'
 ```
 
 ---
 
 ## Using your key in Postman
 
-1. Create a new request → **POST** → `https://api.nextapi.top/v1/video/generations`
+1. Create a new request → **POST** → `https://api.nextapi.top/v1/videos`
 2. Go to **Authorization** tab → Type: **Bearer Token** → paste your key
 3. Go to **Body** tab → **raw** → **JSON**
 4. Paste the request body:
 
 ```json
 {
-  "prompt": "Lin Yue walks into the cafe, soft morning light",
-  "duration": 5,
-  "aspect_ratio": "16:9"
+  "model": "seedance-2.0-pro",
+  "input": {
+    "prompt": "Lin Yue walks into the cafe, soft morning light",
+    "duration_seconds": 5,
+    "aspect_ratio": "16:9"
+  }
 }
 ```
 
 5. Click **Send**
 
-**For the poll endpoint:**  
-Duplicate the request → change method to **GET** → URL to `https://api.nextapi.top/v1/jobs/{job_id}` → replace `{job_id}` with the ID from the first response.
+**To poll status:**  
+Duplicate the request → change method to **GET** → URL to `https://api.nextapi.top/v1/videos/{id}` → replace `{id}` with the `id` from the `202` response.
 
 ---
 

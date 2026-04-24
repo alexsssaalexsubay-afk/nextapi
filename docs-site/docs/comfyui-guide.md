@@ -58,11 +58,11 @@ Outputs: `character_url`, `outfit_url`, `scene_url`, `reference_video_url`.
 
 ### NextAPI · Generate Video
 
-Submits `POST /v1/video/generations`.
+Submits **`POST /v1/video/generations`** (flat JSON body) — the bundled node targets this path for ComfyUI compatibility. If you call NextAPI from your own code, prefer **`POST /v1/videos`** with `model` + nested `input` (see the [API Reference](./api-reference)).
 
-Key inputs: `prompt`, `duration` (2–12 s), `aspect_ratio`, and optional `character_url`, `outfit_url`, `scene_url` from the Asset Resolver.
+Key inputs: `prompt`, `duration` (2–12 s in the node; the gateway allows **2–15** s for `duration_seconds` when you use the API directly), `aspect_ratio`, and optional `character_url`, `outfit_url`, `scene_url` from the Asset Resolver.
 
-Outputs: `job_id`, `estimated_credits`, `status`.
+Outputs: `job_id`, `estimated_credits`, `status` from the legacy create response.
 
 ### NextAPI · Poll Job
 

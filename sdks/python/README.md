@@ -21,7 +21,7 @@ job = client.generate(
     duration_seconds=5,
     resolution="1080p",
 )
-print(job["id"], job["status"], job["estimated_credits"])
+print(job["id"], job["status"], job["estimated_cost_cents"])
 
 final = client.wait(job["id"])
 print(final)

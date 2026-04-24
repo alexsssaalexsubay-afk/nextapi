@@ -1,257 +1,139 @@
 ---
 title: API Reference
 sidebar_label: API Reference
-description: Complete reference for POST /v1/video/generations and GET /v1/jobs/id.
+description: Public REST surface for video generation — models, /v1/videos, and legacy compatibility endpoints.
 ---
 
 # API Reference
 
-NextAPI exposes two endpoints for video generation:
+**Canonical spec:** the OpenAPI document in the NextAPI repository (`backend/api/openapi.yaml`) and the live description at `https://api.nextapi.top/v1`. This page is a **human summary**; when in doubt, trust the OpenAPI file.
 
-- **`POST /v1/video/generations`** — Submit a generation job
-- **`GET /v1/jobs/{id}`** — Poll job status
+**Base URL:** `https://api.nextapi.top/v1` (or `http://localhost:8080/v1` in local development)
 
-All requests require a Bearer token in the `Authorization` header.
-
----
-
-## Authentication
-
-```http
-Authorization: Bearer sk_live_yourkey
-```
-
-Every request must include this header. Requests without it return `401 Unauthorized`.
+**Auth:** `Authorization: Bearer sk_live_…` or `sk_test_…` for customer-facing routes listed below.
 
 ---
 
-## POST /v1/video/generations
+## Primary surface (recommended)
 
-Submit a new video generation job. Returns immediately with a `job_id` — generation happens asynchronously.
+| Method | Path | Purpose |
+|--------|------|---------|
+| `GET` | `/models` | List public model catalogue (cursor pagination) |
+| `GET` | `/models/{model_id}` | Get one model |
+| `POST` | `/videos` | Create a **video** job (async, `202 Accepted`) |
+| `GET` | `/videos` | List videos (filters: `status`, `model`, date range) |
+| `GET` | `/videos/{id}` | Get status, input echo, `output`, costs, errors |
+| `DELETE` | `/videos/{id}` | Cancel or delete (when not terminal) |
+| `GET` | `/videos/{id}/wait` | Long-poll until terminal state (optional `timeout` query) |
 
-```
-POST /v1/video/generations
-```
+On **`POST`** requests that support it, send a **`Idempotency-Key`** header (duplicates with the same key and body de-duplicate for 24h — see OpenAPI). Responses may include **`X-Request-Id`**.
 
-### Request body
+### Model IDs (public)
+
+Primary catalogue IDs: **`seedance-2.0-pro`**, **`seedance-2.0-fast`**, **`seedream-5.0-lite`**. Legacy strings such as `seedance-2.0` are still accepted and map to the same tiers (see `GET /models`).
+
+### POST `/videos` — request body
+
+Required top-level: **`model`**, **`input`**. `input` must include **`prompt`**.
 
 ```json
 {
-  "prompt": "Lin Yue walks into the cafe, soft morning light",
-  "duration": 5,
-  "aspect_ratio": "16:9",
-  "negative_prompt": "watermark, distorted face, extra fingers",
-  "camera": "medium tracking shot",
-  "motion": "slow walk-in then pause",
-  "references": {
-    "character_image_url": "https://cdn.example.com/char_lin.jpg",
-    "outfit_image_url": "https://cdn.example.com/white_coat.jpg",
-    "scene_image_url": "https://cdn.example.com/cafe_morning.jpg"
+  "model": "seedance-2.0-pro",
+  "input": {
+    "prompt": "A person walks into a sunlit room",
+    "duration_seconds": 5,
+    "resolution": "1080p",
+    "image_url": "https://example.com/optional-first-frame.png"
   },
-  "metadata": {
-    "continuity_group": "ep01_s01_lin_cafe",
-    "shot_id": "ep01_s01_001"
-  }
+  "webhook_url": "https://example.com/hooks/nextapi"
 }
 ```
 
-### Request fields
+Optional `input` fields (when supported by the model) include: `mode` (`fast` | `normal`), `aspect_ratio`, `fps` (`24` | `30`), `generate_audio`, `watermark`, `seed`, `camera_fixed`, and a `references` array of `{ "type", "url", "role" }` objects. See the OpenAPI `VideoInput` schema for the full list and constraints (e.g. `duration_seconds` between **2 and 15** when set).
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `prompt` | string | ✅ | English generation prompt. Minimum 4 characters; 30–200 words recommended. |
-| `duration` | integer | ✅ | Length of video in seconds. Range: 2–12. |
-| `aspect_ratio` | string | ✅ | `16:9` · `9:16` · `1:1` · `4:3` · `3:4` · `21:9` |
-| `negative_prompt` | string | — | Elements to exclude. Comma-separated phrases. |
-| `camera` | string | — | Camera framing and movement description. |
-| `motion` | string | — | Subject movement description. |
-| `references` | object | — | Reference images/videos (see sub-fields below). |
-| `metadata` | object | — | Passed through; used for continuity grouping. |
-
-### References sub-fields
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `character_image_url` | string (URL) | Reference image for character appearance |
-| `outfit_image_url` | string (URL) | Reference image for outfit/costume |
-| `scene_image_url` | string (URL) | Reference image for background/location |
-| `reference_video_url` | string (URL) | Reference video for motion or style |
-
-All reference values must be fully qualified `https://` URLs. Local file paths are not accepted by the API directly — use Batch Studio or the ComfyUI Asset Resolver node to handle uploads.
-
-### Response — 200 OK
+### POST `/videos` — success (`202`)
 
 ```json
 {
-  "id": "job_a3k9m2x1",
+  "id": "vid_01HXXX",
+  "object": "video",
   "status": "queued",
-  "estimated_credits": 12
+  "model": "seedance-2.0-pro",
+  "created_at": "2026-04-24T12:00:00Z",
+  "estimated_cost_cents": 50
 }
 ```
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `id` | string | Job ID — use this to poll status |
-| `status` | string | Initial status, always `queued` on creation |
-| `estimated_credits` | integer | Estimated credit cost; actual cost settled on completion |
+### GET `/videos/{id}`
 
-### Error responses
+Returns the same `video` object with `input`, `output` (when succeeded), `estimated_cost_cents`, `actual_cost_cents`, and `error_code` / `error_message` on failure. Successful generations expose `output.video_url` (signed; short TTL — download for archival).
 
-| HTTP status | Error code | Meaning |
-|-------------|-----------|---------|
-| `400` | `invalid_request` | Missing required field or invalid value |
-| `400` | `content_policy.pre` | Prompt blocked by pre-generation moderation |
-| `401` | `unauthorized` | Missing or invalid API key |
-| `402` | `insufficient_balance` | Org has no credits |
-| `429` | `rate_limit_exceeded` | Key's RPM exceeded |
-| `5xx` | — | Server or provider error — retry with backoff |
+**Polling:** a few seconds between polls is enough; you can also use `GET /videos/{id}/wait` or [configure webhooks](./webhooks) for your organisation.
 
-### Examples
-
-**curl:**
+### Example: curl
 
 ```bash
-curl -X POST https://api.nextapi.top/v1/video/generations \
+curl -sS -X POST "https://api.nextapi.top/v1/videos" \
   -H "Authorization: Bearer sk_live_yourkey" \
   -H "Content-Type: application/json" \
+  -H "Idempotency-Key: $(uuidgen)" \
   -d '{
-    "prompt": "Lin Yue walks into the cafe, soft morning light from the left",
-    "duration": 5,
-    "aspect_ratio": "16:9",
-    "negative_prompt": "watermark, distorted face",
-    "references": {
-      "character_image_url": "https://cdn.example.com/char_lin.jpg"
+    "model": "seedance-2.0-pro",
+    "input": {
+      "prompt": "A person walks into a sunlit room",
+      "duration_seconds": 5,
+      "resolution": "1080p"
     }
   }'
 ```
 
-**Python:**
-
-```python
-import requests
-
-resp = requests.post(
-    "https://api.nextapi.top/v1/video/generations",
-    headers={"Authorization": "Bearer sk_live_yourkey"},
-    json={
-        "prompt": "Lin Yue walks into the cafe, soft morning light from the left",
-        "duration": 5,
-        "aspect_ratio": "16:9",
-        "negative_prompt": "watermark, distorted face",
-        "references": {
-            "character_image_url": "https://cdn.example.com/char_lin.jpg"
-        },
-    },
-    timeout=30,
-)
-job = resp.json()
-print(job["id"], job["estimated_credits"])
+```bash
+curl -sS "https://api.nextapi.top/v1/videos/vid_01HXXX" \
+  -H "Authorization: Bearer sk_live_yourkey"
 ```
 
 ---
 
-## GET /v1/jobs/\{id\}
+## Legacy compatibility (still supported)
 
-Poll the status of a generation job.
+These routes share the same generation pipeline as `/v1/videos` but use a **flat** JSON body and return **job-shaped** JSON (not the `object: "video"` envelope).
 
-```
-GET /v1/jobs/{id}
-```
+| Method | Path | Notes |
+|--------|------|--------|
+| `POST` | `/video/generations` | `prompt` required; use **`duration_seconds`** (not `duration`); `model`, `image_url`, `resolution`, `aspect_ratio`, etc. |
+| `GET` | `/jobs/{id}` | Poll by **job** id returned from the legacy create call |
 
-### Path parameters
+**Legacy create response (`202`):** `id`, `status`, `estimated_credits` (credits, not USD cents).  
+**Legacy GET** returns: `id`, `status`, `video_url`, `error_code`, `error_message`, `created_at`, `completed_at`, etc.
 
-| Parameter | Description |
-|-----------|-------------|
-| `id` | Job ID returned by the generation endpoint |
+New integrations should prefer **`POST /v1/videos`** and **`GET /v1/videos/{id}`** so field names and costs line up with the rest of the API and documentation.
 
-### Response — 200 OK
+---
 
-```json
-{
-  "id": "job_a3k9m2x1",
-  "status": "succeeded",
-  "video_url": "https://storage.nextapi.top/videos/job_a3k9m2x1.mp4?token=...",
-  "error_code": null,
-  "error_message": null
-}
-```
+## Outbound webhooks and credits
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `id` | string | Job ID |
-| `status` | string | Current status — see lifecycle below |
-| `video_url` | string \| null | Signed URL to the generated video. Present only when `status = succeeded`. **Expires after 24 hours.** |
-| `error_code` | string \| null | Machine-readable error code if failed |
-| `error_message` | string \| null | Human-readable error description if failed |
+- **Per-request:** optional `webhook_url` on `POST /v1/videos` (see OpenAPI).  
+- **Per-organisation:** register endpoints with `POST /v1/webhooks` so completion events are delivered with HMAC signatures — see the [Webhooks](./webhooks) guide.
 
-### Job status lifecycle
-
-```
-queued  →  running  →  succeeded
-                    ↘  failed
-```
-
-| Status | Meaning |
-|--------|---------|
-| `queued` | Accepted and waiting in the provider queue |
-| `running` | Generation actively in progress |
-| `succeeded` | Finished — `video_url` is populated |
-| `failed` | Failed — `error_code` and `error_message` are populated |
-
-**Recommended polling interval:** 4 seconds. Polling more frequently than every 2 seconds provides no benefit and counts against your RPM.
-
-### Examples
-
-**curl:**
-
-```bash
-curl https://api.nextapi.top/v1/jobs/job_a3k9m2x1 \
-  -H "Authorization: Bearer sk_live_yourkey"
-```
-
-**Python polling loop:**
-
-```python
-import time
-import requests
-
-headers = {"Authorization": "Bearer sk_live_yourkey"}
-job_id = "job_a3k9m2x1"
-
-while True:
-    resp = requests.get(
-        f"https://api.nextapi.top/v1/jobs/{job_id}",
-        headers=headers,
-    )
-    data = resp.json()
-    print(f"Status: {data['status']}")
-
-    if data["status"] == "succeeded":
-        print(f"Video: {data['video_url']}")
-        break
-    elif data["status"] == "failed":
-        print(f"Failed: {data['error_code']} — {data['error_message']}")
-        break
-
-    time.sleep(4)
-```
+Account balance and usage use **cents in USD** on the `/v1/videos` object (`estimated_cost_cents` / `actual_cost_cents`). The dashboard and legacy fields may still refer to “credits” in some places; the OpenAPI `Video` schema is authoritative for the new surface.
 
 ---
 
 ## Rate limits
 
-| Default | Description |
-|---------|-------------|
-| 30 RPM | Requests per minute per key |
-| 5 concurrent | Max parallel in-flight generations per key |
+- The business API group applies a **per-key default** of **600 requests per minute** (see `X-RateLimit-*` on responses) for authenticated traffic.
+- If the key has **`rate_limit_rpm`** set in **Dashboard → Keys → Edit**, an **additional** per-minute cap is enforced. You may see **`429`** with `error.code` **`key_rate_limited`** when the per-key cap bites.
 
-Both limits are configurable in the dashboard → **Keys → Edit**. If you consistently hit rate limits with production workloads, request an increase.
+Check **`X-RateLimit-*`** and **`X-RateLimit-Key-*`** response headers and adjust your key or pacing accordingly.
 
 ---
 
-## Credit accounting
+## Error shape
 
-- Credits are **reserved** when a job enters `queued` state.
-- If a job fails, reserved credits are **refunded**.
-- Final settlement uses actual generation cost, which may differ slightly from `estimated_credits`.
-- Credit balance is visible in the dashboard → **Billing**.
+Error bodies generally look like:
+
+```json
+{ "error": { "code": "invalid_request", "message": "…" } }
+```
+
+Exact codes for moderation, idempotency conflicts, and upstream failures are documented in the OpenAPI `responses` section. See also [Error codes](./errors).

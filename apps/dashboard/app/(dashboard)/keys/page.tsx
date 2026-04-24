@@ -140,7 +140,7 @@ export default function KeysPage() {
                     <button
                       onClick={() =>
                         copyToClipboard(
-                          `curl -X POST https://api.nextapi.top/v1/videos \\\n  -H "Authorization: Bearer ${newKeyResult.secret}" \\\n  -H "Content-Type: application/json" \\\n  -d '{"model":"seedance-v2-pro","prompt":"a cat playing piano","duration":5}'`,
+                          `curl -X POST https://api.nextapi.top/v1/videos \\\n  -H "Authorization: Bearer ${newKeyResult.secret}" \\\n  -H "Content-Type: application/json" \\\n  -d '{"model":"seedance-2.0-pro","input":{"prompt":"a cat playing piano","duration_seconds":5,"resolution":"1080p"}}'`,
                         )
                       }
                       className="inline-flex items-center gap-1.5 rounded-sm px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:bg-card hover:text-foreground"
@@ -153,7 +153,7 @@ export default function KeysPage() {
                     {`curl -X POST https://api.nextapi.top/v1/videos \\
   -H "Authorization: Bearer ${newKeyResult.secret}" \\
   -H "Content-Type: application/json" \\
-  -d '{"model":"seedance-v2-pro","prompt":"a cat playing piano","duration":5}'`}
+  -d '{"model":"seedance-2.0-pro","input":{"prompt":"a cat playing piano","duration_seconds":5,"resolution":"1080p"}}'`}
                   </pre>
                 </div>
                 <p className="mt-2 text-[11.5px] text-muted-foreground">{t.keys.curlPreview.description}</p>

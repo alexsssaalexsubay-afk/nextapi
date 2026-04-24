@@ -188,7 +188,7 @@ Every authenticated API call is recorded in `request_logs`. This gives you a sea
 | `api_key_id` | Which key was used |
 | `job_id` | If the call created a job, the job UUID |
 | `batch_run_id` | If part of a batch |
-| `endpoint` | Route path (e.g. `/v1/video/generations`) |
+| `endpoint` | Route path (e.g. `/v1/videos` or legacy `/v1/video/generations`) |
 | `method` | HTTP method |
 | `request_hash` | SHA-256 of the request body — for dedup detection |
 | `response_status` | HTTP status code returned |

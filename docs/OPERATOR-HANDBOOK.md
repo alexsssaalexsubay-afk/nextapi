@@ -261,9 +261,24 @@ SELECT * FROM credits_ledger
 DATABASE_URL=postgres://nextapi:...@127.0.0.1:5432/nextapi?sslmode=disable
 REDIS_ADDR=127.0.0.1:6379
 
-# ===== Seedance（火山方舟 Ark）=====
+# ===== 上游视频提供方 =====
+# PROVIDER_MODE 决定 POST /v1/videos 走哪条路：
+#   mock    —— 进程内假 Provider（默认；本地/CI 用）
+#   live    —— 火山方舟 Ark 直连（需要 VOLC_API_KEY）
+#   uptoken —— UpToken 代跑 (https://uptoken.cc)（需要 UPTOKEN_API_KEY）
+PROVIDER_MODE=uptoken
+
+# ---- 方案 A：UpToken 代跑（推荐：开箱即用，不需要方舟账号） ----
+# 到 https://uptoken.cc/login 登录 → 左侧 API Keys → 新建一把 ut- 开头的 key
+UPTOKEN_API_KEY=ut-...                      # 上游给我们的预留 key
+UPTOKEN_BASE_URL=https://uptoken.cc/v1      # 默认即可；上游切换时才改
+UPTOKEN_MODEL=seedance-2.0-pro              # 客户未传 model 时的兜底
+# 可选：把 NextAPI 目录里对外的 model 映射到 UpToken 真实模型 ID。
+# 默认已内置 seedance-2.0→seedance-2.0-pro、seedance-2.0-fast 透传、seedance-1.x 家族→2.0-pro/fast
+# UPTOKEN_MODEL_MAP=seedance-2.0:seedance-2.0-pro,seedance-2.0-fast:seedance-2.0-fast
+
+# ---- 方案 B：方舟 Ark 直连 ----
 VOLC_API_KEY=...                    # 方舟控制台创建的 API Key（与代码读取的变量名一致）
-PROVIDER_MODE=live                  # 生产写 live；本地可 mock
 # 客户请求里未传 model 时，上游默认使用的 Ark 模型 ID（须是你控制台已开通的接入点）
 SEEDANCE_MODEL=doubao-seedance-1-5-pro-251215
 # 可选：仅当你不用北京接入点时才改
@@ -317,6 +332,28 @@ export SEEDANCE_MODEL_MAP="seedance-2.0:doubao-seedance-2-0-pro-YYYYMMDD,seedanc
 **上线前自检**：对每个对外 `model` 各发一条最小 `POST /v1/videos`（或 staging 环境），确认返回 2xx 且任务能跑完；若 Ark 报 `model not found`，多半是 `SEEDANCE_MODEL_MAP` 缺项或 ID 复制不全。
 
 官方接口说明索引：[火山方舟文档](https://www.volcengine.com/docs/82379)（视频生成 API / 创建视频生成任务）。
+
+### UpToken 模式（`PROVIDER_MODE=uptoken`）速查
+
+UpToken 是一个上游代跑网关（[uptoken.cc](https://uptoken.cc)），替你打通方舟合规、渠道、计费等杂事，开箱即用。接入后所有 `POST /v1/videos` 会被网关翻译成：
+
+```
+POST https://uptoken.cc/v1/video/generations
+Authorization: Bearer ut-...
+```
+
+1. **取 key**：登录 [uptoken.cc/login](https://uptoken.cc/login) → 左侧 **API Keys** → 新建，复制以 `ut-` 开头的完整字符串。
+2. **充值 / 确认余额**：右上角 `BALANCE` 一栏必须 > 0，否则上游会以 HTTP 402 回拒；我们会把 402 透传给客户。
+3. **配 env**：写入 `UPTOKEN_API_KEY`，并把 `PROVIDER_MODE=uptoken`。`UPTOKEN_MODEL` 留空时默认 `seedance-2.0-pro`。
+4. **模型映射**：上游目前暴露三个 ID：
+   - `seedance-2.0-pro`（主推，最高 15s/720p）
+   - `seedance-2.0-fast`（快速档，15s/720p）
+   - `seedream-5.0-lite`（图像生成，暂未接入 `/v1/videos`）
+
+   我们内置了公开 ID → UpToken ID 的映射（seedance-2.0→pro、seedance-2.0-fast→fast、1.x 家族就近回落），需要覆盖时用 `UPTOKEN_MODEL_MAP="a:b,c:d"`。
+5. **预留 key 来源**：如果是上游（UpToken 官方）给我们的合作 key，直接塞进 `UPTOKEN_API_KEY` 即可，不需要额外改代码。
+6. **冒烟**：上线后对每个对外 `model` 各发一条最小 `POST /v1/videos`；查 `GET /v1/videos/:id` 轮询到 `succeeded`，说明端到端链路通了。
+7. **错误码**：UpToken 统一用 `error-1xx/2xx/3xx/4xx/5xx/6xx/7xx`，网关按 HTTP code 透传，客户侧建议按前缀分类重试（`error-5xx` 限流可等待重试，`error-2xx` 参数类不要重试）。完整映射见 [docs/UPSTREAM-UPTOKEN-ZH.md](UPSTREAM-UPTOKEN-ZH.md)。
 
 ---
 

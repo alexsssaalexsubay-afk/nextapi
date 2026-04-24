@@ -70,24 +70,26 @@ class Client:
         resolution: str = "1080p",
         mode: str = "normal",
     ) -> dict:
-        payload: dict[str, Any] = {
+        input_payload: dict[str, Any] = {
             "prompt": prompt,
-            "model": model,
             "duration_seconds": duration_seconds,
             "resolution": resolution,
             "mode": mode,
         }
         if image_url is not None:
-            payload["image_url"] = image_url
-        return self._request("POST", "/v1/video/generations", json=payload)
+            input_payload["image_url"] = image_url
+        return self._request("POST", "/v1/videos", json={"model": model, "input": input_payload})
+
+    def get_video(self, video_id: str) -> dict:
+        return self._request("GET", f"/v1/videos/{video_id}")
 
     def get_job(self, job_id: str) -> dict:
-        return self._request("GET", f"/v1/jobs/{job_id}")
+        return self.get_video(job_id)
 
     def wait(self, job_id: str, timeout: float = 600, poll_interval: float = 5) -> dict:
         deadline = time.monotonic() + timeout
         while True:
-            job = self.get_job(job_id)
+            job = self.get_video(job_id)
             status = str(job.get("status", "")).lower()
             if status in TERMINAL_STATUSES:
                 return job

@@ -21,7 +21,7 @@ Video jobs run asynchronously and provider pricing can shift based on final dura
 
 <Steps>
   <Step title="Reservation">
-    When you `POST /v1/jobs`, we estimate the max cost and **reserve** that many credits. The job is rejected with `insufficient_credits` if your balance is lower than the reservation.
+    When you `POST /v1/videos`, we estimate the max cost and **reserve** that many credits. The video is rejected with `insufficient_credits` if your balance is lower than the reservation.
   </Step>
   <Step title="Execution">
     The reserved credits are held — not yet charged. They don't count toward your available balance, but they aren't spent.
@@ -38,7 +38,7 @@ The final charge is recorded on the job object as `credits_charged` and on your 
 ## Viewing usage
 
 - `GET /v1/usage` — aggregated per-day credit consumption.
-- `GET /v1/jobs/{id}` — per-job `credits_reserved` and `credits_charged`.
+- `GET /v1/videos/{id}` — per-video `credits_reserved` and `credits_charged`.
 - **Dashboard → Usage** — charts and CSV export.
 
 ## Auto top-up

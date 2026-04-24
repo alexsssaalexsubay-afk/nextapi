@@ -8,7 +8,7 @@ description: "Bearer tokens, key prefixes, and revocation."
 Every request must include your API key as a Bearer token:
 
 ```http
-Authorization: Bearer nxt_live_9f3c...a81b
+Authorization: Bearer sk_live_9f3c...a81b
 ```
 
 Requests without a valid key return `401 invalid_key`.
@@ -17,10 +17,10 @@ Requests without a valid key return `401 invalid_key`.
 
 Keys have two visible parts:
 
-- **Prefix** — `nxt_live_9f3c` (first 12 chars). Safe to log, shown in the dashboard, used for identification.
-- **Full key** — `nxt_live_9f3c...a81b`. Shown exactly once at creation. Treat like a password.
+- **Prefix** — `sk_live_9f3c` (first 12 chars). Safe to log, shown in the dashboard, used for identification.
+- **Full key** — `sk_live_9f3c...a81b`. Shown exactly once at creation. Treat like a password.
 
-Test keys use the `nxt_test_` prefix and can only call sandbox models that never consume real credits.
+Test keys use the `sk_test_` prefix and can only call sandbox models that never consume real credits.
 
 ## Scopes
 

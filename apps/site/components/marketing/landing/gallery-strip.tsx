@@ -68,7 +68,7 @@ export function GalleryStrip() {
             </span>
           </h2>
           <p className="mt-4 text-[15px] leading-relaxed text-muted-foreground">
-            Sampled from production traffic this week. Raw Seedance 2.0 output,
+            Sampled from production traffic this week. Raw model output,
             no hand-picks.
           </p>
         </div>

@@ -22,16 +22,18 @@ class VideoGenInput(BaseModel):
 
 def generate_video(prompt: str, duration_seconds: int = 6, resolution: str = "1080p") -> str:
     resp = requests.post(
-        "https://api.nextapi.top/v1/video/generations",
+        "https://api.nextapi.top/v1/videos",
         headers={
             "Authorization": f"Bearer {os.environ['NEXTAPI_KEY']}",
             "Content-Type": "application/json",
         },
         json={
             "model": "seedance-2.0-pro",
-            "prompt": prompt,
-            "duration_seconds": duration_seconds,
-            "resolution": resolution,
+            "input": {
+                "prompt": prompt,
+                "duration_seconds": duration_seconds,
+                "resolution": resolution,
+            },
         },
     )
     resp.raise_for_status()
@@ -51,14 +53,16 @@ nextapi_tool = StructuredTool.from_function(
           "Add the tool to your LangChain agent's tool list.",
           "The agent will call NextAPI when it decides video generation is needed.",
         ]}
-        curlTest={`curl -X POST https://api.nextapi.top/v1/video/generations \\
+        curlTest={`curl -X POST https://api.nextapi.top/v1/videos \\
   -H "Authorization: Bearer $NEXTAPI_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{
     "model": "seedance-2.0-pro",
-    "prompt": "a butterfly landing on a flower in slow motion",
-    "duration_seconds": 6,
-    "resolution": "1080p"
+    "input": {
+      "prompt": "a butterfly landing on a flower in slow motion",
+      "duration_seconds": 6,
+      "resolution": "1080p"
+    }
   }'`}
       />
       <LandingFooter />

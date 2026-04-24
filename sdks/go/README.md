@@ -32,7 +32,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println(job.ID, job.Status, job.EstimatedCredits)
+	fmt.Println(job.ID, job.Status, job.EstimatedCostCents)
 
 	final, err := c.Wait(context.Background(), job.ID, 0, 0)
 	if err != nil {

@@ -5,6 +5,7 @@ import Link from "next/link"
 import {
   Activity,
   BookOpen,
+  Clapperboard,
   CreditCard,
   Gauge,
   Key,
@@ -74,6 +75,11 @@ export function DashboardShell({
       heading: t.nav.dashboard.build,
       items: [
         { label: t.nav.dashboard.keys, href: "/keys", icon: Key },
+        {
+          label: t.nav.dashboard.batchStudio,
+          href: "/batch",
+          icon: Clapperboard,
+        },
         { label: t.nav.dashboard.webhooks, href: "/webhooks", icon: Webhook },
         { label: t.nav.dashboard.docs, href: "https://nextapi.top/docs", icon: BookOpen },
       ],
@@ -165,7 +171,7 @@ export function DashboardShell({
               <span className="text-[12px] text-foreground">{t.cta.footer.allSystems}</span>
             </div>
             <div className="mt-1 font-mono text-[10.5px] text-muted-foreground">
-              Seedance · partner-tier
+              NextAPI · production
             </div>
           </div>
         </div>

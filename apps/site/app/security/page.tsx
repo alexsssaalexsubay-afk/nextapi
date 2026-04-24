@@ -66,7 +66,7 @@ const MEASURES = [
 ]
 
 const SUBPROCESSORS = [
-  { name: "Seedance (Bytedance)", purpose: "Video generation model provider", location: "China / Global" },
+  { name: "Model inference", purpose: "Video generation for API requests", location: "Contracted regions" },
   { name: "Clerk", purpose: "Authentication & identity management", location: "United States" },
   { name: "Cloudflare", purpose: "CDN, DDoS protection, DNS", location: "Global" },
   { name: "Aliyun (Alibaba Cloud)", purpose: "Compute, database, storage", location: "Hong Kong" },

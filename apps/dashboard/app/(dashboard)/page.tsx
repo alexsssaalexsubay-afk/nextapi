@@ -46,7 +46,7 @@ function toJobRow(v: VideoListItem): JobRow {
   return {
     id: v.id,
     status,
-    model: v.model || "seedance-2.0",
+    model: v.model || "seedance-2.0-pro",
     prompt: "",
     submitted: relTime(v.created_at),
     duration: "—",

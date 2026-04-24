@@ -25,20 +25,20 @@ export const metadata: Metadata = {
     template: "%s | NextAPI",
   },
   description:
-    "Seedance official access, signed webhooks, transparent billing, and job-level observability. Ship your first video generation in minutes.",
+    "One API and key for video generation: signed webhooks, transparent billing, and job-level observability. Ship your first video in minutes.",
   metadataBase: new URL(SITE_URL),
   openGraph: {
     type: "website",
     siteName: "NextAPI",
     title: "NextAPI — Production video generation infrastructure",
-    description: "Seedance official access, signed webhooks, transparent billing, and job-level observability.",
+    description: "Unified video generation API — signed webhooks, transparent billing, job-level observability.",
     url: SITE_URL,
     images: [{ url: "/og/default.png", width: 1200, height: 630 }],
   },
   twitter: {
     card: "summary_large_image",
     title: "NextAPI — Production video generation infrastructure",
-    description: "Seedance official access, signed webhooks, transparent billing, and job-level observability.",
+    description: "Unified video generation API — signed webhooks, transparent billing, job-level observability.",
     images: ["/og/default.png"],
   },
   icons: {

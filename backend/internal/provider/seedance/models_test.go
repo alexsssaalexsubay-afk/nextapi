@@ -42,8 +42,18 @@ func TestResolveArkModel_Seedance20_DreaminaFourWay(t *testing.T) {
 			"Dreamina-Seedance-2.0-inference-non-video-in",
 		},
 		{
+			"2.0-pro text (alias)",
+			provider.GenerationRequest{Model: "seedance-2.0-pro", Prompt: "hi"},
+			"Dreamina-Seedance-2.0-inference-non-video-in",
+		},
+		{
 			"2.0 image",
 			provider.GenerationRequest{Model: "seedance-2.0", Prompt: "hi", ImageURL: &img},
+			"Dreamina-Seedance-2.0-inference-video-in",
+		},
+		{
+			"2.0-pro image (alias)",
+			provider.GenerationRequest{Model: "seedance-2.0-pro", Prompt: "hi", ImageURL: &img},
 			"Dreamina-Seedance-2.0-inference-video-in",
 		},
 		{

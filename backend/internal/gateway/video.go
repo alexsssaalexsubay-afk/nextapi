@@ -72,8 +72,8 @@ func (h *VideoHandlers) Generate(c *gin.Context) {
 		}
 	}
 
-	// Validate the Seedance-facing parameters once, so both endpoints
-	// reject the same invalid values with the same error codes.
+	// Validate video parameters once, so both endpoints reject the same
+	// invalid values with the same error codes.
 	if err := validateVideoParams(req.AspectRatio, req.FPS, req.DurationSeconds); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{
 			"code":    "invalid_request",

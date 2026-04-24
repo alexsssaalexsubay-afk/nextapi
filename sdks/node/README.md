@@ -22,7 +22,7 @@ const job = await client.generate({
   resolution: "1080p",
 });
 
-console.log(job.id, job.status, job.estimated_credits);
+console.log(job.id, job.status, job.estimated_cost_cents);
 
 const final = await client.wait(job.id);
 console.log(final);

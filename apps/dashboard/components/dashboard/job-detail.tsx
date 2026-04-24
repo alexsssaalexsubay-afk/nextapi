@@ -163,7 +163,7 @@ export function JobDetail({ jobId }: { jobId: string }) {
             {prompt}
           </h1>
           <p className="text-[13px] text-muted-foreground">
-            {video.model || "seedance-2.0"} · {new Date(video.created_at).toLocaleString()}
+            {video.model || "seedance-2.0-pro"} · {new Date(video.created_at).toLocaleString()}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -662,7 +662,7 @@ function UpstreamPanel({
       <h2 className="text-[13px] font-medium tracking-tight">{u.title}</h2>
       <dl className="mt-4 space-y-2.5 font-mono text-[12px]">
         <Line label={u.provider} value="seedance.bytedance" />
-        <Line label={u.model} value={model || "seedance-2.0"} />
+        <Line label={u.model} value={model || "seedance-2.0-pro"} />
         <Line label={u.retries} value={u.retriesValue} />
         {state === "failed" && errorCode && (
           <Line label={u.errorCode} value={errorCode} highlight />

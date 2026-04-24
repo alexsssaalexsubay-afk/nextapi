@@ -2,16 +2,7 @@
 
 import Link from "next/link"
 import { Github, MessageCircle } from "lucide-react"
-
-const LINKS = [
-  { label: "Docs", href: "/docs" },
-  { label: "Pricing", href: "/pricing" },
-  { label: "Enterprise", href: "/enterprise" },
-  { label: "Security", href: "/security" },
-  { label: "Status", href: "/status" },
-  { label: "Legal", href: "/legal/terms" },
-  { label: "Dashboard", href: "https://app.nextapi.top" },
-] as const
+import { useTranslations } from "@/lib/i18n/context"
 
 function Wordmark() {
   return (
@@ -25,6 +16,17 @@ function Wordmark() {
 }
 
 export function LandingFooter() {
+  const sn = useTranslations().siteNav
+  const links = [
+    { label: sn.docs, href: "/docs" },
+    { label: sn.pricing, href: "/pricing" },
+    { label: sn.enterprise, href: "/enterprise" },
+    { label: sn.security, href: "/security" },
+    { label: sn.status, href: "/status" },
+    { label: sn.legal, href: "/legal/terms" },
+    { label: sn.dashboard, href: "https://app.nextapi.top" },
+  ] as const
+
   return (
     <footer className="border-t border-border/70 bg-background py-10">
       <div className="mx-auto max-w-7xl px-6">
@@ -39,9 +41,9 @@ export function LandingFooter() {
           </div>
 
           <nav className="flex flex-wrap items-center gap-x-6 gap-y-2">
-            {LINKS.map((l) => (
+            {links.map((l) => (
               <Link
-                key={l.label}
+                key={l.href}
                 href={l.href}
                 className="text-[13px] text-muted-foreground transition-colors hover:text-foreground"
               >

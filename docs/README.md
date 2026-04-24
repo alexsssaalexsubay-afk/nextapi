@@ -9,11 +9,11 @@
 
 | 你是谁 | 建议阅读顺序 |
 |--------|----------------|
-| 老板 / 运营 / 零基础 | [`BEGINNERS-GUIDE-ZH.md`](./BEGINNERS-GUIDE-ZH.md) → [`GLOSSARY-ZH.md`](./GLOSSARY-ZH.md) → [`INTEGRATIONS-GUIDE.md`](./INTEGRATIONS-GUIDE.md)（邮件、监控等） |
+| 老板 / 运营 / 零基础 | [`BEGINNERS-GUIDE-ZH.md`](./BEGINNERS-GUIDE-ZH.md) → [`REPO-TOUR-ZH.md`](./REPO-TOUR-ZH.md)（文件夹地图）→ [`FLOW-ZH.md`](./FLOW-ZH.md)（流程）→ [`FAQ-ZH.md`](./FAQ-ZH.md) → [`GLOSSARY-ZH.md`](./GLOSSARY-ZH.md) → [`INTEGRATIONS-GUIDE.md`](./INTEGRATIONS-GUIDE.md) |
 | 要自己或找人部署上线 | [`SETUP-GUIDE.md`](./SETUP-GUIDE.md) → [`deploy-cloudflare.md`](./deploy-cloudflare.md) → [`OPERATOR-HANDBOOK.md`](./OPERATOR-HANDBOOK.md) |
 | 日常管服务器、跑迁移、应急 | [`OPERATOR-HANDBOOK.md`](./OPERATOR-HANDBOOK.md) |
-| 开发者 / 对接 API | 仓库根目录 [`README.md`](../README.md) → [`backend/api/openapi.yaml`](../backend/api/openapi.yaml) → [`docs/modules/`](./modules/README.md) |
-| 批量视频、ComfyUI、本地工具 | [`toolkit/README.md`](../toolkit/README.md) 及其中 `docs/` |
+| 开发者 / 对接 API | [`sdks/README.md`](../sdks/README.md) → [`backend/api/openapi.yaml`](../backend/api/openapi.yaml) → 根目录 [`README.md`](../README.md) → [`docs/modules/`](./modules/README.md) |
+| 批量视频、ComfyUI、本地工具 | [`toolkit/README.zh.md`](../toolkit/README.zh.md)（中文导读）→ [`toolkit/README.md`](../toolkit/README.md) 及 `toolkit/docs/` |
 
 ---
 
@@ -22,9 +22,13 @@
 | 文件 | 内容 |
 |------|------|
 | **BEGINNERS-GUIDE-ZH.md** | 零基础中文指南：产品是啥、网址、怎么用控制台、名词解释入口 |
+| **REPO-TOUR-ZH.md** | 仓库文件夹地图：`backend/`、`apps/`、`toolkit/` 等白话说明 |
+| **FLOW-ZH.md** | 从发起生成到出视频：`sk_`/`ak_`/`ops_`、server/worker、新旧接口 |
+| **FAQ-ZH.md** | 小白常见问题短答 |
 | **GLOSSARY-ZH.md** | 中英文对照词汇表（API Key、积分、任务、Webhook 等） |
 | **SETUP-GUIDE.md** | 从 0 部署到生产：DNS、环境变量、systemd、检查清单 |
-| **OPERATOR-HANDBOOK.md** | 运维手册：数据库迁移、管理后台、Seedance 环境变量、应急 |
+| **OPERATOR-HANDBOOK.md** | 运维手册：数据库迁移、管理后台、Seedance/UpToken 环境变量、应急 |
+| **UPSTREAM-UPTOKEN-ZH.md** | UpToken（uptoken.cc）上游接入指南：取 key、env、模型映射、错误码 |
 | **INTEGRATIONS-GUIDE.md** | 第三方：Resend、Grafana、支付规划等（偏「老板操作」） |
 | **deploy-cloudflare.md** | Cloudflare Pages / Workers 与 GitHub Actions 部署说明 |
 | **modules/** | 各子系统设计（给开发/审代码用） |

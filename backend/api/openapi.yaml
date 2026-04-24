@@ -2,12 +2,13 @@ openapi: 3.1.0
 info:
   title: NextAPI Gateway
   version: 1.0.0
-  summary: Unified B2B gateway for ByteDance Seedance 2.0 video generation.
+  summary: Unified video generation API — one endpoint and API key for all models.
   description: |
-    Exposes a clean, OpenAI/Replicate/fal-style surface over ByteDance's
-    Ark Seedance 2.0 / 2.0-fast / 1.x video models. All Ark-specific
-    quirks (prompt-suffix flags, token-based pricing, 24h asset TTL,
-    endpoint-id indirection) are hidden inside the gateway.
+    NextAPI exposes a single REST surface (`https://api.nextapi.top/v1`) for
+    text-to-video, image-to-video, and related workflows. Customers use one
+    **business API key** (`sk_live_*` / `sk_test_*`) and public **model IDs**
+    such as `seedance-2.0-pro`, `seedance-2.0-fast`, and `seedream-5.0-lite`.
+    Routing, capacity, and provider details are handled inside the gateway.
 
     Conventions:
       * Bearer auth. Business key (sk_live_* / sk_test_*) for /videos, /models,
@@ -96,7 +97,7 @@ paths:
         - name: model_id
           in: path
           required: true
-          schema: { type: string, example: seedance-2.0 }
+          schema: { type: string, example: seedance-2.0-pro }
       responses:
         '200':
           description: OK
@@ -1448,7 +1449,7 @@ components:
         application/json:
           schema: { $ref: '#/components/schemas/Error' }
     UpstreamError:
-      description: Ark upstream returned an error after retries.
+      description: The generation provider returned an error after retries.
       content:
         application/json:
           schema: { $ref: '#/components/schemas/Error' }
@@ -1504,7 +1505,7 @@ components:
 
     AspectRatio:
       type: string
-      enum: ["16:9", "4:3", "1:1", "3:4", "9:16", "21:9"]
+      enum: ["16:9", "4:3", "1:1", "3:4", "9:16", "21:9", "adaptive"]
 
     Resolution:
       type: string
@@ -1524,15 +1525,18 @@ components:
       type: object
       required: [model, input]
       description: >
-        Customer-facing body for POST /v1/videos. `input` carries the
-        generation parameters that are forwarded to the upstream model
-        (see VideoInput). Top-level model + webhook_url + idempotency_key
-        are gateway-level concerns and do not reach the upstream provider.
+        Customer-facing body for POST /v1/videos. `input` carries generation
+        parameters (see VideoInput). Top-level `model`, `webhook_url`, and
+        `idempotency_key` are gateway-level fields.
       properties:
         model:
           type: string
-          description: Public NextAPI model ID; mapped to the upstream Ark model by seedance.ResolveArkModel.
-          enum: [seedance-2.0, seedance-2.0-fast, seedance-1.5-pro, seedance-1.0-pro, seedance-1.0-pro-fast, seedance-1.0-lite]
+          description: >
+            Public NextAPI model ID. Primary catalogue: `seedance-2.0-pro`,
+            `seedance-2.0-fast`, `seedream-5.0-lite`. Legacy IDs
+            (`seedance-2.0`, `seedance-1.x-*`) remain accepted for backward
+            compatibility and resolve to the same tiers.
+          example: seedance-2.0-pro
         input: { $ref: '#/components/schemas/VideoInput' }
         webhook_url: { type: string, format: uri }
         idempotency_key: { type: string, maxLength: 255 }
@@ -1548,10 +1552,10 @@ components:
         mode: { type: string, enum: [fast, normal], default: normal }
         aspect_ratio: { $ref: '#/components/schemas/AspectRatio' }
         fps: { type: integer, enum: [24, 30] }
-        generate_audio: { type: boolean, description: "Only honored by doubao-seedance-1-5-pro and newer." }
+        generate_audio: { type: boolean, description: "When true, request an audio track with the video (model-dependent)." }
         watermark: { type: boolean }
         seed: { type: integer, description: "Use -1 or omit for random; otherwise [0, 2^32-1]." }
-        camera_fixed: { type: boolean, description: "Lock the camera to reduce motion (Ark: camerafixed)." }
+        camera_fixed: { type: boolean, description: "Lock the camera to reduce motion." }
         references:
           type: array
           maxItems: 12
@@ -1591,20 +1595,26 @@ components:
 
     VideoUsage:
       type: object
+      description: Optional; GET may also expose top-level cost fields.
       properties:
         video_seconds: { type: number }
-        upstream_tokens: { type: integer }
+        provider_tokens: { type: integer, description: "Token count reported for the job (when available)." }
         estimated_cost_cents: { type: integer }
         actual_cost_cents: { type: [integer, 'null'] }
 
     Video:
       type: object
+      description: >
+        202 response includes at least id, object, model, status, estimated_cost_cents, created_at.
+        GET /videos/{id} adds input, output, error_code, and error_message as applicable.
       required: [id, object, status, model, created_at]
       properties:
         id: { type: string, example: vid_01HXXX }
         object: { type: string, const: video }
         status: { $ref: '#/components/schemas/VideoStatus' }
-        model: { type: string }
+        model:
+          type: string
+          description: "Public model id, e.g. seedance-2.0-pro, seedance-2.0-fast, seedream-5.0-lite."
         created_at: { type: string, format: date-time }
         started_at: { type: [string, 'null'], format: date-time }
         finished_at: { type: [string, 'null'], format: date-time }
@@ -1613,6 +1623,10 @@ components:
           oneOf:
             - $ref: '#/components/schemas/VideoOutput'
             - type: 'null'
+        estimated_cost_cents: { type: integer, description: "Reserved cost in USD whole cents." }
+        actual_cost_cents: { type: [integer, 'null'] }
+        error_code: { type: [string, 'null'] }
+        error_message: { type: [string, 'null'] }
         usage: { $ref: '#/components/schemas/VideoUsage' }
         error:
           oneOf:

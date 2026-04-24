@@ -79,13 +79,13 @@
 ### Clerk → API key 自动桥接（dashboard / admin 一键登录）
 
 **原理**：用户用 Clerk 登录 dashboard / admin 后，前端用当前 session 拿到 Clerk 签发的 JWT，
-POST 到后端 `POST /v1/me/bootstrap`（dashboard）或 `POST /v1/me/admin-bootstrap`（admin）。
+POST 到后端 `POST /v1/me/bootstrap`（dashboard）或 `POST /v1/internal/admin/session`（admin）。
 后端拉 Clerk 的 JWKS 验签，然后：
 
 - **Dashboard**：lazy-provision User+Org+SignupBonus → revoke 旧的 `dashboard-session` key →
   现场 mint 一把新的 `sk_live_*` 返回给前端，前端只放在 `sessionStorage`，关浏览器即丢失。
-- **Admin**：从 JWT 拿 email（拿不到就走 Clerk Backend API 查），命中 `ADMIN_EMAILS` 才下发
-  共享 `ADMIN_TOKEN`，否则 403。
+- **Admin**：从 JWT 拿 email（拿不到就走 Clerk Backend API 查），命中 `ADMIN_EMAILS` 才签发
+  短时 `ops_*` operator session。高危操作再走邮件 OTP；共享 `ADMIN_TOKEN` 只给脚本/cron 使用，不下发到浏览器。
 
 **前置条件（缺一就 503）**：
 
@@ -93,7 +93,9 @@ POST 到后端 `POST /v1/me/bootstrap`（dashboard）或 `POST /v1/me/admin-boot
 |----------|------|
 | `CLERK_ISSUER` | JWKS 验签的 issuer，写成 `https://你的Clerk frontend API` |
 | `CLERK_SECRET_KEY` | 仅在 JWT 不带 email 时用 Backend API 反查 |
-| `ADMIN_TOKEN` + `ADMIN_EMAILS` | 仅 admin 桥接需要 |
+| `ADMIN_EMAILS` | admin operator session 白名单 |
+| `ADMIN_TOKEN` | 仅脚本 / cron / 紧急运维使用，不能下发给浏览器 |
+| `RESEND_API_KEY` | admin 高危操作邮件 OTP；未配置时 OTP 会明确失败 |
 
 **用户体验**：登录 → 进 dashboard 任意页面 → 第一次 fetch 自动 bootstrap → 业务可用。
 不再需要用户手动复制 API key 到 localStorage。
@@ -212,10 +214,24 @@ CLERK_WEBHOOK_SECRET=whsec_xxxxx
 # 没设这个值时 POST /v1/me/bootstrap 会 503，dashboard 就拿不到业务 key。
 CLERK_ISSUER=https://big-vulture-6.clerk.accounts.dev
 
-# ===== Seedance / 火山引擎（方舟 Ark）=====
-# 与后端代码一致：读取的是 VOLC_API_KEY，不是 VOLC_ARK_API_KEY
+# ===== 上游视频提供方 =====
+# PROVIDER_MODE 三选一：
+#   mock    —— 进程内假 Provider（默认，本地/CI）
+#   live    —— 方舟 Ark 直连（需要 VOLC_API_KEY）
+#   uptoken —— UpToken 代跑网关（需要 UPTOKEN_API_KEY，推荐）
+PROVIDER_MODE=uptoken
+
+# ---- 方案 A：UpToken（推荐：开箱即用） ----
+# https://uptoken.cc/login → 左侧 API Keys → 新建 ut-xxx key
+UPTOKEN_API_KEY=ut-你的UpTokenKey
+UPTOKEN_BASE_URL=https://uptoken.cc/v1
+UPTOKEN_MODEL=seedance-2.0-pro
+# 可选：公开目录里每个 model → UpToken 真实 ID（逗号分隔 公开ID:上游ID）
+# 默认已内置 seedance-2.0→seedance-2.0-pro、seedance-2.0-fast 透传
+# UPTOKEN_MODEL_MAP=seedance-2.0:seedance-2.0-pro,seedance-2.0-fast:seedance-2.0-fast
+
+# ---- 方案 B：方舟 Ark 直连 ----
 VOLC_API_KEY=你的方舟API密钥
-PROVIDER_MODE=live
 # 客户未传 model 时的默认 Ark 接入点 ID（须与控制台一致）
 SEEDANCE_MODEL=doubao-seedance-1-5-pro-251215
 # 必配：公开目录里每个 model → 控制台真实 doubao-seedance-*（逗号分隔 公开ID:ArkID）
@@ -229,9 +245,9 @@ R2_BUCKET=nextapi-videos
 R2_PUBLIC_URL=https://cdn.nextapi.top
 
 # ===== 管理员 =====
-# ADMIN_TOKEN 是后端共享 operator token；admin 站不会让用户直接看到，
-# 而是由 POST /v1/me/admin-bootstrap 在校验 Clerk 登录 + email ∈ ADMIN_EMAILS
-# 之后下发给前端。两个变量缺一不可。
+# ADMIN_TOKEN 是后端共享 operator token，只给脚本 / cron / 紧急运维使用。
+# Admin 前端通过 POST /v1/internal/admin/session 换取短时 ops_* 会话；
+# 高危操作通过邮件 OTP 确认，生产必须配置 RESEND_API_KEY。
 ADMIN_TOKEN=$(openssl rand -hex 32)
 ADMIN_EMAILS=你的邮箱@example.com,另一个运维@example.com
 
@@ -319,12 +335,32 @@ certbot 会自动配置定时续期（systemd timer `certbot.timer`）。
 
 ## 六、第三方服务
 
-### 6.1 火山引擎 Seedance API
+### 6.1 上游视频 API（二选一）
+
+#### 方案 A：UpToken（推荐）
+
+UpToken（[uptoken.cc](https://uptoken.cc)）是一个代跑网关，帮你打通方舟合规 / 渠道 / 计费；NextAPI 直接把 `POST /v1/videos` 翻译成 `POST https://uptoken.cc/v1/video/generations`，几分钟就能上线。
+
+1. 打开 [https://uptoken.cc/login](https://uptoken.cc/login)，登录（Google / Email）
+2. 左侧 **API Keys** → **Create Key** → 复制以 `ut-` 开头的完整字符串
+3. 充值：右上角 `BALANCE` 必须 > 0，否则上游 HTTP 402 会透传给客户
+4. 后端 `.env` 写入：
+   ```bash
+   PROVIDER_MODE=uptoken
+   UPTOKEN_API_KEY=ut-xxx
+   UPTOKEN_MODEL=seedance-2.0-pro
+   ```
+5. 如果你在对外目录里承诺了其他 model ID，可用 `UPTOKEN_MODEL_MAP` 自定义映射（默认已内置 `seedance-2.0` / `seedance-2.0-fast` / `seedance-1.x` 家族）
+6. 冒烟：对每个对外 `model` 各发一条最小 `POST /v1/videos`，轮询 `GET /v1/videos/:id` 到 `succeeded`
+
+完整错误码 / 字段对照见 [docs/UPSTREAM-UPTOKEN-ZH.md](UPSTREAM-UPTOKEN-ZH.md)。
+
+#### 方案 B：火山引擎 Seedance（直连 Ark）
 
 1. https://console.volcengine.com → 开通「方舟大模型平台」（Ark）
 2. 创建 API Key → 写入后端 `.env` 的 **`VOLC_API_KEY`**（与代码一致）
 3. 在方舟控制台记录你开通的每一个 Seedance 视频模型的 **Ark 接入点 ID**（`doubao-seedance-...`）
-4. 配置 **`SEEDANCE_MODEL_MAP`**：把对外 API 目录里的每个 `model`（如 `seedance-2.0`）映射到上一步的 Ark ID；并设置 **`SEEDANCE_MODEL`** 作为客户未传 `model` 时的默认上游 ID  
+4. 配置 **`SEEDANCE_MODEL_MAP`**：把对外 API 目录里的每个 `model`（如 `seedance-2.0`）映射到上一步的 Ark ID；并设置 **`SEEDANCE_MODEL`** 作为客户未传 `model` 时的默认上游 ID；最后把 `PROVIDER_MODE=live`  
    详见 `docs/OPERATOR-HANDBOOK.md` 第五节「Seedance 公开模型 ID → Ark 真 ID」。
 
 ### 6.2 Cloudflare R2
@@ -374,7 +410,9 @@ cat ~/.ssh/nextapi_deploy   # 复制到 GitHub Secret
 - [ ] `https://nextapi.top` 营销页可访问，logo 正常显示
 - [ ] `https://app.nextapi.top` 可注册/登录（Clerk）
 - [ ] 登录后可创建 API Key（`/v1/me/keys`）
-- [ ] 后端 `.env`：`VOLC_API_KEY`、`PROVIDER_MODE=live`、`SEEDANCE_MODEL`、`SEEDANCE_MODEL_MAP`（覆盖所有对外公开的 `model`）已按 `docs/OPERATOR-HANDBOOK.md` 核对
+- [ ] 后端 `.env` 的 `PROVIDER_MODE` 与上游凭据匹配：
+      - `uptoken`（推荐）：`UPTOKEN_API_KEY`、`UPTOKEN_MODEL`（必要时 `UPTOKEN_MODEL_MAP`）—— 详见 [docs/UPSTREAM-UPTOKEN-ZH.md](UPSTREAM-UPTOKEN-ZH.md)
+      - `live`：`VOLC_API_KEY`、`SEEDANCE_MODEL`、`SEEDANCE_MODEL_MAP`（覆盖所有对外公开的 `model`）已按 `docs/OPERATOR-HANDBOOK.md` 核对
 - [ ] 用创建的 Key 调用 `POST /v1/videos` 成功（建议对**每一个**对外 `model` 各测一条最小请求，避免 Ark 报 `model not found`）
 - [ ] `https://admin.nextapi.top` 可登录，Overview 数据从 `/v1/internal/admin/overview` 加载
 - [ ] Clerk Webhook 创建用户事件能写入 DB

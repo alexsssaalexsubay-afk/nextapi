@@ -17,9 +17,9 @@ NextAPI 是一个 **托管的视频生成 API**：
 
 - 团队在网页注册、充值 **积分**，创建 **API Key**。
 - 程序或本地工具（Batch Studio、ComfyUI）把 **文字描述** 和可选 **参考图** 发给我们。
-- 我们负责：**验证身份、检查余额、排队、调用上游视频模型、失败退款、任务记录**。
+- 我们负责：**验证身份、检查余额、排队、调用 Seedance 系列视频模型、失败退款、任务记录**。
 
-日常生成时，你 **不必** 去操作火山引擎控制台——只要服务器已由技术人员配置好即可。
+日常使用时，你 **不必** 关心底层云厂商或第三方网关——在控制台用 **业务 API Key** 调用 `https://api.nextapi.top/v1` 即可。
 
 ---
 
@@ -56,10 +56,11 @@ NextAPI 是一个 **托管的视频生成 API**：
 
 ---
 
-## 火山 / Dreamina / Seedance 是什么关系？
+## Seedance 模型名是什么？我要记哪些 ID？
 
-- **火山引擎**是云平台；**Seedance** 是视频生成能力；控制台里的 **Dreamina 2.0** 等是产品规格名。  
-- 网关会把客户选的目录型号（如 `seedance-2.0`）**自动映射** 到四条官方接入点之一（有图/无图 × 标准/快速），技术人员可在 `docs/OPERATOR-HANDBOOK.md` 里核对环境变量。
+- 你在请求里填的 `model` 是 **公开模型 ID**，例如 **`seedance-2.0-pro`**（高画质）、**`seedance-2.0-fast`**（更快）、**`seedream-5.0-lite`**（轻量档）。  
+- 全部通过 **同一套** API 基址与 **`sk_` 业务密钥** 调用；具体列表以 [`GET /v1/models`](https://api.nextapi.top/v1/models) 或官网文档为准。  
+- 若你曾使用旧版 ID（如 `seedance-2.0`），网关在多数情况下仍会自动兼容，详见发布说明；新集成请优先用上述带 `-pro` / `-fast` / `seedream-` 的名称。
 
 ---
 
@@ -75,7 +76,11 @@ NextAPI 是一个 **托管的视频生成 API**：
 | `docs/OPERATOR-HANDBOOK.md` | 环境变量、数据库迁移、应急 |
 | `backend/api/openapi.yaml` | API 权威定义 |
 
-仓库根目录还有 **`docs/README.md`** 总索引。
+仓库根目录还有 **`docs/README.md`** 总索引。推荐小白再读（均在 `docs/`）：
+
+- **`REPO-TOUR-ZH.md`** — 每个顶层文件夹是干什么的  
+- **`FLOW-ZH.md`** — 从发请求到出视频、`sk_` / 运维会话 等  
+- **`FAQ-ZH.md`** — 短问答  
 
 ---
 

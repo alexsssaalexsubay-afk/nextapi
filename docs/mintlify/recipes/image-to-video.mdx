@@ -25,7 +25,7 @@ The response contains `upload_url` (PUT your bytes here) and `asset_url` (use in
 <CodeGroup>
 
 ```bash curl
-curl -X POST https://api.nextapi.top/v1/jobs \
+curl -X POST https://api.nextapi.top/v1/videos \
   -H "Authorization: Bearer $NEXTAPI_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -33,7 +33,7 @@ curl -X POST https://api.nextapi.top/v1/jobs \
     "input": {
       "image_url": "https://cdn.example.com/hero.png",
       "prompt": "Camera slowly pushes in as petals begin to drift upward, soft wind, cinematic",
-      "duration": 5,
+      "duration_seconds": 5,
       "motion_strength": 0.6
     }
   }'
@@ -42,14 +42,14 @@ curl -X POST https://api.nextapi.top/v1/jobs \
 ```python python
 import os, requests
 r = requests.post(
-    "https://api.nextapi.top/v1/jobs",
+    "https://api.nextapi.top/v1/videos",
     headers={"Authorization": f"Bearer {os.environ['NEXTAPI_KEY']}"},
     json={
         "model": "seedance-1.0-pro-i2v",
         "input": {
             "image_url": "https://cdn.example.com/hero.png",
             "prompt": "Camera slowly pushes in as petals begin to drift upward, soft wind, cinematic",
-            "duration": 5,
+            "duration_seconds": 5,
             "motion_strength": 0.6,
         },
     },

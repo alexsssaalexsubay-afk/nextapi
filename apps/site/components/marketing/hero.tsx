@@ -6,22 +6,24 @@ import { Button } from "@/components/ui/button"
 import { CodeBlock } from "@/components/nextapi/code-block"
 import { useTranslations } from "@/lib/i18n/context"
 
-const curlExample = `curl https://api.nextapi.top/v1/video/generations \\
+const curlExample = `curl https://api.nextapi.top/v1/videos \\
   -H "Authorization: Bearer $NEXTAPI_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{
     "model": "seedance-2.0-pro",
-    "prompt": "Drone orbiting a lighthouse at dusk",
-    "duration_seconds": 6,
-    "resolution": "1080p"
+    "input": {
+      "prompt": "Drone orbiting a lighthouse at dusk",
+      "duration_seconds": 6,
+      "resolution": "1080p"
+    }
   }'
 
 # 202 accepted — credits estimated up-front, reconcile on completion`
 
 const jsonResponse = `{
-  "id": "job_7Hc9Xk2Lm3NpQ4rS",
+  "id": "vid_7Hc9Xk2Lm3NpQ4rS",
   "status": "queued",
-  "estimated_credits": 1.0
+  "estimated_cost_cents": 100
 }`
 
 export function Hero() {
@@ -147,7 +149,7 @@ function HeroVideo() {
             loop
             playsInline
             preload="metadata"
-            aria-label="Drone orbiting a lighthouse at dusk — Seedance 2.0 output"
+            aria-label="Drone orbiting a lighthouse at dusk — NextAPI video output"
             className="h-full w-full object-cover"
           />
 

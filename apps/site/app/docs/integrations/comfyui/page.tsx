@@ -8,7 +8,7 @@ export default function ComfyUIIntegrationPage() {
       <SiteNav />
       <IntegrationDoc
         name="ComfyUI"
-        intro="Integrate NextAPI video generation into your ComfyUI node-based workflows. Use our custom node or the generic HTTP request node to add Seedance video generation to any pipeline."
+        intro="Integrate NextAPI video generation into your ComfyUI node-based workflows. Use our custom node or the generic HTTP request node to add text- or image-to-video to any pipeline."
         configLang="python"
         configSnippet={`# ComfyUI Custom Node: NextAPI Video Generate
 # Place in ComfyUI/custom_nodes/nextapi_node.py
@@ -34,16 +34,18 @@ class NextAPIVideoGenerate:
 
     def generate(self, prompt, duration_seconds, resolution):
         resp = requests.post(
-            "https://api.nextapi.top/v1/video/generations",
+            "https://api.nextapi.top/v1/videos",
             headers={
                 "Authorization": f"Bearer {os.environ.get('NEXTAPI_KEY', '')}",
                 "Content-Type": "application/json",
             },
             json={
                 "model": "seedance-2.0-pro",
-                "prompt": prompt,
-                "duration_seconds": duration_seconds,
-                "resolution": resolution,
+                "input": {
+                    "prompt": prompt,
+                    "duration_seconds": duration_seconds,
+                    "resolution": resolution,
+                },
             },
         )
         resp.raise_for_status()
@@ -60,14 +62,16 @@ NODE_DISPLAY_NAME_MAPPINGS = {"NextAPIVideoGenerate": "NextAPI Video Generate"}`
           "Connect a text input to the prompt field and wire the video_url output to your pipeline.",
           "Execute the workflow — the node will call NextAPI and return the generated video URL.",
         ]}
-        curlTest={`curl -X POST https://api.nextapi.top/v1/video/generations \\
+        curlTest={`curl -X POST https://api.nextapi.top/v1/videos \\
   -H "Authorization: Bearer $NEXTAPI_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{
     "model": "seedance-2.0-pro",
-    "prompt": "ink spreading through water in slow motion",
-    "duration_seconds": 6,
-    "resolution": "1080p"
+    "input": {
+      "prompt": "ink spreading through water in slow motion",
+      "duration_seconds": 6,
+      "resolution": "1080p"
+    }
   }'`}
       />
       <LandingFooter />

@@ -160,7 +160,7 @@ export default function DocsPage() {
               <span className="rounded-md bg-status-success-dim px-2 py-0.5 font-mono text-[10.5px] uppercase tracking-wider text-status-success">
                 POST
               </span>
-              <span className="font-mono text-[13px] text-foreground">/v1/video/generations</span>
+              <span className="font-mono text-[13px] text-foreground">/v1/videos</span>
             </div>
             <h2 className="mt-3 text-2xl font-semibold tracking-[-0.02em] text-foreground">
               {d.createJob.title}
@@ -180,15 +180,17 @@ export default function DocsPage() {
                   {
                     label: d.createJob.requestTab,
                     language: "bash",
-                    code: `curl https://api.nextapi.top/v1/video/generations \\
+                    code: `curl https://api.nextapi.top/v1/videos \\
   -H "Authorization: Bearer $NEXTAPI_KEY" \\
   -H "Idempotency-Key: 9c4fa1b2" \\
   -H "Content-Type: application/json" \\
   -d '{
     "model": "seedance-2.0-pro",
-    "prompt": "Drone orbiting a lighthouse at dusk",
-    "duration_seconds": 6,
-    "resolution": "1080p"
+    "input": {
+      "prompt": "Drone orbiting a lighthouse at dusk",
+      "duration_seconds": 6,
+      "resolution": "1080p"
+    }
   }'`,
                   },
                 ]}
@@ -199,9 +201,12 @@ export default function DocsPage() {
                     label: d.createJob.responseTab,
                     language: "json",
                     code: `{
-  "id": "job_7Hc9Xk2Lm3NpQ4rS",
+  "id": "vid_7Hc9Xk2Lm3NpQ4rS",
+  "object": "video",
+  "model": "seedance-2.0-pro",
   "status": "queued",
-  "estimated_credits": 1.0
+  "estimated_cost_cents": 100,
+  "created_at": "2026-04-24T12:00:00.000Z"
 }`,
                   },
                 ]}
@@ -299,12 +304,10 @@ def verify(raw_body: bytes, header: str, secret: str) -> bool:
 
           <section id="idem" className="mt-12 scroll-mt-24">
             <h2 className="text-2xl font-semibold tracking-[-0.02em] text-foreground">
-              Idempotency
+              {d.idempotency.title}
             </h2>
             <p className="mt-2 text-[14px] leading-relaxed text-muted-foreground">
-              Include an <span className="font-mono text-foreground/90">Idempotency-Key</span> header
-              on POST requests to safely retry without creating duplicate jobs. Keys are scoped
-              per API key and expire after 24 hours.
+              {d.idempotency.body}
             </p>
           </section>
 
@@ -316,11 +319,10 @@ def verify(raw_body: bytes, header: str, secret: str) -> bool:
               <span className="font-mono text-[13px] text-foreground">/v1/videos/:id</span>
             </div>
             <h2 className="mt-3 text-2xl font-semibold tracking-[-0.02em] text-foreground">
-              Retrieve a Video
+              {d.retrieveJob.title}
             </h2>
             <p className="mt-2 text-[14px] leading-relaxed text-muted-foreground">
-              Fetch the current state of a generation job by its ID. Returns the video URL
-              once generation completes, or the current status and progress otherwise.
+              {d.retrieveJob.body}
             </p>
           </section>
 
@@ -332,75 +334,53 @@ def verify(raw_body: bytes, header: str, secret: str) -> bool:
               <span className="font-mono text-[13px] text-foreground">/v1/videos</span>
             </div>
             <h2 className="mt-3 text-2xl font-semibold tracking-[-0.02em] text-foreground">
-              List Videos
+              {d.listJobs.title}
             </h2>
             <p className="mt-2 text-[14px] leading-relaxed text-muted-foreground">
-              Returns a paginated list of generation jobs for the authenticated organization.
-              Use <span className="font-mono text-foreground/90">?limit=</span> and{" "}
-              <span className="font-mono text-foreground/90">?offset=</span> for pagination.
+              {d.listJobs.body}
             </p>
           </section>
 
           <section id="retries" className="mt-12 scroll-mt-24">
             <h2 className="text-2xl font-semibold tracking-[-0.02em] text-foreground">
-              Webhook Retries
+              {d.webhookRetries.title}
             </h2>
             <p className="mt-2 text-[14px] leading-relaxed text-muted-foreground">
-              Webhooks are retried with exponential backoff up to 6 times. If your endpoint returns
-              a non-2xx status or times out, we retry at{" "}
-              <span className="font-mono text-foreground/90">30s, 2m, 10m, 1h, 6h, 24h</span>{" "}
-              intervals. Each delivery includes the same{" "}
-              <span className="font-mono text-foreground/90">X-NextAPI-Signature</span>,{" "}
-              <span className="font-mono text-foreground/90">X-NextAPI-Timestamp</span>, and{" "}
-              <span className="font-mono text-foreground/90">X-NextAPI-Event</span> headers.
+              {d.webhookRetries.body}
             </p>
           </section>
 
           <section id="limits" className="mt-12 scroll-mt-24">
             <h2 className="text-2xl font-semibold tracking-[-0.02em] text-foreground">
-              Rate Limits
+              {d.rateLimits.title}
             </h2>
             <p className="mt-2 text-[14px] leading-relaxed text-muted-foreground">
-              API requests are rate-limited per key. Limits are returned in response headers:{" "}
-              <span className="font-mono text-foreground/90">X-RateLimit-Remaining</span> and{" "}
-              <span className="font-mono text-foreground/90">X-RateLimit-Reset</span>.
-              Default: 600 requests/minute for business keys, 300/min for admin keys.
-              Enterprise customers can negotiate higher limits.
+              {d.rateLimits.body}
             </p>
           </section>
 
           <section id="errors" className="mt-12 scroll-mt-24">
             <h2 className="text-2xl font-semibold tracking-[-0.02em] text-foreground">
-              Error Codes
+              {d.errorCodes.title}
             </h2>
             <p className="mt-2 text-[14px] leading-relaxed text-muted-foreground">
-              All errors follow a consistent JSON format with{" "}
-              <span className="font-mono text-foreground/90">error.code</span> and{" "}
-              <span className="font-mono text-foreground/90">error.message</span>.
-              Common codes: <span className="font-mono text-foreground/90">invalid_request</span>,{" "}
-              <span className="font-mono text-foreground/90">unauthorized</span>,{" "}
-              <span className="font-mono text-foreground/90">rate_limit_exceeded</span>,{" "}
-              <span className="font-mono text-foreground/90">insufficient_credits</span>,{" "}
-              <span className="font-mono text-foreground/90">internal_error</span>.
+              {d.errorCodes.body}
             </p>
           </section>
 
           <section id="changelog" className="mt-12 scroll-mt-24">
             <h2 className="text-2xl font-semibold tracking-[-0.02em] text-foreground">
-              Changelog
+              {d.changelog.title}
             </h2>
             <div className="mt-4 space-y-4">
               <div className="rounded-lg border border-border/80 bg-card/50 p-4">
                 <div className="flex items-center gap-2">
                   <span className="rounded-full bg-indigo-500/10 px-2 py-0.5 text-[11px] font-medium text-indigo-500">
-                    v1.0
+                    {d.changelog.v1Badge}
                   </span>
-                  <span className="text-[12px] text-muted-foreground">April 2026</span>
+                  <span className="text-[12px] text-muted-foreground">{d.changelog.v1Date}</span>
                 </div>
-                <p className="mt-2 text-[13.5px] text-muted-foreground">
-                  Initial release — Seedance 2.0 Pro support, webhook events, idempotency keys,
-                  spend controls, and configurable moderation profiles.
-                </p>
+                <p className="mt-2 text-[13.5px] text-muted-foreground">{d.changelog.v1Body}</p>
               </div>
             </div>
           </section>
@@ -418,6 +398,13 @@ def verify(raw_body: bytes, header: str, secret: str) -> bool:
               [d.toc.create, "#create"],
               [d.toc.events, "#events"],
               [d.toc.sig, "#sig"],
+              [d.toc.idem, "#idem"],
+              [d.toc.retrieve, "#retrieve"],
+              [d.toc.list, "#list"],
+              [d.toc.retries, "#retries"],
+              [d.toc.limits, "#limits"],
+              [d.toc.errors, "#errors"],
+              [d.toc.changelog, "#changelog"],
             ].map(([l, h]) => (
               <li key={l}>
                 <Link

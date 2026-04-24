@@ -89,7 +89,7 @@ export const en = {
   },
 
   hero: {
-    badge: "Seedance 2.0 · Official API · text-to-video + image-to-video",
+    badge: "Seedance models · One API · text-to-video + image-to-video",
     headline: "Ship video generation in minutes, not weeks",
     headlineSegments: {
       before: "From prompt to production in ",
@@ -99,16 +99,16 @@ export const en = {
       after: ".",
     },
     subheadline:
-      "Official Seedance 2.0 access with signed webhooks, reserved billing, and per-job observability. Failed-job refunds, no retry charges, partner-tier stability.",
+      "Use the NextAPI base URL and your sk_ key to call public Seedance model IDs (e.g. seedance-2.0-pro, seedance-2.0-fast, seedream-5.0-lite). Signed webhooks, reserved billing, and per-job observability. Failed-job refunds; no pay-per-retry.",
     subheadSegments: {
-      p1: "Official Seedance 2.0 access with ",
+      p1: "One API key for Seedance-family models, with ",
       kw1: "signed webhooks",
       p2: ", ",
       kw2: "reserved billing",
       p3: ", and per-job observability. ",
       kw3: "Failed-job refunds",
       p4: ", no retry charges, ",
-      kw4: "partner-tier: stable",
+      kw4: "production: stable",
       p5: ".",
     },
     cta: "Start building",
@@ -119,12 +119,12 @@ export const en = {
     videoMetaCost: "Zero queue time",
     videoMetaModel: "seedance-2.0-pro",
     trust: {
-      partner: "partner-tier: stable",
+      partner: "production: stable",
       uptime: "99.95% uptime · 30d",
       refund: "failed-job refund, automatic",
       uptimeKw: "99.95%",
       uptimeTail: " uptime · 30d",
-      partnerKw: "partner-tier: stable",
+      partnerKw: "production: stable",
       refundKw: "failed-job refunds",
       refundTail: ", automatic",
     },
@@ -148,7 +148,7 @@ export const en = {
     eyebrow: "/ live samples",
     title: "Real outputs, zero cherry-picking.",
     subtitle:
-      "Eight clips sampled at random from this week's production traffic. Raw Seedance 2.0 output, cached for this demo — hover to see the prompt.",
+      "Eight clips sampled at random from this week's production traffic. Raw Seedance model output, cached for this demo — hover to see the prompt.",
     tags: {
       shortDrama: "Short Drama",
       adCreative: "Ad Creative",
@@ -224,7 +224,7 @@ export const en = {
       },
     },
     footnote:
-      "Figures reflect our 30-day rolling p95 against partner-tier pools. Sign in to view live numbers for your account.",
+      "Figures reflect our 30-day rolling p95 on production traffic. Sign in to view live numbers for your account.",
   },
 
   useCases: {
@@ -283,7 +283,7 @@ export const en = {
     generate: "Generate sample",
     generating: "Generating…",
     status: {
-      queued: "queued · upstream accepted",
+      queued: "queued · platform accepted",
       running: "generating frame 86 / 144",
       done: "done · 4.8s · 1.00 credit reserved",
     },
@@ -294,6 +294,20 @@ export const en = {
       showSample: "Show sample response",
       sampleLabel: "(sample)",
     },
+  },
+
+  siteNav: {
+    features: "Features",
+    docs: "Docs",
+    pricing: "Pricing",
+    enterprise: "Enterprise",
+    logIn: "Log in",
+    getStarted: "Get Started",
+    menuAria: "Toggle menu",
+    security: "Security",
+    status: "Status",
+    legal: "Legal",
+    dashboard: "Dashboard",
   },
 
   faq: {
@@ -331,14 +345,14 @@ export const en = {
       label: "Step 2",
       title: "Submit a generation",
       description:
-        "POST your prompt and parameters to /v1/jobs. Receive a job ID and reservation receipt instantly.",
+        "POST your prompt and parameters to /v1/videos. Receive a video ID and reservation receipt instantly.",
       action: "Copy cURL",
     },
     step3: {
       label: "Step 3",
       title: "Receive webhook or poll",
       description:
-        "Signed HMAC webhook on completion, or poll GET /v1/jobs/{id}. Your choice, both are first-class.",
+        "Signed HMAC webhook on completion, or poll GET /v1/videos/{id}. Your choice, both are first-class.",
       action: "Configure webhook",
     },
   },
@@ -348,9 +362,9 @@ export const en = {
     title: "Trust is the product",
     subtitle: "Everything you expect from production infrastructure, nothing you don't.",
     official: {
-      title: "Official Seedance 2.0 access",
+      title: "Seedance models on NextAPI",
       description:
-        "Direct contract with ByteDance. Pro and Lite tiers, text-to-video and image-to-video, no proxy, no markup, no rate-limit surprises when things matter.",
+        "Seedance-family models (Pro / Fast / Lite) for text-to-video and image-to-video, transparent pricing and rate limits.",
     },
     webhooks: {
       title: "Signed webhooks",
@@ -365,7 +379,7 @@ export const en = {
     observability: {
       title: "Per-job observability",
       description:
-        "Status timeline, upstream request id, duration, reservation vs. billed amount. Exported to your warehouse.",
+        "Status timeline, internal request id, duration, reservation vs. billed amount. Exported to your warehouse.",
     },
   },
 
@@ -413,7 +427,7 @@ export const en = {
       highlights: [
         "Free account · no credit card",
         "Testing credits included",
-        "Full Seedance 2.0 access — Pro + Lite",
+        "Full Seedance catalogue — Pro / Fast / Lite",
       ],
       cta: "Create free account",
     },
@@ -528,6 +542,7 @@ export const en = {
       docs: "Docs",
       account: "Account",
       build: "Build",
+      batchStudio: "Batch Studio",
     },
     admin: {
       operations: "Operations",
@@ -591,6 +606,52 @@ export const en = {
     },
   },
 
+  batchStudio: {
+    title: "Batch Studio",
+    subtitle: "CSV-driven batch video generation in your browser.",
+    intro:
+      "Upload the same shot manifest you use with the desktop Batch Studio app. Jobs run against your org using your dashboard session — no API key paste required. Continuity groups are applied before validation.",
+    desktopHint:
+      "For local reference image uploads and offline MP4 downloads, use the Streamlit app in",
+    downloadSample: "Sample CSV",
+    uploadCsv: "Manifest (.csv)",
+    dropHint: "Click or drop a CSV file",
+    rowCount: "Valid rows",
+    errorCount: "Errors",
+    moreErrors: "Additional errors not shown.",
+    validateOk: "Manifest looks valid.",
+    validateFailed: "Fix CSV errors before running.",
+    parseError: "Could not read CSV.",
+    revalidate: "Re-validate",
+    model: "Model",
+    resolution: "Resolution",
+    parallel: "Parallel shots",
+    quickTest: "Quick test (3 rows)",
+    fullBatch: "Run full batch",
+    running: "Running…",
+    runComplete: "Batch finished.",
+    viewJobs: "All jobs",
+    results: "Run results",
+    col: {
+      shot: "Shot",
+      status: "Status",
+      job: "Job",
+      output: "Output",
+    },
+    phase: {
+      idle: "Waiting",
+      submitting: "Submitting",
+      polling: "Rendering",
+      succeeded: "Succeeded",
+      failed: "Failed",
+    },
+    openVideo: "Open video",
+    pollTimeout: "Timed out waiting for this job.",
+    noJobId: "API did not return a job id.",
+    jobFailed: "Job failed.",
+    unknownError: "Request failed.",
+  },
+
   jobs: {
     title: "Jobs",
     subtitle: "Every generation submitted by your organization, with full async state visibility.",
@@ -647,13 +708,13 @@ export const en = {
     },
     loading: {
       title: "Loading jobs",
-      description: "Streaming from /v1/jobs — this should take less than a second.",
+      description: "Streaming from /v1/videos — this should take less than a second.",
       note: "If this persists, check Status page.",
     },
     error: {
       title: "Couldn't load jobs",
       description:
-        "We hit an upstream error while fetching your recent jobs. Your data is safe.",
+        "We hit a service error while fetching your recent jobs. Your data is safe.",
       code: "Error code",
       requestId: "Request ID",
       cta: "Retry",
@@ -671,7 +732,7 @@ export const en = {
       regenerate: "Regenerate",
       outputPanel: {
         title: "Output",
-        submittingTitle: "Submitting to upstream",
+        submittingTitle: "Submitting to platform",
         submittingHint: "Reserving 1.00 credit · idempotency key 9c4fa1b2",
         queuedTitle: "Queued at position 3",
         queuedHint: "Upstream acknowledged · ETA ~38s",
@@ -714,8 +775,8 @@ export const en = {
         note: "Credits reconcile at the webhook boundary. Invoice lines reference this job id directly.",
       },
       upstreamPanel: {
-        title: "Upstream",
-        provider: "Provider",
+        title: "Seedance job",
+        provider: "Runtime",
         model: "Model",
         requestId: "Request id",
         regionPool: "Region",
@@ -740,7 +801,7 @@ export const en = {
       billed: "Billed",
       refunded: "Refunded",
       drift: "Drift",
-      upstreamId: "Upstream ID",
+      upstreamId: "Internal job ID",
       progress: "Progress",
       frames: "Frames",
       eta: "ETA",
@@ -758,9 +819,9 @@ export const en = {
       resend: "Resend",
       states: {
         submittingTitle: "Submitting to Seedance",
-        submittingDescription: "Your request is being validated and forwarded to the upstream provider.",
-        queuedTitle: "Queued upstream",
-        queuedDescription: "Seedance has accepted the job and placed it in queue. You'll receive a webhook when it begins running.",
+        submittingDescription: "Your request is being validated and routed to the selected Seedance model.",
+        queuedTitle: "In generation queue",
+        queuedDescription: "The job is queued. You'll receive a webhook when it starts running.",
         runningTitle: "Generation in progress",
         runningDescription: "The model is actively generating frames. Do not cancel unless necessary — reservation will not be refunded.",
         succeededTitle: "Job succeeded",
@@ -800,7 +861,7 @@ export const en = {
         title: "Live execution",
         idle: "Ready to submit",
         idleHint: "Adjust parameters on the left, then click Submit.",
-        submittingTitle: "Submitting to upstream",
+        submittingTitle: "Submitting to platform",
         queuedTitle: "Queued · position 3",
         runningTitle: "Running on Seedance · 86%",
         succeededTitle: "Succeeded · webhook delivered",
@@ -964,7 +1025,7 @@ export const en = {
     pulse: {
       title: "System pulse",
       updatedNow: "updated 2s ago",
-      upstream: "Seedance upstream",
+      upstream: "Generation",
       upstreamHint: "p99 412ms · 0 errors",
       queueDepth: "Queue depth",
       queueDepthHint: "healthy threshold 200",
@@ -990,7 +1051,7 @@ export const en = {
         webhookFailing: "Webhook delivery failing",
         refundDrift: "Refund drift > 0.5%",
         policyViolation: "Content policy flagged",
-        upstreamTimeout: "Upstream timeout",
+        upstreamTimeout: "Generation timeout",
         ipAllowlist: "IP allowlist mismatch",
         rotationOverdue: "Key rotation overdue",
       },
@@ -1072,6 +1133,29 @@ export const en = {
       onCall: "On-call",
       region: "Region",
       prodBadge: "PROD",
+      sidebarBadge: "admin",
+    },
+    securityBanner: {
+      message:
+        "Admin access uses short-lived operator sessions (8 h) plus email OTP for high-risk operations. No Clerk Pro MFA required.",
+      dismiss: "Got it",
+      dismissAria: "Dismiss security notice",
+    },
+    otpDialog: {
+      title: "Confirm with email code",
+      operation: "Operation",
+      sending: "Sending verification code…",
+      sendFailed: "Failed to send verification code",
+      invalidCode: "Please enter the 6-digit code from your email.",
+      codeLabel: "6-digit verification code",
+      codeSentFallback: "Code sent to your admin email",
+      expiresAtPrefix: "Code expires at",
+      retry: "Retry",
+      cancel: "Cancel",
+      confirm: "Confirm",
+      confirming: "Confirming…",
+      resend: "Didn't receive it? Resend code",
+      cancelAria: "Close dialog",
     },
     overviewPage: {
       windowLast60m: "window · last 60m",
@@ -1222,7 +1306,7 @@ export const en = {
         apiAvailability: "API availability",
         jobSuccess: "Job success rate",
         webhookP95: "Webhook delivery p95",
-        seedanceP99: "Seedance upstream p99",
+        seedanceP99: "Generation path p99",
         target: "target",
       },
       levels: {
@@ -1283,7 +1367,7 @@ export const en = {
       "Usage-based, transparent, and auditable. Reserve on submit, bill on success, auto-refund on failure.",
     includedTitle: "Every plan includes",
     included: [
-      "Official Seedance 2.0 access (Pro + Lite)",
+      "Seedance models (Pro / Fast / Lite)",
       "Text-to-video and image-to-video in one endpoint",
       "Signed webhook deliveries",
       "Per-job reservation receipts",
@@ -1307,7 +1391,7 @@ export const en = {
       },
       {
         q: "Do you charge for test environment?",
-        a: "No. Test keys run against a sandbox that simulates upstream behavior, including failure scenarios, at no cost.",
+        a: "No. Test keys run against a sandbox that simulates real job outcomes, including failure scenarios, at no cost.",
       },
     ],
   },
@@ -1411,6 +1495,43 @@ export const en = {
       nodeTab: "Node.js",
       pythonTab: "Python",
     },
+    idempotency: {
+      title: "Idempotency",
+      body:
+        "Include an Idempotency-Key header on POST requests to safely retry without creating duplicate jobs. Keys are scoped per API key and expire after 24 hours.",
+    },
+    retrieveJob: {
+      title: "Retrieve a Video",
+      body:
+        "Fetch the current state of a generation job by its ID. Returns the video URL once generation completes, or the current status and progress otherwise.",
+    },
+    listJobs: {
+      title: "List Videos",
+      body:
+        "Returns a paginated list of generation jobs for the authenticated organization. Use ?limit= and ?cursor= (or offset, if your client uses it) for pagination.",
+    },
+    webhookRetries: {
+      title: "Webhook Retries",
+      body:
+        "Webhooks are retried with exponential backoff up to 6 times. If your endpoint returns a non-2xx status or times out, we retry at 30s, 2m, 10m, 1h, 6h, 24h intervals. Each delivery includes the same X-NextAPI-Signature, X-NextAPI-Timestamp, and X-NextAPI-Event headers.",
+    },
+    rateLimits: {
+      title: "Rate Limits",
+      body:
+        "API requests are rate-limited per key. Limits are returned in response headers: X-RateLimit-Remaining and X-RateLimit-Reset. Default: 600 requests/minute for business keys, 300/min for admin keys. Enterprise customers can negotiate higher limits.",
+    },
+    errorCodes: {
+      title: "Error Codes",
+      body:
+        "All errors follow a consistent JSON format with error.code and error.message. Common codes: invalid_request, unauthorized, rate_limit_exceeded, insufficient_credits, internal_error.",
+    },
+    changelog: {
+      title: "Changelog",
+      v1Badge: "v1.0",
+      v1Date: "April 2026",
+      v1Body:
+        "Initial release — Seedance 2.0 Pro support, webhook events, idempotency keys, spend controls, and configurable moderation profiles.",
+    },
     toc: {
       title: "On this page",
       quickstart: "Quickstart",
@@ -1418,6 +1539,13 @@ export const en = {
       create: "Create a job",
       events: "Webhook events",
       sig: "Signature verification",
+      idem: "Idempotency",
+      retrieve: "Retrieve a Video",
+      list: "List Videos",
+      retries: "Webhook Retries",
+      limits: "Rate Limits",
+      errors: "Error Codes",
+      changelog: "Changelog",
     },
     quickstartLegacy: {
       title: "Quickstart",
@@ -1431,7 +1559,7 @@ export const en = {
     createJobLegacy: {
       title: "Create a generation job",
       description:
-        "POST to /v1/jobs with your prompt and parameters. Returns a job ID and reservation receipt.",
+        "POST to /v1/videos with your prompt and parameters. Returns a video ID and reservation receipt.",
     },
     pollStatus: {
       title: "Poll job status",

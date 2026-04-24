@@ -91,7 +91,7 @@ export const zh: Messages = {
   },
 
   hero: {
-    badge: "Seedance 2.0 · 官方 API · 文生视频 + 图生视频",
+    badge: "Seedance 模型系列 · 统一 API · 文生视频 + 图生视频",
     headline: "几分钟上线视频生成，而不是几周",
     headlineSegments: {
       before: "从提示词到生产只要 ",
@@ -101,16 +101,16 @@ export const zh: Messages = {
       after: "。",
     },
     subheadline:
-      "Seedance 2.0 官方接入，带签名 Webhook、预留计费、按任务可观测性。失败自动退款、无重试计费、partner-tier 稳定性。",
+      "使用 NextAPI 基址与 sk_ 业务密钥，即可在请求里选择 Seedance 公开模型 ID（seedance-2.0-pro、seedance-2.0-fast、seedream-5.0-lite 等）。带签名 Webhook、预留计费、按任务可观测性；失败自动退款、无重试计费。",
     subheadSegments: {
-      p1: "Seedance 2.0 官方接入，带 ",
+      p1: "同一套 API 与密钥选用 Seedance 系列模型，带 ",
       kw1: "签名 Webhook",
       p2: "、",
       kw2: "预留计费",
       p3: "、按任务可观测性。",
       kw3: "失败自动退款",
       p4: "、无重试计费、",
-      kw4: "partner-tier: stable",
+      kw4: "生产级：稳定",
       p5: "。",
     },
     cta: "开始接入",
@@ -121,12 +121,12 @@ export const zh: Messages = {
     videoMetaCost: "零排队",
     videoMetaModel: "seedance-2.0-pro",
     trust: {
-      partner: "partner-tier: stable",
+      partner: "生产级：稳定",
       uptime: "99.95% 可用性 · 30 天",
       refund: "失败任务自动退款",
       uptimeKw: "99.95%",
       uptimeTail: " 可用性 · 30 天",
-      partnerKw: "partner-tier: stable",
+      partnerKw: "生产级：稳定",
       refundKw: "失败自动退款",
       refundTail: "",
     },
@@ -149,7 +149,7 @@ export const zh: Messages = {
   samples: {
     eyebrow: "/ 生产样本",
     title: "真实生成样例，绝不精挑细选。",
-    subtitle: "本周生产流量里随机抽取的 8 段，都是 Seedance 2.0 原始产出 —— 鼠标悬停查看提示词。",
+    subtitle: "本周生产流量里随机抽取的 8 段原始产出 —— 鼠标悬停查看提示词。",
     tags: {
       shortDrama: "短剧",
       adCreative: "广告创意",
@@ -225,7 +225,7 @@ export const zh: Messages = {
       },
     },
     footnote:
-      "数据为 30 天滚动 P95，基于 partner-tier 池。登录控制台查看你自己账号的实时指标。",
+      "数据为 30 天滚动 P95，基于生产流量池。登录控制台查看你自己账号的实时指标。",
   },
 
   useCases: {
@@ -283,7 +283,7 @@ export const zh: Messages = {
     generate: "生成示例",
     generating: "生成中…",
     status: {
-      queued: "已排队 · 上游已接受",
+      queued: "已排队 · 平台已接受",
       running: "正在生成第 86 / 144 帧",
       done: "完成 · 4.8s · 已预留 1.00 点数",
     },
@@ -294,6 +294,20 @@ export const zh: Messages = {
       showSample: "查看示例响应",
       sampleLabel: "（示例）",
     },
+  },
+
+  siteNav: {
+    features: "功能",
+    docs: "文档",
+    pricing: "定价",
+    enterprise: "企业",
+    logIn: "登录",
+    getStarted: "开始使用",
+    menuAria: "打开菜单",
+    security: "安全",
+    status: "服务状态",
+    legal: "法律条款",
+    dashboard: "控制台",
   },
 
   faq: {
@@ -307,7 +321,7 @@ export const zh: Messages = {
       },
       contentPolicy: {
         q: "你们的内容策略是什么样的？",
-        a: "默认完全沿用 Seedance 官方策略 —— 不加额外过滤层，也不会静默改写。Enterprise 可按组织配置 trust & safety 策略（例如面向 C 端应用更严格、面向签约影视工作更宽松）。提供预检接口，扣点前就能验证提示词。",
+        a: "默认采用行业通用的内容安全基线 —— 不加额外过滤层，也不会静默改写。Enterprise 可按组织配置 trust & safety 策略（例如面向 C 端应用更严格、面向签约影视工作更宽松）。提供预检接口，扣点前就能验证提示词。",
       },
       migration: {
         q: "迁移怎么做？",
@@ -329,14 +343,14 @@ export const zh: Messages = {
     step2: {
       label: "第二步",
       title: "提交生成任务",
-      description: "POST 你的提示词与参数到 /v1/jobs。立即返回任务 ID 和预留凭据。",
+      description: "POST 你的提示词与参数到 /v1/videos。立即返回视频 ID 和预留凭据。",
       action: "复制 cURL",
     },
     step3: {
       label: "第三步",
       title: "接收 Webhook 或轮询",
       description:
-        "完成时通过 HMAC 签名 Webhook 通知，或轮询 GET /v1/jobs/{id}。两种都是一等公民。",
+        "完成时通过 HMAC 签名 Webhook 通知，或轮询 GET /v1/videos/{id}。两种都是一等公民。",
       action: "配置 Webhook",
     },
   },
@@ -346,7 +360,7 @@ export const zh: Messages = {
     title: "信任即产品",
     subtitle: "生产级基础设施该有的都有，不该有的一个没有。",
     official: {
-      title: "官方 Seedance 2.0 接入",
+      title: "Seedance 模型 · NextAPI 统一接口",
       description: "直接与字节跳动签约。Pro 与 Lite 双档、文生视频与图生视频齐备，无代理、无加价，关键时刻不会被速率限制突袭。",
     },
     webhooks: {
@@ -359,7 +373,7 @@ export const zh: Messages = {
     },
     observability: {
       title: "任务级可观测",
-      description: "状态时间线、上游 request id、耗时、预留 vs 实际计费。可导出到数仓。",
+      description: "状态时间线、内部 request id、耗时、预留 vs 实际计费。可导出到数仓。",
     },
   },
 
@@ -389,7 +403,7 @@ export const zh: Messages = {
     items: {
       latency: "中位提交时延",
       sla: "任务受理 SLO",
-      runtime: "Seedance 中位运行时长",
+      runtime: "任务中位运行时长",
       retries: "不会出现在你的发票里",
     },
   },
@@ -406,7 +420,7 @@ export const zh: Messages = {
       highlights: [
         "免费账号 · 无需信用卡",
         "赠送测试点数",
-        "完整 Seedance 2.0 访问 —— Pro + Lite",
+        "完整模型目录 —— Pro / Fast / Lite",
       ],
       cta: "创建免费账号",
     },
@@ -436,7 +450,7 @@ export const zh: Messages = {
   eyebrow: "定价",
   title: "按量计费。失败退款。无意外账单项。",
   subtitle:
-  "一个点数覆盖 6 秒 1080p Seedance 生成。失败任务在 Webhook 边界全额退款。每张发票附带预留 vs 实际计费的对账。",
+  "一个点数覆盖 6 秒 1080p 视频生成。失败任务在 Webhook 边界全额退款。每张发票附带预留 vs 实际计费的对账。",
   recommended: "推荐",
     developer: {
       name: "Builder",
@@ -445,7 +459,7 @@ export const zh: Messages = {
       description: "用于初次接入和评估。无需信用卡、无审核队列。",
       features: [
         "注册即送 $5 免费额度（无需信用卡）",
-        "可用 Seedance 2.0 Pro + Lite（文生 / 图生视频）",
+        "可用 Pro / Fast / Lite 档模型（文生 / 图生视频）",
         "1 个项目，3 个 API 密钥",
         "签名 Webhook · 产出保留 24 小时",
       ],
@@ -519,6 +533,7 @@ export const zh: Messages = {
       docs: "文档",
       account: "账户",
       build: "构建",
+      batchStudio: "Batch Studio",
     },
     admin: {
       operations: "运维",
@@ -554,7 +569,7 @@ export const zh: Messages = {
       },
       step3: {
         title: "首次成功生成",
-        description: "提交一个 Seedance 任务，看着它走到 succeeded。",
+        description: "提交一个生成任务，看着它走到 succeeded。",
         action: "新建任务",
       },
       step4: {
@@ -580,6 +595,51 @@ export const zh: Messages = {
       viewAll: "查看全部任务",
       newJob: "新建任务",
     },
+  },
+
+  batchStudio: {
+    title: "Batch Studio",
+    subtitle: "在浏览器里用 CSV 批量生成视频。",
+    intro:
+      "上传与桌面版 Batch Studio 相同的镜头表。任务使用当前控制台会话所属组织提交，无需粘贴 API Key。校验前会自动应用 continuity_group 继承规则。",
+    desktopHint: "若要在本机上传参考图并下载 MP4，请使用 Streamlit 版本：",
+    downloadSample: "示例 CSV",
+    uploadCsv: "镜头表（.csv）",
+    dropHint: "点击或拖入 CSV",
+    rowCount: "有效行",
+    errorCount: "错误",
+    moreErrors: "还有更多错误未显示。",
+    validateOk: "CSV 校验通过。",
+    validateFailed: "请先修正 CSV 错误再运行。",
+    parseError: "无法解析 CSV。",
+    revalidate: "重新校验",
+    model: "模型",
+    resolution: "分辨率",
+    parallel: "并行条数",
+    quickTest: "快速试跑（前 3 条）",
+    fullBatch: "跑完全部",
+    running: "运行中…",
+    runComplete: "本批任务已结束。",
+    viewJobs: "全部任务",
+    results: "运行结果",
+    col: {
+      shot: "镜头",
+      status: "状态",
+      job: "任务",
+      output: "输出",
+    },
+    phase: {
+      idle: "等待",
+      submitting: "提交中",
+      polling: "生成中",
+      succeeded: "成功",
+      failed: "失败",
+    },
+    openVideo: "打开视频",
+    pollTimeout: "等待任务结果超时。",
+    noJobId: "接口未返回任务 ID。",
+    jobFailed: "任务失败。",
+    unknownError: "请求失败。",
   },
 
   jobs: {
@@ -632,18 +692,18 @@ export const zh: Messages = {
     },
     empty: {
       title: "暂无任务",
-      description: "发起第一次 Seedance 生成，它会实时出现在这里。",
+      description: "发起第一次视频生成，它会实时出现在这里。",
       cta: "发起你的第一次请求",
       secondary: "查看文档",
     },
     loading: {
       title: "加载任务中",
-      description: "正在从 /v1/jobs 流式读取 — 通常不到一秒。",
+      description: "正在从 /v1/videos 流式读取 — 通常不到一秒。",
       note: "如果持续加载，请查看服务状态页。",
     },
     error: {
       title: "任务加载失败",
-      description: "拉取最近任务时遇到上游错误。你的数据是安全的。",
+      description: "拉取最近任务时遇到服务错误。你的数据是安全的。",
       code: "错误码",
       requestId: "请求 ID",
       cta: "重试",
@@ -661,10 +721,10 @@ export const zh: Messages = {
       regenerate: "重新生成",
       outputPanel: {
         title: "输出",
-        submittingTitle: "正在提交到上游",
+        submittingTitle: "正在提交到平台",
         submittingHint: "正在预留 1.00 点数 · 幂等键 9c4fa1b2",
         queuedTitle: "排队中 · 位置 3",
-        queuedHint: "上游已确认 · 预计 ~38 秒",
+        queuedHint: "平台已确认 · 预计 ~38 秒",
         runningTitle: "正在生成第 142 / 144 帧",
         runningHint: "编码 · 1920 × 1080 · h264",
         runningElapsed: "已用 19.2 秒 · 剩余 ~4 秒",
@@ -704,8 +764,8 @@ export const zh: Messages = {
         note: "点数在 Webhook 边界完成对账。发票行会直接引用此任务 ID。",
       },
       upstreamPanel: {
-        title: "上游",
-        provider: "供应商",
+        title: "Seedance 任务",
+        provider: "运行环境",
         model: "模型",
         requestId: "请求 ID",
         regionPool: "区域",
@@ -730,7 +790,7 @@ export const zh: Messages = {
       billed: "已计费",
       refunded: "已退款",
       drift: "偏差",
-      upstreamId: "上游 ID",
+      upstreamId: "内部任务 ID",
       progress: "进度",
       frames: "帧数",
       eta: "预计完成",
@@ -748,15 +808,15 @@ export const zh: Messages = {
       resend: "重新发送",
       states: {
         submittingTitle: "正在提交到 Seedance",
-        submittingDescription: "你的请求正在被校验并转发到上游供应商。",
-        queuedTitle: "已进入上游队列",
-        queuedDescription: "Seedance 已接收任务并排队。开始运行时会发送 Webhook。",
+        submittingDescription: "你的请求正在校验并路由到所选 Seedance 模型。",
+        queuedTitle: "已进入生成队列",
+        queuedDescription: "任务已由平台接收并排队。开始运行时会发送 Webhook。",
         runningTitle: "生成进行中",
         runningDescription: "模型正在生成帧。非必要请勿取消 — 预留不会退款。",
         succeededTitle: "任务成功",
         succeededDescription: "输出可在下方链接访问，保留 72 小时。可下载或转存到自有存储。",
         failedTitle: "任务失败",
-        failedDescription: "Seedance 在生成中返回了错误。你的预留已全额退款。",
+        failedDescription: "模型在生成中返回错误。你的预留已全额退款。",
         canceledTitle: "任务已取消",
         canceledDescription: "你在完成前取消了本次任务。已按比例退款。",
       },
@@ -790,7 +850,7 @@ export const zh: Messages = {
         title: "实时执行",
         idle: "等待提交",
         idleHint: "在左侧调整参数，然后点击提交。",
-        submittingTitle: "正在提交到上游",
+        submittingTitle: "正在提交到平台",
         queuedTitle: "已排队 · 位置 3",
         runningTitle: "Seedance 生成中 · 86%",
         succeededTitle: "已完成 · Webhook 已投递",
@@ -953,7 +1013,7 @@ export const zh: Messages = {
     pulse: {
       title: "系统脉搏",
       updatedNow: "2 秒前更新",
-      upstream: "Seedance 上游",
+      upstream: "生成服务",
       upstreamHint: "p99 412ms · 0 错误",
       queueDepth: "队列深度",
       queueDepthHint: "健康阈值 200",
@@ -979,7 +1039,7 @@ export const zh: Messages = {
         webhookFailing: "Webhook 投递失败",
         refundDrift: "退款偏差 > 0.5%",
         policyViolation: "内容合规触发",
-        upstreamTimeout: "上游超时",
+        upstreamTimeout: "生成超时",
         ipAllowlist: "IP 白名单不匹配",
         rotationOverdue: "密钥轮换超期",
       },
@@ -1061,6 +1121,29 @@ export const zh: Messages = {
       onCall: "值班",
       region: "区域",
       prodBadge: "生产",
+      sidebarBadge: "管理",
+    },
+    securityBanner: {
+      message:
+        "管理后台使用短时运维会话（8 小时）+ 邮件验证码完成高危操作，无需 Clerk Pro MFA。",
+      dismiss: "知道了",
+      dismissAria: "关闭安全提示",
+    },
+    otpDialog: {
+      title: "邮箱验证码确认",
+      operation: "操作",
+      sending: "正在发送验证码…",
+      sendFailed: "发送验证码失败",
+      invalidCode: "请输入邮件中的 6 位数字。",
+      codeLabel: "6 位验证码",
+      codeSentFallback: "验证码已发送至运维邮箱",
+      expiresAtPrefix: "验证码过期时间",
+      retry: "重试",
+      cancel: "取消",
+      confirm: "确认",
+      confirming: "确认中…",
+      resend: "没收到？重新发送",
+      cancelAria: "关闭",
     },
     overviewPage: {
       windowLast60m: "窗口 · 近 60 分钟",
@@ -1211,7 +1294,7 @@ export const zh: Messages = {
         apiAvailability: "API 可用性",
         jobSuccess: "任务成功率",
         webhookP95: "Webhook 投递 p95",
-        seedanceP99: "Seedance 上游 p99",
+        seedanceP99: "生成链路 p99",
         target: "目标",
       },
       levels: {
@@ -1283,7 +1366,7 @@ export const zh: Messages = {
     faq: [
       {
         q: "一个点数如何定义？",
-        a: "一个点数 ≈ 一秒 720p 视频输出。最终计费按 Seedance 上报的真实耗时对账，我们从不向上取整。",
+        a: "一个点数 ≈ 一秒 720p 视频输出。最终计费按模型侧回传的真实耗时对账，我们从不向上取整。",
       },
       {
         q: "任务失败会怎样？",
@@ -1295,7 +1378,7 @@ export const zh: Messages = {
       },
       {
         q: "测试环境收费吗？",
-        a: "不收。测试密钥在沙箱中运行，模拟包括失败在内的上游行为，完全免费。",
+        a: "不收。测试密钥在沙箱中运行，可模拟包括失败在内的生成结果，完全免费。",
       },
     ],
   },
@@ -1386,7 +1469,7 @@ export const zh: Messages = {
         status: "状态",
         emittedWhen: "触发时机",
       },
-      rowQueued: "上游已确认任务。",
+      rowQueued: "平台已确认任务。",
       rowRunning: "Seedance 开始处理。",
       rowSucceeded: "输出 URL 就绪，点数已结算。",
       rowFailed: "任务终止，点数全额退回。",
@@ -1399,6 +1482,43 @@ export const zh: Messages = {
       nodeTab: "Node.js",
       pythonTab: "Python",
     },
+    idempotency: {
+      title: "幂等性",
+      body:
+        "在 POST 请求上携带 Idempotency-Key 头，可在安全重试时避免重复创建任务。键按 API 密钥隔离，24 小时后过期。",
+    },
+    retrieveJob: {
+      title: "获取任务",
+      body:
+        "按任务 ID 获取当前生成状态。完成后返回视频 URL，否则返回当前状态与进度信息。",
+    },
+    listJobs: {
+      title: "列出任务",
+      body:
+        "返回当前组织下的视频任务分页列表。使用 ?limit= 与 ?cursor=（若客户端使用 offset，也可配合 offset）进行分页。",
+    },
+    webhookRetries: {
+      title: "Webhook 重试",
+      body:
+        "Webhook 投递失败（非 2xx 或超时）时，按指数退避最多重试 6 次，间隔约为 30 秒、2 分钟、10 分钟、1 小时、6 小时、24 小时。每次投递使用相同的 X-NextAPI-Signature、X-NextAPI-Timestamp、X-NextAPI-Event 头。",
+    },
+    rateLimits: {
+      title: "速率限制",
+      body:
+        "API 按密钥限流，响应头中包含 X-RateLimit-Remaining 与 X-RateLimit-Reset。默认业务密钥约 600 次/分钟，管理员密钥约 300 次/分钟；企业客户可申请更高额度。",
+    },
+    errorCodes: {
+      title: "错误码",
+      body:
+        "错误统一返回 JSON，包含 error.code 与 error.message。常见码：invalid_request、unauthorized、rate_limit_exceeded、insufficient_credits、internal_error。",
+    },
+    changelog: {
+      title: "更新日志",
+      v1Badge: "v1.0",
+      v1Date: "2026年4月",
+      v1Body:
+        "首次发布 — 支持 Seedance 2.0 Pro、Webhook 事件、幂等键、消费上限与可配置的内容审核策略。",
+    },
     toc: {
       title: "本页目录",
       quickstart: "快速开始",
@@ -1406,6 +1526,13 @@ export const zh: Messages = {
       create: "创建任务",
       events: "Webhook 事件",
       sig: "签名校验",
+      idem: "幂等性",
+      retrieve: "获取任务",
+      list: "列出任务",
+      retries: "Webhook 重试",
+      limits: "速率限制",
+      errors: "错误码",
+      changelog: "更新日志",
     },
     quickstartLegacy: {
       title: "快速开始",
@@ -1417,7 +1544,7 @@ export const zh: Messages = {
     },
     createJobLegacy: {
       title: "创建生成任务",
-      description: "POST 到 /v1/jobs 并附带提示词与参数。返回任务 ID 和预留凭据。",
+      description: "POST 到 /v1/videos 并附带提示词与参数。返回视频 ID 和预留凭据。",
     },
     pollStatus: {
       title: "轮询任务状态",

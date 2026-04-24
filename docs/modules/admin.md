@@ -3,10 +3,16 @@
 ## Purpose
 Operator-only surface to inspect + intervene without touching DB directly.
 
-## AuthN/Z (v1 — simple)
-- Backend `/v1/internal/admin/*` gated by header `X-Admin-Token: <ADMIN_TOKEN>`.
-- Frontend `admin.nextapi.top` gated by Clerk + `ADMIN_EMAILS` env allowlist.
-- W8+: replace shared token with Clerk session JWT + proper RBAC.
+## AuthN/Z (v1 — operator session)
+- Browser admin access starts with Clerk login, then `POST /v1/internal/admin/session`
+  exchanges the Clerk JWT for a short-lived `ops_*` operator session.
+- Backend `/v1/internal/admin/*` accepts `X-Op-Session` for the admin UI,
+  Clerk JWT for initial session creation / direct tooling, and `X-Admin-Token`
+  only for scripts, cron jobs, and emergency ops.
+- High-risk actions require email OTP via `POST /v1/internal/admin/otp/send`
+  and `X-Op-OTP: <otp_id>.<code>`.
+- Frontend `admin.nextapi.top` is gated by Clerk + `ADMIN_EMAILS` env allowlist.
+- W8+: add proper RBAC and per-action roles.
 
 ## Endpoints
 - `GET  /v1/internal/admin/overview` — users_total, jobs_last_24h, credits_used
@@ -22,4 +28,5 @@ Operator-only surface to inspect + intervene without touching DB directly.
 
 ## Invariants
 - Admin actions never bypass the ledger — every change is auditable.
-- Admin panel is English-only.
+- The shared `ADMIN_TOKEN` is never sent to browser JavaScript.
+- Admin panel copy is localized through `packages/ui`.

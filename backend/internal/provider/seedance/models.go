@@ -81,7 +81,7 @@ func ResolveArkModel(req provider.GenerationRequest, fallback string) string {
 	}
 
 	switch publicID {
-	case "seedance-2.0":
+	case "seedance-2.0", "seedance-2.0-pro":
 		if hasVisualInput(req) {
 			return getenvDefault("SEEDANCE_20_VIDEO_IN_MODEL", dreamina20InferenceVideoIn)
 		}
