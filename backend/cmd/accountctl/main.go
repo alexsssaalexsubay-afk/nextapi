@@ -53,6 +53,7 @@ func main() {
 		if err := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&user).Error; err != nil {
 			return err
 		}
+		user = domain.User{}
 		if err := tx.Where("lower(email) = ?", e).First(&user).Error; err != nil {
 			return err
 		}
