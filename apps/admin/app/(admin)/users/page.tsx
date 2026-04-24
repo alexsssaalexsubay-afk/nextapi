@@ -2,6 +2,9 @@
 
 import { FormEvent, useEffect, useState } from "react"
 import {
+  Copy,
+  Dices,
+  KeyRound,
   Loader2,
   Lock,
   Search,
@@ -12,6 +15,7 @@ import { AdminShell } from "@/components/admin/admin-shell"
 import { OTPDialog, type OTPDialogResult } from "@/components/admin/otp-dialog"
 import { adminFetch, adminFetchWithOTP } from "@/lib/admin-api"
 import { useTranslations } from "@/lib/i18n/context"
+import { generateEmailLocal8, generateStrongPassword10 } from "@/lib/secure-random"
 
 /* ── types ── */
 type ApiUser = {
@@ -23,6 +27,35 @@ type ApiUser = {
 function uid(u: ApiUser) { return u.ID ?? u.id ?? "" }
 function uemail(u: ApiUser) { return u.Email ?? u.email ?? "" }
 function udate(u: ApiUser) { return u.CreatedAt ?? u.created_at ?? "" }
+
+const EMAIL_DOMAIN = "nextapi.top" as const
+
+function fullEmailFromLocal(local: string): string {
+  const t = local.trim().toLowerCase()
+  return `${t}@${EMAIL_DOMAIN}`
+}
+
+function isValidLocalPart(s: string): boolean {
+  const t = s.trim()
+  if (t.length < 1 || t.length > 64) return false
+  if (t.includes("@") || t.includes(" ") || t.includes("..")) return false
+  return /^[a-z0-9]([a-z0-9._-]*[a-z0-9])?$/i.test(t)
+}
+
+function handoffText(
+  template: string,
+  email: string,
+  password: string,
+  signInUrl: string,
+) {
+  return template.replace("{email}", email).replace("{password}", password).replace("{url}", signInUrl)
+}
+
+const DASHBOARD_ORIGIN = (() => {
+  const b = (process.env.NEXT_PUBLIC_DASHBOARD_URL || "https://app.nextapi.top").replace(/\/$/, "")
+  return b
+})()
+const DASHBOARD_SIGNIN_URL = `${DASHBOARD_ORIGIN}/sign-in`
 
 /* ── page ── */
 export default function UsersPage() {
@@ -36,12 +69,14 @@ export default function UsersPage() {
 
   /* create user dialog */
   const [showCreate, setShowCreate] = useState(false)
-  const [createEmail, setCreateEmail] = useState("")
+  const [createEmailLocal, setCreateEmailLocal] = useState("")
   const [createPassword, setCreatePassword] = useState("")
   const [createOrgName, setCreateOrgName] = useState("")
   const [createCredits, setCreateCredits] = useState("")
   const [createLoading, setCreateLoading] = useState(false)
   const [createError, setCreateError] = useState<string | null>(null)
+  const [handoff, setHandoff] = useState<{ email: string; password: string } | null>(null)
+  const [copyFlash, setCopyFlash] = useState(false)
 
   /* reset password dialog */
   const [resetUserId, setResetUserId] = useState<string | null>(null)
@@ -70,18 +105,35 @@ export default function UsersPage() {
     }
   }
   useEffect(() => { load() }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const createEmailFull = fullEmailFromLocal(createEmailLocal)
+
+  useEffect(() => {
+    if (showCreate) {
+      setCreatePassword(generateStrongPassword10())
+    }
+  }, [showCreate])
+
   /* create user handler */
   async function handleCreate(e: FormEvent) {
     e.preventDefault()
+    if (!isValidLocalPart(createEmailLocal)) {
+      setCreateError(u.localInvalid)
+      return
+    }
     setCreateLoading(true)
     setCreateError(null)
-    const doCreate = (otp: OTPDialogResult) => {
-      if (!otp.confirmed) { setCreateLoading(false); return }
+    const emailForCreate = createEmailFull
+    const doCreate = (otp: OTPDialogResult): Promise<void> => {
+      if (!otp.confirmed) {
+        setCreateLoading(false)
+        return Promise.resolve()
+      }
       return adminFetchWithOTP("/users", otp.otpId, otp.otpCode, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          email: createEmail,
+          email: emailForCreate,
           password: createPassword,
           org_name: createOrgName || undefined,
           initial_credits: createCredits ? Number(createCredits) * 100 : 0,
@@ -89,17 +141,21 @@ export default function UsersPage() {
         }),
       })
         .then(() => {
+          setHandoff({ email: emailForCreate, password: createPassword })
           setShowCreate(false)
-          setCreateEmail(""); setCreatePassword(""); setCreateOrgName(""); setCreateCredits("")
+          setCreateEmailLocal("")
+          setCreateOrgName("")
+          setCreateCredits("")
+          setCreatePassword(generateStrongPassword10())
           load(search)
         })
         .catch((err: unknown) => setCreateError(err instanceof Error ? err.message : "Failed"))
         .finally(() => setCreateLoading(false))
     }
     setOtpAction("user.create")
-    setOtpTarget(createEmail)
-    setOtpHint(`Create account: ${createEmail}`)
-    setPendingOp(() => doCreate as any)
+    setOtpTarget(emailForCreate)
+    setOtpHint(`Create account: ${emailForCreate}`)
+    setPendingOp(() => doCreate)
     setOtpOpen(true)
   }
 
@@ -217,17 +273,67 @@ export default function UsersPage() {
             <div className="w-full max-w-md rounded-lg border border-border bg-background p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
               <div className="mb-4 flex items-center justify-between">
                 <h3 className="text-base font-semibold">{u.createUser}</h3>
-                <button onClick={() => setShowCreate(false)} className="text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button>
+                <button type="button" onClick={() => setShowCreate(false)} className="text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button>
               </div>
               {createError && <div className="mb-3 rounded border border-destructive/40 bg-destructive/10 px-3 py-1.5 text-xs text-destructive">{createError}</div>}
               <form onSubmit={handleCreate} className="space-y-3">
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-muted-foreground">{u.fieldEmail}</label>
-                  <input required type="email" className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus:ring-1 focus:ring-ring" value={createEmail} onChange={(e) => setCreateEmail(e.target.value)} />
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">{u.fieldEmailLocal}</label>
+                  <div className="flex min-w-0 items-stretch gap-0 rounded-md border border-input bg-background">
+                    <input
+                      required
+                      className="h-9 min-w-0 flex-1 rounded-l-md border-0 bg-transparent px-3 font-mono text-sm outline-none focus:ring-0"
+                      value={createEmailLocal}
+                      onChange={(e) => {
+                        let v = e.target.value
+                        const at = v.indexOf("@")
+                        if (at >= 0) v = v.slice(0, at)
+                        v = v.replace(/\s/g, "")
+                        setCreateEmailLocal(v)
+                      }}
+                      autoComplete="off"
+                      placeholder="e.g. acme-acct1"
+                    />
+                    <div className="flex shrink-0 items-center border-l border-border bg-muted/40 px-2 font-mono text-sm text-muted-foreground">
+                      @{EMAIL_DOMAIN}
+                    </div>
+                  </div>
+                  <div className="mt-1 flex items-center justify-between gap-2">
+                    <p className="text-[11px] text-muted-foreground">{u.emailDomainFixed}</p>
+                    <button
+                      type="button"
+                      className="inline-flex h-7 items-center gap-1 rounded border border-border/80 bg-muted/30 px-2 text-[11px] text-foreground hover:bg-muted/50"
+                      onClick={() => {
+                        setCreateError(null)
+                        setCreateEmailLocal(generateEmailLocal8())
+                      }}
+                    >
+                      <Dices className="h-3 w-3" />
+                      {u.randomLocal}
+                    </button>
+                  </div>
                 </div>
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-muted-foreground">{u.fieldPassword}</label>
-                  <input required minLength={8} type="password" className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus:ring-1 focus:ring-ring" value={createPassword} onChange={(e) => setCreatePassword(e.target.value)} />
+                  <div className="mb-1 flex items-center justify-between">
+                    <label className="text-xs font-medium text-muted-foreground">{u.fieldPassword}</label>
+                    <button
+                      type="button"
+                      className="inline-flex h-7 items-center gap-1 rounded border border-border/80 bg-muted/30 px-2 text-[11px] text-foreground hover:bg-muted/50"
+                      onClick={() => {
+                        setCreateError(null)
+                        setCreatePassword(generateStrongPassword10())
+                      }}
+                    >
+                      <KeyRound className="h-3 w-3" />
+                      {u.regenPassword}
+                    </button>
+                  </div>
+                  <input
+                    readOnly
+                    className="h-9 w-full cursor-default rounded-md border border-input bg-muted/20 px-3 font-mono text-sm outline-none"
+                    value={createPassword}
+                    title={createPassword}
+                  />
                 </div>
                 <div>
                   <label className="mb-1 block text-xs font-medium text-muted-foreground">{u.fieldOrgName}</label>
@@ -238,10 +344,52 @@ export default function UsersPage() {
                   <input type="number" min={0} step={1} className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus:ring-1 focus:ring-ring" placeholder="0" value={createCredits} onChange={(e) => setCreateCredits(e.target.value)} />
                   <p className="mt-1 text-[11px] text-muted-foreground">{u.fieldCreditsHint}</p>
                 </div>
+                <p className="text-[11px] text-muted-foreground">{u.afterCreateHint}</p>
                 <button type="submit" disabled={createLoading} className="inline-flex h-9 w-full items-center justify-center gap-2 rounded-md bg-primary text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50">
                   {createLoading && <Loader2 className="h-4 w-4 animate-spin" />} {u.createUser}
                 </button>
               </form>
+            </div>
+          </div>
+        )}
+
+        {handoff && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60" onClick={() => setHandoff(null)}>
+            <div className="w-full max-w-md rounded-lg border border-border bg-background p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+              <div className="mb-2 flex items-center justify-between">
+                <h3 className="text-base font-semibold">{u.handoffTitle}</h3>
+                <button type="button" onClick={() => setHandoff(null)} className="text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button>
+              </div>
+              <p className="mb-3 text-sm text-muted-foreground">{u.handoffSub}</p>
+              <pre className="mb-4 max-h-48 overflow-auto rounded-md border border-border bg-muted/20 p-3 text-left font-mono text-xs leading-relaxed text-foreground whitespace-pre-wrap break-all">
+                {handoffText(u.copyHandoff, handoff.email, handoff.password, DASHBOARD_SIGNIN_URL).trimEnd()}
+              </pre>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <button
+                  type="button"
+                  className="inline-flex h-9 flex-1 items-center justify-center gap-2 rounded-md bg-primary text-sm font-medium text-primary-foreground hover:bg-primary/90"
+                  onClick={async () => {
+                    const text = handoffText(u.copyHandoff, handoff.email, handoff.password, DASHBOARD_SIGNIN_URL).trimEnd()
+                    try {
+                      await navigator.clipboard.writeText(text)
+                      setCopyFlash(true)
+                      setTimeout(() => setCopyFlash(false), 2000)
+                    } catch {
+                      // ignore
+                    }
+                  }}
+                >
+                  <Copy className="h-4 w-4" />
+                  {copyFlash ? u.copyDone : u.copyAll}
+                </button>
+                <button
+                  type="button"
+                  className="inline-flex h-9 flex-1 items-center justify-center rounded-md border border-border text-sm font-medium hover:bg-muted/30"
+                  onClick={() => setHandoff(null)}
+                >
+                  {u.handoffDone}
+                </button>
+              </div>
             </div>
           </div>
         )}
