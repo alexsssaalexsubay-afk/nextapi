@@ -83,7 +83,7 @@ export default function NewJobPage() {
     }
   }, [updateCost])
 
-  // Fresh form: clear Sonner toasts and inline error from a previous page / route.
+  // On mount, clear toasts and inline error so a failed action on another page does not carry over.
   useEffect(() => {
     setSubmitError(null)
     toast.dismiss()
