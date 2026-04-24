@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	batchsvc "github.com/sanidg/nextapi/backend/internal/batch"
 	"github.com/sanidg/nextapi/backend/internal/auth"
+	batchsvc "github.com/sanidg/nextapi/backend/internal/batch"
 	"github.com/sanidg/nextapi/backend/internal/domain"
 	"github.com/sanidg/nextapi/backend/internal/infra/httpx"
 	"github.com/sanidg/nextapi/backend/internal/job"
@@ -47,7 +47,7 @@ func (h *BatchHandlers) Create(c *gin.Context) {
 		Manifest json.RawMessage              `json:"manifest"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		httpx.BadRequest(c, "invalid_request", err.Error())
+		httpx.BadRequest(c, "invalid_request", "invalid request body")
 		return
 	}
 
@@ -219,14 +219,14 @@ func getAPIKeyID(c *gin.Context) *string {
 
 // batchJobResponse is a lightweight job representation for batch listings.
 type batchJobResponse struct {
-	ID          string            `json:"id"`
-	Status      domain.JobStatus  `json:"status"`
-	RetryCount  int               `json:"retry_count"`
-	ErrorCode   *string           `json:"error_code,omitempty"`
-	VideoURL    *string           `json:"video_url,omitempty"`
-	CostCredits *int64            `json:"cost_credits,omitempty"`
-	CreatedAt   string            `json:"created_at"`
-	CompletedAt *string           `json:"completed_at,omitempty"`
+	ID          string           `json:"id"`
+	Status      domain.JobStatus `json:"status"`
+	RetryCount  int              `json:"retry_count"`
+	ErrorCode   *string          `json:"error_code,omitempty"`
+	VideoURL    *string          `json:"video_url,omitempty"`
+	CostCredits *int64           `json:"cost_credits,omitempty"`
+	CreatedAt   string           `json:"created_at"`
+	CompletedAt *string          `json:"completed_at,omitempty"`
 }
 
 func toBatchJobResponse(j domain.Job) batchJobResponse {

@@ -58,7 +58,25 @@
 
 ---
 
-## 二、Clerk 认证配置
+## 二、认证配置
+
+Dashboard 主链路使用 NextAPI 自研账号会话，早期采用邀请制：
+
+```bash
+cd backend
+go run ./cmd/accountctl \
+  --email customer@example.com \
+  --password 'replace-with-a-strong-password' \
+  --org 'Customer Name' \
+  --credits 50000
+```
+
+客户随后访问 `https://app.nextapi.top/sign-in` 登录。登录成功后后端会创建
+`auth_sessions` 记录，并签发短期 `dashboard-session` key 给浏览器调用业务 API。
+
+> Clerk 可在 Admin 或历史兼容链路中短期保留，但 Dashboard 主链路不再依赖 Clerk。
+
+## 二点五、Clerk 认证配置（历史兼容 / Admin 过渡）
 
 1. 登录 https://dashboard.clerk.com
 2. 创建 Application（或用已有的）
@@ -218,17 +236,17 @@ CLERK_ISSUER=https://big-vulture-6.clerk.accounts.dev
 # PROVIDER_MODE 三选一：
 #   mock    —— 进程内假 Provider（默认，本地/CI）
 #   live    —— 方舟 Ark 直连（需要 VOLC_API_KEY）
-#   uptoken —— UpToken 代跑网关（需要 UPTOKEN_API_KEY，推荐）
-PROVIDER_MODE=uptoken
+#   seedance_relay —— Seedance 托管中继（需要 SEEDANCE_RELAY_API_KEY，推荐）
+PROVIDER_MODE=seedance_relay
 
-# ---- 方案 A：UpToken（推荐：开箱即用） ----
-# https://uptoken.cc/login → 左侧 API Keys → 新建 ut-xxx key
-UPTOKEN_API_KEY=ut-你的UpTokenKey
-UPTOKEN_BASE_URL=https://uptoken.cc/v1
-UPTOKEN_MODEL=seedance-2.0-pro
-# 可选：公开目录里每个 model → UpToken 真实 ID（逗号分隔 公开ID:上游ID）
+# ---- 方案 A：Seedance 托管中继（推荐：开箱即用） ----
+# 由运维交接上游中继 key；这是我们的服务端 key，不给客户分发。
+SEEDANCE_RELAY_API_KEY=<relay-key>
+SEEDANCE_RELAY_BASE_URL=<relay-base-url>
+SEEDANCE_RELAY_MODEL=seedance-2.0-pro
+# 可选：公开目录里每个 model → Seedance 托管中继 真实 ID（逗号分隔 公开ID:上游ID）
 # 默认已内置 seedance-2.0→seedance-2.0-pro、seedance-2.0-fast 透传
-# UPTOKEN_MODEL_MAP=seedance-2.0:seedance-2.0-pro,seedance-2.0-fast:seedance-2.0-fast
+# SEEDANCE_RELAY_MODEL_MAP=seedance-2.0:seedance-2.0-pro,seedance-2.0-fast:seedance-2.0-fast
 
 # ---- 方案 B：方舟 Ark 直连 ----
 VOLC_API_KEY=你的方舟API密钥
@@ -337,23 +355,23 @@ certbot 会自动配置定时续期（systemd timer `certbot.timer`）。
 
 ### 6.1 上游视频 API（二选一）
 
-#### 方案 A：UpToken（推荐）
+#### 方案 A：Seedance 托管中继（推荐）
 
-UpToken（[uptoken.cc](https://uptoken.cc)）是一个代跑网关，帮你打通方舟合规 / 渠道 / 计费；NextAPI 直接把 `POST /v1/videos` 翻译成 `POST https://uptoken.cc/v1/video/generations`，几分钟就能上线。
+Seedance 托管中继负责承接我们和上游视频生成服务之间的鉴权、额度与接口适配；NextAPI 对客户只暴露 `POST /v1/videos`。
 
-1. 打开 [https://uptoken.cc/login](https://uptoken.cc/login)，登录（Google / Email）
-2. 左侧 **API Keys** → **Create Key** → 复制以 `ut-` 开头的完整字符串
-3. 充值：右上角 `BALANCE` 必须 > 0，否则上游 HTTP 402 会透传给客户
+1. 通过运维交接拿到上游中继 key。
+2. 只把上游中继 key 写入服务器 `.env`，不要给客户，也不要放进前端。
+3. 确认上游额度 > 0，否则上游 HTTP 402 会透传给客户。
 4. 后端 `.env` 写入：
    ```bash
-   PROVIDER_MODE=uptoken
-   UPTOKEN_API_KEY=ut-xxx
-   UPTOKEN_MODEL=seedance-2.0-pro
+   PROVIDER_MODE=seedance_relay
+   SEEDANCE_RELAY_API_KEY=<relay-key>
+   SEEDANCE_RELAY_MODEL=seedance-2.0-pro
    ```
-5. 如果你在对外目录里承诺了其他 model ID，可用 `UPTOKEN_MODEL_MAP` 自定义映射（默认已内置 `seedance-2.0` / `seedance-2.0-fast` / `seedance-1.x` 家族）
+5. 如果你在对外目录里承诺了其他 model ID，可用 `SEEDANCE_RELAY_MODEL_MAP` 自定义映射（默认已内置 `seedance-2.0` / `seedance-2.0-fast` / `seedance-1.x` 家族）
 6. 冒烟：对每个对外 `model` 各发一条最小 `POST /v1/videos`，轮询 `GET /v1/videos/:id` 到 `succeeded`
 
-完整错误码 / 字段对照见 [docs/UPSTREAM-UPTOKEN-ZH.md](UPSTREAM-UPTOKEN-ZH.md)。
+完整错误码 / 字段对照见 [docs/UPSTREAM-SEEDANCE-RELAY-ZH.md](UPSTREAM-SEEDANCE-RELAY-ZH.md)。
 
 #### 方案 B：火山引擎 Seedance（直连 Ark）
 
@@ -411,7 +429,7 @@ cat ~/.ssh/nextapi_deploy   # 复制到 GitHub Secret
 - [ ] `https://app.nextapi.top` 可注册/登录（Clerk）
 - [ ] 登录后可创建 API Key（`/v1/me/keys`）
 - [ ] 后端 `.env` 的 `PROVIDER_MODE` 与上游凭据匹配：
-      - `uptoken`（推荐）：`UPTOKEN_API_KEY`、`UPTOKEN_MODEL`（必要时 `UPTOKEN_MODEL_MAP`）—— 详见 [docs/UPSTREAM-UPTOKEN-ZH.md](UPSTREAM-UPTOKEN-ZH.md)
+      - `seedance_relay`（推荐）：`SEEDANCE_RELAY_API_KEY`、`SEEDANCE_RELAY_MODEL`（必要时 `SEEDANCE_RELAY_MODEL_MAP`）—— 详见 [docs/UPSTREAM-SEEDANCE-RELAY-ZH.md](UPSTREAM-SEEDANCE-RELAY-ZH.md)
       - `live`：`VOLC_API_KEY`、`SEEDANCE_MODEL`、`SEEDANCE_MODEL_MAP`（覆盖所有对外公开的 `model`）已按 `docs/OPERATOR-HANDBOOK.md` 核对
 - [ ] 用创建的 Key 调用 `POST /v1/videos` 成功（建议对**每一个**对外 `model` 各测一条最小请求，避免 Ark 报 `model not found`）
 - [ ] `https://admin.nextapi.top` 可登录，Overview 数据从 `/v1/internal/admin/overview` 加载

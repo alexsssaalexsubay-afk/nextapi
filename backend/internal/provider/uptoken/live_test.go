@@ -207,7 +207,6 @@ func TestResolveUpstreamModel(t *testing.T) {
 		{"seedance-2.0 maps to pro", "seedance-2.0", uptokenSeedance20Pro},
 		{"seedance-2.0-pro maps to pro", "seedance-2.0-pro", uptokenSeedance20Pro},
 		{"seedance-2.0-fast passes through as fast", "seedance-2.0-fast", uptokenSeedance20Fast},
-		{"seedream-5.0-lite maps to lite", "seedream-5.0-lite", uptokenSeedream50Lite},
 		{"unknown id passes through verbatim", "my-experimental-v99", "my-experimental-v99"},
 	}
 	for _, tc := range cases {

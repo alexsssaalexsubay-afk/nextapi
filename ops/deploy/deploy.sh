@@ -17,9 +17,14 @@ docker compose -f docker-compose.prod.yml pull backend worker
 docker compose -f docker-compose.prod.yml up -d --remove-orphans
 
 # Run migrations inside the fresh image.
-docker compose -f docker-compose.prod.yml run --rm \
+echo "==> Running migrations..."
+if ! docker compose -f docker-compose.prod.yml run --rm \
   -e DATABASE_URL \
-  backend /app/server --migrate || true
+  backend /app/server --migrate; then
+  echo "!! Migration failed, rolling back."
+  "$(dirname "$0")/rollback.sh"
+  exit 1
+fi
 
 echo "==> Waiting for /health..."
 for i in {1..30}; do

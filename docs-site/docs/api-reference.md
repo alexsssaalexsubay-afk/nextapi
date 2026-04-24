@@ -30,7 +30,7 @@ On **`POST`** requests that support it, send a **`Idempotency-Key`** header (dup
 
 ### Model IDs (public)
 
-Primary catalogue IDs: **`seedance-2.0-pro`**, **`seedance-2.0-fast`**, **`seedream-5.0-lite`**. Legacy strings such as `seedance-2.0` are still accepted and map to the same tiers (see `GET /models`).
+Primary video catalogue IDs: **`seedance-2.0-pro`**, **`seedance-2.0-fast`**. Legacy strings such as `seedance-2.0` are still accepted and map to the same tiers (see `GET /models`).
 
 ### POST `/videos` — request body
 

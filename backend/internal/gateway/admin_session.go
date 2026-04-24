@@ -167,7 +167,7 @@ func (h *AdminSessionHandlers) SendOTP(c *gin.Context) {
 		Hint     string `json:"hint"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "bad_request", "message": err.Error()}})
+		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "bad_request", "message": "invalid request body"}})
 		return
 	}
 
@@ -274,7 +274,7 @@ func RequireOTP(c *gin.Context, db *gorm.DB) bool {
 	if err := verifyAndConsumeOTP(c.Request.Context(), db, actor, otpID, code); err != nil {
 		c.JSON(http.StatusForbidden, gin.H{"error": gin.H{
 			"code":    "otp_failed",
-			"message": err.Error(),
+			"message": "OTP verification failed",
 		}})
 		return false
 	}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 	"time"
@@ -29,10 +30,10 @@ type VideosHandlers struct {
 }
 
 type videoCreateReq struct {
-	Model           string          `json:"model"`
-	Input           json.RawMessage `json:"input" binding:"required"`
-	WebhookURL      *string         `json:"webhook_url"`
-	IdempotencyKey  *string         `json:"idempotency_key"`
+	Model          string          `json:"model"`
+	Input          json.RawMessage `json:"input" binding:"required"`
+	WebhookURL     *string         `json:"webhook_url"`
+	IdempotencyKey *string         `json:"idempotency_key"`
 }
 
 type videoInput struct {
@@ -52,6 +53,14 @@ type videoInput struct {
 	Watermark     *bool  `json:"watermark"`
 	Seed          *int64 `json:"seed"`
 	CameraFixed   *bool  `json:"camera_fixed"`
+
+	// Extended media inputs (Seedance multi-modal).
+	Draft         *bool    `json:"draft"`
+	ImageURLs     []string `json:"image_urls"`
+	VideoURLs     []string `json:"video_urls"`
+	AudioURLs     []string `json:"audio_urls"`
+	FirstFrameURL *string  `json:"first_frame_url"`
+	LastFrameURL  *string  `json:"last_frame_url"`
 }
 
 // Create handles POST /v1/videos — new B2B surface.
@@ -104,6 +113,61 @@ func (h *VideosHandlers) Create(c *gin.Context) {
 		return
 	}
 
+	if err := validateExtendedMediaParams(input.ImageURLs, input.VideoURLs, input.AudioURLs, input.FirstFrameURL, input.LastFrameURL); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{
+			"code":    "invalid_request",
+			"message": err.Error(),
+		}})
+		return
+	}
+
+	// SSRF guards for extended media URLs.
+	for i, u := range input.ImageURLs {
+		if err := abuse.ValidatePublicURL(u); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{
+				"code":    "invalid_image_urls",
+				"message": fmt.Sprintf("image_urls[%d]: %s", i, err.Error()),
+			}})
+			return
+		}
+	}
+	for i, u := range input.VideoURLs {
+		if err := abuse.ValidatePublicURL(u); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{
+				"code":    "invalid_video_urls",
+				"message": fmt.Sprintf("video_urls[%d]: %s", i, err.Error()),
+			}})
+			return
+		}
+	}
+	for i, u := range input.AudioURLs {
+		if err := abuse.ValidatePublicURL(u); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{
+				"code":    "invalid_audio_urls",
+				"message": fmt.Sprintf("audio_urls[%d]: %s", i, err.Error()),
+			}})
+			return
+		}
+	}
+	if input.FirstFrameURL != nil && *input.FirstFrameURL != "" {
+		if err := abuse.ValidatePublicURL(*input.FirstFrameURL); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{
+				"code":    "invalid_first_frame_url",
+				"message": err.Error(),
+			}})
+			return
+		}
+	}
+	if input.LastFrameURL != nil && *input.LastFrameURL != "" {
+		if err := abuse.ValidatePublicURL(*input.LastFrameURL); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{
+				"code":    "invalid_last_frame_url",
+				"message": err.Error(),
+			}})
+			return
+		}
+	}
+
 	var apiKeyID *string
 	if ak := auth.APIKeyFrom(c); ak != nil {
 		apiKeyID = &ak.ID
@@ -124,6 +188,12 @@ func (h *VideosHandlers) Create(c *gin.Context) {
 			Watermark:       input.Watermark,
 			Seed:            input.Seed,
 			CameraFixed:     input.CameraFixed,
+			Draft:           input.Draft,
+			ImageURLs:       input.ImageURLs,
+			VideoURLs:       input.VideoURLs,
+			AudioURLs:       input.AudioURLs,
+			FirstFrameURL:   input.FirstFrameURL,
+			LastFrameURL:    input.LastFrameURL,
 		},
 	})
 	if err != nil {

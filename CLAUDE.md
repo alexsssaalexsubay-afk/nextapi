@@ -48,7 +48,7 @@ Deployment topology (live as of 2026-04):
 
 Other invariants:
 - Single Go binary serves api.nextapi.top; workers share the same binary with `cmd/worker`.
-- Provider Adapter pattern: two live backends in v1 — Volcengine Ark direct (`PROVIDER_MODE=live`) and UpToken relay (`PROVIDER_MODE=uptoken`, `https://uptoken.cc/docs`). Kling/Zhipu are interface stubs. Provider is selected once at startup via `providerfactory.Default()`.
+- Provider Adapter pattern: two live backends in v1 — Volcengine Ark direct (`PROVIDER_MODE=live`) and managed Seedance relay (`PROVIDER_MODE=seedance_relay`). Kling/Zhipu are interface stubs. Provider is selected once at startup via `providerfactory.Default()`.
 - Async job model: POST creates job → worker calls provider → webhook notifies customer OR customer polls.
 - Mintlify handles docs.nextapi.top externally (not in this repo).
 - Single region for MVP: Aliyun HK. Multi-region in roadmap (not Q1).
@@ -69,7 +69,7 @@ nextapi-v3/
 │   │   ├── infra/              # Config, DB, Redis, HTTP utils, metrics
 │   │   ├── job/                # Job service + processor (create, poll, succeed, fail)
 │   │   ├── moderation/         # Content moderation profiles
-│   │   ├── provider/           # Provider interface + Seedance (Ark) + UpToken implementations
+│   │   ├── provider/           # Provider interface + Seedance (Ark) + managed relay implementations
 │   │   ├── providerfactory/    # Provider factory
 │   │   ├── ratelimit/          # Redis sliding window rate limiter
 │   │   ├── spend/              # Spend controls, budget caps, auto-pause, kill switch

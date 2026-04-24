@@ -14,7 +14,7 @@ export function OnboardingChecklist() {
   const [visible, setVisible] = useState(true)
   const [fading, setFading] = useState(false)
   const [steps, setSteps] = useState({
-    accountCreated: true, // always true if Clerk session exists (page requires auth)
+    accountCreated: true, // page requires a first-party NextAPI account session
     hasApiKey: false,
     hasSucceededJob: false,
     hasWebhook: false,

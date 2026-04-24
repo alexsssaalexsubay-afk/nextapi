@@ -110,6 +110,28 @@ goose -dir migrations postgres "$DATABASE_URL" down   # 回退一个版本
 
 你看数据 → **永远是 `admin.nextapi.top`**。
 
+### 2.1.1 邀请制客户账号开通
+
+早期生产环境不开放自助注册。运营侧先创建客户账号、设置初始密码、发放额度，再把登录信息发给客户。
+
+在服务器 `/opt/nextapi` 执行：
+
+```bash
+cd /opt/nextapi/backend
+go run ./cmd/accountctl \
+  --email customer@example.com \
+  --password 'replace-with-a-strong-password' \
+  --org 'Customer Name' \
+  --credits 50000
+```
+
+说明：
+
+- `--credits` 使用系统内部点数/分为单位，和 `credits_ledger.delta_cents` 一致。
+- 账号创建后客户访问 `https://app.nextapi.top/sign-in`，用邮箱和初始密码登录。
+- Dashboard 登录成功后会用自研 `auth_sessions` 换取短期 `dashboard-session` API Key，不再依赖 Clerk。
+- 忘记密码阶段先由运营重置；后续接入邮箱/手机号 OTP 后再开放自助重置。
+
 ### 2.2 admin 后台你能看到的页面
 
 打开 `admin.nextapi.top` 用 Clerk 登录后（你的邮箱必须在 `ADMIN_EMAILS` 里）：
@@ -265,17 +287,17 @@ REDIS_ADDR=127.0.0.1:6379
 # PROVIDER_MODE 决定 POST /v1/videos 走哪条路：
 #   mock    —— 进程内假 Provider（默认；本地/CI 用）
 #   live    —— 火山方舟 Ark 直连（需要 VOLC_API_KEY）
-#   uptoken —— UpToken 代跑 (https://uptoken.cc)（需要 UPTOKEN_API_KEY）
-PROVIDER_MODE=uptoken
+#   seedance_relay —— Seedance 托管中继（需要 SEEDANCE_RELAY_API_KEY）
+PROVIDER_MODE=seedance_relay
 
-# ---- 方案 A：UpToken 代跑（推荐：开箱即用，不需要方舟账号） ----
-# 到 https://uptoken.cc/login 登录 → 左侧 API Keys → 新建一把 ut- 开头的 key
-UPTOKEN_API_KEY=ut-...                      # 上游给我们的预留 key
-UPTOKEN_BASE_URL=https://uptoken.cc/v1      # 默认即可；上游切换时才改
-UPTOKEN_MODEL=seedance-2.0-pro              # 客户未传 model 时的兜底
-# 可选：把 NextAPI 目录里对外的 model 映射到 UpToken 真实模型 ID。
+# ---- 方案 A：Seedance 托管中继（推荐：开箱即用，不需要方舟账号） ----
+# 由运维交接上游中继 key；这是我们的服务端 key，不给客户分发。
+SEEDANCE_RELAY_API_KEY=<relay-key>
+SEEDANCE_RELAY_BASE_URL=<relay-base-url>      # 生产可留空使用代码默认值
+SEEDANCE_RELAY_MODEL=seedance-2.0-pro         # 客户未传 model 时的兜底
+# 可选：把 NextAPI 目录里对外的 model 映射到 Seedance 托管中继 真实模型 ID。
 # 默认已内置 seedance-2.0→seedance-2.0-pro、seedance-2.0-fast 透传、seedance-1.x 家族→2.0-pro/fast
-# UPTOKEN_MODEL_MAP=seedance-2.0:seedance-2.0-pro,seedance-2.0-fast:seedance-2.0-fast
+# SEEDANCE_RELAY_MODEL_MAP=seedance-2.0:seedance-2.0-pro,seedance-2.0-fast:seedance-2.0-fast
 
 # ---- 方案 B：方舟 Ark 直连 ----
 VOLC_API_KEY=...                    # 方舟控制台创建的 API Key（与代码读取的变量名一致）
@@ -333,27 +355,26 @@ export SEEDANCE_MODEL_MAP="seedance-2.0:doubao-seedance-2-0-pro-YYYYMMDD,seedanc
 
 官方接口说明索引：[火山方舟文档](https://www.volcengine.com/docs/82379)（视频生成 API / 创建视频生成任务）。
 
-### UpToken 模式（`PROVIDER_MODE=uptoken`）速查
+### Seedance 托管中继（`PROVIDER_MODE=seedance_relay`）速查
 
-UpToken 是一个上游代跑网关（[uptoken.cc](https://uptoken.cc)），替你打通方舟合规、渠道、计费等杂事，开箱即用。接入后所有 `POST /v1/videos` 会被网关翻译成：
+Seedance 托管中继负责承接我们和上游视频生成服务之间的鉴权、额度与接口适配。接入后所有客户 `POST /v1/videos` 会由网关翻译成上游视频生成任务：
 
 ```
-POST https://uptoken.cc/v1/video/generations
-Authorization: Bearer ut-...
+POST <relay-base-url>/video/generations
+Authorization: Bearer <relay-key>
 ```
 
-1. **取 key**：登录 [uptoken.cc/login](https://uptoken.cc/login) → 左侧 **API Keys** → 新建，复制以 `ut-` 开头的完整字符串。
-2. **充值 / 确认余额**：右上角 `BALANCE` 一栏必须 > 0，否则上游会以 HTTP 402 回拒；我们会把 402 透传给客户。
-3. **配 env**：写入 `UPTOKEN_API_KEY`，并把 `PROVIDER_MODE=uptoken`。`UPTOKEN_MODEL` 留空时默认 `seedance-2.0-pro`。
-4. **模型映射**：上游目前暴露三个 ID：
+1. **取 key**：通过运维交接拿到上游中继 key，并只写入服务器 `.env`。
+2. **确认额度**：上游余额必须 > 0，否则上游会以 HTTP 402 回拒；我们会把 402 透传给客户。
+3. **配 env**：写入 `SEEDANCE_RELAY_API_KEY`，并把 `PROVIDER_MODE=seedance_relay`。`SEEDANCE_RELAY_MODEL` 留空时默认 `seedance-2.0-pro`。
+4. **模型映射**：视频生成当前暴露两个主 ID：
    - `seedance-2.0-pro`（主推，最高 15s/720p）
    - `seedance-2.0-fast`（快速档，15s/720p）
-   - `seedream-5.0-lite`（图像生成，暂未接入 `/v1/videos`）
 
-   我们内置了公开 ID → UpToken ID 的映射（seedance-2.0→pro、seedance-2.0-fast→fast、1.x 家族就近回落），需要覆盖时用 `UPTOKEN_MODEL_MAP="a:b,c:d"`。
-5. **预留 key 来源**：如果是上游（UpToken 官方）给我们的合作 key，直接塞进 `UPTOKEN_API_KEY` 即可，不需要额外改代码。
+   我们内置了公开 ID → Seedance 托管中继 ID 的映射（seedance-2.0→pro、seedance-2.0-fast→fast、1.x 家族就近回落），需要覆盖时用 `SEEDANCE_RELAY_MODEL_MAP="a:b,c:d"`。
+5. **预留 key 来源**：如果是上游给我们的合作 key，直接塞进 `SEEDANCE_RELAY_API_KEY` 即可，不需要额外改代码。
 6. **冒烟**：上线后对每个对外 `model` 各发一条最小 `POST /v1/videos`；查 `GET /v1/videos/:id` 轮询到 `succeeded`，说明端到端链路通了。
-7. **错误码**：UpToken 统一用 `error-1xx/2xx/3xx/4xx/5xx/6xx/7xx`，网关按 HTTP code 透传，客户侧建议按前缀分类重试（`error-5xx` 限流可等待重试，`error-2xx` 参数类不要重试）。完整映射见 [docs/UPSTREAM-UPTOKEN-ZH.md](UPSTREAM-UPTOKEN-ZH.md)。
+7. **错误码**：Seedance 托管中继统一用 `error-1xx/2xx/3xx/4xx/5xx/6xx/7xx`，网关按 HTTP code 透传，客户侧建议按前缀分类重试（`error-5xx` 限流可等待重试，`error-2xx` 参数类不要重试）。完整映射见 [docs/UPSTREAM-SEEDANCE-RELAY-ZH.md](UPSTREAM-SEEDANCE-RELAY-ZH.md)。
 
 ---
 

@@ -36,7 +36,6 @@ import { toast } from "sonner"
 const FALLBACK_MODELS = [
   "seedance-2.0-pro",
   "seedance-2.0-fast",
-  "seedream-5.0-lite",
 ]
 const POLL_MS = 4000
 const MAX_POLL_MS = 15 * 60 * 1000

@@ -35,3 +35,27 @@ func validateVideoParams(aspect string, fps int, duration int) error {
 	}
 	return nil
 }
+
+// validateExtendedMediaParams enforces managed Seedance relay multi-media constraints.
+func validateExtendedMediaParams(imageURLs []string, videoURLs []string, audioURLs []string, firstFrameURL *string, lastFrameURL *string) error {
+	if len(imageURLs) > 9 {
+		return errors.New("image_urls: max 9")
+	}
+	if len(videoURLs) > 3 {
+		return errors.New("video_urls: max 3")
+	}
+	if len(audioURLs) > 3 {
+		return errors.New("audio_urls: max 3")
+	}
+	hasFirstFrame := firstFrameURL != nil && *firstFrameURL != ""
+	if hasFirstFrame && len(imageURLs) > 0 {
+		return errors.New("first_frame_url and image_urls are mutually exclusive")
+	}
+	if lastFrameURL != nil && *lastFrameURL != "" && !hasFirstFrame {
+		return errors.New("last_frame_url requires first_frame_url")
+	}
+	if len(audioURLs) > 0 && len(imageURLs) == 0 && len(videoURLs) == 0 && !hasFirstFrame {
+		return errors.New("audio_urls requires image or video input")
+	}
+	return nil
+}

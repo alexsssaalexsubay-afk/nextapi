@@ -3,10 +3,27 @@ package domain
 import "time"
 
 type User struct {
-	ID        string     `gorm:"primaryKey"`
-	Email     string     `gorm:"uniqueIndex;not null"`
-	CreatedAt time.Time
-	DeletedAt *time.Time
+	ID              string     `gorm:"primaryKey"`
+	Email           string     `gorm:"uniqueIndex;not null"`
+	PhoneE164       *string    `gorm:"column:phone_e164;uniqueIndex"`
+	PasswordHash    *string    `gorm:"column:password_hash"`
+	EmailVerifiedAt *time.Time `gorm:"column:email_verified_at"`
+	PhoneVerifiedAt *time.Time `gorm:"column:phone_verified_at"`
+	CreatedAt       time.Time
+	DeletedAt       *time.Time
+}
+
+type AuthSession struct {
+	ID         string     `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
+	TokenHash  string     `gorm:"column:token_hash;uniqueIndex;not null"`
+	UserID     string     `gorm:"column:user_id;not null;index"`
+	OrgID      string     `gorm:"column:org_id;type:uuid;not null;index"`
+	UserAgent  string     `gorm:"column:user_agent;not null;default:''"`
+	IPCreated  string     `gorm:"column:ip_created;not null;default:''"`
+	CreatedAt  time.Time  `gorm:"column:created_at"`
+	ExpiresAt  time.Time  `gorm:"column:expires_at;not null"`
+	LastUsedAt time.Time  `gorm:"column:last_used_at;not null"`
+	RevokedAt  *time.Time `gorm:"column:revoked_at"`
 }
 
 type Org struct {
@@ -29,15 +46,15 @@ type OrgMember struct {
 }
 
 type APIKey struct {
-	ID                      string `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
-	OrgID                   string `gorm:"type:uuid;not null;index"`
-	Prefix                  string `gorm:"not null;index"`
-	Hash                    string `gorm:"not null"`
-	Name                    string `gorm:"not null"`
-	ProvisionedConcurrency  int    `gorm:"not null;default:5"`
-	LastUsedAt              *time.Time
-	CreatedAt               time.Time
-	RevokedAt               *time.Time
+	ID                     string `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
+	OrgID                  string `gorm:"type:uuid;not null;index"`
+	Prefix                 string `gorm:"not null;index"`
+	Hash                   string `gorm:"not null"`
+	Name                   string `gorm:"not null"`
+	ProvisionedConcurrency int    `gorm:"not null;default:5"`
+	LastUsedAt             *time.Time
+	CreatedAt              time.Time
+	RevokedAt              *time.Time
 }
 
 type APIKeyScope struct {
@@ -50,3 +67,4 @@ func (APIKeyScope) TableName() string { return "api_key_scopes" }
 func (OrgMember) TableName() string   { return "org_members" }
 func (Org) TableName() string         { return "orgs" }
 func (User) TableName() string        { return "users" }
+func (AuthSession) TableName() string { return "auth_sessions" }

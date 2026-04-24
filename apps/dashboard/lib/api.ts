@@ -1,27 +1,33 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://api.nextapi.top"
 
 const SESSION_KEY = "nextapi_dashboard_session_key"
+const ACCOUNT_SESSION_KEY = "nextapi_account_session_token"
+const ACCOUNT_SESSION_COOKIE = "nextapi_account_session"
 
-declare global {
-  interface Window {
-    Clerk?: {
-      session?: { getToken: (opts?: { skipCache?: boolean }) => Promise<string | null> } | null
-      load?: () => Promise<void>
-    }
-  }
+function readCookie(name: string): string | null {
+  if (typeof document === "undefined") return null
+  const hit = document.cookie
+    .split("; ")
+    .find((row) => row.startsWith(`${name}=`))
+  return hit ? decodeURIComponent(hit.split("=").slice(1).join("=")) : null
+}
+
+function writeSessionCookie(token: string) {
+  if (typeof document === "undefined") return
+  document.cookie = `${ACCOUNT_SESSION_COOKIE}=${encodeURIComponent(token)}; path=/; max-age=${60 * 60 * 24 * 30}; SameSite=Lax; Secure`
+}
+
+function clearSessionCookie() {
+  if (typeof document === "undefined") return
+  document.cookie = `${ACCOUNT_SESSION_COOKIE}=; path=/; max-age=0; SameSite=Lax; Secure`
 }
 
 let cachedKey: string | null = null
 let inflightBootstrap: Promise<string | null> | null = null
 
-async function waitForClerk(timeoutMs = 4000): Promise<void> {
-  if (typeof window === "undefined") return
-  if (window.Clerk?.session !== undefined) return
-  const start = Date.now()
-  while (Date.now() - start < timeoutMs) {
-    if (window.Clerk?.session !== undefined) return
-    await new Promise((r) => setTimeout(r, 50))
-  }
+export function getAccountSessionToken(): string | null {
+  if (typeof window === "undefined") return null
+  return sessionStorage.getItem(ACCOUNT_SESSION_KEY) || readCookie(ACCOUNT_SESSION_COOKIE)
 }
 
 async function bootstrap(force = false): Promise<string | null> {
@@ -39,29 +45,20 @@ async function bootstrap(force = false): Promise<string | null> {
     sessionStorage.removeItem(SESSION_KEY)
   }
 
-  await waitForClerk()
-  const session = window.Clerk?.session
-  if (!session) return null
-
-  let token: string | null = null
-  try {
-    token = await session.getToken()
-  } catch {
-    return null
-  }
+  const token = getAccountSessionToken()
   if (!token) return null
 
   try {
-    const res = await fetch(`${API_URL}/v1/me/bootstrap`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}` },
+    const res = await fetch(`${API_URL}/v1/auth/session?mint_key=1`, {
+      method: "GET",
+      headers: { "X-NextAPI-Session": token },
     })
     if (!res.ok) return null
     const body = await res.json()
-    if (typeof body?.secret === "string") {
-      cachedKey = body.secret
-      sessionStorage.setItem(SESSION_KEY, body.secret)
-      return body.secret
+    if (typeof body?.dashboard_key?.secret === "string") {
+      cachedKey = body.dashboard_key.secret
+      sessionStorage.setItem(SESSION_KEY, body.dashboard_key.secret)
+      return body.dashboard_key.secret
     }
     return null
   } catch {
@@ -84,7 +81,7 @@ async function getDashboardKey(force = false): Promise<string | null> {
 
 /**
  * Returns the freshly-bootstrapped dashboard session key, minted from the
- * current Clerk session. Use this from React components if you need to
+ * current first-party account session. Use this from React components if you need to
  * surface "your session is connected" UI.
  */
 export async function ensureDashboardKey(): Promise<string | null> {
@@ -104,6 +101,50 @@ export class ApiError extends Error {
     this.status = status
     this.code = code
   }
+}
+
+type LoginResponse = {
+  session_token?: string
+  dashboard_key?: { secret?: string }
+}
+
+export async function loginWithPassword(email: string, password: string): Promise<LoginResponse> {
+  const res = await fetch(`${API_URL}/v1/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  })
+  const body = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    throw new ApiError(
+      body?.error?.message || "Email or password is incorrect",
+      res.status,
+      body?.error?.code,
+    )
+  }
+  if (typeof body?.session_token === "string") {
+    sessionStorage.setItem(ACCOUNT_SESSION_KEY, body.session_token)
+    writeSessionCookie(body.session_token)
+  }
+  if (typeof body?.dashboard_key?.secret === "string") {
+    cachedKey = body.dashboard_key.secret
+    sessionStorage.setItem(SESSION_KEY, body.dashboard_key.secret)
+  }
+  return body
+}
+
+export async function logoutAccount(): Promise<void> {
+  const token = getAccountSessionToken()
+  if (token) {
+    await fetch(`${API_URL}/v1/auth/logout`, {
+      method: "POST",
+      headers: { "X-NextAPI-Session": token },
+    }).catch(() => undefined)
+  }
+  cachedKey = null
+  sessionStorage.removeItem(SESSION_KEY)
+  sessionStorage.removeItem(ACCOUNT_SESSION_KEY)
+  clearSessionCookie()
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))

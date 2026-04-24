@@ -54,19 +54,6 @@ var models = []publicModel{
 		PriceCentsPerSecond: map[string]int{"480p": 5, "720p": 7, "1080p": 10},
 		Status:              "ga",
 	},
-	{
-		ID: "seedream-5.0-lite", Family: "seedream",
-		Description:        "Lite tier — fast and cost-efficient text / image-driven video.",
-		MaxDurationSeconds: 15, MinDurationSeconds: 4, SupportsAutoDuration: true,
-		SupportedResolutions:  []string{"480p", "720p"},
-		SupportedAspectRatios: []string{"16:9", "9:16", "1:1", "4:3", "3:4", "21:9"},
-		SupportsAudioOutput:   true,
-		ModalitySupport: map[string]bool{
-			"text_to_video": true, "image_to_video": true,
-		},
-		PriceCentsPerSecond: map[string]int{"480p": 4, "720p": 6},
-		Status:              "ga",
-	},
 }
 
 // canonicalModelID maps legacy public IDs to the current catalogue entry

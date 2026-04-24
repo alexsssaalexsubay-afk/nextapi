@@ -2,6 +2,7 @@ package gateway
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -38,6 +39,14 @@ type generateReq struct {
 	Watermark     *bool  `json:"watermark"`
 	Seed          *int64 `json:"seed"`
 	CameraFixed   *bool  `json:"camera_fixed"`
+
+	// Extended media inputs (Seedance multi-modal).
+	Draft         *bool    `json:"draft"`
+	ImageURLs     []string `json:"image_urls"`
+	VideoURLs     []string `json:"video_urls"`
+	AudioURLs     []string `json:"audio_urls"`
+	FirstFrameURL *string  `json:"first_frame_url"`
+	LastFrameURL  *string  `json:"last_frame_url"`
 }
 
 func (h *VideoHandlers) Generate(c *gin.Context) {
@@ -82,6 +91,61 @@ func (h *VideoHandlers) Generate(c *gin.Context) {
 		return
 	}
 
+	if err := validateExtendedMediaParams(req.ImageURLs, req.VideoURLs, req.AudioURLs, req.FirstFrameURL, req.LastFrameURL); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{
+			"code":    "invalid_request",
+			"message": err.Error(),
+		}})
+		return
+	}
+
+	// SSRF guards for extended media URLs.
+	for i, u := range req.ImageURLs {
+		if err := abuse.ValidatePublicURL(u); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{
+				"code":    "invalid_image_urls",
+				"message": fmt.Sprintf("image_urls[%d]: %s", i, err.Error()),
+			}})
+			return
+		}
+	}
+	for i, u := range req.VideoURLs {
+		if err := abuse.ValidatePublicURL(u); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{
+				"code":    "invalid_video_urls",
+				"message": fmt.Sprintf("video_urls[%d]: %s", i, err.Error()),
+			}})
+			return
+		}
+	}
+	for i, u := range req.AudioURLs {
+		if err := abuse.ValidatePublicURL(u); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{
+				"code":    "invalid_audio_urls",
+				"message": fmt.Sprintf("audio_urls[%d]: %s", i, err.Error()),
+			}})
+			return
+		}
+	}
+	if req.FirstFrameURL != nil && *req.FirstFrameURL != "" {
+		if err := abuse.ValidatePublicURL(*req.FirstFrameURL); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{
+				"code":    "invalid_first_frame_url",
+				"message": err.Error(),
+			}})
+			return
+		}
+	}
+	if req.LastFrameURL != nil && *req.LastFrameURL != "" {
+		if err := abuse.ValidatePublicURL(*req.LastFrameURL); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{
+				"code":    "invalid_last_frame_url",
+				"message": err.Error(),
+			}})
+			return
+		}
+	}
+
 	input := job.CreateInput{
 		OrgID: org.ID,
 		Request: provider.GenerationRequest{
@@ -97,6 +161,12 @@ func (h *VideoHandlers) Generate(c *gin.Context) {
 			Watermark:       req.Watermark,
 			Seed:            req.Seed,
 			CameraFixed:     req.CameraFixed,
+			Draft:           req.Draft,
+			ImageURLs:       req.ImageURLs,
+			VideoURLs:       req.VideoURLs,
+			AudioURLs:       req.AudioURLs,
+			FirstFrameURL:   req.FirstFrameURL,
+			LastFrameURL:    req.LastFrameURL,
 		},
 	}
 	if apiKey := auth.APIKeyFrom(c); apiKey != nil {
@@ -169,14 +239,14 @@ func (h *VideoHandlers) Get(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{
-		"id":             j.ID,
-		"status":         j.Status,
-		"video_url":      j.VideoURL,
-		"tokens_used":    j.TokensUsed,
-		"cost_credits":   j.CostCredits,
-		"error_code":     j.ErrorCode,
-		"error_message":  j.ErrorMessage,
-		"created_at":     j.CreatedAt,
-		"completed_at":   j.CompletedAt,
+		"id":            j.ID,
+		"status":        j.Status,
+		"video_url":     j.VideoURL,
+		"tokens_used":   j.TokensUsed,
+		"cost_credits":  j.CostCredits,
+		"error_code":    j.ErrorCode,
+		"error_message": j.ErrorMessage,
+		"created_at":    j.CreatedAt,
+		"completed_at":  j.CompletedAt,
 	})
 }

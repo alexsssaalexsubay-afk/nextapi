@@ -94,14 +94,20 @@ type arkCreateReq struct {
 	// volcengine.com/docs/82379 (视频生成 API / 创建视频生成任务).
 	// omitempty so we only forward fields the caller actually set —
 	// otherwise we'd override Ark's own defaults with zero-values.
-	Ratio         string `json:"ratio,omitempty"`
-	Resolution    string `json:"resolution,omitempty"`
-	Duration      int    `json:"duration,omitempty"`
-	FPS           int    `json:"fps,omitempty"`
-	GenerateAudio *bool  `json:"generate_audio,omitempty"`
-	Watermark     *bool  `json:"watermark,omitempty"`
-	Seed          *int64 `json:"seed,omitempty"`
-	CameraFixed   *bool  `json:"camerafixed,omitempty"`
+	Ratio         string   `json:"ratio,omitempty"`
+	Resolution    string   `json:"resolution,omitempty"`
+	Duration      int      `json:"duration,omitempty"`
+	FPS           int      `json:"fps,omitempty"`
+	GenerateAudio *bool    `json:"generate_audio,omitempty"`
+	Watermark     *bool    `json:"watermark,omitempty"`
+	Seed          *int64   `json:"seed,omitempty"`
+	CameraFixed   *bool    `json:"camerafixed,omitempty"`
+	ImageURLs     []string `json:"image_urls,omitempty"`
+	VideoURLs     []string `json:"video_urls,omitempty"`
+	AudioURLs     []string `json:"audio_urls,omitempty"`
+	FirstFrameURL *string  `json:"first_frame_url,omitempty"`
+	LastFrameURL  *string  `json:"last_frame_url,omitempty"`
+	Draft         *bool    `json:"draft,omitempty"`
 }
 type arkPart struct {
 	Type     string       `json:"type"`
@@ -134,7 +140,7 @@ func (p *LiveProvider) GenerateVideo(ctx context.Context, req provider.Generatio
 		parts = append(parts, arkPart{Type: "image_url", ImageURL: &arkImageURL{URL: *req.ImageURL}})
 	}
 
-	body, _ := json.Marshal(arkCreateReq{
+	body, err := json.Marshal(arkCreateReq{
 		Model:         arkModel,
 		Content:       parts,
 		Ratio:         req.AspectRatio,
@@ -145,7 +151,16 @@ func (p *LiveProvider) GenerateVideo(ctx context.Context, req provider.Generatio
 		Watermark:     req.Watermark,
 		Seed:          req.Seed,
 		CameraFixed:   req.CameraFixed,
+		ImageURLs:     req.ImageURLs,
+		VideoURLs:     req.VideoURLs,
+		AudioURLs:     req.AudioURLs,
+		FirstFrameURL: req.FirstFrameURL,
+		LastFrameURL:  req.LastFrameURL,
+		Draft:         req.Draft,
 	})
+	if err != nil {
+		return "", fmt.Errorf("seedance create marshal: %w", err)
+	}
 
 	var lastErr error
 	for attempt := 0; attempt < 3; attempt++ {
@@ -170,8 +185,11 @@ func (p *LiveProvider) GenerateVideo(ctx context.Context, req provider.Generatio
 }
 
 func (p *LiveProvider) doCreate(ctx context.Context, body []byte) (string, bool, error) {
-	httpReq, _ := http.NewRequestWithContext(ctx, "POST",
+	httpReq, err := http.NewRequestWithContext(ctx, "POST",
 		p.base+"/contents/generations/tasks", bytes.NewReader(body))
+	if err != nil {
+		return "", false, fmt.Errorf("seedance create request: %w", err)
+	}
 	httpReq.Header.Set("Authorization", "Bearer "+p.apiKey)
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("User-Agent", "nextapi-gateway/1.0")
@@ -181,7 +199,10 @@ func (p *LiveProvider) doCreate(ctx context.Context, body []byte) (string, bool,
 		return "", true, fmt.Errorf("seedance create transport: %w", err)
 	}
 	defer resp.Body.Close()
-	raw, _ := io.ReadAll(io.LimitReader(resp.Body, 64*1024))
+	raw, err := io.ReadAll(io.LimitReader(resp.Body, 64*1024))
+	if err != nil {
+		return "", true, fmt.Errorf("seedance create read: %w", err)
+	}
 
 	if resp.StatusCode == 429 || resp.StatusCode >= 500 {
 		return "", true, fmt.Errorf("seedance create http %d: %s", resp.StatusCode, snippet(raw))
@@ -245,8 +266,11 @@ func (p *LiveProvider) GetJobStatus(ctx context.Context, providerJobID string) (
 }
 
 func (p *LiveProvider) doStatus(ctx context.Context, providerJobID string) (*provider.JobStatus, bool, error) {
-	httpReq, _ := http.NewRequestWithContext(ctx, "GET",
+	httpReq, err := http.NewRequestWithContext(ctx, "GET",
 		p.base+"/contents/generations/tasks/"+providerJobID, nil)
+	if err != nil {
+		return nil, false, fmt.Errorf("seedance status request: %w", err)
+	}
 	httpReq.Header.Set("Authorization", "Bearer "+p.apiKey)
 	httpReq.Header.Set("User-Agent", "nextapi-gateway/1.0")
 	resp, err := p.httpFast.Do(httpReq)
@@ -254,7 +278,10 @@ func (p *LiveProvider) doStatus(ctx context.Context, providerJobID string) (*pro
 		return nil, true, fmt.Errorf("seedance status transport: %w", err)
 	}
 	defer resp.Body.Close()
-	raw, _ := io.ReadAll(io.LimitReader(resp.Body, 256*1024))
+	raw, err := io.ReadAll(io.LimitReader(resp.Body, 256*1024))
+	if err != nil {
+		return nil, true, fmt.Errorf("seedance status read: %w", err)
+	}
 
 	if resp.StatusCode == 429 || resp.StatusCode >= 500 {
 		return nil, true, fmt.Errorf("seedance status http %d: %s", resp.StatusCode, snippet(raw))
@@ -299,7 +326,11 @@ func (p *LiveProvider) IsHealthy(ctx context.Context) bool {
 	}
 	probeCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
-	httpReq, _ := http.NewRequestWithContext(probeCtx, "GET", p.base+"/contents/generations/tasks/__healthcheck__", nil)
+	httpReq, err := http.NewRequestWithContext(probeCtx, "GET", p.base+"/contents/generations/tasks/__healthcheck__", nil)
+	if err != nil {
+		healthLastValue.Store(false)
+		return false
+	}
 	httpReq.Header.Set("Authorization", "Bearer "+p.apiKey)
 	resp, err := p.httpFast.Do(httpReq)
 	healthLastCheck.Store(now)

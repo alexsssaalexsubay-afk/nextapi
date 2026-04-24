@@ -2,7 +2,7 @@
 
 ## Purpose
 Provider Adapter pattern. v1 ships two live backends (Volcengine Ark direct and
-UpToken relay) plus a deterministic mock; Kling/Zhipu are stubs so the
+managed Seedance relay) plus a deterministic mock; Kling/Zhipu are stubs so the
 interface is proven but not shipped.
 
 ## Invariants
@@ -10,8 +10,8 @@ interface is proven but not shipped.
 - Every provider exposes: `Name`, `EstimateCost`, `GenerateVideo`, `GetJobStatus`, `IsHealthy`.
 - `PROVIDER_MODE=mock` short-circuits to `MockProvider` (returns deterministic fake URL after ~10s).
 - `PROVIDER_MODE=live` requires `VOLC_API_KEY`; missing → startup error. Talks to Volcengine Ark directly at `SEEDANCE_BASE_URL` (default: `https://ark.cn-beijing.volces.com/api/v3`).
-- `PROVIDER_MODE=uptoken` requires `UPTOKEN_API_KEY`; missing → startup error. Talks to the UpToken gateway at `UPTOKEN_BASE_URL` (default: `https://uptoken.cc/v1`).
-- Cost estimation is deterministic; no network call in `EstimateCost`. UpToken reuses the Seedance estimation table because it relays the same upstream model family.
+- `PROVIDER_MODE=seedance_relay` requires `SEEDANCE_RELAY_API_KEY`; missing → startup error. Talks to the managed Seedance relay at `SEEDANCE_RELAY_BASE_URL`.
+- Cost estimation is deterministic; no network call in `EstimateCost`. The relay reuses the Seedance estimation table because it relays the same upstream model family.
 
 ## Pricing (hardcoded, refactor later)
 - fast  + image : $0.0033 / 1K tokens
@@ -38,23 +38,22 @@ type Provider interface {
 |-----------|------------------------------|-----------------------------------|------------------------------------------------|------------------------------------|
 | `mock`    | —                            | in-memory                         | —                                              | Deterministic; default for dev/CI  |
 | `live`    | `VOLC_API_KEY`               | Volcengine Ark                    | `POST /contents/generations/tasks`             | Direct to Ark; needs 方舟 开通     |
-| `uptoken` | `UPTOKEN_API_KEY`            | UpToken relay (uptoken.cc)        | `POST /v1/video/generations`                   | Turnkey; no Ark account required   |
+| `seedance_relay` | `SEEDANCE_RELAY_API_KEY` | Managed Seedance relay | `POST /v1/video/generations` | Turnkey; no Ark account required   |
 
 ### Seedance (`live`)
 - `SEEDANCE_MODEL_MAP="publicID:arkID,…"` must map every public catalogue ID to the Ark endpoint you have provisioned. Unknown IDs pass through verbatim so customers can target an Ark ID directly.
 - See [OPERATOR-HANDBOOK](../OPERATOR-HANDBOOK.md) for the mapping cheat sheet.
 
-### UpToken (`uptoken`)
-- Upstream doc: [uptoken.cc/docs](https://uptoken.cc/docs).
-- Exposes three IDs today: `seedance-2.0-pro`, `seedance-2.0-fast`, `seedream-5.0-lite`.
-- Default public → upstream mapping (override with `UPTOKEN_MODEL_MAP`):
+### Managed Seedance relay (`seedance_relay`)
+- Exposes video IDs today: `seedance-2.0-pro`, `seedance-2.0-fast`.
+- Default public → upstream mapping (override with `SEEDANCE_RELAY_MODEL_MAP`):
   - `seedance-2.0` → `seedance-2.0-pro`
   - `seedance-2.0-fast` → `seedance-2.0-fast`
   - `seedance-1.5-pro` / `seedance-1.0-pro` → `seedance-2.0-pro`
   - `seedance-1.0-pro-fast` / `seedance-1.0-lite` → `seedance-2.0-fast`
   - any other ID passes through verbatim.
 - Status flow surfaced by `GetJobStatus`: `queued → running → succeeded | failed`. `content.video_url` and `usage.total_tokens` only populate on `succeeded`; `error.{code,message}` only on `failed`.
-- Error code families (surfaced as `JobStatus.ErrorCode`): `error-1xx` auth, `error-2xx` parameter, `error-3xx` content moderation, `error-4xx` media URL, `error-5xx`/`error-6xx` rate limit / capacity, `error-7xx` generation failure. See [docs/UPSTREAM-UPTOKEN-ZH.md](../UPSTREAM-UPTOKEN-ZH.md) for the full table and retry policy.
+- Error code families (surfaced as `JobStatus.ErrorCode`): `error-1xx` auth, `error-2xx` parameter, `error-3xx` content moderation, `error-4xx` media URL, `error-5xx`/`error-6xx` rate limit / capacity, `error-7xx` generation failure. See [docs/UPSTREAM-SEEDANCE-RELAY-ZH.md](../UPSTREAM-SEEDANCE-RELAY-ZH.md) for the full table and retry policy.
 
 ## Shared hardening
 Both live backends share the same resilience envelope:
@@ -67,4 +66,4 @@ Both live backends share the same resilience envelope:
 ## Out of scope (v1)
 - Multi-provider routing / failover within a single request.
 - Kling / Zhipu real impl (stubs only).
-- Asset Library upload (`POST /v1/assets`) — UpToken-specific; not exposed through the NextAPI gateway yet. Customers currently pass public HTTPS URLs for reference media.
+- Asset Library upload (`POST /v1/assets`) — relay-specific; not exposed through the NextAPI gateway yet. Customers currently pass public HTTPS URLs for reference media.

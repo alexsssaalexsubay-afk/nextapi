@@ -31,6 +31,15 @@ type GenerationRequest struct {
 	Watermark     *bool
 	Seed          *int64 // [-1, 2^32-1]; -1 or omitted = random
 	CameraFixed   *bool  // lock the camera to reduce motion
+
+	// Managed Seedance relay extended parameters.
+	// Providers that don't support these fields silently ignore them.
+	Draft         *bool    // fast preview, lower quality
+	ImageURLs     []string // reference images, max 9 (mutually exclusive with FirstFrameURL)
+	VideoURLs     []string // reference videos, max 3
+	AudioURLs     []string // reference audios, max 3 (requires image or video)
+	FirstFrameURL *string  // first frame image (mutually exclusive with ImageURLs)
+	LastFrameURL  *string  // last frame image (requires FirstFrameURL)
 }
 
 type JobStatus struct {

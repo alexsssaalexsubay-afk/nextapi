@@ -7,7 +7,7 @@ info:
     NextAPI exposes a single REST surface (`https://api.nextapi.top/v1`) for
     text-to-video, image-to-video, and related workflows. Customers use one
     **business API key** (`sk_live_*` / `sk_test_*`) and public **model IDs**
-    such as `seedance-2.0-pro`, `seedance-2.0-fast`, and `seedream-5.0-lite`.
+    such as `seedance-2.0-pro` and `seedance-2.0-fast`.
     Routing, capacity, and provider details are handled inside the gateway.
 
     Conventions:
@@ -53,10 +53,10 @@ tags:
   - name: auth
   - name: health
   - name: bridge
-    description: Clerk JWT → API key exchange endpoints used by dashboard SPAs on first load.
+    description: Legacy dashboard bootstrap endpoints retained during migration.
   - name: sales
   - name: internal
-    description: Operator panel endpoints secured by X-Op-Session, Clerk JWT, or script-only X-Admin-Token. Not for external use.
+    description: Operator panel endpoints secured by X-Op-Session or script-only X-Admin-Token. Not for external use.
 
 paths:
   /health:
@@ -71,6 +71,112 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Health' }
+
+  /auth/login:
+    post:
+      tags: [auth]
+      summary: Sign in with a first-party NextAPI account
+      operationId: accountLogin
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email, example: customer@example.com }
+                password: { type: string, format: password, minLength: 8 }
+      responses:
+        '200':
+          description: Signed in. Dashboard stores `session_token` and uses `dashboard_key.secret` for customer API calls.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [user, org, session_token, dashboard_key, expires_at]
+                properties:
+                  user:
+                    type: object
+                    properties:
+                      id: { type: string }
+                      email: { type: string, format: email }
+                      phone_e164: { type: string, nullable: true }
+                  org:
+                    type: object
+                    properties:
+                      id: { type: string, format: uuid }
+                      name: { type: string }
+                  session_token: { type: string, description: Send as `X-NextAPI-Session` for account-session endpoints. }
+                  expires_at: { type: string, format: date-time }
+                  balance: { type: integer, format: int64 }
+                  dashboard_key:
+                    type: object
+                    properties:
+                      id: { type: string, format: uuid }
+                      secret: { type: string, description: Short-lived dashboard API key; not displayed again. }
+                      prefix: { type: string }
+                      name: { type: string, example: dashboard-session }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /auth/session:
+    get:
+      tags: [auth]
+      summary: Inspect or refresh the current account session
+      operationId: accountSession
+      security: []
+      parameters:
+        - name: X-NextAPI-Session
+          in: header
+          required: true
+          schema: { type: string }
+        - name: mint_key
+          in: query
+          required: false
+          schema: { type: boolean, default: false }
+          description: When true, returns a freshly minted dashboard API key and revokes the previous dashboard-session key.
+      responses:
+        '200':
+          description: Current account session.
+          content:
+            application/json:
+              schema: { type: object }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /auth/logout:
+    post:
+      tags: [auth]
+      summary: Revoke the current account session
+      operationId: accountLogout
+      security: []
+      parameters:
+        - name: X-NextAPI-Session
+          in: header
+          required: false
+          schema: { type: string }
+      responses:
+        '204': { description: Logged out. }
+
+  /auth/signup:
+    post:
+      tags: [auth]
+      summary: Self-service signup placeholder
+      operationId: accountSignup
+      security: []
+      description: Disabled unless `AUTH_SIGNUP_ENABLED=true`; early production uses operator-created accounts.
+      responses:
+        '403': { description: Invite-only signup is disabled. }
+
+  /auth/otp/send:
+    post:
+      tags: [auth]
+      summary: Future phone/email OTP entry point
+      operationId: accountOtpSend
+      security: []
+      description: Reserved for phone/email OTP login. Current deployment uses assigned email/password accounts.
+      responses:
+        '501': { description: OTP provider is not configured. }
 
   /models:
     get:
@@ -1533,9 +1639,9 @@ components:
           type: string
           description: >
             Public NextAPI model ID. Primary catalogue: `seedance-2.0-pro`,
-            `seedance-2.0-fast`, `seedream-5.0-lite`. Legacy IDs
-            (`seedance-2.0`, `seedance-1.x-*`) remain accepted for backward
-            compatibility and resolve to the same tiers.
+            `seedance-2.0-fast`. Legacy IDs (`seedance-2.0`,
+            `seedance-1.x-*`) remain accepted for backward compatibility
+            and resolve to the same tiers.
           example: seedance-2.0-pro
         input: { $ref: '#/components/schemas/VideoInput' }
         webhook_url: { type: string, format: uri }
@@ -1556,6 +1662,24 @@ components:
         watermark: { type: boolean }
         seed: { type: integer, description: "Use -1 or omit for random; otherwise [0, 2^32-1]." }
         camera_fixed: { type: boolean, description: "Lock the camera to reduce motion." }
+        draft: { type: boolean, description: "Fast preview mode with lower quality and cost." }
+        image_urls:
+          type: array
+          maxItems: 9
+          items: { type: string, format: uri }
+          description: "Reference images (mutually exclusive with first_frame_url)."
+        video_urls:
+          type: array
+          maxItems: 3
+          items: { type: string, format: uri }
+          description: "Reference videos."
+        audio_urls:
+          type: array
+          maxItems: 3
+          items: { type: string, format: uri }
+          description: "Reference audio clips (requires image or video input)."
+        first_frame_url: { type: string, format: uri, description: "First frame image (mutually exclusive with image_urls)." }
+        last_frame_url: { type: string, format: uri, description: "Last frame image (requires first_frame_url)." }
         references:
           type: array
           maxItems: 12
@@ -1577,6 +1701,18 @@ components:
         watermark: { type: boolean }
         seed: { type: integer }
         camera_fixed: { type: boolean }
+        draft: { type: boolean }
+        image_urls:
+          type: array
+          items: { type: string, format: uri }
+        video_urls:
+          type: array
+          items: { type: string, format: uri }
+        audio_urls:
+          type: array
+          items: { type: string, format: uri }
+        first_frame_url: { type: string, format: uri }
+        last_frame_url: { type: string, format: uri }
         references:
           type: array
           items: { $ref: '#/components/schemas/ReferenceItem' }
@@ -1614,7 +1750,7 @@ components:
         status: { $ref: '#/components/schemas/VideoStatus' }
         model:
           type: string
-          description: "Public model id, e.g. seedance-2.0-pro, seedance-2.0-fast, seedream-5.0-lite."
+          description: "Public model id, e.g. seedance-2.0-pro, seedance-2.0-fast."
         created_at: { type: string, format: date-time }
         started_at: { type: [string, 'null'], format: date-time }
         finished_at: { type: [string, 'null'], format: date-time }

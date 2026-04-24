@@ -17,16 +17,14 @@ import (
 	"github.com/sanidg/nextapi/backend/internal/provider"
 )
 
-// uptokenBase is the default UpToken gateway endpoint.
-// See https://uptoken.cc/docs for the full API surface.
-// Override with UPTOKEN_BASE_URL for staging / on-prem deployments.
+// uptokenBase is the default managed Seedance relay endpoint.
+// Override with SEEDANCE_RELAY_BASE_URL for staging / on-prem deployments.
 const uptokenBase = "https://uptoken.cc/v1"
 
-// LiveProvider talks to UpToken (https://uptoken.cc), a hosted AI gateway
-// that relays Seedance-family video generations on our behalf.
+// LiveProvider talks to a managed Seedance relay on our behalf.
 //
 // The contract mirrors Volcengine Ark but uses slightly different paths and
-// a `ut-*` bearer key:
+// an internal upstream bearer key:
 //
 //	POST /v1/video/generations       -> { "id": "ut-…" }
 //	GET  /v1/video/generations/:id   -> { "id", "status", "content.video_url", "usage.total_tokens", "error{code,message,type}" }
@@ -53,20 +51,20 @@ type LiveProvider struct {
 	breaker *circuitBreaker
 }
 
-// NewLive reads UpToken credentials from the environment and constructs a
+// NewLive reads managed Seedance relay credentials from the environment and constructs a
 // production-ready provider. Returns an error if no API key is set so the
 // process fails fast on misconfiguration instead of silently 401'ing every
 // customer request.
 func NewLive() (*LiveProvider, error) {
-	k := strings.TrimSpace(os.Getenv("UPTOKEN_API_KEY"))
+	k := getenvAny("SEEDANCE_RELAY_API_KEY", "UPTOKEN_API_KEY")
 	if k == "" {
-		return nil, fmt.Errorf("UPTOKEN_API_KEY required for uptoken provider")
+		return nil, fmt.Errorf("SEEDANCE_RELAY_API_KEY required for seedance relay provider")
 	}
-	model := strings.TrimSpace(os.Getenv("UPTOKEN_MODEL"))
+	model := getenvAny("SEEDANCE_RELAY_MODEL", "UPTOKEN_MODEL")
 	if model == "" {
 		model = uptokenSeedance20Pro
 	}
-	base := strings.TrimSpace(os.Getenv("UPTOKEN_BASE_URL"))
+	base := getenvAny("SEEDANCE_RELAY_BASE_URL", "UPTOKEN_BASE_URL")
 	if base == "" {
 		base = uptokenBase
 	}
@@ -94,20 +92,20 @@ func NewLive() (*LiveProvider, error) {
 	}, nil
 }
 
-func (p *LiveProvider) Name() string { return "uptoken" }
+func (p *LiveProvider) Name() string { return "seedance-relay" }
 
 func (p *LiveProvider) EstimateCost(req provider.GenerationRequest) (int64, int64, error) {
 	t, c := Estimate(req)
 	return t, c, nil
 }
 
-// Upstream payload shapes. UpToken accepts both flat fields (prompt,
+// Upstream payload shapes. The Seedance relay accepts both flat fields (prompt,
 // image_urls, first_frame_url…) and the content[] array; we use content[]
 // exclusively so there's no risk of hitting error-211 (mixed formats).
 type uptokenPart struct {
-	Type     string          `json:"type"`
-	Text     string          `json:"text,omitempty"`
-	Role     string          `json:"role,omitempty"`
+	Type     string           `json:"type"`
+	Text     string           `json:"text,omitempty"`
+	Role     string           `json:"role,omitempty"`
 	ImageURL *uptokenMediaURL `json:"image_url,omitempty"`
 	VideoURL *uptokenMediaURL `json:"video_url,omitempty"`
 	AudioURL *uptokenMediaURL `json:"audio_url,omitempty"`
@@ -118,13 +116,22 @@ type uptokenMediaURL struct {
 }
 
 type uptokenCreateReq struct {
-	Model         string        `json:"model"`
-	Content       []uptokenPart `json:"content"`
-	Ratio         string        `json:"ratio,omitempty"`
-	Resolution    string        `json:"resolution,omitempty"`
-	Duration      int           `json:"duration,omitempty"`
-	GenerateAudio *bool         `json:"generate_audio,omitempty"`
-	Seed          *int64        `json:"seed,omitempty"`
+	Model   string        `json:"model"`
+	Content []uptokenPart `json:"content,omitempty"`
+	// Flat-params format (mutually exclusive with content[] — error-211 if mixed).
+	Prompt        string   `json:"prompt,omitempty"`
+	ImageURLs     []string `json:"image_urls,omitempty"`
+	VideoURLs     []string `json:"video_urls,omitempty"`
+	AudioURLs     []string `json:"audio_urls,omitempty"`
+	FirstFrameURL *string  `json:"first_frame_url,omitempty"`
+	LastFrameURL  *string  `json:"last_frame_url,omitempty"`
+	// Shared params.
+	Ratio         string `json:"ratio,omitempty"`
+	Resolution    string `json:"resolution,omitempty"`
+	Duration      int    `json:"duration,omitempty"`
+	GenerateAudio *bool  `json:"generate_audio,omitempty"`
+	Draft         *bool  `json:"draft,omitempty"`
+	Seed          *int64 `json:"seed,omitempty"`
 }
 
 type uptokenCreateResp struct {
@@ -143,26 +150,54 @@ func (p *LiveProvider) GenerateVideo(ctx context.Context, req provider.Generatio
 
 	model := ResolveUpstreamModel(req, p.model)
 
-	parts := []uptokenPart{{Type: "text", Text: req.Prompt}}
-	if req.ImageURL != nil {
-		if u := strings.TrimSpace(*req.ImageURL); u != "" {
-			parts = append(parts, uptokenPart{
-				Type:     "image_url",
-				Role:     "reference_image",
-				ImageURL: &uptokenMediaURL{URL: u},
-			})
-		}
-	}
+	// Choose format: flat params vs content[] array.
+	// Upstream rejects mixed formats with error-211, so we pick one.
+	useFlat := len(req.ImageURLs) > 0 || len(req.VideoURLs) > 0 || len(req.AudioURLs) > 0 ||
+		(req.FirstFrameURL != nil && *req.FirstFrameURL != "")
 
-	body, _ := json.Marshal(uptokenCreateReq{
-		Model:         model,
-		Content:       parts,
-		Ratio:         req.AspectRatio,
-		Resolution:    req.Resolution,
-		Duration:      req.DurationSeconds,
-		GenerateAudio: req.GenerateAudio,
-		Seed:          req.Seed,
-	})
+	var body []byte
+	var err error
+	if useFlat {
+		body, err = json.Marshal(uptokenCreateReq{
+			Model:         model,
+			Prompt:        req.Prompt,
+			ImageURLs:     req.ImageURLs,
+			VideoURLs:     req.VideoURLs,
+			AudioURLs:     req.AudioURLs,
+			FirstFrameURL: req.FirstFrameURL,
+			LastFrameURL:  req.LastFrameURL,
+			Ratio:         req.AspectRatio,
+			Resolution:    req.Resolution,
+			Duration:      req.DurationSeconds,
+			GenerateAudio: req.GenerateAudio,
+			Draft:         req.Draft,
+			Seed:          req.Seed,
+		})
+	} else {
+		parts := []uptokenPart{{Type: "text", Text: req.Prompt}}
+		if req.ImageURL != nil {
+			if u := strings.TrimSpace(*req.ImageURL); u != "" {
+				parts = append(parts, uptokenPart{
+					Type:     "image_url",
+					Role:     "reference_image",
+					ImageURL: &uptokenMediaURL{URL: u},
+				})
+			}
+		}
+		body, err = json.Marshal(uptokenCreateReq{
+			Model:         model,
+			Content:       parts,
+			Ratio:         req.AspectRatio,
+			Resolution:    req.Resolution,
+			Duration:      req.DurationSeconds,
+			GenerateAudio: req.GenerateAudio,
+			Draft:         req.Draft,
+			Seed:          req.Seed,
+		})
+	}
+	if err != nil {
+		return "", fmt.Errorf("seedance relay create marshal: %w", err)
+	}
 
 	var lastErr error
 	for attempt := 0; attempt < 3; attempt++ {
@@ -187,37 +222,43 @@ func (p *LiveProvider) GenerateVideo(ctx context.Context, req provider.Generatio
 }
 
 func (p *LiveProvider) doCreate(ctx context.Context, body []byte) (string, bool, error) {
-	httpReq, _ := http.NewRequestWithContext(ctx, "POST",
+	httpReq, err := http.NewRequestWithContext(ctx, "POST",
 		p.base+"/video/generations", bytes.NewReader(body))
+	if err != nil {
+		return "", false, fmt.Errorf("seedance relay create request: %w", err)
+	}
 	httpReq.Header.Set("Authorization", "Bearer "+p.apiKey)
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("User-Agent", "nextapi-gateway/1.0")
 
 	resp, err := p.httpCreate.Do(httpReq)
 	if err != nil {
-		return "", true, fmt.Errorf("uptoken create transport: %w", err)
+		return "", true, fmt.Errorf("seedance relay create transport: %w", err)
 	}
 	defer resp.Body.Close()
-	raw, _ := io.ReadAll(io.LimitReader(resp.Body, 64*1024))
+	raw, err := io.ReadAll(io.LimitReader(resp.Body, 64*1024))
+	if err != nil {
+		return "", true, fmt.Errorf("seedance relay create read: %w", err)
+	}
 
 	// 408/429/5xx are retryable; 4xx parameter errors fail fast so we don't
 	// double-charge for prompts upstream already rejected.
 	if resp.StatusCode == 408 || resp.StatusCode == 429 || resp.StatusCode >= 500 {
-		return "", true, fmt.Errorf("uptoken create http %d: %s", resp.StatusCode, snippet(raw))
+		return "", true, fmt.Errorf("seedance relay create http %d: %s", resp.StatusCode, snippet(raw))
 	}
 	if resp.StatusCode >= 400 {
-		return "", false, fmt.Errorf("uptoken create http %d: %s", resp.StatusCode, snippet(raw))
+		return "", false, fmt.Errorf("seedance relay create http %d: %s", resp.StatusCode, snippet(raw))
 	}
 
 	var out uptokenCreateResp
 	if err := json.Unmarshal(raw, &out); err != nil {
-		return "", false, fmt.Errorf("uptoken create decode: %w", err)
+		return "", false, fmt.Errorf("seedance relay create decode: %w", err)
 	}
 	if out.Error != nil {
-		return "", false, fmt.Errorf("uptoken create %s: %s", out.Error.Code, out.Error.Message)
+		return "", false, fmt.Errorf("seedance relay create %s: %s", out.Error.Code, out.Error.Message)
 	}
 	if out.ID == "" {
-		return "", true, errors.New("uptoken create returned empty id")
+		return "", true, errors.New("seedance relay create returned empty id")
 	}
 	return out.ID, false, nil
 }
@@ -265,28 +306,34 @@ func (p *LiveProvider) GetJobStatus(ctx context.Context, providerJobID string) (
 }
 
 func (p *LiveProvider) doStatus(ctx context.Context, providerJobID string) (*provider.JobStatus, bool, error) {
-	httpReq, _ := http.NewRequestWithContext(ctx, "GET",
+	httpReq, err := http.NewRequestWithContext(ctx, "GET",
 		p.base+"/video/generations/"+providerJobID, nil)
+	if err != nil {
+		return nil, false, fmt.Errorf("seedance relay status request: %w", err)
+	}
 	httpReq.Header.Set("Authorization", "Bearer "+p.apiKey)
 	httpReq.Header.Set("User-Agent", "nextapi-gateway/1.0")
 
 	resp, err := p.httpFast.Do(httpReq)
 	if err != nil {
-		return nil, true, fmt.Errorf("uptoken status transport: %w", err)
+		return nil, true, fmt.Errorf("seedance relay status transport: %w", err)
 	}
 	defer resp.Body.Close()
-	raw, _ := io.ReadAll(io.LimitReader(resp.Body, 256*1024))
+	raw, err := io.ReadAll(io.LimitReader(resp.Body, 256*1024))
+	if err != nil {
+		return nil, true, fmt.Errorf("seedance relay status read: %w", err)
+	}
 
 	if resp.StatusCode == 408 || resp.StatusCode == 429 || resp.StatusCode >= 500 {
-		return nil, true, fmt.Errorf("uptoken status http %d: %s", resp.StatusCode, snippet(raw))
+		return nil, true, fmt.Errorf("seedance relay status http %d: %s", resp.StatusCode, snippet(raw))
 	}
 	if resp.StatusCode >= 400 {
-		return nil, false, fmt.Errorf("uptoken status http %d: %s", resp.StatusCode, snippet(raw))
+		return nil, false, fmt.Errorf("seedance relay status http %d: %s", resp.StatusCode, snippet(raw))
 	}
 
 	var out uptokenStatusResp
 	if err := json.Unmarshal(raw, &out); err != nil {
-		return nil, true, fmt.Errorf("uptoken status decode: %w", err)
+		return nil, true, fmt.Errorf("seedance relay status decode: %w", err)
 	}
 	js := &provider.JobStatus{Status: out.Status}
 	if out.Content != nil && out.Content.VideoURL != "" {
@@ -309,9 +356,9 @@ var (
 )
 
 // IsHealthy pings upstream with a 3s budget. Caches the result for 60s so we
-// don't thrash UpToken on every health probe. We treat 401/403 as "our key
+// don't thrash the Seedance relay on every health probe. We treat 401/403 as "our key
 // is bad → unhealthy" because silent auth rot is a common ops failure mode;
-// a 404 on a fake job ID is the expected response of a healthy UpToken API
+// a 404 on a fake job ID is the expected response of a healthy upstream API
 // (the task simply doesn't exist), so we treat it as healthy.
 func (p *LiveProvider) IsHealthy(ctx context.Context) bool {
 	if p.apiKey == "" {
@@ -323,8 +370,12 @@ func (p *LiveProvider) IsHealthy(ctx context.Context) bool {
 	}
 	probeCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
-	httpReq, _ := http.NewRequestWithContext(probeCtx, "GET",
+	httpReq, err := http.NewRequestWithContext(probeCtx, "GET",
 		p.base+"/video/generations/__healthcheck__", nil)
+	if err != nil {
+		healthLastValue.Store(false)
+		return false
+	}
 	httpReq.Header.Set("Authorization", "Bearer "+p.apiKey)
 	resp, err := p.httpFast.Do(httpReq)
 	healthLastCheck.Store(now)
@@ -373,6 +424,15 @@ func snippet(b []byte) string {
 		return string(b[:256]) + "…"
 	}
 	return string(b)
+}
+
+func getenvAny(keys ...string) string {
+	for _, key := range keys {
+		if v := strings.TrimSpace(os.Getenv(key)); v != "" {
+			return v
+		}
+	}
+	return ""
 }
 
 // circuitBreaker is an atomics-only three-state breaker (closed / open /

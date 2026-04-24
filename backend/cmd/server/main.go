@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"log"
 	"net/http"
 	"os"
@@ -8,6 +9,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/hibiken/asynq"
+	"github.com/pressly/goose/v3"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sanidg/nextapi/backend/internal/abuse"
 	"github.com/sanidg/nextapi/backend/internal/auth"
@@ -18,8 +20,8 @@ import (
 	"github.com/sanidg/nextapi/backend/internal/infra/config"
 	"github.com/sanidg/nextapi/backend/internal/infra/db"
 	"github.com/sanidg/nextapi/backend/internal/infra/httpx"
-	mw "github.com/sanidg/nextapi/backend/internal/infra/middleware"
 	"github.com/sanidg/nextapi/backend/internal/infra/metrics"
+	mw "github.com/sanidg/nextapi/backend/internal/infra/middleware"
 	rdc "github.com/sanidg/nextapi/backend/internal/infra/redis"
 	"github.com/sanidg/nextapi/backend/internal/job"
 	"github.com/sanidg/nextapi/backend/internal/moderation"
@@ -32,11 +34,26 @@ import (
 )
 
 func main() {
+	migrateOnly := flag.Bool("migrate", false, "run migrations and exit")
+	flag.Parse()
+
 	cfg := config.Load()
 
 	gormDB, err := db.Open(cfg.DatabaseURL)
 	if err != nil {
 		log.Fatalf("db open: %v", err)
+	}
+
+	if *migrateOnly {
+		sqlDB, err := gormDB.DB()
+		if err != nil {
+			log.Fatalf("sql db: %v", err)
+		}
+		if err := goose.Up(sqlDB, "migrations"); err != nil {
+			log.Fatalf("migrate: %v", err)
+		}
+		log.Println("migrations complete")
+		return
 	}
 	prov, err := providerfactory.Default()
 	if err != nil {
@@ -74,6 +91,7 @@ func main() {
 	sh := &gateway.SpendHandlers{Svc: spendSvc, DB: gormDB}
 	th := &gateway.ThroughputHandlers{Svc: throughputSvc}
 	mh := &gateway.ModerationHandlers{Svc: modSvc}
+	accountAuth := &gateway.AccountAuthHandlers{DB: gormDB, Auth: authSvc, Billing: billSvc}
 	rl := &ratelimit.Limiter{Client: rClient}
 	idem := &idempotency.Middleware{DB: gormDB}
 
@@ -119,6 +137,15 @@ func main() {
 		abuse.Turnstile(),
 		ratelimit.Middleware(rl, 10, time.Hour),
 		sales.Inquiry)
+
+	// First-party account auth. Signup is invite-only by default; operators
+	// create early customer accounts from the internal admin API, then users
+	// sign in here with the assigned email/password.
+	v1.POST("/auth/login", ratelimit.Middleware(rl, 20, time.Minute), accountAuth.Login)
+	v1.POST("/auth/signup", ratelimit.Middleware(rl, 10, time.Hour), accountAuth.Signup)
+	v1.POST("/auth/otp/send", ratelimit.Middleware(rl, 10, time.Hour), accountAuth.SendOTP)
+	v1.GET("/auth/session", accountAuth.Session)
+	v1.POST("/auth/logout", accountAuth.Logout)
 
 	// Clerk-session → API-key bridge (Group A fix). The dashboard / admin SPAs
 	// hit these on first load with a Clerk JWT and exchange it for the
@@ -240,6 +267,8 @@ func main() {
 	internal.Use(ratelimit.Middleware(rl, 120, time.Minute))
 	internal.GET("/overview", ah.OverviewStats)
 	internal.GET("/users", ah.Users)
+	internal.POST("/users", accountAuth.AdminCreateManagedAccount)
+	internal.PATCH("/users/:id/password", accountAuth.AdminSetPassword)
 	internal.GET("/orgs", ah.Orgs)
 	internal.POST("/orgs/:id/pause", ah.PauseOrg)
 	internal.GET("/jobs", ah.Jobs)

@@ -1,28 +1,26 @@
 package uptoken
 
 import (
-	"os"
 	"strings"
 	"sync"
 
 	"github.com/sanidg/nextapi/backend/internal/provider"
 )
 
-// UpToken upstream model IDs (see https://uptoken.cc/docs).
+// Managed Seedance relay upstream model IDs.
 //
 // The upstream exposes only a handful of video IDs today; our public catalogue
 // (gateway/models.go) uses a superset. defaultModelMap translates every public
-// ID we advertise to the closest UpToken ID so customers don't have to care
+// ID we advertise to the closest relay ID so customers don't have to care
 // which upstream is wired underneath.
 const (
 	uptokenSeedance20Pro  = "seedance-2.0-pro"
 	uptokenSeedance20Fast = "seedance-2.0-fast"
-	uptokenSeedream50Lite = "seedream-5.0-lite"
 )
 
-// defaultModelMap maps NextAPI-public IDs → UpToken upstream IDs.
+// defaultModelMap maps NextAPI-public IDs → upstream Seedance relay IDs.
 // Pro-quality families fold into seedance-2.0-pro; -fast families fold into
-// seedance-2.0-fast. Override with UPTOKEN_MODEL_MAP="publicID:upstreamID,…".
+// seedance-2.0-fast. Override with SEEDANCE_RELAY_MODEL_MAP="publicID:upstreamID,…".
 var defaultModelMap = map[string]string{
 	"seedance-2.0":          uptokenSeedance20Pro,
 	"seedance-2.0-pro":      uptokenSeedance20Pro,
@@ -31,7 +29,6 @@ var defaultModelMap = map[string]string{
 	"seedance-1.0-pro":      uptokenSeedance20Pro,
 	"seedance-1.0-pro-fast": uptokenSeedance20Fast,
 	"seedance-1.0-lite":     uptokenSeedance20Fast,
-	"seedream-5.0-lite":     uptokenSeedream50Lite,
 }
 
 var (
@@ -45,7 +42,7 @@ func loadModelMap() {
 		for k, v := range defaultModelMap {
 			m[k] = v
 		}
-		if env := strings.TrimSpace(os.Getenv("UPTOKEN_MODEL_MAP")); env != "" {
+		if env := getenvAny("SEEDANCE_RELAY_MODEL_MAP", "UPTOKEN_MODEL_MAP"); env != "" {
 			for _, pair := range strings.Split(env, ",") {
 				parts := strings.SplitN(strings.TrimSpace(pair), ":", 2)
 				if len(parts) == 2 && parts[0] != "" && parts[1] != "" {
@@ -57,14 +54,14 @@ func loadModelMap() {
 	})
 }
 
-// ResolveUpstreamModel returns the UpToken `model` field for
+// ResolveUpstreamModel returns the upstream `model` field for
 // POST /v1/video/generations given our public GenerationRequest.
 //
 // Resolution order:
-//  1. Empty public ID → fallback (UPTOKEN_MODEL env var).
+//  1. Empty public ID → fallback (SEEDANCE_RELAY_MODEL env var).
 //  2. Known public ID in the map → mapped value.
 //  3. Unknown public ID → passed through verbatim (customer is already
-//     targeting a native UpToken ID like `seedance-2.0-pro`).
+//     targeting a native relay ID like `seedance-2.0-pro`).
 func ResolveUpstreamModel(req provider.GenerationRequest, fallback string) string {
 	publicID := strings.TrimSpace(req.Model)
 	if publicID == "" {

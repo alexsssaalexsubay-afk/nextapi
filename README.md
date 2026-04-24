@@ -15,7 +15,7 @@ Video AI API gateway — one HTTPS endpoint and API key for all supported video 
 ```bash
 pnpm install
 cd backend && go mod tidy && cd ..
-cp .env.example .env      # fill Clerk + pick a provider (UPTOKEN_API_KEY for uptoken relay, or VOLC_API_KEY for Ark direct)
+cp .env.example .env      # fill Clerk + pick a provider (SEEDANCE_RELAY_API_KEY for managed relay, or VOLC_API_KEY for Ark direct)
 make dev                  # pg+redis via docker, backend :8080, site :3001, dashboard :3000, admin :3002
 ```
 
