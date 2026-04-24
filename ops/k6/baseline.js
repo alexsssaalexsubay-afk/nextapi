@@ -19,11 +19,11 @@ export const options = {
 };
 
 const BASE_URL = __ENV.BASE_URL || 'http://localhost:8080';
-const API_KEY  = __ENV.API_KEY;
+const API_KEY  = __ENV.K6_API_KEY || __ENV.API_KEY;
 
 export function setup() {
   if (!API_KEY) {
-    throw new Error('API_KEY env var is required for baseline.js');
+    throw new Error('K6_API_KEY or API_KEY is required (cd backend && go run ./cmd/k6seed)');
   }
   const res = http.get(`${BASE_URL}/health`);
   if (res.status !== 200) {
@@ -34,21 +34,25 @@ export function setup() {
 
 export default function () {
   const payload = JSON.stringify({
-    prompt: 'a cat walking',
-    mode: 'fast',
-    resolution: '480p',
+    model: 'seedance-2.0-pro',
+    input: {
+      prompt: 'a cat walking',
+      duration_seconds: 2,
+      mode: 'fast',
+      resolution: '480p',
+    },
   });
 
-  const res = http.post(`${BASE_URL}/v1/video/generations`, payload, {
+  const res = http.post(`${BASE_URL}/v1/videos`, payload, {
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${API_KEY}`,
+      Authorization: `Bearer ${API_KEY}`,
     },
-    tags: { endpoint: 'video_generations' },
+    tags: { endpoint: 'videos_create' },
   });
 
   const ok = check(res, {
-    'status is 2xx': (r) => r.status >= 200 && r.status < 300,
+    '202': (r) => r.status === 202,
   });
   errorRate.add(!ok);
 }
