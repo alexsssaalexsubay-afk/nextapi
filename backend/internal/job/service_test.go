@@ -5,11 +5,14 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/alicebob/miniredis/v2"
 	"github.com/hibiken/asynq"
+	"github.com/redis/go-redis/v9"
 	"github.com/sanidg/nextapi/backend/internal/billing"
 	"github.com/sanidg/nextapi/backend/internal/domain"
 	"github.com/sanidg/nextapi/backend/internal/provider"
 	"github.com/sanidg/nextapi/backend/internal/provider/seedance"
+	"github.com/sanidg/nextapi/backend/internal/throughput"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
@@ -55,6 +58,11 @@ func setupDB(t *testing.T) *gorm.DB {
 		id INTEGER PRIMARY KEY AUTOINCREMENT, org_id TEXT NOT NULL,
 		delta_credits BIGINT NOT NULL, delta_cents BIGINT, reason TEXT NOT NULL, job_id TEXT,
 		note TEXT NOT NULL DEFAULT '', created_at DATETIME DEFAULT CURRENT_TIMESTAMP)`)
+	db.Exec(`CREATE TABLE throughput_config (
+		org_id TEXT PRIMARY KEY, reserved_concurrency INT NOT NULL DEFAULT 2,
+		burst_concurrency INT NOT NULL DEFAULT 8, priority_lane TEXT NOT NULL DEFAULT 'standard',
+		rpm_limit INT NOT NULL DEFAULT 60, queue_tier TEXT NOT NULL DEFAULT 'default',
+		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP)`)
 	return db
 }
 
@@ -167,6 +175,55 @@ func TestCreate_EnqueueFailure_RefundsReservation(t *testing.T) {
 	}
 	if j.ErrorCode == nil || *j.ErrorCode != "enqueue_failed" {
 		t.Fatalf("want enqueue_failed error code, got %v", j.ErrorCode)
+	}
+}
+
+func TestCreate_ThroughputFailure_RefundsReservation(t *testing.T) {
+	db := setupDB(t)
+	seedOrgWithCredits(t, db, "org1", 1_000_000)
+
+	mr := miniredis.RunT(t)
+	rc := redis.NewClient(&redis.Options{Addr: mr.Addr()})
+	t.Cleanup(func() { _ = rc.Close() })
+
+	tp := throughput.NewService(db, rc)
+	burst := 1
+	if _, err := tp.Upsert(context.Background(), "org1", throughput.UpsertInput{BurstConcurrency: &burst}); err != nil {
+		t.Fatal(err)
+	}
+	if err := tp.Acquire(context.Background(), "org1", "already-running"); err != nil {
+		t.Fatal(err)
+	}
+
+	bill := billing.NewService(db)
+	q := &fakeQueue{}
+	svc := NewService(db, bill, seedance.NewMock(), q)
+	svc.SetThroughput(tp)
+
+	_, err := svc.Create(context.Background(), CreateInput{
+		OrgID: "org1", Request: makeReq(),
+	})
+	if err != throughput.ErrBurstExceeded {
+		t.Fatalf("expected throughput.ErrBurstExceeded, got %v", err)
+	}
+	if q.enqueued != 0 {
+		t.Fatalf("throughput-rejected job must not be enqueued, got %d", q.enqueued)
+	}
+
+	bal, _ := bill.GetBalance(context.Background(), "org1")
+	if bal != 1_000_000 {
+		t.Fatalf("balance should be fully refunded, got %d (want 1000000)", bal)
+	}
+
+	var j domain.Job
+	if err := db.Order("created_at DESC").First(&j).Error; err != nil {
+		t.Fatal(err)
+	}
+	if j.Status != domain.JobFailed {
+		t.Fatalf("want failed, got %s", j.Status)
+	}
+	if j.ErrorCode == nil || *j.ErrorCode != "throughput_limit" {
+		t.Fatalf("want throughput_limit error code, got %v", j.ErrorCode)
 	}
 }
 

@@ -42,9 +42,9 @@ func NewService(db *gorm.DB, b *billing.Service, p provider.Provider, q Enqueuer
 	return &Service{db: db, billing: b, prov: p, queue: q}
 }
 
-func (s *Service) SetSpend(sp *spend.Service)            { s.spend = sp }
-func (s *Service) SetThroughput(tp *throughput.Service)   { s.throughput = tp }
-func (s *Service) SetModeration(ms *moderation.Service)   { s.moderation = ms }
+func (s *Service) SetSpend(sp *spend.Service)           { s.spend = sp }
+func (s *Service) SetThroughput(tp *throughput.Service) { s.throughput = tp }
+func (s *Service) SetModeration(ms *moderation.Service) { s.moderation = ms }
 
 type CreateInput struct {
 	OrgID      string
@@ -164,6 +164,9 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*CreateResult, er
 			if s.spend != nil {
 				s.spend.DecrInflight(ctx, in.OrgID, credits)
 			}
+			if refundErr := s.failQueuedJobAndRefund(ctx, job, "throughput_limit", "concurrency limit reached before enqueue", "refund: throughput slot unavailable"); refundErr != nil {
+				return nil, refundErr
+			}
 			return nil, acqErr
 		}
 	}
@@ -197,34 +200,48 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*CreateResult, er
 		}
 		cctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		refundCents := credits
-		_ = s.db.WithContext(cctx).Transaction(func(tx *gorm.DB) error {
-			now := time.Now()
-			code := "enqueue_failed"
-			msg := "job queue unavailable"
-			if err := tx.Model(&domain.Job{}).
-				Where("id = ?", job.ID).
-				Updates(map[string]any{
-					"status":        domain.JobFailed,
-					"error_code":    code,
-					"error_message": msg,
-					"completed_at":  now,
-				}).Error; err != nil {
-				return err
-			}
-			return tx.Create(&domain.CreditsLedger{
-				OrgID:        in.OrgID,
-				DeltaCredits: credits,
-				DeltaCents:   &refundCents,
-				Reason:       domain.ReasonRefund,
-				JobID:        &job.ID,
-				Note:         "refund: enqueue failed",
-			}).Error
-		})
+		if refundErr := s.failQueuedJobAndRefund(cctx, job, "enqueue_failed", "job queue unavailable", "refund: enqueue failed"); refundErr != nil {
+			return nil, refundErr
+		}
 		return nil, enqErr
 	}
 
 	return &CreateResult{JobID: job.ID, Status: string(job.Status), EstimatedCredits: credits}, nil
+}
+
+func (s *Service) failQueuedJobAndRefund(ctx context.Context, j domain.Job, code, msg, note string) error {
+	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var current domain.Job
+		if err := tx.Select("status, reserved_credits").First(&current, "id = ?", j.ID).Error; err != nil {
+			return err
+		}
+		if current.Status.IsTerminal() {
+			return nil
+		}
+		now := time.Now()
+		if err := tx.Model(&domain.Job{}).
+			Where("id = ?", j.ID).
+			Updates(map[string]any{
+				"status":        domain.JobFailed,
+				"error_code":    code,
+				"error_message": msg,
+				"completed_at":  now,
+			}).Error; err != nil {
+			return err
+		}
+		if current.ReservedCredits <= 0 {
+			return nil
+		}
+		refundCents := current.ReservedCredits
+		return tx.Create(&domain.CreditsLedger{
+			OrgID:        j.OrgID,
+			DeltaCredits: current.ReservedCredits,
+			DeltaCents:   &refundCents,
+			Reason:       domain.ReasonRefund,
+			JobID:        &j.ID,
+			Note:         note,
+		}).Error
+	})
 }
 
 func (s *Service) Get(ctx context.Context, orgID, jobID string) (*domain.Job, error) {
