@@ -257,6 +257,7 @@ func main() {
 	}
 	adminMeta := v1.Group("/internal/admin")
 	adminMeta.POST("/session", ash.CreateSession)
+	adminMeta.POST("/session/password", ratelimit.Middleware(rl, 20, time.Minute), ash.CreatePasswordSession)
 	adminMeta.Use(gateway.AdminMiddleware(clerkVerifier, gormDB))
 	adminMeta.DELETE("/session", ash.RevokeSession)
 	adminMeta.POST("/otp/send", ash.SendOTP)

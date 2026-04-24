@@ -9,10 +9,8 @@ routes = [
   { pattern = "admin.nextapi.top", custom_domain = true },
 ]
 
-# See ../dashboard/wrangler.toml for the rationale. Same rule applies:
-# NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY is not committed — set in CI/Cloudflare
-# build environment (and wrangler/secret as you use for deploy). See
-# ../../scripts/check-clerk-env.mjs
+# Admin auth uses NextAPI first-party operator sessions. There are no Clerk
+# publishable-key requirements for this worker.
 
 [vars]
 NEXT_PUBLIC_API_URL = "https://api.nextapi.top"

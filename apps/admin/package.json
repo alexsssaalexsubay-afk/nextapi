@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev -p 3002",
-    "build": "node scripts/check-clerk-env.mjs && next build",
+    "build": "next build",
     "start": "next start -p 3002",
     "lint": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
@@ -13,7 +13,6 @@
     "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts"
   },
   "dependencies": {
-    "@clerk/nextjs": "^6.9.0",
     "@nextapi/ui": "workspace:*",
     "@opennextjs/cloudflare": "^1.19.3",
     "class-variance-authority": "^0.7.1",

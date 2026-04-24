@@ -15,6 +15,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/sanidg/nextapi/backend/internal/auth"
+	"github.com/sanidg/nextapi/backend/internal/domain"
 	"github.com/sanidg/nextapi/backend/internal/notify"
 	"gorm.io/gorm"
 )
@@ -118,6 +119,58 @@ func (h *AdminSessionHandlers) CreateSession(c *gin.Context) {
 		return
 	}
 
+	c.JSON(http.StatusOK, gin.H{
+		"session_token": sess.ID,
+		"actor_email":   sess.ActorEmail,
+		"expires_at":    sess.ExpiresAt.UTC().Format(time.RFC3339),
+		"idle_ttl_secs": int(opSessionIdleTTL.Seconds()),
+	})
+}
+
+// CreatePasswordSession exchanges a first-party email/password login for a
+// short-lived operator session. The email must be present in ADMIN_EMAILS.
+//
+// POST /v1/internal/admin/session/password
+// Body: { "email": "...", "password": "..." }
+func (h *AdminSessionHandlers) CreatePasswordSession(c *gin.Context) {
+	var body struct {
+		Email    string `json:"email" binding:"required"`
+		Password string `json:"password" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "invalid_request"}})
+		return
+	}
+	email := strings.ToLower(strings.TrimSpace(body.Email))
+	if email == "" || !h.Allow[email] {
+		c.JSON(http.StatusForbidden, gin.H{"error": gin.H{
+			"code":    "not_in_admin_allowlist",
+			"message": fmt.Sprintf("the account %q is not authorised for this admin panel. ask the platform owner to add your email to ADMIN_EMAILS.", email),
+		}})
+		return
+	}
+
+	var user domain.User
+	if err := h.DB.WithContext(c.Request.Context()).
+		Where("lower(email) = ? AND deleted_at IS NULL", email).
+		First(&user).Error; err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": gin.H{"code": "invalid_credentials"}})
+		return
+	}
+	if user.PasswordHash == nil || *user.PasswordHash == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": gin.H{"code": "password_login_disabled"}})
+		return
+	}
+	if err := auth.Verify(body.Password, *user.PasswordHash); err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": gin.H{"code": "invalid_credentials"}})
+		return
+	}
+
+	sess, err := createOperatorSession(c.Request.Context(), h.DB, email, c.ClientIP())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "internal_error"}})
+		return
+	}
 	c.JSON(http.StatusOK, gin.H{
 		"session_token": sess.ID,
 		"actor_email":   sess.ActorEmail,
