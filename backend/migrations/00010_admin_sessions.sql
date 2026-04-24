@@ -1,3 +1,5 @@
+-- +goose Up
+-- +goose StatementBegin
 -- Admin operator sessions: short-lived, DB-backed, revocable.
 --
 -- When an admin authenticates via Clerk JWT the backend creates one of
@@ -41,3 +43,13 @@ CREATE TABLE IF NOT EXISTS admin_otp (
 
 CREATE INDEX IF NOT EXISTS idx_admin_otp_actor
     ON admin_otp(actor_email, created_at DESC);
+-- +goose StatementEnd
+
+-- +goose Down
+-- +goose StatementBegin
+DROP INDEX IF EXISTS idx_admin_otp_actor;
+DROP TABLE IF EXISTS admin_otp;
+DROP INDEX IF EXISTS idx_op_sessions_active;
+DROP INDEX IF EXISTS idx_op_sessions_actor;
+DROP TABLE IF EXISTS operator_sessions;
+-- +goose StatementEnd
