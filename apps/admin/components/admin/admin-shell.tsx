@@ -25,6 +25,7 @@ import { LocaleToggle } from "@/components/nextapi/locale-toggle"
 import { MfaBanner } from "@/components/admin/mfa-banner"
 import { useTranslations } from "@/lib/i18n/context"
 import { logoutAdmin } from "@/lib/admin-api"
+import { BUILD_LABEL, BUILD_SHA } from "@/lib/build-info"
 import { cn } from "@/lib/utils"
 
 type NavItem = {
@@ -226,6 +227,12 @@ export function AdminShell({
               </span>
               api · 142 rps · p99 412ms
             </div>
+            <span
+              className="hidden font-mono text-[10px] text-muted-foreground/80 md:inline"
+              title={BUILD_LABEL}
+            >
+              build {BUILD_SHA}
+            </span>
             <button
               type="button"
               onClick={() => {

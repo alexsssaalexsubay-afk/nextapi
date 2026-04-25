@@ -23,6 +23,7 @@ import { LocaleToggle } from "@/components/nextapi/locale-toggle"
 import { useTranslations } from "@/lib/i18n/context"
 import { cn } from "@/lib/utils"
 import { apiFetch, logoutAccount } from "@/lib/api"
+import { BUILD_LABEL, BUILD_SHA } from "@/lib/build-info"
 
 export function DashboardShell({
   children,
@@ -57,6 +58,9 @@ export function DashboardShell({
   }
 
   useEffect(() => {
+    if (typeof window !== "undefined") {
+      console.info(`[NextAPI dashboard] build ${BUILD_LABEL}`)
+    }
     let cancelled = false
     apiFetch("/v1/auth/me").then((res) => {
       if (cancelled) return
@@ -188,6 +192,12 @@ export function DashboardShell({
             </div>
             <div className="mt-1 font-mono text-[10.5px] text-muted-foreground">
               NextAPI · production
+            </div>
+            <div
+              className="mt-1 font-mono text-[10px] text-muted-foreground/80"
+              title={BUILD_LABEL}
+            >
+              build {BUILD_SHA}
             </div>
           </div>
         </div>

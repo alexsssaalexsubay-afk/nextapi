@@ -221,6 +221,24 @@ export async function apiFetch(path: string, options: RequestInit = {}) {
 }
 
 export async function apiUpload(path: string, formData: FormData) {
+  if (typeof window !== "undefined") {
+    const fields: string[] = []
+    formData.forEach((value, key) => {
+      if (value instanceof File) {
+        fields.push(`${key}=<File ${value.name} ${value.type || "?"} ${value.size}B>`)
+      } else if (typeof value === "string") {
+        fields.push(`${key}=<string len=${value.length}>`)
+      } else {
+        fields.push(`${key}=<blob>`)
+      }
+    })
+    // Surfacing this in the browser console makes it easy to verify
+    // that the new multipart-aware client is loaded (no Content-Type set).
+    console.info(
+      `[NextAPI dashboard] apiUpload POST ${path} multipart fields:`,
+      fields.join(", "),
+    )
+  }
   const doUpload = async (key: string | null) => {
     const headers: Record<string, string> = {
       ...(key ? { Authorization: `Bearer ${key}` } : {}),
