@@ -431,7 +431,8 @@ func (h *VideosHandlers) Get(c *gin.Context) {
 	err := h.DB.WithContext(c.Request.Context()).
 		Table("videos v").
 		Select("v.*, j.provider_job_id as provider_job_id, ak.prefix as api_key_prefix").
-		Joins("LEFT JOIN jobs j ON j.id = v.upstream_job_id").
+		// videos.upstream_job_id is TEXT (legacy schema), jobs.id is UUID — cast to compare.
+		Joins("LEFT JOIN jobs j ON j.id::text = v.upstream_job_id").
 		Joins("LEFT JOIN api_keys ak ON ak.id = v.api_key_id").
 		Where("v.id = ? AND v.org_id = ?", id, org.ID).
 		Limit(1).
@@ -543,7 +544,8 @@ func (h *VideosHandlers) List(c *gin.Context) {
 	q := h.DB.WithContext(c.Request.Context()).
 		Table("videos v").
 		Select("v.*, j.provider_job_id as provider_job_id, ak.prefix as api_key_prefix").
-		Joins("LEFT JOIN jobs j ON j.id = v.upstream_job_id").
+		// videos.upstream_job_id is TEXT (legacy schema), jobs.id is UUID — cast to compare.
+		Joins("LEFT JOIN jobs j ON j.id::text = v.upstream_job_id").
 		Joins("LEFT JOIN api_keys ak ON ak.id = v.api_key_id").
 		Where("v.org_id = ?", org.ID)
 	if statusFilter := c.Query("status"); statusFilter != "" {
