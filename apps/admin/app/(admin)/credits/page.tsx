@@ -2,8 +2,7 @@
 
 import { FormEvent, useEffect, useState } from "react"
 import { AdminShell } from "@/components/admin/admin-shell"
-import { OTPDialog, type OTPDialogResult } from "@/components/admin/otp-dialog"
-import { adminFetch, adminFetchWithOTP } from "@/lib/admin-api"
+import { adminFetch } from "@/lib/admin-api"
 import { cn } from "@/lib/utils"
 import { useTranslations } from "@/lib/i18n/context"
 
@@ -49,8 +48,6 @@ export default function CreditsPage() {
   const [adjustSubmitting, setAdjustSubmitting] = useState(false)
   const [adjustError, setAdjustError] = useState<string | null>(null)
   const [adjustOk, setAdjustOk] = useState(false)
-  const [otpOpen, setOtpOpen] = useState(false)
-  const [pendingAdjust, setPendingAdjust] = useState<{ orgId: string; delta: number; note: string } | null>(null)
   const [ledger, setLedger] = useState<Entry[]>([])
   const [ledgerLoading, setLedgerLoading] = useState(true)
 
@@ -107,32 +104,12 @@ export default function CreditsPage() {
       setAdjustError("Select an organization and enter a non-zero integer delta.")
       return
     }
-    // Stage the adjustment and open the OTP dialog for email confirmation.
-    const orgName = orgs.find((o) => (o.ID ?? o.id) === selectedOrgId)
-    const name = orgName?.Name ?? orgName?.name ?? selectedOrgId.slice(0, 8)
-    setPendingAdjust({ orgId: selectedOrgId, delta, note: adjustNote.trim() })
-    setOtpOpen(true)
-  }
-
-  async function onOTPResult(result: OTPDialogResult) {
-    setOtpOpen(false)
-    if (!result.confirmed || !pendingAdjust) {
-      setPendingAdjust(null)
-      return
-    }
-    const { orgId, delta, note } = pendingAdjust
-    setPendingAdjust(null)
     setAdjustSubmitting(true)
     try {
-      await adminFetchWithOTP(
-        "/credits/adjust",
-        result.otpId,
-        result.otpCode,
-        {
-          method: "POST",
-          body: JSON.stringify({ org_id: orgId, delta, note: note || undefined }),
-        },
-      )
+      await adminFetch("/credits/adjust", {
+        method: "POST",
+        body: JSON.stringify({ org_id: selectedOrgId, delta, note: adjustNote.trim() || undefined }),
+      })
       setAdjustOk(true)
       setDeltaInput("")
       setAdjustNote("")
@@ -145,18 +122,7 @@ export default function CreditsPage() {
     }
   }
 
-  const pendingOrg = orgs.find((o) => (o.ID ?? o.id) === (pendingAdjust?.orgId ?? selectedOrgId))
-  const pendingOrgName = pendingOrg?.Name ?? pendingOrg?.name ?? selectedOrgId.slice(0, 8)
-
   return (
-    <>
-      <OTPDialog
-        open={otpOpen}
-        action="credits.adjust"
-        targetId={pendingAdjust?.orgId ?? ""}
-        hint={`${pendingAdjust && pendingAdjust.delta > 0 ? "+" : ""}${pendingAdjust?.delta ?? 0} credits on ${pendingOrgName}${pendingAdjust?.note ? ` · ${pendingAdjust.note}` : ""}`}
-        onResult={onOTPResult}
-      />
     <AdminShell
       activeHref="/credits"
       title={p.title}
@@ -346,7 +312,6 @@ export default function CreditsPage() {
         </section>
       </div>
     </AdminShell>
-    </>
   )
 }
 

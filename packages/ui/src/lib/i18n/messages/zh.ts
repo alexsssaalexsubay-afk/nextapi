@@ -953,6 +953,8 @@ export const zh: Messages = {
         attachmentsHint: "先上传或粘贴图片、视频、音频，再在提示词里说明这些素材如何被使用。",
         emptyAttachments: "可把文件拖到这里、上传临时参考素材，或在下方粘贴公网 HTTPS URL。仅音频不能单独生成，仍需要图片或视频锚点。",
         promptBox: "Prompt 对话框",
+        showAdvanced: "高级 URL",
+        hideAdvanced: "收起高级",
       },
       library: {
         title: "素材与状态概览",

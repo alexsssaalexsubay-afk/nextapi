@@ -318,10 +318,6 @@ If you did not request this, someone may be using your admin session — revoke 
 //
 // Header format: X-Op-OTP: <otp_id>.<6-digit-code>
 func RequireOTP(c *gin.Context, db *gorm.DB) bool {
-	// Email OTP delivery is not deployed yet. Keep high-risk admin operations
-	// usable for now; re-enable verification once the mail pipeline is live.
-	return true
-
 	if allowAdminOTPBypass() {
 		return true
 	}

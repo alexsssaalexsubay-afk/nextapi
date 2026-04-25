@@ -21,12 +21,21 @@ type Client struct {
 func New() (*Client, error) {
 	account := os.Getenv("R2_ACCOUNT_ID")
 	access := os.Getenv("R2_ACCESS_KEY_ID")
+	if access == "" {
+		access = os.Getenv("R2_ACCESS_KEY")
+	}
 	secret := os.Getenv("R2_SECRET_ACCESS_KEY")
+	if secret == "" {
+		secret = os.Getenv("R2_SECRET_KEY")
+	}
 	bucket := os.Getenv("R2_BUCKET")
 	if account == "" || access == "" || secret == "" || bucket == "" {
 		return nil, errors.New("R2 env vars missing")
 	}
-	endpoint := "https://" + account + ".r2.cloudflarestorage.com"
+	endpoint := os.Getenv("R2_ENDPOINT")
+	if endpoint == "" {
+		endpoint = "https://" + account + ".r2.cloudflarestorage.com"
+	}
 	cli := s3.New(s3.Options{
 		Region:       "auto",
 		Credentials:  credentials.NewStaticCredentialsProvider(access, secret, ""),

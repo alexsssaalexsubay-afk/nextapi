@@ -968,6 +968,8 @@ export const en = {
         attachmentsHint: "Upload or paste images, videos, and audio first, then describe how to use them in the prompt.",
         emptyAttachments: "Drag files here, upload temporary references, or paste public HTTPS URLs below. Audio-only requests still need an image or video anchor.",
         promptBox: "Prompt dialog",
+        showAdvanced: "Advanced URLs",
+        hideAdvanced: "Hide advanced",
       },
       library: {
         title: "Asset and status overview",

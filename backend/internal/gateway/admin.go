@@ -274,9 +274,6 @@ type adjustReq struct {
 }
 
 func (h *AdminHandlers) AdjustCredits(c *gin.Context) {
-	if !RequireOTP(c, h.DB) {
-		return
-	}
 	var r adjustReq
 	if err := c.ShouldBindJSON(&r); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "bad_request", "message": "invalid request body"}})

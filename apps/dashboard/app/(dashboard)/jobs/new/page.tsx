@@ -15,11 +15,9 @@ import {
   Send,
   Sparkles,
   Type,
-  Upload,
   X,
 } from "lucide-react"
 import { DashboardShell } from "@/components/dashboard/dashboard-shell"
-import { CodeBlock } from "@/components/nextapi/code-block"
 import { StatusPill, type JobStatus } from "@/components/nextapi/status-pill"
 import { useTranslations } from "@/lib/i18n/context"
 import { cn } from "@/lib/utils"
@@ -115,6 +113,7 @@ export default function NewJobPage() {
   const [tempMedia, setTempMedia] = useState<TempMedia[]>([])
   const [eventLog, setEventLog] = useState<string[]>([])
   const [estimatedCost, setEstimatedCost] = useState(1.0)
+  const [showAdvanced, setShowAdvanced] = useState(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -226,6 +225,8 @@ export default function NewJobPage() {
     } catch (e) {
       if (e instanceof ApiError && e.code === "uploads_unavailable") {
         toast.error(t.jobs.new.form.uploadsUnavailable)
+      } else if (e instanceof ApiError) {
+        toast.error(e.message)
       } else {
         toast.error(t.jobs.new.form.imageUploadFailed)
       }
@@ -270,6 +271,8 @@ export default function NewJobPage() {
     } catch (e) {
       if (e instanceof ApiError && e.code === "uploads_unavailable") {
         toast.error(t.jobs.new.form.tempUploadsUnavailable)
+      } else if (e instanceof ApiError) {
+        toast.error(e.message)
       } else {
         toast.error(t.jobs.new.form.tempUploadFailed)
       }
@@ -425,28 +428,6 @@ export default function NewJobPage() {
       setReferenceAudioURLs((value) => parseMediaURLs(value).filter((url) => url !== item.url).join("\n"))
     }
   }
-
-  const curlInputLines = [
-    `    "prompt": "${prompt}"`,
-    imageUrl.trim() ? `    "first_frame_url": "${imageUrl.trim()}"` : null,
-    lastFrameUrl.trim() ? `    "last_frame_url": "${lastFrameUrl.trim()}"` : null,
-    imageURLs.length > 0 ? `    "image_urls": ${JSON.stringify(imageURLs)}` : null,
-    videoURLs.length > 0 ? `    "video_urls": ${JSON.stringify(videoURLs)}` : null,
-    audioURLs.length > 0 ? `    "audio_urls": ${JSON.stringify(audioURLs)}` : null,
-    tempMedia.length > 0 ? `    "temp_media_keys": ${JSON.stringify(tempMedia.map((item) => item.key))}` : null,
-    `    "duration_seconds": ${duration}`,
-    `    "resolution": "${resolution}"`,
-    `    "aspect_ratio": "${aspectRatio}"`,
-    `    "generate_audio": ${generateAudio}`,
-    `    "draft": ${draft}`,
-    seed.trim() ? `    "seed": ${Number(seed)}` : null,
-  ].filter(Boolean).join(",\n")
-  const curlBody = `{
-  "model": "${model}",
-  "input": {
-${curlInputLines}
-  }${webhookURL.trim() ? `,\n  "webhook_url": "${webhookURL.trim()}"` : ""}
-}`
 
   return (
     <DashboardShell activeHref="/jobs">
@@ -692,6 +673,13 @@ ${curlInputLines}
                   <div className="mt-3 flex flex-wrap items-center gap-2">
                     <TogglePill label={t.jobs.new.form.generateAudio} checked={generateAudio} onChange={setGenerateAudio} />
                     <TogglePill label={t.jobs.new.form.draft} checked={draft} onChange={setDraft} />
+                    <button
+                      type="button"
+                      onClick={() => setShowAdvanced((value) => !value)}
+                      className="inline-flex h-9 items-center rounded-full border border-border/80 bg-card/60 px-3 text-[12px] text-muted-foreground hover:text-foreground"
+                    >
+                      {showAdvanced ? t.jobs.new.composer.hideAdvanced : t.jobs.new.composer.showAdvanced}
+                    </button>
                     <div className="flex h-9 items-center gap-2 rounded-full border border-border/80 bg-card/60 px-3">
                       <span className="text-[11px] text-muted-foreground">{t.jobs.new.form.seed}</span>
                       <input
@@ -734,81 +722,35 @@ ${curlInputLines}
                       </button>
                     </div>
                   </div>
+                  {showAdvanced && (
+                    <div className="mt-3 grid gap-3 border-t border-border/60 pt-3 md:grid-cols-3">
+                      <CompactURLBox
+                        label={t.jobs.new.form.referenceImages}
+                        value={referenceImageURLs}
+                        onChange={setReferenceImageURLs}
+                        placeholder={"https://.../style.png"}
+                        count={`${imageURLs.length}/9`}
+                      />
+                      <CompactURLBox
+                        label={t.jobs.new.form.referenceVideos}
+                        value={referenceVideoURLs}
+                        onChange={setReferenceVideoURLs}
+                        placeholder={"https://.../motion.mp4"}
+                        count={`${videoURLs.length}/3`}
+                      />
+                      <CompactURLBox
+                        label={t.jobs.new.form.referenceAudio}
+                        value={referenceAudioURLs}
+                        onChange={setReferenceAudioURLs}
+                        placeholder={"https://.../voice.mp3"}
+                        count={`${audioURLs.length}/3`}
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
           </div>
-
-          <div className="grid gap-4 lg:grid-cols-2">
-            <div className="rounded-2xl border border-border/80 bg-card/40 p-5">
-              <SectionHeader title={t.jobs.new.sections.references} description={t.jobs.new.sections.referencesHint} />
-              <div className="mt-4 grid gap-3">
-                <MediaURLBox
-                  label={t.jobs.new.form.referenceImages}
-                  value={referenceImageURLs}
-                  onChange={setReferenceImageURLs}
-                  placeholder={"https://.../style.png\nhttps://.../character.webp"}
-                  count={`${imageURLs.length}/9`}
-                  accept="image/*"
-                  uploading={mediaUploading === "image"}
-                  uploadLabel={t.jobs.new.form.uploadTempFile}
-                  uploadingLabel={t.jobs.new.form.uploadingTempFile}
-                  onUpload={(file) => uploadTempMedia(file, "image")}
-                />
-                <MediaURLBox
-                  label={t.jobs.new.form.referenceVideos}
-                  value={referenceVideoURLs}
-                  onChange={setReferenceVideoURLs}
-                  placeholder={"https://.../motion.mp4\nhttps://.../scene.mov"}
-                  count={`${videoURLs.length}/3`}
-                  accept="video/mp4,video/quicktime,video/*"
-                  uploading={mediaUploading === "video"}
-                  uploadLabel={t.jobs.new.form.uploadTempFile}
-                  uploadingLabel={t.jobs.new.form.uploadingTempFile}
-                  onUpload={(file) => uploadTempMedia(file, "video")}
-                />
-                <MediaURLBox
-                  label={t.jobs.new.form.referenceAudio}
-                  value={referenceAudioURLs}
-                  onChange={setReferenceAudioURLs}
-                  placeholder={"https://.../voice.mp3\nhttps://.../music.wav"}
-                  count={`${audioURLs.length}/3`}
-                  accept="audio/mpeg,audio/wav,audio/aac,audio/*"
-                  uploading={mediaUploading === "audio"}
-                  uploadLabel={t.jobs.new.form.uploadTempFile}
-                  uploadingLabel={t.jobs.new.form.uploadingTempFile}
-                  onUpload={(file) => uploadTempMedia(file, "audio")}
-                />
-              </div>
-            </div>
-
-            <div className="rounded-2xl border border-border/80 bg-card/40 p-5">
-              <SectionHeader title={t.jobs.new.library.title} description={t.jobs.new.library.description} />
-              <div className="mt-4 grid gap-3">
-                <LibraryMetric label={t.jobs.new.form.referenceImages} value={`${imageURLs.length}/9`} />
-                <LibraryMetric label={t.jobs.new.form.referenceVideos} value={`${videoURLs.length}/3`} />
-                <LibraryMetric label={t.jobs.new.form.referenceAudio} value={`${audioURLs.length}/3`} />
-                <LibraryMetric label={t.jobs.new.form.tempMediaTitle} value={String(tempMedia.length)} />
-              </div>
-              <p className="mt-4 text-[11.5px] leading-relaxed text-muted-foreground">
-                {t.jobs.new.form.tempMediaHint}
-              </p>
-            </div>
-          </div>
-
-          <CodeBlock
-            tabs={[
-              {
-                label: t.jobs.new.liveCurl,
-                language: "bash",
-                code: `curl https://api.nextapi.top/v1/videos \\
-  -H "Authorization: Bearer $NEXTAPI_KEY" \\
-  -H "Content-Type: application/json" \\
-  -H "Idempotency-Key: $(uuidgen)" \\
-  -d '${curlBody}'`,
-              },
-            ]}
-          />
         </section>
 
         <aside className="flex min-w-0 flex-col gap-4">
@@ -851,17 +793,6 @@ ${curlInputLines}
         </aside>
       </div>
     </DashboardShell>
-  )
-}
-
-function SectionHeader({ title, description }: { title: string; description?: string }) {
-  return (
-    <div className="border-t border-border/60 pt-5 first:border-t-0 first:pt-0">
-      <h2 className="text-[14px] font-medium tracking-tight">{title}</h2>
-      {description && (
-        <p className="mt-1 text-[12px] leading-relaxed text-muted-foreground">{description}</p>
-      )}
-    </div>
   )
 }
 
@@ -986,12 +917,33 @@ function TogglePill({
   )
 }
 
-function LibraryMetric({ label, value }: { label: string; value: string }) {
+function CompactURLBox({
+  label,
+  value,
+  onChange,
+  placeholder,
+  count,
+}: {
+  label: string
+  value: string
+  onChange: (value: string) => void
+  placeholder: string
+  count: string
+}) {
   return (
-    <div className="flex items-center justify-between rounded-xl border border-border/70 bg-background/60 px-3 py-2">
-      <span className="text-[12px] text-muted-foreground">{label}</span>
-      <span className="font-mono text-[12px] text-foreground">{value}</span>
-    </div>
+    <label className="min-w-0 rounded-xl border border-border/70 bg-card/40 p-3">
+      <span className="mb-2 flex items-center justify-between gap-2">
+        <span className="text-[11.5px] font-medium text-foreground">{label}</span>
+        <span className="font-mono text-[10.5px] text-muted-foreground">{count}</span>
+      </span>
+      <textarea
+        rows={3}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className="w-full resize-none bg-transparent font-mono text-[11px] text-foreground placeholder:text-muted-foreground/50 focus:outline-none"
+      />
+    </label>
   )
 }
 
@@ -1075,60 +1027,6 @@ function ModeButton({
       <span className="font-medium">{label}</span>
       <span className="font-mono text-[10.5px] text-muted-foreground">{sub}</span>
     </button>
-  )
-}
-
-function MediaURLBox({
-  label,
-  value,
-  onChange,
-  placeholder,
-  count,
-  accept,
-  uploading,
-  uploadLabel,
-  uploadingLabel,
-  onUpload,
-}: {
-  label: string
-  value: string
-  onChange: (value: string) => void
-  placeholder: string
-  count: string
-  accept: string
-  uploading: boolean
-  uploadLabel: string
-  uploadingLabel: string
-  onUpload: (file: File) => void
-}) {
-  return (
-    <div className="min-w-0 rounded-md border border-border/80 bg-background p-3">
-      <div className="mb-2 flex items-center justify-between gap-2">
-        <span className="text-[12px] font-medium text-foreground">{label}</span>
-        <span className="font-mono text-[10.5px] text-muted-foreground">{count}</span>
-      </div>
-      <label className="mb-2 flex h-8 cursor-pointer items-center justify-center rounded-md border border-dashed border-border/80 text-[11.5px] text-muted-foreground hover:text-foreground">
-        <input
-          type="file"
-          accept={accept}
-          disabled={uploading}
-          className="hidden"
-          onChange={(e) => {
-            const file = e.target.files?.[0]
-            e.target.value = ""
-            if (file) onUpload(file)
-          }}
-        />
-        {uploading ? uploadingLabel : uploadLabel}
-      </label>
-      <textarea
-        rows={4}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        className="w-full resize-none rounded-md border border-border/70 bg-card/40 px-2 py-2 font-mono text-[11.5px] text-foreground placeholder:text-muted-foreground/50 focus:border-signal/50 focus:outline-none"
-      />
-    </div>
   )
 }
 
