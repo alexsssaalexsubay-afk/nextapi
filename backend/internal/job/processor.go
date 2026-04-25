@@ -3,9 +3,9 @@ package job
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"time"
 
-	"github.com/hibiken/asynq"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/billing"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/domain"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/infra/metrics"
@@ -13,6 +13,7 @@ import (
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/spend"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/throughput"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/webhook"
+	"github.com/hibiken/asynq"
 	"gorm.io/gorm"
 )
 
@@ -25,6 +26,9 @@ type Processor struct {
 	Webhooks    *webhook.Service
 	Throughput  *throughput.Service
 	RetryPolicy RetryPolicy
+	TempStorage interface {
+		Delete(ctx context.Context, key string) error
+	}
 }
 
 func NewProcessor(db *gorm.DB, b *billing.Service, p provider.Provider, q *asynq.Client) *Processor {
@@ -71,8 +75,12 @@ func (p *Processor) HandleGenerate(ctx context.Context, t *asynq.Task) error {
 	if j.Status == domain.JobQueued || j.Status == domain.JobRetrying {
 		now := time.Now()
 		p.DB.WithContext(ctx).Model(&j).Updates(map[string]any{
-			"status":         domain.JobSubmitting,
-			"submitting_at":  now,
+			"status":        domain.JobSubmitting,
+			"submitting_at": now,
+		})
+		p.DB.WithContext(ctx).Model(&domain.Video{}).Where("upstream_job_id = ?", j.ID).Updates(map[string]any{
+			"status":     "submitting",
+			"started_at": now,
 		})
 	}
 
@@ -102,6 +110,9 @@ func (p *Processor) HandleGenerate(ctx context.Context, t *asynq.Task) error {
 			p.DB.WithContext(ctx).Model(&j).Updates(map[string]any{
 				"status":      domain.JobRetrying,
 				"retrying_at": now,
+			})
+			p.DB.WithContext(ctx).Model(&domain.Video{}).Where("upstream_job_id = ?", j.ID).Updates(map[string]any{
+				"status": "retrying",
 			})
 			metrics.RetryTotal.WithLabelValues(p.Prov.Name(), classified.Code).Inc()
 			return err // Asynq will re-schedule with backoff
@@ -175,8 +186,12 @@ func (p *Processor) HandlePoll(ctx context.Context, t *asynq.Task) error {
 		if st.ErrorCode != nil {
 			code = *st.ErrorCode
 		}
+		msg := "video generation failed"
+		if st.ErrorMessage != nil && *st.ErrorMessage != "" {
+			msg = *st.ErrorMessage
+		}
 		metrics.JobsFailedTotal.WithLabelValues(p.Prov.Name(), code).Inc()
-		return p.fail(ctx, &j, code, "video generation failed")
+		return p.fail(ctx, &j, code, msg)
 	default:
 		// Still running → re-enqueue poll
 		buf, _ := json.Marshal(payload{JobID: j.ID})
@@ -195,6 +210,15 @@ func (p *Processor) succeed(ctx context.Context, j *domain.Job, st *provider.Job
 		actualCredits = *st.ActualTokensUsed
 	}
 	now := time.Now()
+	// Best-effort: derive video seconds from stored request when upstream doesn't provide it.
+	var videoSeconds *float64
+	if len(j.Request) > 0 {
+		var req provider.GenerationRequest
+		if err := json.Unmarshal(j.Request, &req); err == nil && req.DurationSeconds > 0 {
+			vs := float64(req.DurationSeconds)
+			videoSeconds = &vs
+		}
+	}
 	err := p.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Model(j).Updates(map[string]any{
 			"status":       domain.JobSucceeded,
@@ -225,6 +249,7 @@ func (p *Processor) succeed(ctx context.Context, j *domain.Job, st *provider.Job
 			"output":            outputJSON,
 			"actual_cost_cents": actualCredits,
 			"upstream_tokens":   st.ActualTokensUsed,
+			"video_seconds":     videoSeconds,
 			"finished_at":       now,
 		})
 		// Update batch counters if this job belongs to a batch.
@@ -245,6 +270,7 @@ func (p *Processor) succeed(ctx context.Context, j *domain.Job, st *provider.Job
 		p.Spend.DecrInflight(ctx, j.OrgID, j.ReservedCredits)
 	}
 	if err == nil {
+		p.cleanupTempMedia(ctx, j)
 		metrics.JobsTotal.WithLabelValues(p.Prov.Name(), "succeeded").Inc()
 		if p.Webhooks != nil {
 			videoID := lookupVideoID(ctx, p.DB, j.ID)
@@ -334,19 +360,38 @@ func (p *Processor) fail(ctx context.Context, j *domain.Job, code, msg string) e
 	if p.Spend != nil {
 		p.Spend.DecrInflight(ctx, j.OrgID, j.ReservedCredits)
 	}
-	if err == nil && p.Webhooks != nil {
-		videoID := lookupVideoID(ctx, p.DB, j.ID)
-		_ = p.Webhooks.Enqueue(ctx, j.OrgID, "job.failed", map[string]any{
-			"id":            videoID,
-			"job_id":        j.ID,
-			"video_id":      videoID,
-			"status":        "failed",
-			"error_code":    code,
-			"error_message": msg,
-			"created_at":    now.UTC().Format(time.RFC3339),
-		})
+	if err == nil {
+		p.cleanupTempMedia(ctx, j)
+		if p.Webhooks != nil {
+			videoID := lookupVideoID(ctx, p.DB, j.ID)
+			_ = p.Webhooks.Enqueue(ctx, j.OrgID, "job.failed", map[string]any{
+				"id":            videoID,
+				"job_id":        j.ID,
+				"video_id":      videoID,
+				"status":        "failed",
+				"error_code":    code,
+				"error_message": msg,
+				"created_at":    now.UTC().Format(time.RFC3339),
+			})
+		}
 	}
 	return err
+}
+
+func (p *Processor) cleanupTempMedia(ctx context.Context, j *domain.Job) {
+	if p.TempStorage == nil || len(j.Request) == 0 {
+		return
+	}
+	var req provider.GenerationRequest
+	if err := json.Unmarshal(j.Request, &req); err != nil || len(req.TempMediaKeys) == 0 {
+		return
+	}
+	for _, key := range req.TempMediaKeys {
+		if key == "" || !strings.HasPrefix(key, "temp/") {
+			continue
+		}
+		_ = p.TempStorage.Delete(ctx, key)
+	}
 }
 
 // archiveDLQ moves an exhausted-retry job to the dead-letter queue.

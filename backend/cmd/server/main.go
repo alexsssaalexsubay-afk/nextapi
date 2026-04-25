@@ -7,10 +7,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/gin-gonic/gin"
-	"github.com/hibiken/asynq"
-	"github.com/pressly/goose/v3"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/abuse"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/auth"
 	batchsvc "github.com/alexsssaalexsubay-afk/nextapi/backend/internal/batch"
@@ -26,14 +22,18 @@ import (
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/job"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/moderation"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/notify"
+	projsvc "github.com/alexsssaalexsubay-afk/nextapi/backend/internal/project"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/providerfactory"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/ratelimit"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/spend"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/storage/r2"
 	tmplsvc "github.com/alexsssaalexsubay-afk/nextapi/backend/internal/template"
-	projsvc "github.com/alexsssaalexsubay-afk/nextapi/backend/internal/project"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/throughput"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/webhook"
-	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/storage/r2"
+	"github.com/gin-gonic/gin"
+	"github.com/hibiken/asynq"
+	"github.com/pressly/goose/v3"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 func main() {
@@ -221,6 +221,7 @@ func main() {
 
 	api.GET("/videos", vids.List)
 	api.GET("/videos/:id", vids.Get)
+	api.POST("/videos/:id/retry", vids.Retry)
 	api.DELETE("/videos/:id", vids.Delete)
 	api.GET("/videos/:id/wait", vids.Wait)
 
@@ -244,6 +245,7 @@ func main() {
 		log.Printf("r2: %v (dashboard image upload disabled; configure R2 env)", r2err)
 	}
 	api.POST("/me/uploads/image", uploadH.PostImage)
+	api.POST("/me/uploads/media", uploadH.PostMedia)
 
 	api.GET("/me/keys", h.ListKeys)
 	api.POST("/me/keys", h.CreateKey)
@@ -323,7 +325,7 @@ func main() {
 	internal.GET("/audit", ah.Audit)
 
 	// Enhanced admin job tools.
-	ajh := &gateway.AdminJobHandlers{DB: gormDB, JobSvc: jobSvc, Billing: billSvc}
+	ajh := &gateway.AdminJobHandlers{DB: gormDB, JobSvc: jobSvc, Billing: billSvc, Spend: spendSvc, Throughput: throughputSvc}
 	internal.GET("/jobs/search", ajh.ListJobs)
 	internal.GET("/jobs/:id/detail", ajh.GetJob)
 	internal.POST("/jobs/:id/retry", ajh.RetryJob)

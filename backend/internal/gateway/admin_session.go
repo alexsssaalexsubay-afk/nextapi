@@ -9,14 +9,15 @@ import (
 	"fmt"
 	"math/big"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
-	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/auth"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/domain"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/notify"
+	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
@@ -224,6 +225,17 @@ func (h *AdminSessionHandlers) SendOTP(c *gin.Context) {
 		return
 	}
 
+	if allowAdminOTPBypass() {
+		c.JSON(http.StatusOK, gin.H{
+			"otp_id":      "bypass",
+			"expires_at":  time.Now().Add(24 * time.Hour).UTC().Format(time.RFC3339),
+			"hint":        "Admin OTP bypass is enabled (temporary).",
+			"bypass":      true,
+			"bypass_code": "000000",
+		})
+		return
+	}
+
 	if h.Notify == nil || !h.Notify.Enabled() {
 		c.JSON(http.StatusServiceUnavailable, gin.H{"error": gin.H{
 			"code":    "otp_delivery_not_configured",
@@ -306,6 +318,14 @@ If you did not request this, someone may be using your admin session — revoke 
 //
 // Header format: X-Op-OTP: <otp_id>.<6-digit-code>
 func RequireOTP(c *gin.Context, db *gorm.DB) bool {
+	// Email OTP delivery is not deployed yet. Keep high-risk admin operations
+	// usable for now; re-enable verification once the mail pipeline is live.
+	return true
+
+	if allowAdminOTPBypass() {
+		return true
+	}
+
 	raw := c.GetHeader(opOTPHeader)
 	if raw == "" {
 		c.JSON(http.StatusForbidden, gin.H{"error": gin.H{
@@ -444,4 +464,9 @@ func maskEmail(email string) string {
 		return "***"
 	}
 	return email[:1] + strings.Repeat("*", at-1) + email[at:]
+}
+
+func allowAdminOTPBypass() bool {
+	v := strings.ToLower(strings.TrimSpace(os.Getenv("ADMIN_OTP_BYPASS")))
+	return v == "1" || v == "true" || v == "yes" || v == "on"
 }

@@ -8,6 +8,7 @@ import {
   Banknote,
   Building2,
   Gauge,
+  ListChecks,
   LifeBuoy,
   LogOut,
   Megaphone,
@@ -69,6 +70,7 @@ export function AdminShell({
       heading: t.nav.admin.operations,
       items: [
         { label: t.nav.admin.overview, href: "/", icon: Gauge },
+        { label: "Jobs", href: "/jobs", icon: ListChecks },
         {
           label: t.nav.admin.attention,
           href: "/attention",

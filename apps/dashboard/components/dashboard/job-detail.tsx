@@ -253,6 +253,11 @@ function OutputPanel({ state, videoURL }: { state: JobStatus; videoURL?: string 
         {state === "succeeded" && <SucceededView videoURL={videoURL} />}
         {state === "failed" && <FailedView />}
       </div>
+      {state === "succeeded" && videoURL && (
+        <div className="border-t border-border/60 px-5 py-3 text-[12px] leading-relaxed text-muted-foreground">
+          This MP4 is loaded from the upstream provider URL. Download it if you need a permanent local copy; NextAPI does not archive every generated video to R2 automatically.
+        </div>
+      )}
     </section>
   )
 }

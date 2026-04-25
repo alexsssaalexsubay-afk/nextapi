@@ -28,8 +28,8 @@ func New() (*Client, error) {
 	}
 	endpoint := "https://" + account + ".r2.cloudflarestorage.com"
 	cli := s3.New(s3.Options{
-		Region:      "auto",
-		Credentials: credentials.NewStaticCredentialsProvider(access, secret, ""),
+		Region:       "auto",
+		Credentials:  credentials.NewStaticCredentialsProvider(access, secret, ""),
 		BaseEndpoint: aws.String(endpoint),
 	})
 	return &Client{s3: cli, bucket: bucket}, nil
@@ -42,6 +42,15 @@ func (c *Client) Upload(ctx context.Context, key string, body io.Reader, content
 		Key:         aws.String(key),
 		Body:        body,
 		ContentType: aws.String(contentType),
+	})
+	return err
+}
+
+// Delete removes an object by key. Missing objects are treated as success by S3/R2.
+func (c *Client) Delete(ctx context.Context, key string) error {
+	_, err := c.s3.DeleteObject(ctx, &s3.DeleteObjectInput{
+		Bucket: aws.String(c.bucket),
+		Key:    aws.String(key),
 	})
 	return err
 }

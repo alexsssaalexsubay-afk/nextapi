@@ -10,7 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/abuse"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/auth"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/domain"
@@ -20,6 +19,7 @@ import (
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/provider"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/spend"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/throughput"
+	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
 
@@ -28,6 +28,12 @@ type VideosHandlers struct {
 	DB         *gorm.DB
 	Spend      *spend.Service
 	Throughput *throughput.Service
+}
+
+type videoRowWithJoins struct {
+	domain.Video  `gorm:"embedded"`
+	ProviderJobID *string `gorm:"column:provider_job_id"`
+	APIKeyPrefix  *string `gorm:"column:api_key_prefix"`
 }
 
 type videoCreateReq struct {
@@ -62,6 +68,7 @@ type videoInput struct {
 	AudioURLs     []string `json:"audio_urls"`
 	FirstFrameURL *string  `json:"first_frame_url"`
 	LastFrameURL  *string  `json:"last_frame_url"`
+	TempMediaKeys []string `json:"temp_media_keys"`
 }
 
 // Create handles POST /v1/videos — new B2B surface.
@@ -185,26 +192,7 @@ func (h *VideosHandlers) Create(c *gin.Context) {
 	res, err := h.Jobs.Create(c.Request.Context(), job.CreateInput{
 		OrgID:    org.ID,
 		APIKeyID: apiKeyID,
-		Request: provider.GenerationRequest{
-			Model:           req.Model,
-			Prompt:          input.Prompt,
-			ImageURL:        input.ImageURL,
-			DurationSeconds: input.DurationSeconds,
-			Resolution:      input.Resolution,
-			Mode:            input.Mode,
-			AspectRatio:     input.AspectRatio,
-			FPS:             input.FPS,
-			GenerateAudio:   input.GenerateAudio,
-			Watermark:       input.Watermark,
-			Seed:            input.Seed,
-			CameraFixed:     input.CameraFixed,
-			Draft:           input.Draft,
-			ImageURLs:       input.ImageURLs,
-			VideoURLs:       input.VideoURLs,
-			AudioURLs:       input.AudioURLs,
-			FirstFrameURL:   input.FirstFrameURL,
-			LastFrameURL:    input.LastFrameURL,
-		},
+		Request:  videoGenerationRequest(req.Model, input),
 	})
 	if err != nil {
 		h.handleJobError(c, err)
@@ -274,6 +262,129 @@ func (h *VideosHandlers) Create(c *gin.Context) {
 	c.JSON(http.StatusAccepted, resp)
 }
 
+// Retry handles POST /v1/videos/:id/retry by creating a fresh video/job pair
+// from the original input. The old row remains immutable for audit/history.
+func (h *VideosHandlers) Retry(c *gin.Context) {
+	org := auth.OrgFrom(c)
+	if org == nil {
+		c.AbortWithStatus(http.StatusUnauthorized)
+		return
+	}
+	id := c.Param("id")
+
+	var original domain.Video
+	err := h.DB.WithContext(c.Request.Context()).
+		Where("id = ? AND org_id = ?", id, org.ID).
+		First(&original).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		c.JSON(http.StatusNotFound, gin.H{"error": gin.H{"code": "not_found"}})
+		return
+	}
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "internal_error"}})
+		return
+	}
+	if original.Status != "failed" && original.Status != string(domain.JobTimedOut) {
+		c.JSON(http.StatusConflict, gin.H{"error": gin.H{
+			"code":    "invalid_state",
+			"message": "only failed or timed_out videos can be retried",
+		}})
+		return
+	}
+
+	var input videoInput
+	if err := json.Unmarshal(original.Input, &input); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "invalid_original_input", "message": "original video input could not be decoded"}})
+		return
+	}
+
+	res, err := h.Jobs.Create(c.Request.Context(), job.CreateInput{
+		OrgID:    org.ID,
+		APIKeyID: original.APIKeyID,
+		Request:  videoGenerationRequest(original.Model, input),
+	})
+	if err != nil {
+		h.handleJobError(c, err)
+		return
+	}
+
+	metadata, _ := json.Marshal(map[string]any{"retry_of": original.ID})
+	vid := domain.Video{
+		OrgID:              org.ID,
+		APIKeyID:           original.APIKeyID,
+		Model:              original.Model,
+		Status:             "queued",
+		Input:              original.Input,
+		Metadata:           metadata,
+		UpstreamJobID:      &res.JobID,
+		EstimatedCostCents: res.EstimatedCredits,
+		ReservedCents:      res.EstimatedCredits,
+		WebhookURL:         original.WebhookURL,
+	}
+	if err := h.DB.WithContext(c.Request.Context()).Create(&vid).Error; err != nil {
+		bgCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = h.DB.WithContext(bgCtx).Model(&domain.Job{}).
+			Where("id = ?", res.JobID).
+			Updates(map[string]any{
+				"status":        domain.JobFailed,
+				"error_code":    "video_record_failed",
+				"error_message": "could not persist retried video record",
+				"completed_at":  time.Now(),
+			}).Error
+		if h.Throughput != nil {
+			_ = h.Throughput.ReleaseForKey(bgCtx, org.ID, original.APIKeyID, res.JobID)
+		}
+		if res.EstimatedCredits > 0 {
+			refundCents := res.EstimatedCredits
+			_ = h.DB.WithContext(bgCtx).Create(&domain.CreditsLedger{
+				OrgID:        org.ID,
+				DeltaCredits: res.EstimatedCredits,
+				DeltaCents:   &refundCents,
+				Reason:       domain.ReasonRefund,
+				JobID:        &res.JobID,
+				Note:         "refund: retried video record write failed",
+			}).Error
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "internal", "message": "failed to create retried video record"}})
+		return
+	}
+
+	c.JSON(http.StatusAccepted, gin.H{
+		"id":                   vid.ID,
+		"object":               "video",
+		"model":                vid.Model,
+		"status":               vid.Status,
+		"estimated_cost_cents": vid.EstimatedCostCents,
+		"retry_of":             original.ID,
+		"created_at":           vid.CreatedAt,
+	})
+}
+
+func videoGenerationRequest(model string, input videoInput) provider.GenerationRequest {
+	return provider.GenerationRequest{
+		Model:           model,
+		Prompt:          input.Prompt,
+		ImageURL:        input.ImageURL,
+		DurationSeconds: input.DurationSeconds,
+		Resolution:      input.Resolution,
+		Mode:            input.Mode,
+		AspectRatio:     input.AspectRatio,
+		FPS:             input.FPS,
+		GenerateAudio:   input.GenerateAudio,
+		Watermark:       input.Watermark,
+		Seed:            input.Seed,
+		CameraFixed:     input.CameraFixed,
+		Draft:           input.Draft,
+		ImageURLs:       input.ImageURLs,
+		VideoURLs:       input.VideoURLs,
+		AudioURLs:       input.AudioURLs,
+		FirstFrameURL:   input.FirstFrameURL,
+		LastFrameURL:    input.LastFrameURL,
+		TempMediaKeys:   input.TempMediaKeys,
+	}
+}
+
 // Get handles GET /v1/videos/:id.
 func (h *VideosHandlers) Get(c *gin.Context) {
 	org := auth.OrgFrom(c)
@@ -283,10 +394,16 @@ func (h *VideosHandlers) Get(c *gin.Context) {
 	}
 	id := c.Param("id")
 
-	var v domain.Video
+	var v videoRowWithJoins
 	err := h.DB.WithContext(c.Request.Context()).
-		Where("id = ? AND org_id = ?", id, org.ID).First(&v).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
+		Table("videos v").
+		Select("v.*, j.provider_job_id as provider_job_id, ak.prefix as api_key_prefix").
+		Joins("LEFT JOIN jobs j ON j.id = v.upstream_job_id").
+		Joins("LEFT JOIN api_keys ak ON ak.id = v.api_key_id").
+		Where("v.id = ? AND v.org_id = ?", id, org.ID).
+		Limit(1).
+		Scan(&v).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) || (err == nil && v.ID == "") {
 		// Fall back to legacy jobs table.
 		j, jErr := h.Jobs.Get(c.Request.Context(), org.ID, id)
 		if jErr != nil {
@@ -322,15 +439,36 @@ func (h *VideosHandlers) Get(c *gin.Context) {
 		return
 	}
 
+	// Back-compat: older workers stored {"video_url": "..."}; dashboard expects output.url.
+	output := v.Output
+	if len(output) > 0 {
+		var m map[string]any
+		if json.Unmarshal(output, &m) == nil {
+			if _, hasURL := m["url"]; !hasURL {
+				if vu, ok := m["video_url"]; ok && vu != nil {
+					m["url"] = vu
+					if b, mErr := json.Marshal(m); mErr == nil {
+						output = b
+					}
+				}
+			}
+		}
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"id":                   v.ID,
 		"object":               "video",
 		"model":                v.Model,
 		"status":               v.Status,
 		"input":                v.Input,
-		"output":               v.Output,
+		"output":               output,
 		"estimated_cost_cents": v.EstimatedCostCents,
 		"actual_cost_cents":    v.ActualCostCents,
+		"upstream_tokens":      v.UpstreamTokens,
+		"upstream_job_id":      v.UpstreamJobID,
+		"provider_job_id":      v.ProviderJobID,
+		"api_key_id":           v.APIKeyID,
+		"api_key_hint":         v.APIKeyPrefix,
 		"error_code":           v.ErrorCode,
 		"error_message":        v.ErrorMessage,
 		"created_at":           v.CreatedAt,
@@ -347,17 +485,59 @@ func (h *VideosHandlers) List(c *gin.Context) {
 		return
 	}
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
-	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
 	if limit <= 0 || limit > 100 {
 		limit = 20
 	}
+	// Back-compat: some clients still send offset pagination.
+	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
 
-	var videos []domain.Video
-	q := h.DB.WithContext(c.Request.Context()).Where("org_id = ?", org.ID)
-	if statusFilter := c.Query("status"); statusFilter != "" {
-		q = q.Where("status = ?", statusFilter)
+	// Cursor pagination (preferred): cursor encodes "<unix_ms>.<uuid>" for stable ordering.
+	cursor := strings.TrimSpace(c.Query("cursor"))
+	var cursorTime *time.Time
+	var cursorID string
+	if cursor != "" {
+		parts := strings.SplitN(cursor, ".", 2)
+		if len(parts) == 2 {
+			if ms, err := strconv.ParseInt(parts[0], 10, 64); err == nil {
+				tm := time.UnixMilli(ms).UTC()
+				cursorTime = &tm
+				cursorID = parts[1]
+			}
+		}
 	}
-	if err := q.Order("created_at DESC").Limit(limit).Offset(offset).Find(&videos).Error; err != nil {
+
+	var videos []videoRowWithJoins
+	q := h.DB.WithContext(c.Request.Context()).
+		Table("videos v").
+		Select("v.*, j.provider_job_id as provider_job_id, ak.prefix as api_key_prefix").
+		Joins("LEFT JOIN jobs j ON j.id = v.upstream_job_id").
+		Joins("LEFT JOIN api_keys ak ON ak.id = v.api_key_id").
+		Where("v.org_id = ?", org.ID)
+	if statusFilter := c.Query("status"); statusFilter != "" {
+		q = q.Where("v.status = ?", statusFilter)
+	}
+	if modelFilter := strings.TrimSpace(c.Query("model")); modelFilter != "" {
+		q = q.Where("v.model = ?", modelFilter)
+	}
+	if after := strings.TrimSpace(c.Query("created_after")); after != "" {
+		if t, err := time.Parse(time.RFC3339, after); err == nil {
+			q = q.Where("v.created_at >= ?", t)
+		}
+	}
+	if before := strings.TrimSpace(c.Query("created_before")); before != "" {
+		if t, err := time.Parse(time.RFC3339, before); err == nil {
+			q = q.Where("v.created_at <= ?", t)
+		}
+	}
+
+	// Stable ordering: created_at DESC, id DESC.
+	q = q.Order("v.created_at DESC, v.id DESC")
+	if cursorTime != nil {
+		// Items strictly older than cursor (or same time but smaller id).
+		q = q.Where("(v.created_at < ?) OR (v.created_at = ? AND v.id < ?)", *cursorTime, *cursorTime, cursorID)
+	}
+
+	if err := q.Limit(limit).Offset(offset).Find(&videos).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "internal_error"}})
 		return
 	}
@@ -370,7 +550,17 @@ func (h *VideosHandlers) List(c *gin.Context) {
 			"model":                v.Model,
 			"status":               v.Status,
 			"estimated_cost_cents": v.EstimatedCostCents,
+			"actual_cost_cents":    v.ActualCostCents,
+			"upstream_tokens":      v.UpstreamTokens,
+			"upstream_job_id":      v.UpstreamJobID,
+			"provider_job_id":      v.ProviderJobID,
+			"api_key_id":           v.APIKeyID,
+			"api_key_hint":         v.APIKeyPrefix,
+			"error_code":           v.ErrorCode,
+			"error_message":        v.ErrorMessage,
 			"created_at":           v.CreatedAt,
+			"started_at":           v.StartedAt,
+			"finished_at":          v.FinishedAt,
 		}
 		// Extract prompt and duration_seconds from the input blob so the
 		// dashboard list view can show the prompt without a per-row lookup.
@@ -378,17 +568,44 @@ func (h *VideosHandlers) List(c *gin.Context) {
 			var inp struct {
 				Prompt          string `json:"prompt"`
 				DurationSeconds int    `json:"duration_seconds"`
+				Resolution      string `json:"resolution"`
+				AspectRatio     string `json:"aspect_ratio"`
 			}
 			if err := json.Unmarshal(v.Input, &inp); err == nil {
 				item["prompt"] = inp.Prompt
 				if inp.DurationSeconds > 0 {
 					item["duration_seconds"] = inp.DurationSeconds
 				}
+				if inp.Resolution != "" {
+					item["resolution"] = inp.Resolution
+				}
+				if inp.AspectRatio != "" {
+					item["ratio"] = inp.AspectRatio
+				}
+			}
+		}
+		// Light output in list for preview/download.
+		if len(v.Output) > 0 {
+			var m map[string]any
+			if json.Unmarshal(v.Output, &m) == nil {
+				if _, hasURL := m["url"]; !hasURL {
+					if vu, ok := m["video_url"]; ok && vu != nil {
+						m["url"] = vu
+					}
+				}
+				item["output"] = m
+			} else {
+				item["output"] = v.Output
 			}
 		}
 		items = append(items, item)
 	}
-	c.JSON(http.StatusOK, gin.H{"data": items, "has_more": len(videos) == limit})
+	var nextCursor any = nil
+	if len(videos) == limit {
+		last := videos[len(videos)-1]
+		nextCursor = fmt.Sprintf("%d.%s", last.CreatedAt.UTC().UnixMilli(), last.ID)
+	}
+	c.JSON(http.StatusOK, gin.H{"data": items, "has_more": len(videos) == limit, "next_cursor": nextCursor})
 }
 
 // Delete handles DELETE /v1/videos/:id — cancels a queued video or marks it deleted.

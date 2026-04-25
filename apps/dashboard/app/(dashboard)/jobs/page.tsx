@@ -21,8 +21,20 @@ type VideoListItem = {
   status: string
   prompt?: string
   duration_seconds?: number
+  resolution?: string
+  ratio?: string
   estimated_cost_cents: number
+  actual_cost_cents?: number | null
+  upstream_tokens?: number | null
+  upstream_job_id?: string | null
+  provider_job_id?: string | null
+  api_key_hint?: string | null
+  error_code?: string | null
+  error_message?: string | null
+  output?: { url?: string; video_url?: string } | null
   created_at: string
+  started_at?: string | null
+  finished_at?: string | null
 }
 
 const VALID_STATUSES = ["queued", "submitting", "running", "retrying", "succeeded", "failed"] as const
@@ -39,22 +51,39 @@ function relTime(iso: string): string {
 }
 
 function toJobRow(v: VideoListItem): JobRow {
-  const status = (["queued", "running", "succeeded", "failed"].includes(v.status)
+  const status = (["queued", "submitting", "running", "succeeded", "failed"].includes(v.status)
     ? v.status
+    : v.status === "retrying"
+      ? "running"
     : "queued") as JobStatus
-  const credits = (v.estimated_cost_cents / 100).toFixed(2)
+  const cents = v.actual_cost_cents ?? v.estimated_cost_cents
+  const credits = (cents / 100).toFixed(2)
   const kind: JobRow["creditsKind"] =
     status === "failed" ? "refunded" : status === "succeeded" ? "billed" : "reserved"
+  const videoURL = v.output?.url || v.output?.video_url
   return {
     id: v.id,
     status,
+    rawStatus: v.status,
     model: v.model || "seedance-2.0-pro",
     // Use real prompt from API; fall back to a readable placeholder
     prompt: v.prompt || "(no prompt)",
     submitted: relTime(v.created_at),
+    createdAt: v.created_at,
+    startedAt: v.started_at,
+    finishedAt: v.finished_at,
     duration: v.duration_seconds ? `${v.duration_seconds}s` : "—",
+    resolution: v.resolution,
+    ratio: v.ratio,
     creditsAmount: credits,
     creditsKind: kind,
+    tokenCount: v.upstream_tokens ?? null,
+    providerJobId: v.provider_job_id ?? null,
+    upstreamJobId: v.upstream_job_id ?? null,
+    apiKeyHint: v.api_key_hint ?? null,
+    errorCode: v.error_code ?? null,
+    errorMessage: v.error_message ?? null,
+    videoURL,
   }
 }
 

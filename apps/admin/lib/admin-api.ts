@@ -167,12 +167,18 @@ export async function requestOTP(
   action: string,
   targetId: string,
   hint: string,
-): Promise<{ otpId: string; hint: string; expiresAt: string }> {
+): Promise<{ otpId: string; hint: string; expiresAt: string; bypass?: boolean; bypassCode?: string }> {
   const data = (await adminFetch("/otp/send", {
     method: "POST",
     body: JSON.stringify({ action, target_id: targetId, hint }),
-  })) as { otp_id: string; hint: string; expires_at: string }
-  return { otpId: data.otp_id, hint: data.hint, expiresAt: data.expires_at }
+  })) as { otp_id: string; hint: string; expires_at: string; bypass?: boolean; bypass_code?: string }
+  return {
+    otpId: data.otp_id,
+    hint: data.hint,
+    expiresAt: data.expires_at,
+    bypass: data.bypass,
+    bypassCode: data.bypass_code,
+  }
 }
 
 // Header name constants mirrored from Go (keep in sync with admin_session.go).

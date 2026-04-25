@@ -326,16 +326,31 @@ func (h *AdminHandlers) CancelJob(c *gin.Context) {
 
 	code := "admin_cancelled"
 	msg := "cancelled by admin"
-	res := h.DB.WithContext(ctx).
-		Model(&domain.Job{}).
-		Where("id = ? AND status IN ('queued','running')", id).
-		Updates(map[string]any{
-			"status":        domain.JobFailed,
+	var affected int64
+	err := h.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		res := tx.Model(&domain.Job{}).
+			Where("id = ? AND status IN ('queued','running')", id).
+			Updates(map[string]any{
+				"status":        domain.JobFailed,
+				"error_code":    code,
+				"error_message": msg,
+				"completed_at":  now,
+			})
+		if res.Error != nil {
+			return res.Error
+		}
+		affected = res.RowsAffected
+		if affected == 0 {
+			return nil
+		}
+		return tx.Model(&domain.Video{}).Where("upstream_job_id = ?", job.ID).Updates(map[string]any{
+			"status":        "failed",
 			"error_code":    code,
 			"error_message": msg,
-			"completed_at":  now,
-		})
-	if res.Error != nil {
+			"finished_at":   now,
+		}).Error
+	})
+	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "internal_error"}})
 		return
 	}
@@ -343,7 +358,7 @@ func (h *AdminHandlers) CancelJob(c *gin.Context) {
 	// between our initial SELECT and this UPDATE (e.g. the processor
 	// completed it concurrently). Do not refund — the processor already
 	// handled it.
-	if res.RowsAffected == 0 {
+	if affected == 0 {
 		c.JSON(http.StatusConflict, gin.H{"error": gin.H{
 			"code":    "already_terminal",
 			"message": "job reached a terminal state before the cancel could be applied",
@@ -379,7 +394,7 @@ func (h *AdminHandlers) CancelJob(c *gin.Context) {
 		"original_status": job.Status,
 	})
 
-	c.JSON(http.StatusOK, gin.H{"affected": res.RowsAffected})
+	c.JSON(http.StatusOK, gin.H{"affected": affected})
 }
 
 // Audit returns the most recent audit log entries.

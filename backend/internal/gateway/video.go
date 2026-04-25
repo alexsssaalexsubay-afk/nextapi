@@ -1,6 +1,7 @@
 package gateway
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -8,6 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/abuse"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/auth"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/domain"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/idempotency"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/job"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/moderation"
@@ -220,10 +222,54 @@ func (h *VideoHandlers) Generate(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "internal_error"}})
 		return
 	}
+
+	// Create a mirrored row in videos so the dashboard history is unified.
+	// This keeps the legacy job id stable for older clients, but also gives a
+	// first-class videos UUID for the modern /v1/videos surface.
+	var mirroredVideoID *string
+	if h.DB != nil {
+		// Persist the legacy request payload as the new surface "input" shape.
+		reqJSON, _ := json.Marshal(map[string]any{
+			"prompt":           req.Prompt,
+			"image_url":        req.ImageURL,
+			"duration_seconds": req.DurationSeconds,
+			"resolution":       req.Resolution,
+			"mode":             req.Mode,
+			"aspect_ratio":     req.AspectRatio,
+			"fps":              req.FPS,
+			"generate_audio":   req.GenerateAudio,
+			"watermark":        req.Watermark,
+			"seed":             req.Seed,
+			"camera_fixed":     req.CameraFixed,
+			"draft":            req.Draft,
+			"image_urls":       req.ImageURLs,
+			"video_urls":       req.VideoURLs,
+			"audio_urls":       req.AudioURLs,
+			"first_frame_url":  req.FirstFrameURL,
+			"last_frame_url":   req.LastFrameURL,
+		})
+		vid := domain.Video{
+			OrgID:              org.ID,
+			APIKeyID:           input.APIKeyID,
+			Model:              req.Model,
+			Status:             "queued",
+			Input:              reqJSON,
+			Metadata:           json.RawMessage(`{}`),
+			UpstreamJobID:      &res.JobID,
+			EstimatedCostCents: res.EstimatedCredits,
+			ReservedCents:      res.EstimatedCredits,
+		}
+		if err := h.DB.WithContext(c.Request.Context()).Create(&vid).Error; err == nil {
+			mirroredVideoID = &vid.ID
+		}
+	}
 	resp := gin.H{
 		"id":                res.JobID,
 		"status":            res.Status,
 		"estimated_credits": res.EstimatedCredits,
+	}
+	if mirroredVideoID != nil {
+		resp["video_id"] = *mirroredVideoID
 	}
 	if h.DB != nil {
 		idempotency.Commit(c.Request.Context(), h.DB, org.ID, c, http.StatusAccepted, resp)

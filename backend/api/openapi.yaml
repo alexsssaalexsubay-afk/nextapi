@@ -1607,7 +1607,7 @@ components:
 
     VideoStatus:
       type: string
-      enum: [queued, running, succeeded, failed, cancelled]
+      enum: [queued, submitting, running, retrying, succeeded, failed, cancelled]
 
     AspectRatio:
       type: string

@@ -9,7 +9,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/hibiken/asynq"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/billing"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/idempotency"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/infra/config"
@@ -19,8 +18,10 @@ import (
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/notify"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/providerfactory"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/spend"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/storage/r2"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/throughput"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/webhook"
+	"github.com/hibiken/asynq"
 )
 
 func main() {
@@ -45,6 +46,11 @@ func main() {
 	spendSvc.SetRedis(rClient)
 	throughputSvc := throughput.NewService(gormDB, rClient)
 	proc := &job.Processor{DB: gormDB, Billing: billSvc, Spend: spendSvc, Prov: prov, Queue: queue, Webhooks: whSvc, Throughput: throughputSvc}
+	if r2c, r2err := r2.New(); r2err == nil {
+		proc.TempStorage = r2c
+	} else {
+		log.Printf("r2: %v (temporary upload cleanup disabled)", r2err)
+	}
 
 	bgCtx, bgCancel := context.WithCancel(context.Background())
 	defer bgCancel()

@@ -13,15 +13,19 @@ import (
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/infra/httpx"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/job"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/provider"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/spend"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/throughput"
 	"gorm.io/gorm"
 )
 
 // AdminJobHandlers provides operator-facing job management endpoints.
 // All routes require AdminMiddleware authentication.
 type AdminJobHandlers struct {
-	DB      *gorm.DB
-	JobSvc  *job.Service
-	Billing *billing.Service
+	DB         *gorm.DB
+	JobSvc     *job.Service
+	Billing    *billing.Service
+	Spend      *spend.Service
+	Throughput *throughput.Service
 }
 
 // GET /v1/internal/admin/jobs
@@ -194,20 +198,33 @@ func (h *AdminJobHandlers) CancelJob(c *gin.Context) {
 		}
 		if j.ReservedCredits > 0 {
 			refundCents := j.ReservedCredits
-			return tx.Create(&domain.CreditsLedger{
+			if err := tx.Create(&domain.CreditsLedger{
 				OrgID:        j.OrgID,
 				DeltaCredits: j.ReservedCredits,
 				DeltaCents:   &refundCents,
 				Reason:       domain.ReasonRefund,
 				JobID:        &j.ID,
 				Note:         "refund: admin canceled",
-			}).Error
+			}).Error; err != nil {
+				return err
+			}
 		}
-		return nil
+		return tx.Model(&domain.Video{}).Where("upstream_job_id = ?", j.ID).Updates(map[string]any{
+			"status":        "cancelled",
+			"error_code":    "admin_canceled",
+			"error_message": "canceled by operator",
+			"finished_at":   now,
+		}).Error
 	})
 	if err != nil {
 		httpx.InternalError(c, "cancel_failed", "failed to cancel job")
 		return
+	}
+	if h.Throughput != nil {
+		_ = h.Throughput.ReleaseForKey(c.Request.Context(), j.OrgID, j.APIKeyID, j.ID)
+	}
+	if h.Spend != nil {
+		h.Spend.DecrInflight(c.Request.Context(), j.OrgID, j.ReservedCredits)
 	}
 
 	RecordAudit(c.Request.Context(), h.DB, c, "admin.job.cancel", "job", jobID, nil)

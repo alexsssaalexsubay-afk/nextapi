@@ -2,10 +2,25 @@
 
 import { useState, useEffect, useRef, useCallback } from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
-import { ChevronLeft, ImageIcon, Play, Type, Upload, X } from "lucide-react"
+import {
+  ChevronLeft,
+  Download,
+  ExternalLink,
+  Film,
+  ImageIcon,
+  Loader2,
+  Music,
+  Paperclip,
+  RefreshCcw,
+  Send,
+  Sparkles,
+  Type,
+  Upload,
+  X,
+} from "lucide-react"
 import { DashboardShell } from "@/components/dashboard/dashboard-shell"
 import { CodeBlock } from "@/components/nextapi/code-block"
+import { StatusPill, type JobStatus } from "@/components/nextapi/status-pill"
 import { useTranslations } from "@/lib/i18n/context"
 import { cn } from "@/lib/utils"
 import { apiFetch, ApiError } from "@/lib/api"
@@ -13,8 +28,39 @@ import { jobApiErrorMessage } from "@/lib/api-error-i18n"
 import { toast } from "sonner"
 
 type Mode = "text" | "image"
+type CurrentVideo = {
+  id: string
+  model: string
+  status: string
+  output?: { url?: string; video_url?: string }
+  error_code?: string
+  error_message?: string
+  upstream_tokens?: number
+  actual_cost_cents?: number
+  estimated_cost_cents?: number
+  created_at?: string
+  finished_at?: string
+}
+type TempMedia = {
+  key: string
+  url: string
+  kind: "image" | "video" | "audio"
+  name: string
+  size?: number
+  expires_at?: string
+}
 
 const FALLBACK_MODELS = ["seedance-v2-pro", "seedance-v2"]
+const ACTIVE_STATUSES = new Set(["queued", "submitting", "running", "retrying"])
+const RATIOS = ["adaptive", "16:9", "9:16", "1:1", "4:3", "3:4", "21:9"]
+const RESOLUTIONS = ["480p", "720p", "1080p"]
+
+function parseMediaURLs(raw: string): string[] {
+  return raw
+    .split(/\r?\n|,/)
+    .map((v) => v.trim())
+    .filter((v) => v.startsWith("https://"))
+}
 
 // Mirrors backend/internal/provider/seedance/pricing.go
 function resolutionScale(r: string): number {
@@ -34,21 +80,43 @@ function estimateCostCredits(duration: number, resolution: string, hasImage: boo
   return Math.ceil((current / base) * 100) / 100
 }
 
+function toJobStatus(status: string): JobStatus {
+  if (status === "retrying") return "running"
+  if (["queued", "submitting", "running", "succeeded", "failed"].includes(status)) {
+    return status as JobStatus
+  }
+  return "queued"
+}
+
 export default function NewJobPage() {
   const t = useTranslations()
-  const router = useRouter()
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
+  const [currentVideo, setCurrentVideo] = useState<CurrentVideo | null>(null)
+  const [retrying, setRetrying] = useState(false)
   const [mode, setMode] = useState<Mode>("text")
   const [models, setModels] = useState<string[]>(FALLBACK_MODELS)
   const [model, setModel] = useState(FALLBACK_MODELS[0])
-  const [duration, setDuration] = useState("6")
-  const [resolution, setResolution] = useState("1080p")
+  const [duration, setDuration] = useState("5")
+  const [resolution, setResolution] = useState("720p")
+  const [aspectRatio, setAspectRatio] = useState("adaptive")
+  const [generateAudio, setGenerateAudio] = useState(true)
+  const [draft, setDraft] = useState(false)
+  const [seed, setSeed] = useState("")
+  const [webhookURL, setWebhookURL] = useState("")
   const [prompt, setPrompt] = useState("")
   const [imageUrl, setImageUrl] = useState("")
+  const [lastFrameUrl, setLastFrameUrl] = useState("")
+  const [referenceImageURLs, setReferenceImageURLs] = useState("")
+  const [referenceVideoURLs, setReferenceVideoURLs] = useState("")
+  const [referenceAudioURLs, setReferenceAudioURLs] = useState("")
   const [imageUploading, setImageUploading] = useState(false)
+  const [mediaUploading, setMediaUploading] = useState<TempMedia["kind"] | null>(null)
+  const [tempMedia, setTempMedia] = useState<TempMedia[]>([])
+  const [eventLog, setEventLog] = useState<string[]>([])
   const [estimatedCost, setEstimatedCost] = useState(1.0)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Load models from backend
   useEffect(() => {
@@ -70,11 +138,17 @@ export default function NewJobPage() {
   const updateCost = useCallback(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current)
     debounceRef.current = setTimeout(() => {
+      const hasVisualReference = Boolean(
+        imageUrl.trim() ||
+          lastFrameUrl.trim() ||
+          parseMediaURLs(referenceImageURLs).length > 0 ||
+          parseMediaURLs(referenceVideoURLs).length > 0,
+      )
       setEstimatedCost(
-        estimateCostCredits(Number(duration), resolution, mode === "image" && !!imageUrl.trim()),
+        estimateCostCredits(Number(duration), resolution, hasVisualReference),
       )
     }, 300)
-  }, [duration, resolution, mode, imageUrl])
+  }, [duration, resolution, imageUrl, lastFrameUrl, referenceImageURLs, referenceVideoURLs])
 
   useEffect(() => {
     updateCost()
@@ -87,7 +161,36 @@ export default function NewJobPage() {
   useEffect(() => {
     setSubmitError(null)
     toast.dismiss()
+    const last = window.localStorage.getItem("nextapi.last_video_prompt")
+    if (last) setPrompt(last)
   }, [])
+
+  const refreshCurrentVideo = useCallback(async (id: string) => {
+    const video = await apiFetch(`/v1/videos/${id}`) as CurrentVideo
+    setCurrentVideo(video)
+    setEventLog((logs) => [
+      new Date().toISOString() + " STATUS " + video.status,
+      JSON.stringify({
+        task_id: video.id,
+        status: video.status,
+        tokens: video.upstream_tokens,
+        error: video.error_message,
+      }, null, 2),
+      ...logs.slice(0, 30),
+    ])
+    return video
+  }, [])
+
+  useEffect(() => {
+    if (!currentVideo?.id || !ACTIVE_STATUSES.has(currentVideo.status)) return
+    if (pollRef.current) clearTimeout(pollRef.current)
+    pollRef.current = setTimeout(() => {
+      void refreshCurrentVideo(currentVideo.id).catch(() => undefined)
+    }, 4000)
+    return () => {
+      if (pollRef.current) clearTimeout(pollRef.current)
+    }
+  }, [currentVideo?.id, currentVideo?.status, refreshCurrentVideo])
 
   const onImagePicked = async (file: File) => {
     if (!file.type.startsWith("image/")) {
@@ -98,12 +201,25 @@ export default function NewJobPage() {
     try {
       const body = new FormData()
       body.append("file", file)
-      const res = (await apiFetch("/v1/me/uploads/image", {
+      const res = (await apiFetch("/v1/me/uploads/media", {
         method: "POST",
         body,
-      })) as { url?: string }
+      })) as TempMedia
       if (typeof res?.url === "string" && res.url) {
         setImageUrl(res.url)
+        if (res.key) {
+          setTempMedia((items) => [
+            ...items,
+            {
+              key: res.key,
+              url: res.url,
+              kind: "image",
+              name: file.name,
+              size: res.size,
+              expires_at: res.expires_at,
+            },
+          ])
+        }
         return
       }
       toast.error(t.jobs.new.form.imageUploadFailed)
@@ -118,6 +234,50 @@ export default function NewJobPage() {
     }
   }
 
+  const uploadTempMedia = async (file: File, expectedKind: TempMedia["kind"]) => {
+    const matchesKind = file.type.startsWith(`${expectedKind}/`)
+    if (!matchesKind) {
+      toast.error(t.jobs.new.form.wrongFileType)
+      return
+    }
+    setMediaUploading(expectedKind)
+    try {
+      const body = new FormData()
+      body.append("file", file)
+      const res = (await apiFetch("/v1/me/uploads/media", {
+        method: "POST",
+        body,
+      })) as TempMedia
+      if (res?.url && res?.key) {
+        const item = {
+          key: res.key,
+          url: res.url,
+          kind: res.kind || expectedKind,
+          name: file.name,
+          size: res.size,
+          expires_at: res.expires_at,
+        } as TempMedia
+        setTempMedia((items) => [...items, item])
+        if (item.kind === "image") {
+          setReferenceImageURLs((value) => [value, item.url].filter(Boolean).join("\n"))
+        } else if (item.kind === "video") {
+          setReferenceVideoURLs((value) => [value, item.url].filter(Boolean).join("\n"))
+        } else if (item.kind === "audio") {
+          setReferenceAudioURLs((value) => [value, item.url].filter(Boolean).join("\n"))
+        }
+        toast.success(t.jobs.new.form.tempUploadSuccess)
+      }
+    } catch (e) {
+      if (e instanceof ApiError && e.code === "uploads_unavailable") {
+        toast.error(t.jobs.new.form.tempUploadsUnavailable)
+      } else {
+        toast.error(t.jobs.new.form.tempUploadFailed)
+      }
+    } finally {
+      setMediaUploading(null)
+    }
+  }
+
   const submitJob = async () => {
     setSubmitting(true)
     setSubmitError(null)
@@ -126,51 +286,166 @@ export default function NewJobPage() {
       prompt,
       duration_seconds: Number(duration),
       resolution,
+      aspect_ratio: aspectRatio,
+      generate_audio: generateAudio,
+      draft,
     }
+    const seedNumber = seed.trim() ? Number(seed) : null
+    if (seedNumber != null && Number.isFinite(seedNumber)) {
+      input.seed = seedNumber
+    }
+    const imageURLs = parseMediaURLs(referenceImageURLs).slice(0, 9)
+    const videoURLs = parseMediaURLs(referenceVideoURLs).slice(0, 3)
+    const audioURLs = parseMediaURLs(referenceAudioURLs).slice(0, 3)
     if (mode === "image" && imageUrl.trim()) {
-      input.image_url = imageUrl.trim()
+      input.first_frame_url = imageUrl.trim()
     }
-    const body = { model, input }
+    if (mode === "image" && lastFrameUrl.trim()) {
+      input.last_frame_url = lastFrameUrl.trim()
+    }
+    if (imageURLs.length > 0) {
+      input.image_urls = imageURLs
+    }
+    if (videoURLs.length > 0) {
+      input.video_urls = videoURLs
+    }
+    if (audioURLs.length > 0) {
+      input.audio_urls = audioURLs
+    }
+    if (tempMedia.length > 0) {
+      input.temp_media_keys = tempMedia.map((item) => item.key)
+    }
+    const body: Record<string, unknown> = { model, input }
+    if (webhookURL.trim()) {
+      body.webhook_url = webhookURL.trim()
+    }
     try {
+      window.localStorage.setItem("nextapi.last_video_prompt", prompt)
+      setEventLog((logs) => [
+        new Date().toISOString() + " SUBMIT request queued",
+        JSON.stringify({
+          model,
+          duration: Number(duration),
+          resolution,
+          ratio: aspectRatio,
+          generate_audio: generateAudio,
+          draft,
+          seed: seedNumber,
+          num_images: imageURLs.length + (imageUrl.trim() ? 1 : 0),
+          num_videos: videoURLs.length,
+          num_audios: audioURLs.length,
+          temp_media: tempMedia.length,
+        }, null, 2),
+        ...logs,
+      ])
       const res = await apiFetch("/v1/videos", {
         method: "POST",
         body: JSON.stringify(body),
         headers: { "Idempotency-Key": idempotencyKey },
       })
-      toast.success(t.jobs.new.tracker.succeededTitle)
+      toast.success(t.jobs.new.task.created)
       const jobId: string = res?.id ?? res?.job_id ?? ""
       if (jobId) {
-        router.push(`/jobs/${jobId}`)
+        setCurrentVideo({
+          id: jobId,
+          model,
+          status: res?.status ?? "queued",
+          estimated_cost_cents: res?.estimated_cost_cents,
+          created_at: res?.created_at,
+        })
+        setEventLog((logs) => [
+          new Date().toISOString() + " TASK created " + jobId,
+          JSON.stringify({ task_id: jobId, status: res?.status ?? "queued" }, null, 2),
+          ...logs,
+        ])
+        void refreshCurrentVideo(jobId).catch(() => undefined)
       } else {
-        router.push("/jobs")
+        setCurrentVideo(null)
       }
     } catch (err) {
       const msg = jobApiErrorMessage(t, err)
       setSubmitError(msg)
+      setEventLog((logs) => [
+        new Date().toISOString() + " SUBMIT error",
+        JSON.stringify({ error: msg }, null, 2),
+        ...logs,
+      ])
       toast.error(msg)
     } finally {
       setSubmitting(false)
     }
   }
 
-  const curlBody =
-    mode === "image"
-      ? `{
+  const retryCurrentVideo = async () => {
+    if (!currentVideo?.id) return
+    setRetrying(true)
+    try {
+      const res = await apiFetch(`/v1/videos/${currentVideo.id}/retry`, { method: "POST" }) as CurrentVideo
+      if (res?.id) {
+        toast.success(t.jobs.new.task.retryQueued)
+        setCurrentVideo(res)
+        void refreshCurrentVideo(res.id).catch(() => undefined)
+      }
+    } catch (err) {
+      const msg = jobApiErrorMessage(t, err)
+      toast.error(msg)
+    } finally {
+      setRetrying(false)
+    }
+  }
+
+  const imageURLs = parseMediaURLs(referenceImageURLs).slice(0, 9)
+  const videoURLs = parseMediaURLs(referenceVideoURLs).slice(0, 3)
+  const audioURLs = parseMediaURLs(referenceAudioURLs).slice(0, 3)
+  const hasAnyMedia =
+    Boolean(imageUrl.trim() || lastFrameUrl.trim()) ||
+    imageURLs.length > 0 ||
+    videoURLs.length > 0 ||
+    audioURLs.length > 0
+  const hasVisualMedia =
+    Boolean(imageUrl.trim() || lastFrameUrl.trim()) ||
+    imageURLs.length > 0 ||
+    videoURLs.length > 0
+  const canSubmit = !submitting && Boolean(prompt.trim()) && (mode === "text" || hasVisualMedia)
+  const attachmentCount =
+    (imageUrl.trim() ? 1 : 0) +
+    (lastFrameUrl.trim() ? 1 : 0) +
+    imageURLs.length +
+    videoURLs.length +
+    audioURLs.length
+
+  const removeTempMedia = (item: TempMedia) => {
+    setTempMedia((items) => items.filter((x) => x.key !== item.key))
+    if (imageUrl === item.url) setImageUrl("")
+    if (item.kind === "image") {
+      setReferenceImageURLs((value) => parseMediaURLs(value).filter((url) => url !== item.url).join("\n"))
+    } else if (item.kind === "video") {
+      setReferenceVideoURLs((value) => parseMediaURLs(value).filter((url) => url !== item.url).join("\n"))
+    } else if (item.kind === "audio") {
+      setReferenceAudioURLs((value) => parseMediaURLs(value).filter((url) => url !== item.url).join("\n"))
+    }
+  }
+
+  const curlInputLines = [
+    `    "prompt": "${prompt}"`,
+    imageUrl.trim() ? `    "first_frame_url": "${imageUrl.trim()}"` : null,
+    lastFrameUrl.trim() ? `    "last_frame_url": "${lastFrameUrl.trim()}"` : null,
+    imageURLs.length > 0 ? `    "image_urls": ${JSON.stringify(imageURLs)}` : null,
+    videoURLs.length > 0 ? `    "video_urls": ${JSON.stringify(videoURLs)}` : null,
+    audioURLs.length > 0 ? `    "audio_urls": ${JSON.stringify(audioURLs)}` : null,
+    tempMedia.length > 0 ? `    "temp_media_keys": ${JSON.stringify(tempMedia.map((item) => item.key))}` : null,
+    `    "duration_seconds": ${duration}`,
+    `    "resolution": "${resolution}"`,
+    `    "aspect_ratio": "${aspectRatio}"`,
+    `    "generate_audio": ${generateAudio}`,
+    `    "draft": ${draft}`,
+    seed.trim() ? `    "seed": ${Number(seed)}` : null,
+  ].filter(Boolean).join(",\n")
+  const curlBody = `{
   "model": "${model}",
   "input": {
-    "prompt": "${prompt}",
-    "image_url": "https://cdn.example.com/source.jpg",
-    "duration_seconds": ${duration},
-    "resolution": "${resolution}"
-  }
-}`
-      : `{
-  "model": "${model}",
-  "input": {
-    "prompt": "${prompt}",
-    "duration_seconds": ${duration},
-    "resolution": "${resolution}"
-  }
+${curlInputLines}
+  }${webhookURL.trim() ? `,\n  "webhook_url": "${webhookURL.trim()}"` : ""}
 }`
 
   return (
@@ -184,13 +459,29 @@ export default function NewJobPage() {
           {t.jobs.detail.backToJobs}
         </Link>
       </div>
-      <div className="grid min-w-0 grid-cols-1 gap-6 p-6 lg:grid-cols-[minmax(0,1fr)_420px]">
+      <div className="mx-auto grid w-full max-w-[1360px] min-w-0 grid-cols-1 gap-6 p-6 xl:grid-cols-[minmax(0,1fr)_420px]">
         <section className="flex min-w-0 flex-col gap-5">
-          <div>
-            <h1 className="text-[22px] font-medium tracking-tight">{t.jobs.new.title}</h1>
-            <p className="mt-1 max-w-[560px] text-[13px] text-muted-foreground">
-              {t.jobs.new.intro}
-            </p>
+          <div className="rounded-[28px] border border-border/80 bg-gradient-to-br from-card/80 via-card/40 to-background p-6 shadow-sm">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <div className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                  {t.jobs.new.kicker}
+                </div>
+                <h1 className="mt-2 text-[28px] font-medium tracking-tight">{t.jobs.new.title}</h1>
+                <p className="mt-2 max-w-[680px] text-[13px] leading-relaxed text-muted-foreground">
+                  {t.jobs.new.intro}
+                </p>
+              </div>
+              <div className="rounded-2xl border border-border/80 bg-background/70 px-4 py-3">
+                <div className="text-[10.5px] uppercase tracking-[0.16em] text-muted-foreground">
+                  {t.jobs.new.estimatedCost}
+                </div>
+                <div className="mt-1 flex items-baseline gap-1.5">
+                  <span className="font-mono text-[24px] text-foreground">{estimatedCost.toFixed(2)}</span>
+                  <span className="text-[12px] text-muted-foreground">{t.common.credits}</span>
+                </div>
+              </div>
+            </div>
           </div>
 
           {submitError && (
@@ -199,187 +490,309 @@ export default function NewJobPage() {
             </div>
           )}
 
-          <div className="flex min-w-0 flex-col gap-5 rounded-xl border border-border/80 bg-card/40 p-6">
-            <Field label={t.jobs.new.form.mode} hint={t.jobs.new.form.modeHint}>
-              <div className="grid grid-cols-2 gap-2 rounded-md border border-border/80 bg-background p-1">
-                <ModeButton
-                  active={mode === "text"}
-                  onClick={() => setMode("text")}
-                  icon={Type}
-                  label={t.jobs.new.form.modeTextToVideo}
-                  sub="t2v"
-                />
-                <ModeButton
-                  active={mode === "image"}
-                  onClick={() => setMode("image")}
-                  icon={ImageIcon}
-                  label={t.jobs.new.form.modeImageToVideo}
-                  sub="i2v"
-                />
-              </div>
-            </Field>
-
-            <div className="grid grid-cols-2 gap-4">
-              <Field label={t.jobs.new.form.model}>
-                <select
-                  value={model}
-                  onChange={(e) => setModel(e.target.value)}
-                  className="h-9 w-full rounded-md border border-border/80 bg-background px-3 font-mono text-[13px] text-foreground focus:border-signal/50 focus:outline-none"
-                >
-                  {models.map((m) => (
-                    <option key={m} value={m}>
-                      {m}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-              <Field label={t.jobs.new.form.resolution}>
-                <select
-                  value={resolution}
-                  onChange={(e) => setResolution(e.target.value)}
-                  className="h-9 w-full rounded-md border border-border/80 bg-background px-3 font-mono text-[13px] text-foreground focus:border-signal/50 focus:outline-none"
-                >
-                  <option value="720p">720p</option>
-                  <option value="1080p">1080p</option>
-                  <option value="2K">2K</option>
-                  <option value="4K">4K</option>
-                </select>
-              </Field>
-            </div>
-
-            {mode === "image" && (
-              <Field
-                label={t.jobs.new.form.sourceImage}
-                hint={t.jobs.new.form.sourceImageHint}
-              >
-                <div className="space-y-3">
-                  <div
-                    className="relative min-h-[120px] overflow-hidden rounded-md border border-dashed border-border/80 bg-background transition-colors hover:border-signal/50"
-                    onDragOver={(e) => {
-                      e.preventDefault()
-                      e.stopPropagation()
-                    }}
-                    onDrop={(e) => {
-                      e.preventDefault()
-                      e.stopPropagation()
-                      const f = e.dataTransfer.files?.[0]
-                      if (f) void onImagePicked(f)
-                    }}
-                  >
-                    <input
-                      type="file"
-                      accept="image/png,image/jpeg,image/webp,image/gif"
-                      className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
-                      disabled={imageUploading}
-                      onChange={(e) => {
-                        const f = e.target.files?.[0]
-                        e.target.value = ""
-                        if (f) void onImagePicked(f)
-                      }}
-                    />
-                    <div className="pointer-events-none flex min-h-[120px] flex-col items-center justify-center gap-1.5 py-5 text-center text-muted-foreground">
-                      {imageUploading ? (
-                        <span className="text-[12.5px] text-foreground/80">
-                          {t.jobs.new.form.imageUploading}
-                        </span>
-                      ) : (
-                        <>
-                          <Upload className="size-5" />
-                          <span className="text-[12.5px]">{t.jobs.new.form.sourceImageDrop}</span>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                  <div className="min-w-0">
-                    <span className="mb-1 block text-[10.5px] text-muted-foreground">
-                      {t.jobs.new.form.sourceImageOrPaste}
-                    </span>
-                    <input
-                      value={imageUrl}
-                      onChange={(e) => setImageUrl(e.target.value)}
-                      placeholder={t.jobs.new.form.sourceImageUrlPlaceholder}
-                      className="h-9 w-full min-w-0 max-w-full rounded-md border border-border/80 bg-background px-2 font-mono text-[12px] text-foreground focus:border-signal/50 focus:outline-none"
-                    />
-                  </div>
-                  {imageUrl.trim() && (
-                    <div className="flex items-center gap-3 rounded-md border border-border/80 bg-background p-2 pr-1">
-                      {/* eslint-disable-next-line @next/next/no-img-element -- user-supplied or presigned URL */}
-                      <img
-                        src={imageUrl.trim()}
-                        alt=""
-                        className="h-16 w-16 shrink-0 rounded object-cover"
-                      />
-                      <p className="min-w-0 flex-1 truncate font-mono text-[11px] text-muted-foreground">
-                        {imageUrl.trim()}
-                      </p>
-                      <button
-                        type="button"
-                        onClick={() => setImageUrl("")}
-                        className="inline-flex size-7 shrink-0 items-center justify-center rounded-md border border-border/80 text-muted-foreground hover:text-foreground"
-                        aria-label={t.jobs.new.form.sourceImageReplace}
-                      >
-                        <X className="size-3.5" />
-                      </button>
-                    </div>
-                  )}
-                  <p className="text-[10.5px] leading-relaxed text-muted-foreground">
-                    {t.jobs.new.form.apiCapabilitiesNote}
-                  </p>
-                </div>
-              </Field>
-            )}
-
-            <Field label={t.jobs.new.form.prompt}>
-              <textarea
-                rows={3}
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-                className="w-full rounded-md border border-border/80 bg-background px-3 py-2 text-[13px] text-foreground placeholder:text-muted-foreground/60 focus:border-signal/50 focus:outline-none"
-              />
-            </Field>
-
-            <Field label={t.jobs.new.form.duration}>
-              <select
-                value={duration}
-                onChange={(e) => setDuration(e.target.value)}
-                className="h-9 w-full rounded-md border border-border/80 bg-background px-3 font-mono text-[13px] text-foreground focus:border-signal/50 focus:outline-none"
-              >
-                <option value="5">5s</option>
-                <option value="6">6s</option>
-                <option value="10">10s</option>
-                <option value="30">30s</option>
-              </select>
-            </Field>
-
-            <div className="flex items-center justify-between border-t border-border/60 pt-5">
-              <div className="flex flex-col gap-0.5 font-mono text-[11.5px] text-muted-foreground">
-                <div>
-                  {t.jobs.new.willReserve}{" "}
-                  <span className="text-foreground">
-                    {estimatedCost.toFixed(2)} {t.common.credits}
+          <div className="overflow-hidden rounded-[28px] border border-border/80 bg-card/40 shadow-sm">
+            <div className="border-b border-border/60 bg-background/40 px-5 py-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="size-4 text-signal" />
+                  <span className="text-[13px] font-medium">{t.jobs.new.composer.title}</span>
+                  <span className="rounded-full border border-border/70 px-2 py-0.5 font-mono text-[10.5px] text-muted-foreground">
+                    {attachmentCount}/12
                   </span>
                 </div>
+                <div className="flex flex-wrap gap-2">
+                  <ModeButton
+                    active={mode === "text"}
+                    onClick={() => setMode("text")}
+                    icon={Type}
+                    label={t.jobs.new.form.modeTextToVideo}
+                    sub="t2v"
+                  />
+                  <ModeButton
+                    active={mode === "image"}
+                    onClick={() => setMode("image")}
+                    icon={ImageIcon}
+                    label={t.jobs.new.form.modeImageToVideo}
+                    sub="i2v"
+                  />
+                </div>
               </div>
-              <button
-                onClick={submitJob}
-                disabled={submitting || (mode === "image" && !imageUrl.trim())}
-                className={cn(
-                  "inline-flex h-9 items-center gap-1.5 rounded-md bg-foreground px-4 text-[13px] font-medium text-background transition-all",
-                  (submitting || (mode === "image" && !imageUrl.trim())) && "opacity-60",
-                )}
-              >
-                {submitting ? (
-                  <>
-                    <span className="size-3 animate-spin rounded-full border-2 border-background border-t-transparent" />
-                    {t.jobs.states.submitting}
-                  </>
+            </div>
+
+            <div
+              className="space-y-4 p-5"
+              onDragOver={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+              }}
+              onDrop={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                const f = e.dataTransfer.files?.[0]
+                if (!f) return
+                if (f.type.startsWith("image/") && mode === "image" && !imageUrl.trim()) {
+                  void onImagePicked(f)
+                } else if (f.type.startsWith("image/")) {
+                  void uploadTempMedia(f, "image")
+                } else if (f.type.startsWith("video/")) {
+                  void uploadTempMedia(f, "video")
+                } else if (f.type.startsWith("audio/")) {
+                  void uploadTempMedia(f, "audio")
+                } else {
+                  toast.error(t.jobs.new.form.wrongFileType)
+                }
+              }}
+            >
+              <div className="rounded-2xl border border-dashed border-border/80 bg-background/70 p-4">
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <div className="text-[12.5px] font-medium">{t.jobs.new.composer.attachments}</div>
+                    <p className="mt-1 text-[11.5px] text-muted-foreground">{t.jobs.new.composer.attachmentsHint}</p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <AttachmentUploadButton
+                      icon={ImageIcon}
+                      label={t.jobs.new.form.referenceImages}
+                      accept="image/*"
+                      uploading={imageUploading || mediaUploading === "image"}
+                      onUpload={(file) => mode === "image" && !imageUrl.trim() ? onImagePicked(file) : uploadTempMedia(file, "image")}
+                    />
+                    <AttachmentUploadButton
+                      icon={Film}
+                      label={t.jobs.new.form.referenceVideos}
+                      accept="video/mp4,video/quicktime,video/*"
+                      uploading={mediaUploading === "video"}
+                      onUpload={(file) => uploadTempMedia(file, "video")}
+                    />
+                    <AttachmentUploadButton
+                      icon={Music}
+                      label={t.jobs.new.form.referenceAudio}
+                      accept="audio/mpeg,audio/wav,audio/aac,audio/*"
+                      uploading={mediaUploading === "audio"}
+                      onUpload={(file) => uploadTempMedia(file, "audio")}
+                    />
+                  </div>
+                </div>
+
+                {!hasAnyMedia && tempMedia.length === 0 ? (
+                  <div className="flex min-h-[82px] items-center justify-center rounded-xl bg-card/40 text-center text-[12px] text-muted-foreground">
+                    <span className="max-w-[420px]">{t.jobs.new.composer.emptyAttachments}</span>
+                  </div>
                 ) : (
-                  <>
-                    <Play className="size-3.5" />
-                    {t.jobs.new.form.submit}
-                  </>
+                  <div className="flex gap-3 overflow-x-auto pb-1">
+                    {imageUrl.trim() && (
+                      <AttachmentPreview
+                        kind={t.jobs.new.form.firstLastFrame}
+                        label={imageUrl.trim()}
+                        url={imageUrl.trim()}
+                        onRemove={() => setImageUrl("")}
+                      />
+                    )}
+                    {lastFrameUrl.trim() && (
+                      <AttachmentPreview
+                        kind={t.jobs.new.form.lastFrameUrl}
+                        label={lastFrameUrl.trim()}
+                        onRemove={() => setLastFrameUrl("")}
+                      />
+                    )}
+                    {tempMedia.map((item) => (
+                      <AttachmentPreview
+                        key={item.key}
+                        kind={item.kind}
+                        label={item.name}
+                        url={item.kind === "image" ? item.url : undefined}
+                        onRemove={() => removeTempMedia(item)}
+                      />
+                    ))}
+                  </div>
                 )}
-              </button>
+              </div>
+
+              <div className="rounded-2xl border border-border/80 bg-background">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 px-4 py-3">
+                  <span className="inline-flex items-center gap-2 text-[12.5px] font-medium">
+                    <Paperclip className="size-3.5 text-muted-foreground" />
+                    {t.jobs.new.composer.promptBox}
+                  </span>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const last = window.localStorage.getItem("nextapi.last_video_prompt")
+                        if (last) setPrompt(last)
+                      }}
+                      className="h-7 rounded-md border border-border/80 px-2.5 text-[11.5px] text-muted-foreground hover:text-foreground"
+                    >
+                      {t.jobs.new.form.useLastPrompt}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        void navigator.clipboard.writeText(prompt)
+                        toast.success(t.jobs.new.form.promptCopied)
+                      }}
+                      className="h-7 rounded-md border border-border/80 px-2.5 text-[11.5px] text-muted-foreground hover:text-foreground"
+                    >
+                      {t.jobs.new.form.copyPrompt}
+                    </button>
+                  </div>
+                </div>
+                <textarea
+                  rows={8}
+                  value={prompt}
+                  onChange={(e) => setPrompt(e.target.value)}
+                  placeholder={t.jobs.new.form.promptPlaceholder}
+                  className="min-h-[180px] w-full resize-none bg-transparent px-4 py-4 text-[14px] leading-relaxed text-foreground placeholder:text-muted-foreground/60 focus:outline-none"
+                />
+                <div className="border-t border-border/60 px-4 py-3">
+                  <div className="grid gap-3 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <label className="min-w-0">
+                        <span className="mb-1 block text-[10.5px] uppercase tracking-[0.14em] text-muted-foreground">{t.jobs.new.form.model}</span>
+                        <select
+                          value={model}
+                          onChange={(e) => setModel(e.target.value)}
+                          className="h-9 w-full rounded-md border border-border/80 bg-card/60 px-3 font-mono text-[12px] text-foreground focus:border-signal/50 focus:outline-none"
+                        >
+                          {models.map((m) => (
+                            <option key={m} value={m}>{m}</option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="min-w-0">
+                        <span className="mb-1 block text-[10.5px] uppercase tracking-[0.14em] text-muted-foreground">{t.jobs.new.form.webhook}</span>
+                        <input
+                          value={webhookURL}
+                          onChange={(e) => setWebhookURL(e.target.value)}
+                          placeholder="https://example.com/webhooks/video"
+                          className="h-9 w-full rounded-md border border-border/80 bg-card/60 px-3 font-mono text-[12px] text-foreground focus:border-signal/50 focus:outline-none"
+                        />
+                      </label>
+                    </div>
+                    <div className="flex flex-wrap items-end justify-start gap-2 lg:justify-end">
+                      <PillSelect label={t.jobs.new.form.resolution} value={resolution} onChange={setResolution} values={RESOLUTIONS} />
+                      <PillSelect label={t.jobs.new.form.aspectRatio} value={aspectRatio} onChange={setAspectRatio} values={RATIOS} />
+                      <label className="rounded-xl border border-border/80 bg-card/60 px-3 py-2">
+                        <span className="block text-[10px] uppercase tracking-[0.14em] text-muted-foreground">{t.jobs.new.form.duration}</span>
+                        <span className="mt-1 flex items-center gap-2">
+                          <input
+                            type="range"
+                            min={4}
+                            max={15}
+                            value={duration}
+                            onChange={(e) => setDuration(e.target.value)}
+                            className="w-24"
+                          />
+                          <span className="w-8 font-mono text-[12px] text-foreground">{duration}s</span>
+                        </span>
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <TogglePill label={t.jobs.new.form.generateAudio} checked={generateAudio} onChange={setGenerateAudio} />
+                    <TogglePill label={t.jobs.new.form.draft} checked={draft} onChange={setDraft} />
+                    <div className="flex h-9 items-center gap-2 rounded-full border border-border/80 bg-card/60 px-3">
+                      <span className="text-[11px] text-muted-foreground">{t.jobs.new.form.seed}</span>
+                      <input
+                        value={seed}
+                        onChange={(e) => setSeed(e.target.value.replace(/[^\d-]/g, ""))}
+                        placeholder={t.jobs.new.form.seedPlaceholder}
+                        className="w-24 bg-transparent font-mono text-[11.5px] text-foreground placeholder:text-muted-foreground/50 focus:outline-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setSeed(String(Math.floor(Math.random() * 2 ** 31)))}
+                        className="text-[11px] text-muted-foreground hover:text-foreground"
+                      >
+                        {t.jobs.new.form.randomSeed}
+                      </button>
+                    </div>
+                    <div className="ml-auto flex items-center gap-3">
+                      <span className="font-mono text-[11.5px] text-muted-foreground">
+                        {t.jobs.new.willReserve} <span className="text-foreground">{estimatedCost.toFixed(2)} {t.common.credits}</span>
+                      </span>
+                      <button
+                        onClick={submitJob}
+                        disabled={!canSubmit}
+                        className={cn(
+                          "inline-flex h-10 items-center gap-2 rounded-full bg-foreground px-5 text-[13px] font-medium text-background transition-all",
+                          !canSubmit && "opacity-60",
+                        )}
+                      >
+                        {submitting ? (
+                          <>
+                            <span className="size-3 animate-spin rounded-full border-2 border-background border-t-transparent" />
+                            {t.jobs.states.submitting}
+                          </>
+                        ) : (
+                          <>
+                            <Send className="size-3.5" />
+                            {t.jobs.new.form.submit}
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid gap-4 lg:grid-cols-2">
+            <div className="rounded-2xl border border-border/80 bg-card/40 p-5">
+              <SectionHeader title={t.jobs.new.sections.references} description={t.jobs.new.sections.referencesHint} />
+              <div className="mt-4 grid gap-3">
+                <MediaURLBox
+                  label={t.jobs.new.form.referenceImages}
+                  value={referenceImageURLs}
+                  onChange={setReferenceImageURLs}
+                  placeholder={"https://.../style.png\nhttps://.../character.webp"}
+                  count={`${imageURLs.length}/9`}
+                  accept="image/*"
+                  uploading={mediaUploading === "image"}
+                  uploadLabel={t.jobs.new.form.uploadTempFile}
+                  uploadingLabel={t.jobs.new.form.uploadingTempFile}
+                  onUpload={(file) => uploadTempMedia(file, "image")}
+                />
+                <MediaURLBox
+                  label={t.jobs.new.form.referenceVideos}
+                  value={referenceVideoURLs}
+                  onChange={setReferenceVideoURLs}
+                  placeholder={"https://.../motion.mp4\nhttps://.../scene.mov"}
+                  count={`${videoURLs.length}/3`}
+                  accept="video/mp4,video/quicktime,video/*"
+                  uploading={mediaUploading === "video"}
+                  uploadLabel={t.jobs.new.form.uploadTempFile}
+                  uploadingLabel={t.jobs.new.form.uploadingTempFile}
+                  onUpload={(file) => uploadTempMedia(file, "video")}
+                />
+                <MediaURLBox
+                  label={t.jobs.new.form.referenceAudio}
+                  value={referenceAudioURLs}
+                  onChange={setReferenceAudioURLs}
+                  placeholder={"https://.../voice.mp3\nhttps://.../music.wav"}
+                  count={`${audioURLs.length}/3`}
+                  accept="audio/mpeg,audio/wav,audio/aac,audio/*"
+                  uploading={mediaUploading === "audio"}
+                  uploadLabel={t.jobs.new.form.uploadTempFile}
+                  uploadingLabel={t.jobs.new.form.uploadingTempFile}
+                  onUpload={(file) => uploadTempMedia(file, "audio")}
+                />
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-border/80 bg-card/40 p-5">
+              <SectionHeader title={t.jobs.new.library.title} description={t.jobs.new.library.description} />
+              <div className="mt-4 grid gap-3">
+                <LibraryMetric label={t.jobs.new.form.referenceImages} value={`${imageURLs.length}/9`} />
+                <LibraryMetric label={t.jobs.new.form.referenceVideos} value={`${videoURLs.length}/3`} />
+                <LibraryMetric label={t.jobs.new.form.referenceAudio} value={`${audioURLs.length}/3`} />
+                <LibraryMetric label={t.jobs.new.form.tempMediaTitle} value={String(tempMedia.length)} />
+              </div>
+              <p className="mt-4 text-[11.5px] leading-relaxed text-muted-foreground">
+                {t.jobs.new.form.tempMediaHint}
+              </p>
             </div>
           </div>
 
@@ -399,6 +812,14 @@ export default function NewJobPage() {
         </section>
 
         <aside className="flex min-w-0 flex-col gap-4">
+          <StatusFlowCard status={currentVideo?.status ?? "idle"} labels={t.jobs.new.flow} />
+          <CurrentTaskCard
+            video={currentVideo}
+            retrying={retrying}
+            onRetry={retryCurrentVideo}
+            logs={eventLog}
+            labels={t.jobs.new.task}
+          />
           <div className="rounded-xl border border-border/80 bg-card/40 p-5">
             <h2 className="text-[13px] font-medium tracking-tight">
               {t.jobs.new.estimatedCost}
@@ -411,7 +832,7 @@ export default function NewJobPage() {
             </div>
             <div className="mt-3 flex flex-wrap gap-1.5 font-mono text-[10.5px]">
               <span className="rounded-sm bg-signal/10 px-1.5 py-0.5 text-signal">
-                {mode === "image" ? "image-to-video" : "text-to-video"}
+                {mode === "image" ? t.jobs.new.form.modeImageToVideo : t.jobs.new.form.modeTextToVideo}
               </span>
               <span className="rounded-sm bg-card px-1.5 py-0.5 text-muted-foreground">
                 {model}
@@ -433,25 +854,196 @@ export default function NewJobPage() {
   )
 }
 
-function Field({
+function SectionHeader({ title, description }: { title: string; description?: string }) {
+  return (
+    <div className="border-t border-border/60 pt-5 first:border-t-0 first:pt-0">
+      <h2 className="text-[14px] font-medium tracking-tight">{title}</h2>
+      {description && (
+        <p className="mt-1 text-[12px] leading-relaxed text-muted-foreground">{description}</p>
+      )}
+    </div>
+  )
+}
+
+function AttachmentUploadButton({
+  icon: Icon,
   label,
-  hint,
-  children,
+  accept,
+  uploading,
+  onUpload,
 }: {
+  icon: React.ComponentType<{ className?: string }>
   label: string
-  hint?: string
-  children: React.ReactNode
+  accept: string
+  uploading: boolean
+  onUpload: (file: File) => void
 }) {
   return (
-    <label className="block">
-      <span className="mb-1.5 block font-mono text-[10.5px] uppercase tracking-[0.14em] text-muted-foreground">
-        {label}
-      </span>
-      {children}
-      {hint && (
-        <span className="mt-1.5 block text-[11px] text-muted-foreground">{hint}</span>
-      )}
+    <label className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-full border border-border/80 bg-card/60 px-3 text-[12px] text-muted-foreground transition-colors hover:text-foreground">
+      <input
+        type="file"
+        accept={accept}
+        disabled={uploading}
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0]
+          e.target.value = ""
+          if (file) onUpload(file)
+        }}
+      />
+      {uploading ? <Loader2 className="size-3.5 animate-spin" /> : <Icon className="size-3.5" />}
+      {label}
     </label>
+  )
+}
+
+function AttachmentPreview({
+  kind,
+  label,
+  url,
+  onRemove,
+}: {
+  kind: string
+  label: string
+  url?: string
+  onRemove: () => void
+}) {
+  return (
+    <div className="group relative flex h-24 w-36 shrink-0 overflow-hidden rounded-xl border border-border/80 bg-card/70">
+      {url ? (
+        // eslint-disable-next-line @next/next/no-img-element -- user-supplied or presigned URL
+        <img src={url} alt="" className="absolute inset-0 h-full w-full object-cover" />
+      ) : (
+        <div className="absolute inset-0 flex items-center justify-center text-muted-foreground">
+          <Paperclip className="size-5" />
+        </div>
+      )}
+      <div className="absolute inset-x-0 bottom-0 bg-background/90 p-2 backdrop-blur">
+        <div className="font-mono text-[9.5px] uppercase tracking-[0.12em] text-muted-foreground">{kind}</div>
+        <div className="truncate text-[11px] text-foreground">{label}</div>
+      </div>
+      <button
+        type="button"
+        onClick={onRemove}
+        className="absolute right-1.5 top-1.5 inline-flex size-6 items-center justify-center rounded-full bg-background/90 text-muted-foreground opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100"
+      >
+        <X className="size-3.5" />
+      </button>
+    </div>
+  )
+}
+
+function PillSelect({
+  label,
+  value,
+  values,
+  onChange,
+}: {
+  label: string
+  value: string
+  values: string[]
+  onChange: (value: string) => void
+}) {
+  return (
+    <label className="rounded-xl border border-border/80 bg-card/60 px-3 py-2">
+      <span className="block text-[10px] uppercase tracking-[0.14em] text-muted-foreground">{label}</span>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="mt-1 bg-transparent font-mono text-[12px] text-foreground focus:outline-none"
+      >
+        {values.map((item) => (
+          <option key={item} value={item}>
+            {item}
+          </option>
+        ))}
+      </select>
+    </label>
+  )
+}
+
+function TogglePill({
+  label,
+  checked,
+  onChange,
+}: {
+  label: string
+  checked: boolean
+  onChange: (checked: boolean) => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => onChange(!checked)}
+      className={cn(
+        "inline-flex h-9 items-center gap-2 rounded-full border px-3 text-[12px] transition-colors",
+        checked ? "border-foreground bg-foreground text-background" : "border-border/80 bg-card/60 text-muted-foreground hover:text-foreground",
+      )}
+    >
+      <span className={cn("size-1.5 rounded-full", checked ? "bg-background" : "bg-muted-foreground")} />
+      {label}
+    </button>
+  )
+}
+
+function LibraryMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between rounded-xl border border-border/70 bg-background/60 px-3 py-2">
+      <span className="text-[12px] text-muted-foreground">{label}</span>
+      <span className="font-mono text-[12px] text-foreground">{value}</span>
+    </div>
+  )
+}
+
+function StatusFlowCard({
+  status,
+  labels,
+}: {
+  status: string
+  labels: {
+    title: string
+    idle: string
+    submit: string
+    queue: string
+    run: string
+    callback: string
+    done: string
+  }
+}) {
+  const steps = [
+    { key: "idle", label: labels.idle },
+    { key: "submitting", label: labels.submit },
+    { key: "queued", label: labels.queue },
+    { key: "running", label: labels.run },
+    { key: "callback", label: labels.callback },
+    { key: "succeeded", label: labels.done },
+  ]
+  const activeIndex = Math.max(0, steps.findIndex((step) => step.key === status))
+  const completeIndex = status === "failed" || status === "canceled" || status === "cancelled" ? 3 : activeIndex
+
+  return (
+    <div className="rounded-xl border border-border/80 bg-card/40 p-5">
+      <h2 className="text-[13px] font-medium tracking-tight">{labels.title}</h2>
+      <div className="mt-4 space-y-3">
+        {steps.map((step, index) => {
+          const done = index <= completeIndex && status !== "idle"
+          const current = step.key === status || (step.key === "callback" && status === "succeeded")
+          return (
+            <div key={step.key} className="flex items-center gap-3">
+              <span
+                className={cn(
+                  "flex size-5 items-center justify-center rounded-full border font-mono text-[10px]",
+                  current || done ? "border-foreground bg-foreground text-background" : "border-border text-muted-foreground",
+                )}
+              >
+                {index + 1}
+              </span>
+              <span className={cn("text-[12px]", current ? "text-foreground" : "text-muted-foreground")}>{step.label}</span>
+            </div>
+          )
+        })}
+      </div>
+    </div>
   )
 }
 
@@ -483,5 +1075,215 @@ function ModeButton({
       <span className="font-medium">{label}</span>
       <span className="font-mono text-[10.5px] text-muted-foreground">{sub}</span>
     </button>
+  )
+}
+
+function MediaURLBox({
+  label,
+  value,
+  onChange,
+  placeholder,
+  count,
+  accept,
+  uploading,
+  uploadLabel,
+  uploadingLabel,
+  onUpload,
+}: {
+  label: string
+  value: string
+  onChange: (value: string) => void
+  placeholder: string
+  count: string
+  accept: string
+  uploading: boolean
+  uploadLabel: string
+  uploadingLabel: string
+  onUpload: (file: File) => void
+}) {
+  return (
+    <div className="min-w-0 rounded-md border border-border/80 bg-background p-3">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <span className="text-[12px] font-medium text-foreground">{label}</span>
+        <span className="font-mono text-[10.5px] text-muted-foreground">{count}</span>
+      </div>
+      <label className="mb-2 flex h-8 cursor-pointer items-center justify-center rounded-md border border-dashed border-border/80 text-[11.5px] text-muted-foreground hover:text-foreground">
+        <input
+          type="file"
+          accept={accept}
+          disabled={uploading}
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0]
+            e.target.value = ""
+            if (file) onUpload(file)
+          }}
+        />
+        {uploading ? uploadingLabel : uploadLabel}
+      </label>
+      <textarea
+        rows={4}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className="w-full resize-none rounded-md border border-border/70 bg-card/40 px-2 py-2 font-mono text-[11.5px] text-foreground placeholder:text-muted-foreground/50 focus:border-signal/50 focus:outline-none"
+      />
+    </div>
+  )
+}
+
+function CurrentTaskCard({
+  video,
+  retrying,
+  onRetry,
+  logs,
+  labels,
+}: {
+  video: CurrentVideo | null
+  retrying: boolean
+  onRetry: () => void
+  logs: string[]
+  labels: {
+    title: string
+    idleDescription: string
+    failedOutput: string
+    waitingOutput: string
+    model: string
+    cost: string
+    tokens: string
+    finished: string
+    details: string
+    download: string
+    retry: string
+    retrying: string
+    outputStorageNotice: string
+    callbackConsole: string
+    copyAll: string
+    status: Record<string, string>
+  }
+}) {
+  if (!video) {
+    return (
+      <div className="rounded-xl border border-border/80 bg-card/40 p-5">
+        <h2 className="text-[13px] font-medium tracking-tight">{labels.title}</h2>
+        <p className="mt-2 text-[12.5px] leading-relaxed text-muted-foreground">
+          {labels.idleDescription}
+        </p>
+        {logs.length > 0 && <CallbackLog logs={logs} title={labels.callbackConsole} copyAll={labels.copyAll} />}
+      </div>
+    )
+  }
+
+  const status = toJobStatus(video.status)
+  const active = ACTIVE_STATUSES.has(video.status)
+  const videoURL = video.output?.url || video.output?.video_url
+  const cost = video.actual_cost_cents ?? video.estimated_cost_cents
+
+  return (
+    <div className="rounded-xl border border-border/80 bg-card/40 p-5">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h2 className="text-[13px] font-medium tracking-tight">{labels.title}</h2>
+          <p className="mt-1 font-mono text-[11px] text-muted-foreground">{video.id}</p>
+        </div>
+        <StatusPill status={status} label={labels.status[video.status] ?? video.status} />
+      </div>
+
+      <div className="mt-4 overflow-hidden rounded-lg border border-border/70 bg-background">
+        {videoURL ? (
+          <video src={videoURL} controls className="aspect-video w-full bg-black object-contain" />
+        ) : (
+          <div className="flex aspect-video flex-col items-center justify-center gap-2 px-4 text-center text-[12px] text-muted-foreground">
+            {active ? <Loader2 className="size-4 animate-spin" /> : null}
+            {video.status === "failed" ? labels.failedOutput : labels.waitingOutput}
+          </div>
+        )}
+      </div>
+
+      <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-background">
+        <div
+          className={cn(
+            "h-full rounded-full bg-foreground transition-all",
+            video.status === "queued" && "w-1/5",
+            video.status === "submitting" && "w-2/5",
+            (video.status === "running" || video.status === "retrying") && "w-3/4",
+            video.status === "succeeded" && "w-full",
+            video.status === "failed" && "w-full bg-status-failed",
+          )}
+        />
+      </div>
+
+      <div className="mt-4 grid grid-cols-2 gap-2 text-[12px]">
+        <Metric label={labels.model} value={video.model || "—"} />
+        <Metric label={labels.cost} value={cost != null ? `$${(cost / 100).toFixed(2)}` : "—"} />
+        <Metric label={labels.tokens} value={video.upstream_tokens != null ? video.upstream_tokens.toLocaleString() : "—"} />
+        <Metric label={labels.finished} value={video.finished_at ? new Date(video.finished_at).toLocaleTimeString() : "—"} />
+      </div>
+
+      {(video.error_code || video.error_message) && (
+        <div className="mt-3 rounded-lg border border-status-failed/25 bg-status-failed-dim/10 p-3 text-[12.5px] text-status-failed">
+          <span className="font-mono">{video.error_code || "failed"}</span>
+          {video.error_message ? <span className="ml-2 text-foreground/80">{video.error_message}</span> : null}
+        </div>
+      )}
+
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        <Link
+          href={`/jobs/${video.id}`}
+          className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border/80 px-3 text-[12.5px] hover:bg-background"
+        >
+          <ExternalLink className="size-3.5" /> {labels.details}
+        </Link>
+        {videoURL && (
+          <a href={videoURL} download className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border/80 px-3 text-[12.5px] hover:bg-background">
+            <Download className="size-3.5" /> {labels.download}
+          </a>
+        )}
+        {video.status === "failed" && (
+          <button
+            type="button"
+            disabled={retrying}
+            onClick={onRetry}
+            className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border/80 px-3 text-[12.5px] hover:bg-background disabled:opacity-50"
+          >
+            <RefreshCcw className="size-3.5" /> {retrying ? labels.retrying : labels.retry}
+          </button>
+        )}
+      </div>
+      <p className="mt-3 text-[10.5px] leading-relaxed text-muted-foreground">
+        {labels.outputStorageNotice}
+      </p>
+      <CallbackLog logs={logs} title={labels.callbackConsole} copyAll={labels.copyAll} />
+    </div>
+  )
+}
+
+function CallbackLog({ logs, title, copyAll }: { logs: string[]; title: string; copyAll: string }) {
+  if (logs.length === 0) return null
+  return (
+    <div className="mt-4 rounded-lg border border-border/70 bg-background p-3">
+      <div className="mb-2 flex items-center justify-between">
+        <span className="text-[12px] font-medium text-foreground">{title}</span>
+        <button
+          type="button"
+          onClick={() => void navigator.clipboard.writeText(logs.join("\n\n"))}
+          className="text-[11px] text-muted-foreground hover:text-foreground"
+        >
+          {copyAll}
+        </button>
+      </div>
+      <pre className="max-h-56 overflow-auto whitespace-pre-wrap font-mono text-[10.5px] leading-relaxed text-muted-foreground">
+        {logs.join("\n\n")}
+      </pre>
+    </div>
+  )
+}
+
+function Metric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-md border border-border/60 bg-background/60 px-3 py-2">
+      <div className="text-[10.5px] uppercase tracking-[0.12em] text-muted-foreground/70">{label}</div>
+      <div className="mt-1 truncate font-mono text-[12px] text-foreground/90">{value}</div>
+    </div>
   )
 }

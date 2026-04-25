@@ -40,6 +40,7 @@ type GenerationRequest struct {
 	AudioURLs     []string // reference audios, max 3 (requires image or video)
 	FirstFrameURL *string  // first frame image (mutually exclusive with ImageURLs)
 	LastFrameURL  *string  // last frame image (requires FirstFrameURL)
+	TempMediaKeys []string // internal R2 keys to delete after the task reaches terminal state
 }
 
 type JobStatus struct {
