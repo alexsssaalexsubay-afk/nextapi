@@ -51,17 +51,23 @@ func (h *MediaUploadHandlers) postMedia(c *gin.Context, forcedKind string) {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": gin.H{
 				"code":    "invalid_request",
-				"message": "expected multipart with field \"file\"",
+				"message": "expected multipart/form-data upload with field \"file\"",
 			},
 		})
 		return
 	}
 	fh, err := c.FormFile("file")
 	if err != nil {
+		fh, err = c.FormFile("media")
+	}
+	if err != nil {
+		fh, err = c.FormFile("upload")
+	}
+	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": gin.H{
 				"code":    "invalid_request",
-				"message": "missing file field",
+				"message": "missing multipart file field; use field name \"file\"",
 			},
 		})
 		return

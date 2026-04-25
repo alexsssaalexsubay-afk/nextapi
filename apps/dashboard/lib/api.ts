@@ -149,15 +149,24 @@ export async function logoutAccount(): Promise<void> {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
+function isFormDataBody(body: BodyInit | null | undefined): body is FormData {
+  return typeof FormData !== "undefined" && body instanceof FormData
+}
+
 export async function apiFetch(path: string, options: RequestInit = {}) {
   const doFetch = async (key: string | null) => {
+    const isMultipart = isFormDataBody(options.body)
     const headers: Record<string, string> = {
       ...(key ? { Authorization: `Bearer ${key}` } : {}),
     }
-    if (options.body && !(options.body instanceof FormData)) {
+    if (options.body && !isMultipart) {
       headers["Content-Type"] = "application/json"
     }
     Object.assign(headers, options.headers as Record<string, string> | undefined)
+    if (isMultipart) {
+      delete headers["Content-Type"]
+      delete headers["content-type"]
+    }
     return fetch(`${API_URL}${path}`, { ...options, headers })
   }
 
@@ -172,7 +181,7 @@ export async function apiFetch(path: string, options: RequestInit = {}) {
 
   // 5xx network errors: retry once with exponential backoff (500ms, 1000ms).
   // Do not retry mutating FormData (e.g. R2 upload) to avoid duplicate objects.
-  if (res.status >= 500 && !(options.body instanceof FormData)) {
+  if (res.status >= 500 && !isFormDataBody(options.body)) {
     await sleep(500)
     res = await doFetch(key)
     if (res.status >= 500) {
