@@ -9,6 +9,11 @@ export const dynamic = "force-dynamic"
 export const metadata: Metadata = {
   title: "Dashboard — NextAPI",
   description: "Manage your video generation pipeline",
+  icons: {
+    icon: [{ url: "/icon.svg", type: "image/svg+xml" }],
+    shortcut: [{ url: "/icon.svg", type: "image/svg+xml" }],
+    apple: [{ url: "/icon.svg", type: "image/svg+xml" }],
+  },
 }
 
 export default function RootLayout({
