@@ -219,3 +219,33 @@ export async function apiFetch(path: string, options: RequestInit = {}) {
   if (res.status === 204 || res.headers.get("content-length") === "0") return {}
   return res.json()
 }
+
+export async function apiUpload(path: string, formData: FormData) {
+  const doUpload = async (key: string | null) => {
+    const headers: Record<string, string> = {
+      ...(key ? { Authorization: `Bearer ${key}` } : {}),
+    }
+    return fetch(`${API_URL}${path}`, {
+      method: "POST",
+      headers,
+      body: formData,
+    })
+  }
+
+  let key = await getDashboardKey(false)
+  let res = await doUpload(key)
+  if (res.status === 401) {
+    key = await getDashboardKey(true)
+    if (key) res = await doUpload(key)
+  }
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new ApiError(
+      body?.error?.message || `API error: ${res.status}`,
+      res.status,
+      body?.error?.code,
+    )
+  }
+  if (res.status === 204 || res.headers.get("content-length") === "0") return {}
+  return res.json()
+}

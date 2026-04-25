@@ -21,7 +21,7 @@ import { DashboardShell } from "@/components/dashboard/dashboard-shell"
 import { StatusPill, type JobStatus } from "@/components/nextapi/status-pill"
 import { useTranslations } from "@/lib/i18n/context"
 import { cn } from "@/lib/utils"
-import { apiFetch, ApiError } from "@/lib/api"
+import { apiFetch, apiUpload, ApiError } from "@/lib/api"
 import { jobApiErrorMessage } from "@/lib/api-error-i18n"
 import { toast } from "sonner"
 
@@ -200,10 +200,7 @@ export default function NewJobPage() {
     try {
       const body = new FormData()
       body.append("file", file)
-      const res = (await apiFetch("/v1/me/uploads/media", {
-        method: "POST",
-        body,
-      })) as TempMedia
+      const res = (await apiUpload("/v1/me/uploads/media", body)) as TempMedia
       if (typeof res?.url === "string" && res.url) {
         setImageUrl(res.url)
         if (res.key) {
@@ -245,10 +242,7 @@ export default function NewJobPage() {
     try {
       const body = new FormData()
       body.append("file", file)
-      const res = (await apiFetch("/v1/me/uploads/media", {
-        method: "POST",
-        body,
-      })) as TempMedia
+      const res = (await apiUpload("/v1/me/uploads/media", body)) as TempMedia
       if (res?.url && res?.key) {
         const item = {
           key: res.key,
