@@ -228,12 +228,13 @@ func main() {
 	ob := &gateway.OrgBillingHandlers{DB: gormDB}
 	api.GET("/billing/settings", ob.GetBillingSettings)
 	api.PATCH("/billing/settings", ob.UpdateBillingSettings)
-	// Expose org-scoped balance / ledger / usage to dashboard session keys
-	// so signed-in users can see their own top-ups, reservations, refunds,
-	// admin adjustments, and per-day usage from the in-product UI.
-	// Handlers scope results to the caller's org via auth.OrgFrom.
-	api.GET("/billing/ledger", h.Ledger)
-	api.GET("/billing/usage", h.Usage)
+	// Expose org-scoped ledger / usage to dashboard session keys so signed-in
+	// users can see their own top-ups, reservations, refunds, admin
+	// adjustments, and per-day usage from the in-product UI. Use a /me/ path
+	// to avoid colliding with the ak_* admin routes registered below, which
+	// share the same v1 base. Handlers scope by auth.OrgFrom either way.
+	api.GET("/me/billing/ledger", h.Ledger)
+	api.GET("/me/billing/usage", h.Usage)
 
 	// Self-service webhook management (sk_* keys manage their own org's webhooks)
 	api.GET("/webhooks", whh.List)

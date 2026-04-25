@@ -84,8 +84,8 @@ export default function BillingPage() {
     setLoading(true)
     Promise.allSettled([
       apiFetch("/v1/auth/me"),
-      apiFetch("/v1/billing/usage?days=30"),
-      apiFetch("/v1/billing/ledger?limit=200"),
+      apiFetch("/v1/me/billing/usage?days=30"),
+      apiFetch("/v1/me/billing/ledger?limit=200"),
     ]).then(([meRes, usageRes, ledgerRes]) => {
       if (meRes.status === "fulfilled" && typeof meRes.value?.balance === "number") {
         setBalanceCents(meRes.value.balance)
