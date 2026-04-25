@@ -3,6 +3,7 @@ package gateway
 import (
 	"bytes"
 	"io"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -47,14 +48,30 @@ func (h *MediaUploadHandlers) postMedia(c *gin.Context, forcedKind string) {
 		c.AbortWithStatus(http.StatusUnauthorized)
 		return
 	}
+	ct := c.GetHeader("Content-Type")
+	cl := c.Request.ContentLength
 	if err := c.Request.ParseMultipartForm(maxVideoUpload + 1<<20); err != nil {
+		log.Printf("media_upload: ParseMultipartForm failed: ct=%q content_length=%d err=%v",
+			ct, cl, err)
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": gin.H{
 				"code":    "invalid_request",
-				"message": "expected multipart/form-data upload with field \"file\"",
+				"message": "expected multipart/form-data upload with field \"file\" (" + err.Error() + ")",
 			},
 		})
 		return
+	}
+	if c.Request.MultipartForm != nil {
+		fileNames := make([]string, 0, len(c.Request.MultipartForm.File))
+		for k := range c.Request.MultipartForm.File {
+			fileNames = append(fileNames, k)
+		}
+		valueNames := make([]string, 0, len(c.Request.MultipartForm.Value))
+		for k := range c.Request.MultipartForm.Value {
+			valueNames = append(valueNames, k)
+		}
+		log.Printf("media_upload: parsed ok ct=%q file_fields=%v value_fields=%v",
+			ct, fileNames, valueNames)
 	}
 	fh, err := c.FormFile("file")
 	if err != nil {
@@ -64,6 +81,7 @@ func (h *MediaUploadHandlers) postMedia(c *gin.Context, forcedKind string) {
 		fh, err = c.FormFile("upload")
 	}
 	if err != nil {
+		log.Printf("media_upload: missing file field err=%v", err)
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": gin.H{
 				"code":    "invalid_request",
@@ -111,7 +129,7 @@ func (h *MediaUploadHandlers) postMedia(c *gin.Context, forcedKind string) {
 		})
 		return
 	}
-	ct := http.DetectContentType(data)
+	ct = http.DetectContentType(data)
 	if ct == "application/octet-stream" || ct == "text/plain; charset=utf-8" {
 		if headerCT := strings.TrimSpace(fh.Header.Get("Content-Type")); headerCT != "" {
 			ct = headerCT
