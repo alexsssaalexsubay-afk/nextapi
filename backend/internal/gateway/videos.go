@@ -137,6 +137,13 @@ func (h *VideosHandlers) Create(c *gin.Context) {
 		}})
 		return
 	}
+	if err := validateTempMediaKeys(org.ID, input.TempMediaKeys); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{
+			"code":    "invalid_temp_media_keys",
+			"message": err.Error(),
+		}})
+		return
+	}
 
 	// SSRF guards for extended media URLs.
 	for i, u := range input.ImageURLs {
@@ -297,6 +304,13 @@ func (h *VideosHandlers) Retry(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "invalid_original_input", "message": "original video input could not be decoded"}})
 		return
 	}
+	if len(input.TempMediaKeys) > 0 {
+		c.JSON(http.StatusConflict, gin.H{"error": gin.H{
+			"code":    "temporary_media_not_retryable",
+			"message": "this job used temporary uploaded media that may have been deleted; upload the media again and submit a new task",
+		}})
+		return
+	}
 
 	res, err := h.Jobs.Create(c.Request.Context(), job.CreateInput{
 		OrgID:    org.ID,
@@ -383,6 +397,25 @@ func videoGenerationRequest(model string, input videoInput) provider.GenerationR
 		LastFrameURL:    input.LastFrameURL,
 		TempMediaKeys:   input.TempMediaKeys,
 	}
+}
+
+func validateTempMediaKeys(orgID string, keys []string) error {
+	if len(keys) > 12 {
+		return errors.New("temp_media_keys: max 12")
+	}
+	requiredPrefix := "temp/" + orgID + "/"
+	for i, key := range keys {
+		if key == "" {
+			continue
+		}
+		if !strings.HasPrefix(key, requiredPrefix) {
+			return fmt.Errorf("temp_media_keys[%d] must belong to the authenticated org", i)
+		}
+		if strings.Contains(key, "..") || strings.Contains(key, "\\") {
+			return fmt.Errorf("temp_media_keys[%d] contains an invalid path segment", i)
+		}
+	}
+	return nil
 }
 
 // Get handles GET /v1/videos/:id.

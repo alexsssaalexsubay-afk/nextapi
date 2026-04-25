@@ -94,6 +94,14 @@ export default function CreditsPage() {
   // TODO: align with backend response — tile metrics from billing aggregates when available.
   const orgCount = orgs.length
   const pausedCount = orgs.filter((o) => (o.PausedAt ?? o.paused_at) != null).length
+  const issuedCredits = ledger.reduce((sum, entry) => {
+    const delta = edelta(entry)
+    return delta > 0 ? sum + delta : sum
+  }, 0)
+  const reclaimedCredits = ledger.reduce((sum, entry) => {
+    const delta = edelta(entry)
+    return delta < 0 ? sum + Math.abs(delta) : sum
+  }, 0)
 
   async function onSubmitAdjust(e: FormEvent) {
     e.preventDefault()
@@ -169,15 +177,15 @@ export default function CreditsPage() {
         )}
         {/* Summary tiles */}
         <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
-          <Tile label={p.tiles.issuedLabel} value="+8,420" sub={p.tiles.issuedSub} tone="success" />
-          <Tile label={p.tiles.reclaimedLabel} value="−214.80" sub={p.tiles.reclaimedSub} tone="failed" />
+          <Tile label={p.tiles.issuedLabel} value={`+${formatInt(issuedCredits)}`} sub={p.tiles.issuedSub} tone="success" />
+          <Tile label={p.tiles.reclaimedLabel} value={`-${formatInt(reclaimedCredits)}`} sub={p.tiles.reclaimedSub} tone="failed" />
           <Tile
             label={p.tiles.pendingLabel}
             value={orgCount > 0 ? formatInt(pausedCount) : "2"}
             sub={p.tiles.pendingSub}
             tone="warn"
           />
-          <Tile label={p.tiles.driftLabel} value="0.03%" sub={p.tiles.driftSub} tone="default" />
+          <Tile label={p.tiles.driftLabel} value="—" sub={p.tiles.driftSub} tone="default" />
         </section>
 
         <section className="rounded-xl border border-border/80 bg-card/40 p-5">
@@ -284,30 +292,13 @@ export default function CreditsPage() {
           </ul>
         </section>
 
-        {/* Reconciliation hint */}
-        {/* Reconciliation — static preview until real-time reconciliation ships */}
-        <div className="rounded-md border border-yellow-500/30 bg-yellow-500/5 px-4 py-2 font-mono text-[11px] text-yellow-500">
-          PREVIEW · reconciliation data below is illustrative. Real-time drift tracking is on the roadmap.
-        </div>
         <section className="rounded-xl border border-border/80 bg-card/40 p-5">
           <h2 className="text-[13.5px] font-medium tracking-tight">{p.reconciliation.title}</h2>
           <p className="mt-1 max-w-[680px] text-[12.5px] leading-relaxed text-muted-foreground">
             {p.reconciliation.description}
           </p>
-          <div className="mt-4 overflow-hidden rounded-md border border-border/60">
-            <div className="grid grid-cols-5 bg-background/40 px-4 py-2 font-mono text-[10.5px] uppercase tracking-[0.14em] text-muted-foreground">
-              <span>{p.reconciliation.columns.window}</span>
-              <span>{p.reconciliation.columns.reserved}</span>
-              <span>{p.reconciliation.columns.billed}</span>
-              <span>{p.reconciliation.columns.refunded}</span>
-              <span>{p.reconciliation.columns.drift}</span>
-            </div>
-            <ul className="divide-y divide-border/60 font-mono text-[11.5px]">
-              <ReconRow window={p.reconciliation.windowLabels.h1} reserved="142.00" billed="118.40" refunded="23.60" drift="0.00%" />
-              <ReconRow window={p.reconciliation.windowLabels.h24} reserved="4,120.00" billed="3,412.84" refunded="706.20" drift="0.02%" />
-              <ReconRow window={p.reconciliation.windowLabels.d7} reserved="28,904.00" billed="24,018.42" refunded="4,884.12" drift="0.01%" />
-              <ReconRow window={p.reconciliation.windowLabels.d30} reserved="112,842.00" billed="93,718.02" refunded="19,089.40" drift="0.03%" />
-            </ul>
+          <div className="mt-4 rounded-md border border-border/60 bg-background/40 px-4 py-8 text-center font-mono text-[11.5px] text-muted-foreground">
+            Real-time reconciliation metrics are not wired yet. Ledger entries above are live.
           </div>
         </section>
       </div>
@@ -347,26 +338,3 @@ function Tile({
   )
 }
 
-function ReconRow({
-  window: w,
-  reserved,
-  billed,
-  refunded,
-  drift,
-}: {
-  window: string
-  reserved: string
-  billed: string
-  refunded: string
-  drift: string
-}) {
-  return (
-    <li className="grid grid-cols-5 items-center px-4 py-2.5">
-      <span className="text-muted-foreground">{w}</span>
-      <span className="text-foreground/90">{reserved}</span>
-      <span className="text-foreground">{billed}</span>
-      <span className="text-status-success">{refunded}</span>
-      <span className="text-foreground/90">{drift}</span>
-    </li>
-  )
-}

@@ -386,8 +386,9 @@ func (p *Processor) cleanupTempMedia(ctx context.Context, j *domain.Job) {
 	if err := json.Unmarshal(j.Request, &req); err != nil || len(req.TempMediaKeys) == 0 {
 		return
 	}
+	requiredPrefix := "temp/" + j.OrgID + "/"
 	for _, key := range req.TempMediaKeys {
-		if key == "" || !strings.HasPrefix(key, "temp/") {
+		if key == "" || !strings.HasPrefix(key, requiredPrefix) {
 			continue
 		}
 		_ = p.TempStorage.Delete(ctx, key)

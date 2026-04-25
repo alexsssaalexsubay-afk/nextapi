@@ -15,46 +15,7 @@ type Incident = {
   steps: { t: string; note: string; by?: string }[]
 }
 
-const incidents: Incident[] = [
-  {
-    id: "inc_2026_0422_01",
-    title: "Elevated Seedance p99 on pool-A",
-    level: "monitoring",
-    window: "2026-04-22 21:56 UTC → ongoing · 18m",
-    impact: "p99 latency 412ms → 640ms on pool-A · 18% of traffic · no error rate increase",
-    steps: [
-      { t: "21:56 UTC", note: "Monitor · p99 breach on pool-A (threshold 500ms)" },
-      { t: "21:57 UTC", note: "Auto-shift · 18% traffic routed to pool-B", by: "runbook-bot" },
-      { t: "22:04 UTC", note: "Upstream acknowledged degraded GPU node", by: "seedance.support" },
-      { t: "22:12 UTC", note: "Watching · no customer-visible error increase", by: "m. winters" },
-    ],
-  },
-  {
-    id: "inc_2026_0422_00",
-    title: "Webhook delivery lag > 5s",
-    level: "resolved",
-    window: "2026-04-22 18:02 → 20:14 UTC · 2h 12m",
-    impact: "Delivery p95 5.1s · 142 deliveries retried · all settled within SLO",
-    steps: [
-      { t: "18:02", note: "Monitor · webhook.p95 breach" },
-      { t: "18:14", note: "Root cause · egress queue saturation on edge-3", by: "j. li" },
-      { t: "19:40", note: "Mitigation · +4 workers, drain flag enabled", by: "j. li" },
-      { t: "20:14", note: "Resolved · latency baseline restored" },
-    ],
-  },
-  {
-    id: "inc_2026_0425_00",
-    title: "Quarterly key rotation window",
-    level: "scheduled",
-    window: "2026-04-25 04:00 → 04:30 UTC · 30m",
-    impact: "Zero-impact rollout · dual-read of old + new signing secrets for 72h",
-    steps: [
-      { t: "T-72h", note: "Publish new HMAC secret in dashboard · customers opt-in early" },
-      { t: "T-0", note: "Cut over signing secret · dual-verify enabled" },
-      { t: "T+72h", note: "Retire old secret · alert any customer still using it" },
-    ],
-  },
-]
+const incidents: Incident[] = []
 
 export default function IncidentsPage() {
   const t = useTranslations()
@@ -67,10 +28,6 @@ export default function IncidentsPage() {
       description={p.description}
       meta={
         <>
-          <span className="rounded border border-yellow-500/30 bg-yellow-500/10 px-2 py-0.5 font-mono text-[10px] text-yellow-500">
-            PREVIEW · static demo data
-          </span>
-          <span className="text-muted-foreground/50">·</span>
           <span>{p.meta.statusDegraded}</span>
           <span className="text-muted-foreground/50">·</span>
           <span>{p.meta.uptime}</span>
@@ -90,22 +47,24 @@ export default function IncidentsPage() {
       }
     >
       <div className="space-y-6 p-6">
-        <div className="rounded-md border border-yellow-500/30 bg-yellow-500/5 px-4 py-2 font-mono text-[11px] text-yellow-500">
-          PREVIEW · this page is a layout sample. Wire it up to real incident
-          tooling (status.io / Statuspage / a `/v1/internal/admin/incidents`
-          endpoint) before relying on it for runbooks.
+        <div className="rounded-md border border-border/80 bg-background/40 px-4 py-2 font-mono text-[11px] text-muted-foreground">
+          Incident tooling is not connected yet. No synthetic incidents are shown.
         </div>
         {/* SLO strip */}
         <section className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-border/80 bg-border/80 md:grid-cols-4">
-          <SLO label={p.slo.apiAvailability} value="99.982%" targetLabel={p.slo.target} targetValue="99.95%" ok />
-          <SLO label={p.slo.jobSuccess} value="99.41%" targetLabel={p.slo.target} targetValue="99.00%" ok />
-          <SLO label={p.slo.webhookP95} value="742ms" targetLabel={p.slo.target} targetValue="< 2s" ok />
-          <SLO label={p.slo.seedanceP99} value="640ms" targetLabel={p.slo.target} targetValue="< 500ms" />
+          <SLO label={p.slo.apiAvailability} value="—" targetLabel={p.slo.target} targetValue="99.95%" />
+          <SLO label={p.slo.jobSuccess} value="—" targetLabel={p.slo.target} targetValue="99.00%" />
+          <SLO label={p.slo.webhookP95} value="—" targetLabel={p.slo.target} targetValue="< 2s" />
+          <SLO label={p.slo.seedanceP99} value="—" targetLabel={p.slo.target} targetValue="< 500ms" />
         </section>
 
         {/* Timeline */}
         <section className="space-y-5">
-          {incidents.map((i) => (
+          {incidents.length === 0 ? (
+            <div className="rounded-xl border border-border/80 bg-card/40 px-5 py-10 text-center text-[12.5px] text-muted-foreground">
+              No incident records are available.
+            </div>
+          ) : incidents.map((i) => (
             <article
               key={i.id}
               className="overflow-hidden rounded-xl border border-border/80 bg-card/40"
