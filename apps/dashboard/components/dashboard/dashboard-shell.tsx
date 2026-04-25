@@ -213,7 +213,7 @@ export function DashboardShell({
           <div className="flex items-center gap-3">
             <span className="hidden items-center gap-2 text-[12px] text-muted-foreground md:inline-flex">
               <span className="font-mono text-foreground">
-                {balance !== null ? balance.toFixed(2) : "—"}
+                {balance !== null ? (balance / 100).toFixed(2) : "—"}
               </span>{" "}
               {t.common.credits}
             </span>

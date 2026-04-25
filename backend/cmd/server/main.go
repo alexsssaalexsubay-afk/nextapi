@@ -228,6 +228,12 @@ func main() {
 	ob := &gateway.OrgBillingHandlers{DB: gormDB}
 	api.GET("/billing/settings", ob.GetBillingSettings)
 	api.PATCH("/billing/settings", ob.UpdateBillingSettings)
+	// Expose org-scoped balance / ledger / usage to dashboard session keys
+	// so signed-in users can see their own top-ups, reservations, refunds,
+	// admin adjustments, and per-day usage from the in-product UI.
+	// Handlers scope results to the caller's org via auth.OrgFrom.
+	api.GET("/billing/ledger", h.Ledger)
+	api.GET("/billing/usage", h.Usage)
 
 	// Self-service webhook management (sk_* keys manage their own org's webhooks)
 	api.GET("/webhooks", whh.List)
