@@ -88,7 +88,7 @@ export default function JobsPage() {
         }
       })
       .catch((e) => {
-        if (!cancelled) setFetchError(e instanceof Error ? e.message : "load failed")
+        if (!cancelled) setFetchError(e instanceof Error ? e.message : t.common.loadFailed)
       })
     return () => { cancelled = true }
   }, [])

@@ -69,7 +69,7 @@ export default function KeysPage() {
       // Hide internally-managed dashboard session keys; users didn't create them.
       setKeys(all.filter((k) => k.name !== "dashboard-session"))
     } catch {
-      toast.error("Failed to load API keys")
+      toast.error(t.keys.toasts.loadFailed)
     } finally {
       setLoading(false)
     }
@@ -97,7 +97,7 @@ export default function KeysPage() {
       fetchKeys()
       toast.success(t.keys.create + " ✓")
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Failed to create key")
+      toast.error(err instanceof Error ? err.message : t.keys.toasts.createFailed)
     } finally {
       setCreating(false)
     }
@@ -128,9 +128,9 @@ export default function KeysPage() {
       })
       setEditKey(null)
       fetchKeys()
-      toast.success("Key updated ✓")
+      toast.success(t.keys.toasts.updateSuccess)
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Failed to update key")
+      toast.error(err instanceof Error ? err.message : t.keys.toasts.updateFailed)
     } finally {
       setSaving(false)
     }
@@ -140,15 +140,15 @@ export default function KeysPage() {
     try {
       await apiFetch(`/v1/me/keys/${id}`, { method: "DELETE" })
       fetchKeys()
-      toast.success("Key revoked")
+      toast.success(t.keys.toasts.revokeSuccess)
     } catch {
-      toast.error("Failed to revoke key")
+      toast.error(t.keys.toasts.revokeFailed)
     }
   }
 
   function copyToClipboard(text: string) {
     navigator.clipboard.writeText(text)
-    toast.success("Copied to clipboard")
+    toast.success(t.keys.toasts.copied)
   }
 
   return (

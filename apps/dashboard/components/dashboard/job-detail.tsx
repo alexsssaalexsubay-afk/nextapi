@@ -59,7 +59,7 @@ export function JobDetail({ jobId }: { jobId: string }) {
       setLoadError(null)
       return data as VideoDetail
     } catch (e) {
-      setLoadError(e instanceof Error ? e.message : "Failed to load job")
+      setLoadError(e instanceof Error ? e.message : t.common.loadFailed)
       return null
     }
   }, [jobId])

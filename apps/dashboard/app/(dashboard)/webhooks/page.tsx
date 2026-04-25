@@ -83,12 +83,12 @@ export default function WebhooksPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url: formUrl.trim(), event_types: [] }),
       })
-      toast.success("Webhook created")
+      toast.success(t.webhooks.toasts.createSuccess)
       setShowCreate(false)
       setFormUrl("")
       loadWebhooks()
     } catch {
-      toast.error("Failed to create webhook")
+      toast.error(t.webhooks.toasts.createFailed)
     } finally {
       setCreating(false)
     }
@@ -97,11 +97,11 @@ export default function WebhooksPage() {
   async function handleDelete(id: string) {
     try {
       await apiFetch(`/v1/webhooks/${id}`, { method: "DELETE" })
-      toast.success("Webhook deleted")
+      toast.success(t.webhooks.toasts.deleteSuccess)
       if (selected === id) setSelected(null)
       loadWebhooks()
     } catch {
-      toast.error("Failed to delete webhook")
+      toast.error(t.webhooks.toasts.deleteFailed)
     }
   }
 

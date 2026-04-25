@@ -77,7 +77,7 @@ export default function DashboardHome() {
           setJobs([])
         }
       } catch (e) {
-        if (!cancelled) setError(e instanceof Error ? e.message : "load failed")
+        if (!cancelled) setError(e instanceof Error ? e.message : t.common.loadFailed)
       }
     }
     load()
