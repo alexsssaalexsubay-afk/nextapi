@@ -162,11 +162,6 @@ export function JobsTable({
                               <Meta label="Started" value={r.startedAt ? new Date(r.startedAt).toLocaleString() : "—"} />
                               <Meta label="Finished" value={r.finishedAt ? new Date(r.finishedAt).toLocaleString() : "—"} />
                             </div>
-                            {r.videoURL && (
-                              <div className="rounded-lg border border-border/70 bg-background/60 p-3 text-[12px] leading-relaxed text-muted-foreground">
-                                This result is served from the upstream provider URL. NextAPI keeps the task record, token usage, and cost, but does not archive every MP4 to R2 by default.
-                              </div>
-                            )}
                             {(r.errorCode || r.errorMessage) && (
                               <div className="rounded-lg border border-status-failed/25 bg-status-failed-dim/10 p-3 text-[12.5px] text-status-failed">
                                 <span className="font-mono">{r.errorCode || "failed"}</span>

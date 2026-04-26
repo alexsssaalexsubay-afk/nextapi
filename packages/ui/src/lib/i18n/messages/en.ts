@@ -794,6 +794,8 @@ export const en = {
         failedHint:
           "Seedance rejected the prompt at stage safety.pre. 1.00 credit refunded to the same line item.",
         viewPayload: "View full error payload",
+        outputStorageNotice:
+          "Streamed from the upstream provider URL. Download to keep a permanent local copy — NextAPI does not archive every result to R2 by default.",
       },
       request: {
         submitted: "Submitted payload",

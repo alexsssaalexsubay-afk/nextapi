@@ -1048,7 +1048,6 @@ function CurrentTaskCard({
     download: string
     retry: string
     retrying: string
-    outputStorageNotice: string
     callbackConsole: string
     copyAll: string
     status: Record<string, string>
@@ -1142,9 +1141,6 @@ function CurrentTaskCard({
           </button>
         )}
       </div>
-      <p className="mt-3 text-[10.5px] leading-relaxed text-muted-foreground">
-        {labels.outputStorageNotice}
-      </p>
       <CallbackLog logs={logs} title={labels.callbackConsole} copyAll={labels.copyAll} />
     </div>
   )

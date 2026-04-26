@@ -783,6 +783,8 @@ export const zh: Messages = {
         failedHint:
           "Seedance 在 safety.pre 阶段拒绝了该提示词。1.00 点数已按原账单行退还。",
         viewPayload: "查看完整错误载荷",
+        outputStorageNotice:
+          "视频从上游 URL 直接加载。如需永久保存请点击下载，NextAPI 默认不会把每一条结果都存到 R2。",
       },
       request: {
         submitted: "已提交载荷",
