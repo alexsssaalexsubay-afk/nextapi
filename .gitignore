@@ -44,5 +44,9 @@ logs/
 .docker/
 .wrangler/
 
+# Deploy state (written by ops/deploy/deploy.sh)
+.last-tag
+.last-prev-tag
+
 # Local MCP / browser artifacts
 .playwright-mcp/
