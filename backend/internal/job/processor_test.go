@@ -8,11 +8,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/alicebob/miniredis/v2"
-	"github.com/hibiken/asynq"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/billing"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/domain"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/provider"
+	"github.com/alicebob/miniredis/v2"
+	"github.com/hibiken/asynq"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
@@ -350,12 +350,13 @@ func TestHandlePoll_ProviderSucceeded_CreditsReconciled(t *testing.T) {
 		t.Fatalf("video_url mismatch: %v", j.VideoURL)
 	}
 
-	// Credits reconciliation: reserved was 1000, actual was 300 → refund 700.
+	// ActualTokensUsed is telemetry, not money. The reserved product-cents
+	// amount remains the billed amount unless a provider returns an explicit
+	// cost in our billing unit.
 	balAfter, _ := bill.GetBalance(context.Background(), orgID)
-	expectedRefund := reserved - actualTokens // 700
-	if balAfter != balBefore+expectedRefund {
-		t.Fatalf("credits reconciliation wrong: before=%d refund=%d want=%d got=%d",
-			balBefore, expectedRefund, balBefore+expectedRefund, balAfter)
+	if balAfter != balBefore {
+		t.Fatalf("credits reconciliation wrong: before=%d want=%d got=%d",
+			balBefore, balBefore, balAfter)
 	}
 }
 

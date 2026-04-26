@@ -6,8 +6,8 @@ import (
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/provider"
 )
 
-// Credits are integer cents × 10 (1 credit = $0.001 = 0.1¢).
-// 500 signup credits = $0.50 worth.
+// Costs are returned in product cents: 100 = 1 displayed point.
+// One displayed point is defined as a standard 6s 1080p normal text generation.
 
 // Pricing per 1K tokens (USD):
 const (
@@ -53,10 +53,14 @@ func pricePer1K(req provider.GenerationRequest) float64 {
 	}
 }
 
-// Estimate returns (tokens, credits). credits = USD * 1000, rounded up.
+// Estimate returns (tokens, product cents), rounded up.
 func Estimate(req provider.GenerationRequest) (int64, int64) {
 	tokens := estimateTokens(req)
 	usd := (float64(tokens) / 1000.0) * pricePer1K(req)
-	credits := int64(math.Ceil(usd * 1000.0))
-	return tokens, credits
+	standardUSD := (55000.0 * 6.0 / 1000.0) * priceNormalText
+	cents := int64(math.Ceil((usd / standardUSD) * 100.0))
+	if cents < 1 {
+		cents = 1
+	}
+	return tokens, cents
 }

@@ -206,9 +206,6 @@ func (p *Processor) HandlePoll(ctx context.Context, t *asynq.Task) error {
 
 func (p *Processor) succeed(ctx context.Context, j *domain.Job, st *provider.JobStatus) error {
 	actualCredits := j.ReservedCredits
-	if st.ActualTokensUsed != nil {
-		actualCredits = *st.ActualTokensUsed
-	}
 	now := time.Now()
 	// Best-effort: derive video seconds from stored request when upstream doesn't provide it.
 	var videoSeconds *float64
