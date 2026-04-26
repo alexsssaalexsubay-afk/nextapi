@@ -49,7 +49,7 @@ type TempMedia = {
   expires_at?: string
 }
 
-const FALLBACK_MODELS = ["seedance-v2-pro", "seedance-v2"]
+const FALLBACK_MODELS = ["seedance-2.0-pro", "seedance-2.0-fast"]
 const ACTIVE_STATUSES = new Set(["queued", "submitting", "running", "retrying"])
 const RATIOS = ["adaptive", "16:9", "9:16", "1:1", "4:3", "3:4", "21:9"]
 const RESOLUTIONS = ["480p", "720p", "1080p"]

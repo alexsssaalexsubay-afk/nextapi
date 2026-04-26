@@ -204,6 +204,7 @@ func (h *UpTokenWebhookHandlers) apply(ctx context.Context, ev uptokenWebhookPay
 			}).Error; err != nil {
 				return err
 			}
+			updateWorkflowRunStatus(ctx, tx, jobRow.ID, "succeeded", outputJSON)
 			processed = true
 		case "failed":
 			code := "provider_failed"
@@ -245,6 +246,8 @@ func (h *UpTokenWebhookHandlers) apply(ctx context.Context, ev uptokenWebhookPay
 			}).Error; err != nil {
 				return err
 			}
+			failJSON, _ := json.Marshal(map[string]any{"error_code": code, "error_message": message})
+			updateWorkflowRunStatus(ctx, tx, jobRow.ID, "failed", failJSON)
 			processed = true
 		default:
 			return nil
@@ -268,4 +271,27 @@ func stringPtr(v string) *string {
 		return nil
 	}
 	return &v
+}
+
+// updateWorkflowRunStatus mirrors job/processor.updateWorkflowRun so webhook-
+// triggered completions keep the canvas/workflow audit row in sync with the
+// underlying job. Best-effort: absent table or no matching row is ignored so
+// legacy direct-API jobs keep working.
+func updateWorkflowRunStatus(ctx context.Context, tx *gorm.DB, jobID string, status string, output json.RawMessage) {
+	if tx == nil {
+		return
+	}
+	if !tx.Migrator().HasTable(&domain.WorkflowRun{}) {
+		return
+	}
+	updates := map[string]any{
+		"status":     status,
+		"updated_at": time.Now(),
+	}
+	if len(output) > 0 {
+		updates["output_snapshot"] = output
+	}
+	_ = tx.WithContext(ctx).Model(&domain.WorkflowRun{}).
+		Where("job_id = ?", jobID).
+		Updates(updates).Error
 }

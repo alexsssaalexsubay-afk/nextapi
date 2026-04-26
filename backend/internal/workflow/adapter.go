@@ -41,7 +41,7 @@ func WorkflowToExistingVideoPayload(raw json.RawMessage) (*ExistingVideoPayload,
 
 	paramsData := VideoParamsData{
 		Duration:   5,
-		Resolution: "1080p",
+		Resolution: provider.DefaultResolution(),
 	}
 	if paramsNode, paramsErr := firstConnectedNode(def, seedance.ID, NodeVideoParams); paramsErr == nil {
 		if err := decodeNodeData(paramsNode, &paramsData); err != nil {
@@ -52,7 +52,7 @@ func WorkflowToExistingVideoPayload(raw json.RawMessage) (*ExistingVideoPayload,
 		paramsData.Duration = 5
 	}
 	if paramsData.Resolution == "" {
-		paramsData.Resolution = "1080p"
+		paramsData.Resolution = provider.DefaultResolution()
 	}
 	if err := validateVideoParams(paramsData); err != nil {
 		return nil, provider.GenerationRequest{}, nil, err
@@ -199,7 +199,7 @@ func validateVideoParams(params VideoParamsData) error {
 			return fmt.Errorf("%w: aspect_ratio is unsupported", ErrInvalidWorkflow)
 		}
 	}
-	if _, ok := allowedResolutions[params.Resolution]; !ok {
+	if _, ok := provider.AllowedResolutions()[strings.TrimSpace(params.Resolution)]; !ok {
 		return fmt.Errorf("%w: resolution is unsupported", ErrInvalidWorkflow)
 	}
 	return nil
@@ -207,8 +207,4 @@ func validateVideoParams(params VideoParamsData) error {
 
 var allowedAspectRatios = map[string]struct{}{
 	"16:9": {}, "9:16": {}, "1:1": {}, "4:3": {}, "3:4": {}, "21:9": {}, "adaptive": {},
-}
-
-var allowedResolutions = map[string]struct{}{
-	"480p": {}, "720p": {}, "1080p": {},
 }
