@@ -93,6 +93,10 @@ export default function AssetLibraryPage() {
         toast.error(labels.unsupportedKind)
         return
       }
+      if (kind !== "image") {
+        toast.error(labels.unsupportedKind)
+        return
+      }
       setUploading(kind)
       try {
         const body = new FormData()
@@ -185,7 +189,7 @@ export default function AssetLibraryPage() {
           <input
             ref={fileInputRef}
             type="file"
-            accept="image/*,video/*,audio/*"
+            accept="image/*"
             className="hidden"
             onChange={(e) => {
               const file = e.target.files?.[0]

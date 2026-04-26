@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import { useEffect, useState } from "react"
 import {
   ArrowRight,
   CheckCircle2,
@@ -9,15 +10,58 @@ import {
   Sparkles,
 } from "lucide-react"
 import { track } from "@/lib/analytics"
+import { useI18n } from "@/lib/i18n/context"
+import { fetchMarketingSlots, type MarketingSlot } from "@/lib/marketing-slots"
 
-const TRUST_ITEMS = [
-  "99.95% Uptime",
-  "Zero Queue Times",
-  "Enterprise Ready",
-  "Developer First",
-] as const
+const COPY = {
+  en: {
+    badge: "The Next Generation AI Video API Platform",
+    titleTop: "Build. Scale. Innovate.",
+    titleAccent: "AI Video",
+    titleTail: ", Simplified.",
+    subtitle:
+      "Power your products with state-of-the-art video generation. Zero queue times, enterprise SLAs, and configurable trust & safety.",
+    primaryCta: "Get Your API Key",
+    secondaryCta: "View Documentation",
+    trust: ["99.95% Uptime", "Zero Queue Times", "Enterprise Ready", "Developer First"],
+    videoAria: "AI-generated video: drone orbiting a lighthouse at dusk",
+    status: "Generating · 38s",
+    prompt: "drone orbiting a lighthouse",
+  },
+  zh: {
+    badge: "新一代 AI 视频 API 平台",
+    titleTop: "构建。扩展。创新。",
+    titleAccent: "AI 视频",
+    titleTail: "，更简单。",
+    subtitle:
+      "用稳定的视频生成基础设施驱动你的产品：零排队、企业级 SLA、可配置的内容安全策略。",
+    primaryCta: "获取 API Key",
+    secondaryCta: "查看文档",
+    trust: ["99.95% 可用性", "零排队", "企业级就绪", "开发者友好"],
+    videoAria: "AI 生成视频：无人机黄昏环绕灯塔",
+    status: "生成中 · 38s",
+    prompt: "无人机环绕灯塔",
+  },
+} as const
 
 export function LandingHero() {
+  const { locale } = useI18n()
+  const copy = COPY[locale]
+  const [heroMain, setHeroMain] = useState<MarketingSlot | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      const slots = await fetchMarketingSlots()
+      if (cancelled) return
+      const main = slots.find((s) => s.slot_key === "landing_hero_main") ?? null
+      setHeroMain(main)
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   return (
     <section className="relative isolate overflow-hidden">
       {/* Ambient background: soft radial gradient blobs */}
@@ -39,24 +83,22 @@ export function LandingHero() {
               <span className="absolute inset-0 animate-ping rounded-full bg-indigo-500 opacity-75" />
               <span className="relative inline-block size-1.5 rounded-full bg-indigo-500" />
             </span>
-            The Next Generation AI Video API Platform
+            {copy.badge}
           </div>
 
           {/* Headline */}
           <h1 className="mt-6 text-balance font-sans text-5xl font-semibold leading-[1.05] tracking-[-0.03em] text-foreground sm:text-6xl lg:text-[72px]">
-            Build. Scale. Innovate.
+            {copy.titleTop}
             <br />
             <span className="bg-gradient-to-r from-indigo-500 via-purple-500 to-purple-600 bg-clip-text text-transparent">
-              AI Video
+              {copy.titleAccent}
             </span>
-            , Simplified.
+            {copy.titleTail}
           </h1>
 
           {/* Subtitle */}
           <p className="mt-6 max-w-xl text-pretty text-[16px] leading-relaxed text-muted-foreground">
-            Power your products with state-of-the-art video
-            generation. Zero queue times, enterprise SLAs, and configurable
-            trust &amp; safety.
+            {copy.subtitle}
           </p>
 
           {/* CTAs */}
@@ -66,20 +108,20 @@ export function LandingHero() {
               onClick={() => track("hero_signup_clicked")}
               className="group inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-indigo-500 to-purple-600 px-5 py-3 text-[14px] font-medium text-white shadow-[0_0_30px_-8px] shadow-indigo-500/50 transition-all hover:shadow-indigo-500/70 hover:brightness-110"
             >
-              Get Your API Key
+              {copy.primaryCta}
               <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
             </Link>
             <Link
               href="/docs"
               className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-5 py-3 text-[14px] font-medium text-foreground transition-colors hover:border-foreground/20 hover:bg-muted"
             >
-              View Documentation
+              {copy.secondaryCta}
             </Link>
           </div>
 
           {/* Trust checklist */}
           <ul className="mt-8 flex flex-wrap gap-x-6 gap-y-2">
-            {TRUST_ITEMS.map((t) => (
+            {copy.trust.map((t) => (
               <li
                 key={t}
                 className="flex items-center gap-2 text-[13px] text-muted-foreground"
@@ -93,14 +135,29 @@ export function LandingHero() {
 
         {/* RIGHT — glowing player + code card */}
         <div className="relative">
-          <HeroPlayerCard />
+          <HeroPlayerCard
+            videoAria={copy.videoAria}
+            status={copy.status}
+            prompt={copy.prompt}
+            heroMain={heroMain}
+          />
         </div>
       </div>
     </section>
   )
 }
 
-function HeroPlayerCard() {
+function HeroPlayerCard({
+  videoAria,
+  status,
+  prompt,
+  heroMain,
+}: {
+  videoAria: string
+  status: string
+  prompt: string
+  heroMain: MarketingSlot | null
+}) {
   return (
     <div className="relative mx-auto w-full max-w-xl">
       {/* Glow frame */}
@@ -122,20 +179,38 @@ function HeroPlayerCard() {
           </div>
         </div>
 
-        {/* Video poster */}
-        <div className="relative aspect-[16/10] bg-muted">
-          <video
-            className="h-full w-full object-cover"
-            poster="/samples/lighthouse-dusk.jpg"
-            autoPlay
-            muted
-            loop
-            playsInline
-            aria-label="AI-generated video: drone orbiting a lighthouse at dusk"
-            preload="none"
-          >
-            <source src="/samples/lighthouse-dusk.mp4" type="video/mp4" />
-          </video>
+        <div className="relative aspect-[16/10] overflow-hidden bg-muted">
+          {heroMain?.url && heroMain.media_kind === "video" ? (
+            <video
+              className="absolute inset-0 h-full w-full object-cover"
+              src={heroMain.url}
+              poster={heroMain.poster_url}
+              autoPlay
+              muted
+              loop
+              playsInline
+              preload="metadata"
+              aria-label={videoAria}
+            />
+          ) : heroMain?.url && heroMain.media_kind === "image" ? (
+            // eslint-disable-next-line @next/next/no-img-element -- remote operator-controlled URL
+            <img
+              src={heroMain.url}
+              alt=""
+              className="absolute inset-0 h-full w-full object-cover"
+            />
+          ) : (
+            <div
+              className="absolute inset-0 bg-[radial-gradient(circle_at_76%_22%,rgba(255,196,87,0.95),transparent_14%),linear-gradient(180deg,#f97316_0%,#fb923c_28%,#312e81_72%,#0f172a_100%)]"
+              role="img"
+              aria-label={videoAria}
+            >
+              <div className="absolute inset-x-0 bottom-0 h-[38%] bg-[linear-gradient(180deg,transparent,rgba(2,6,23,0.75))]" />
+              <div className="absolute bottom-[28%] left-[10%] h-px w-[80%] bg-white/25" />
+              <div className="absolute bottom-[28%] right-[20%] h-24 w-1.5 rounded-full bg-zinc-900/80" />
+              <div className="absolute bottom-[38%] right-[18.5%] h-5 w-10 rounded-t-full bg-zinc-900/80" />
+            </div>
+          )}
 
           {/* Soft top-to-bottom gradient for code readability */}
           <div
@@ -149,7 +224,7 @@ function HeroPlayerCard() {
               <span className="absolute inset-0 animate-ping rounded-full bg-emerald-400 opacity-75" />
               <span className="relative inline-block size-1.5 rounded-full bg-emerald-400" />
             </span>
-            Generating · 38s
+            {status}
           </div>
 
           {/* Floating code snippet overlay — bottom */}
@@ -190,7 +265,7 @@ function HeroPlayerCard() {
                   {"    "}
                   <span className="text-cyan-300">prompt</span>:{" "}
                   <span className="text-emerald-300">
-                    &quot;drone orbiting a lighthouse&quot;
+                    &quot;{prompt}&quot;
                   </span>
                   ,
                   {"\n"}

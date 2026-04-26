@@ -295,6 +295,9 @@ func main() {
 	api.POST("/me/uploads/image", uploadH.PostImage)
 	api.POST("/me/uploads/media", uploadH.PostMedia)
 
+	mktH := &gateway.MarketingSiteHandlers{DB: gormDB, R2: uploadH.R2}
+	v1.GET("/public/marketing/slots", ratelimit.Middleware(rl, 120, time.Minute), mktH.PublicListSlots)
+
 	libraryH := &gateway.MediaLibraryHandlers{DB: gormDB, R2: uploadH.R2}
 	if os.Getenv("SEEDANCE_RELAY_ASSETS_ENABLED") == "true" {
 		if assets, err := uptoken.NewAssetClientFromEnv(); err == nil {
@@ -383,6 +386,10 @@ func main() {
 	internal.PATCH("/orgs/:id", ob.AdminUpdateOrg)
 	internal.POST("/webhooks/deliveries/:id/replay", wdh.AdminReplay)
 	internal.GET("/audit", ah.Audit)
+	internal.GET("/marketing/slots", mktH.AdminListSlots)
+	internal.PUT("/marketing/slots/:slot", mktH.AdminPutExternal)
+	internal.POST("/marketing/slots/:slot/upload", mktH.AdminUploadSlot)
+	internal.DELETE("/marketing/slots/:slot", mktH.AdminDeleteSlot)
 
 	// Enhanced admin job tools.
 	ajh := &gateway.AdminJobHandlers{DB: gormDB, JobSvc: jobSvc, Billing: billSvc, Spend: spendSvc, Throughput: throughputSvc}

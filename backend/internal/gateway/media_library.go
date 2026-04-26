@@ -209,10 +209,9 @@ func (h *MediaLibraryHandlers) Create(c *gin.Context) {
 		}})
 		return
 	}
-	// Permanent library only stores images. Videos and audio belong to the
-	// per-job temporary uploads channel: keeping the persistent quota lean
-	// avoids R2 bloat and matches the UpToken/Jianying composer model where
-	// only stills are reusable references between sessions.
+	// Permanent library only stores reusable still images. Videos and audio use
+	// the per-job temporary upload path so large transient media does not grow
+	// persistent storage unexpectedly.
 	if kind != "image" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{
 			"code":    "invalid_request",

@@ -2,59 +2,98 @@
 
 import Link from "next/link"
 import { ArrowRight, Code, Shield, TrendingUp, Zap } from "lucide-react"
+import { useI18n } from "@/lib/i18n/context"
 
-const FEATURES = [
-  {
-    icon: Zap,
-    title: "Lightning Fast",
-    body:
-      "P50 latency under 12 seconds. Dedicated lanes mean you never wait in a queue.",
-  },
-  {
-    icon: Shield,
-    title: "Enterprise Grade",
-    body:
-      "SOC 2 compliance, contractual SLAs, and configurable content moderation profiles.",
-  },
-  {
-    icon: Code,
-    title: "Easy Integration",
-    body:
-      "Drop-in replacement for existing APIs. Simple REST API, clear docs, and multi-language SDKs.",
-  },
-  {
-    icon: TrendingUp,
-    title: "Scalable Performance",
-    body:
-      "Handle massive high-volume batch workloads with our optimized routing architecture.",
-  },
+const FEATURE_META = [
+  Zap,
+  Shield,
+  Code,
+  TrendingUp,
 ] as const
 
+const COPY = {
+  en: {
+    eyebrow: "Powerful. Flexible. Reliable.",
+    title: "Everything you need to build AI video into your product",
+    docs: "Explore Docs",
+    features: [
+      {
+        title: "Lightning Fast",
+        body: "P50 latency under 12 seconds. Dedicated lanes mean you never wait in a queue.",
+      },
+      {
+        title: "Enterprise Grade",
+        body: "SOC 2 compliance, contractual SLAs, and configurable content moderation profiles.",
+      },
+      {
+        title: "Easy Integration",
+        body: "Drop-in replacement for existing APIs. Simple REST API, clear docs, and multi-language SDKs.",
+      },
+      {
+        title: "Scalable Performance",
+        body: "Handle massive high-volume batch workloads with our optimized routing architecture.",
+      },
+    ],
+  },
+  zh: {
+    eyebrow: "强大。灵活。可靠。",
+    title: "把 AI 视频能力快速嵌入你的产品",
+    docs: "查看文档",
+    features: [
+      {
+        title: "极速生成",
+        body: "专属通道减少排队等待，让高频视频任务拥有稳定响应。",
+      },
+      {
+        title: "企业级保障",
+        body: "支持合同级 SLA、内容安全配置与面向企业的稳定性要求。",
+      },
+      {
+        title: "轻松接入",
+        body: "标准 REST API、清晰文档、多语言 SDK，替换现有调用路径更容易。",
+      },
+      {
+        title: "弹性吞吐",
+        body: "为大规模批量任务优化路由与并发，支撑持续增长的业务负载。",
+      },
+    ],
+  },
+} as const
+
+const FEATURES = COPY.en.features.map((_, index) => ({
+  icon: FEATURE_META[index],
+}))
+
+type FeatureCopy = { title: string; body: string }
+
 export function FeaturesGrid() {
+  const { locale } = useI18n()
+  const copy = COPY[locale]
+
   return (
     <section id="features" className="relative py-24 sm:py-32">
       <div className="mx-auto max-w-7xl px-6">
         <div className="flex flex-col items-start justify-between gap-6 md:flex-row md:items-end">
           <div className="max-w-2xl">
             <p className="font-mono text-[11px] font-medium uppercase tracking-[0.24em] text-indigo-500 dark:text-indigo-400">
-              Powerful. Flexible. Reliable.
+              {copy.eyebrow}
             </p>
             <h2 className="mt-4 text-balance text-4xl font-semibold leading-tight tracking-[-0.02em] text-foreground sm:text-5xl">
-              Everything you need to build AI video into your product
+              {copy.title}
             </h2>
           </div>
           <Link
             href="/docs"
             className="group inline-flex items-center gap-1.5 text-[14px] font-medium text-foreground/80 transition-colors hover:text-foreground"
           >
-            Explore Docs
+            {copy.docs}
             <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
           </Link>
         </div>
 
         <div className="mt-14 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {FEATURES.map((f) => (
-            <FeatureCard key={f.title} {...f} />
+          {FEATURES.map((f, index) => (
+            <FeatureCard key={copy.features[index].title} icon={f.icon} copy={copy.features[index]} />
           ))}
         </div>
       </div>
@@ -64,12 +103,10 @@ export function FeaturesGrid() {
 
 function FeatureCard({
   icon: Icon,
-  title,
-  body,
+  copy,
 }: {
   icon: React.ComponentType<{ className?: string }>
-  title: string
-  body: string
+  copy: FeatureCopy
 }) {
   return (
     <div className="group relative overflow-hidden rounded-2xl border border-border bg-card p-6 transition-all hover:border-indigo-400/50 hover:shadow-[0_0_40px_-15px] hover:shadow-indigo-500/50 dark:hover:bg-muted/40">
@@ -86,10 +123,10 @@ function FeatureCard({
         </div>
 
         <h3 className="mt-5 text-[17px] font-semibold tracking-tight text-foreground">
-          {title}
+          {copy.title}
         </h3>
         <p className="mt-2 text-[13.5px] leading-relaxed text-muted-foreground">
-          {body}
+          {copy.body}
         </p>
       </div>
     </div>

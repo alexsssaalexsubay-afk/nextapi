@@ -115,7 +115,9 @@ export async function adminFetch(path: string, options: RequestInit = {}) {
     const headers: Record<string, string> = {
       [opSessionHeader]: token,
     }
-    if (options.body) headers["Content-Type"] = "application/json"
+    if (options.body && !(options.body instanceof FormData)) {
+      headers["Content-Type"] = "application/json"
+    }
     Object.assign(headers, options.headers as Record<string, string> | undefined)
     return fetch(`${API_URL}/v1/internal/admin${normalizedPath}`, {
       ...options,

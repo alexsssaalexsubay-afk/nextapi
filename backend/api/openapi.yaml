@@ -40,6 +40,8 @@ security:
   - bearerBusiness: []
 
 tags:
+  - name: marketing
+    description: Public marketing site configuration (read-only).
   - name: videos
   - name: models
   - name: credits
@@ -71,6 +73,37 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Health' }
+
+  /public/marketing/slots:
+    get:
+      tags: [marketing]
+      summary: List homepage media slots for nextapi.top
+      description: |
+        Returns resolved `https://` URLs for each configured slot (R2 objects are
+        returned as short-lived presigned URLs). Intended for the static
+        marketing site to fetch at runtime.
+      operationId: listPublicMarketingSlots
+      security: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [slots]
+                properties:
+                  slots:
+                    type: array
+                    items:
+                      type: object
+                      required: [slot_key, media_kind, url, updated_at]
+                      properties:
+                        slot_key: { type: string }
+                        media_kind: { type: string, enum: [image, video] }
+                        url: { type: string, format: uri }
+                        poster_url: { type: string, format: uri }
+                        updated_at: { type: string, format: date-time }
 
   /auth/login:
     post:

@@ -1,6 +1,8 @@
 "use client"
 
+import { useEffect, useMemo, useState } from "react"
 import Image from "next/image"
+import { fetchMarketingSlots, type MarketingSlot } from "@/lib/marketing-slots"
 
 type Item = {
   src: string
@@ -12,7 +14,7 @@ type Item = {
   offsetY?: string
 }
 
-const ITEMS: Item[] = [
+const BASE_ITEMS: Item[] = [
   {
     src: "/samples/short-drama.jpg",
     badge: "Short Drama",
@@ -51,6 +53,30 @@ const ITEMS: Item[] = [
 ]
 
 export function GalleryStrip() {
+  const [remoteSlots, setRemoteSlots] = useState<MarketingSlot[]>([])
+
+  useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      const slots = await fetchMarketingSlots()
+      if (!cancelled) setRemoteSlots(slots)
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const items = useMemo(() => {
+    return BASE_ITEMS.map((item, index) => {
+      const key = `gallery_strip_${index + 1}`
+      const slot = remoteSlots.find((s) => s.slot_key === key && s.media_kind === "image")
+      if (slot?.url) {
+        return { ...item, src: slot.url }
+      }
+      return item
+    })
+  }, [remoteSlots])
+
   return (
     <section id="gallery" className="relative py-24 sm:py-32">
       {/* Ambient gradient wash */}
@@ -76,8 +102,8 @@ export function GalleryStrip() {
         {/* Horizontal scroll on mobile, staggered grid on desktop */}
         <div className="mt-12">
           <div className="scroll-thin -mx-6 flex snap-x snap-mandatory gap-4 overflow-x-auto px-6 pb-12 md:mx-0 md:grid md:grid-cols-5 md:overflow-visible md:px-0 md:pb-12">
-            {ITEMS.map((item) => (
-              <GalleryCard key={item.src} item={item} />
+            {items.map((item) => (
+              <GalleryCard key={`${item.badge}-${item.src}`} item={item} />
             ))}
           </div>
         </div>
@@ -87,18 +113,28 @@ export function GalleryStrip() {
 }
 
 function GalleryCard({ item }: { item: Item }) {
+  const remote = item.src.startsWith("https://")
   return (
     <figure
       className={`group relative flex-none snap-start overflow-hidden rounded-2xl border border-border bg-muted shadow-sm transition-all hover:-translate-y-1 hover:shadow-xl hover:shadow-indigo-500/10 dark:hover:shadow-indigo-500/20 ${item.offsetY ?? ""}`}
     >
       <div className={`${item.aspect} relative w-[72vw] sm:w-[46vw] md:w-auto`}>
-        <Image
-          src={item.src || "/placeholder.svg"}
-          alt={item.alt}
-          fill
-          className="object-cover transition-transform duration-700 group-hover:scale-105"
-          sizes="(min-width: 1024px) 20vw, (min-width: 640px) 46vw, 72vw"
-        />
+        {remote ? (
+          // eslint-disable-next-line @next/next/no-img-element -- operator-controlled CDN URL
+          <img
+            src={item.src}
+            alt={item.alt}
+            className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+          />
+        ) : (
+          <Image
+            src={item.src || "/placeholder.svg"}
+            alt={item.alt}
+            fill
+            className="object-cover transition-transform duration-700 group-hover:scale-105"
+            sizes="(min-width: 1024px) 20vw, (min-width: 640px) 46vw, 72vw"
+          />
+        )}
 
         {/* Dark gradient for badge readability */}
         <div

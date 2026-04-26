@@ -8,6 +8,7 @@ import {
   Banknote,
   Building2,
   Gauge,
+  Image,
   ListChecks,
   LifeBuoy,
   LogOut,
@@ -100,6 +101,7 @@ export function AdminShell({
         { label: t.nav.admin.users, href: "/users", icon: Users },
         { label: t.nav.admin.organizations, href: "/orgs", icon: Building2 },
         { label: t.nav.admin.leads, href: "/leads", icon: Megaphone },
+        { label: t.nav.admin.marketing, href: "/marketing", icon: Image },
       ],
     },
   ]
