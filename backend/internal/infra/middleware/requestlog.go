@@ -30,9 +30,24 @@ func RequestLogger(db *gorm.DB) gin.HandlerFunc {
 		start := time.Now()
 
 		// Capture body hash before the handler reads it.
+		//
+		// Crucially, we MUST NOT touch the body when:
+		//   - it is multipart/form-data (binary uploads); or
+		//   - it is larger than our 1 MB cap.
+		// In both cases we would only be able to read part of the body and
+		// would then have to put back a truncated stream, which makes the
+		// downstream handler see "unexpected EOF". For multipart this looked
+		// like the upload endpoint silently dropping the second half of the
+		// PNG; for any large JSON it would corrupt the request.
 		var bodyHash *string
-		if c.Request.Body != nil && c.Request.ContentLength > 0 {
-			rawBody, err := io.ReadAll(io.LimitReader(c.Request.Body, 1<<20)) // 1 MB cap
+		const maxHashBytes = 1 << 20 // 1 MB
+		ct := c.GetHeader("Content-Type")
+		isMultipart := strings.HasPrefix(strings.ToLower(ct), "multipart/")
+		if c.Request.Body != nil &&
+			c.Request.ContentLength > 0 &&
+			c.Request.ContentLength <= maxHashBytes &&
+			!isMultipart {
+			rawBody, err := io.ReadAll(io.LimitReader(c.Request.Body, maxHashBytes))
 			if err == nil {
 				h := sha256.Sum256(rawBody)
 				hs := fmt.Sprintf("%x", h)

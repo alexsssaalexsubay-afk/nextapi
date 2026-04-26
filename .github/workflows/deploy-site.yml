@@ -12,6 +12,10 @@ on:
       - "apps/admin/**"
       - "packages/ui/**"
       - "packages/assets/**"
+      # Backend changes ship from GitHub Actions to Docker only via deploy.yml;
+      # including backend here re-runs Cloudflare builds so NEXT_PUBLIC_BUILD_SHA
+      # and edge bundles stay aligned with the latest main commit operators expect.
+      - "backend/**"
   workflow_dispatch:
 
 jobs:
