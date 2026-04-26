@@ -73,7 +73,7 @@ pip install -r requirements.txt
 **输入：**
 - `auth_config` — 来自 Auth 节点
 - `prompt` — 生成提示词
-- `duration` — 节点内 2–12 秒；直连 API 时 `duration_seconds` 在网关侧允许 **2–15** 秒
+- `duration` — 4–15 秒
 - `aspect_ratio` — 画面比例
 - `negative_prompt`（可选）
 - `character_url`（可选）— 来自 Asset Resolver

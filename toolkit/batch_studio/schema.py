@@ -101,7 +101,7 @@ class ShotRow(BaseModel):
 
     shot_id: str = Field(min_length=1)
     prompt_en: str = Field(min_length=4)
-    duration: int = Field(ge=2, le=12, default=5)
+    duration: int = Field(ge=4, le=15, default=5)
     aspect_ratio: str = Field(default="16:9")
 
     episode: Optional[str] = None
@@ -138,11 +138,11 @@ class ShotRow(BaseModel):
             n = int(v)  # type: ignore[arg-type]
         except (TypeError, ValueError):
             raise ValueError(
-                f"Duration must be a whole number between 2 and 12, got '{v}'"
+                f"Duration must be a whole number between 4 and 15, got '{v}'"
             )
-        if n < 2 or n > 12:
+        if n < 4 or n > 15:
             raise ValueError(
-                f"Duration must be between 2 and 12 seconds, got {n}"
+                f"Duration must be between 4 and 15 seconds, got {n}"
             )
         return n
 

@@ -3,6 +3,7 @@ package uptoken
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -73,6 +74,9 @@ func TestLiveProvider_GenerateVideo_SendsAllParamsToUpstream(t *testing.T) {
 	if got["model"] != uptokenSeedance20Pro {
 		t.Errorf("model not mapped: got %v want %q", got["model"], uptokenSeedance20Pro)
 	}
+	if _, mixed := got["prompt"]; mixed {
+		t.Fatalf("content[] request must not also include flat prompt: %v", got)
+	}
 
 	for k, want := range map[string]any{
 		"ratio":          "16:9",
@@ -98,6 +102,45 @@ func TestLiveProvider_GenerateVideo_SendsAllParamsToUpstream(t *testing.T) {
 	imgObj, _ := imgPart["image_url"].(map[string]any)
 	if imgObj == nil || imgObj["url"] != img {
 		t.Errorf("image_url shape wrong: %v", imgPart)
+	}
+}
+
+func TestLiveProvider_GenerateVideo_FlatParamsDoesNotSendContent(t *testing.T) {
+	var captured []byte
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		captured, _ = io.ReadAll(r.Body)
+		_, _ = w.Write([]byte(`{"id":"ut-flat"}`))
+	}))
+	defer srv.Close()
+
+	t.Setenv("UPTOKEN_API_KEY", "ut-test")
+	t.Setenv("UPTOKEN_BASE_URL", srv.URL)
+
+	p, err := NewLive()
+	if err != nil {
+		t.Fatalf("NewLive: %v", err)
+	}
+	_, err = p.GenerateVideo(context.Background(), provider.GenerationRequest{
+		Prompt:          "make a video",
+		ImageURLs:       []string{"https://cdn.example.com/ref.png"},
+		DurationSeconds: 5,
+		Resolution:      "1080p",
+	})
+	if err != nil {
+		t.Fatalf("GenerateVideo: %v", err)
+	}
+	var got map[string]any
+	if err := json.Unmarshal(captured, &got); err != nil {
+		t.Fatalf("unmarshal captured body: %v", err)
+	}
+	if _, mixed := got["content"]; mixed {
+		t.Fatalf("flat request must not also include content[]: %v", got)
+	}
+	if got["prompt"] != "make a video" {
+		t.Fatalf("flat prompt missing: %v", got)
+	}
+	if refs, ok := got["image_urls"].([]any); !ok || len(refs) != 1 {
+		t.Fatalf("image_urls shape wrong: %v", got["image_urls"])
 	}
 }
 
@@ -169,6 +212,35 @@ func TestLiveProvider_GetJobStatus_SucceededShape(t *testing.T) {
 	}
 }
 
+func TestLiveProvider_GetJobStatus_FailedShape(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{
+			"id": "ut-task-failed",
+			"status": "failed",
+			"error": {"code":"error-301","message":"moderation blocked","type":"content_policy"}
+		}`))
+	}))
+	defer srv.Close()
+
+	t.Setenv("UPTOKEN_API_KEY", "ut-test")
+	t.Setenv("UPTOKEN_BASE_URL", srv.URL)
+
+	p, err := NewLive()
+	if err != nil {
+		t.Fatalf("NewLive: %v", err)
+	}
+	st, err := p.GetJobStatus(context.Background(), "ut-task-failed")
+	if err != nil {
+		t.Fatalf("GetJobStatus: %v", err)
+	}
+	if st.Status != "failed" {
+		t.Fatalf("status: got %q", st.Status)
+	}
+	if st.ErrorCode == nil || *st.ErrorCode != "error-301" {
+		t.Fatalf("error code: %+v", st.ErrorCode)
+	}
+}
+
 // error-2xx/3xx/4xx come back as HTTP 4xx with {error:{code,message,type}}.
 // We should surface error.code + message without a retry — otherwise we'd
 // replay doomed requests three times and pile up spend reservations.
@@ -188,12 +260,141 @@ func TestLiveProvider_GenerateVideo_Failure_DoesNotRetry(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewLive: %v", err)
 	}
-	_, err = p.GenerateVideo(context.Background(), provider.GenerationRequest{Prompt: "x", Resolution: "2160p"})
+	_, err = p.GenerateVideo(context.Background(), provider.GenerationRequest{Prompt: "x", Resolution: "1080p"})
 	if err == nil {
 		t.Fatal("expected error")
 	}
+	var upstreamErr *provider.UpstreamError
+	if !errors.As(err, &upstreamErr) || upstreamErr.Code != "error-205" {
+		t.Fatalf("expected UpstreamError error-205, got %T %v", err, err)
+	}
 	if hits != 1 {
 		t.Errorf("expected exactly 1 upstream hit, got %d", hits)
+	}
+}
+
+func TestLiveProvider_GenerateVideo_RetryableBodyErrorRetries(t *testing.T) {
+	hits := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hits++
+		if hits == 1 {
+			_, _ = w.Write([]byte(`{"error":{"code":"error-603","message":"provider overloaded","type":"provider_error"}}`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"id":"ut-after-retry"}`))
+	}))
+	defer srv.Close()
+
+	t.Setenv("UPTOKEN_API_KEY", "ut-test")
+	t.Setenv("UPTOKEN_BASE_URL", srv.URL)
+
+	p, err := NewLive()
+	if err != nil {
+		t.Fatalf("NewLive: %v", err)
+	}
+	id, err := p.GenerateVideo(context.Background(), provider.GenerationRequest{Prompt: "x", Resolution: "1080p"})
+	if err != nil {
+		t.Fatalf("GenerateVideo should retry body error: %v", err)
+	}
+	if id != "ut-after-retry" {
+		t.Fatalf("id = %q; want ut-after-retry", id)
+	}
+	if hits != 2 {
+		t.Fatalf("hits = %d; want 2", hits)
+	}
+}
+
+func TestLiveProvider_ResolutionFollowsProviderConfig(t *testing.T) {
+	t.Setenv("UPTOKEN_API_KEY", "ut-test")
+	t.Setenv("UPTOKEN_ALLOWED_RESOLUTIONS", "480p,720p")
+
+	p, err := NewLive()
+	if err != nil {
+		t.Fatalf("NewLive: %v", err)
+	}
+	_, _, err = p.EstimateCost(provider.GenerationRequest{Prompt: "x", Resolution: "1080p"})
+	if err == nil {
+		t.Fatal("expected 1080p to be rejected by provider config")
+	}
+	var upstreamErr *provider.UpstreamError
+	if !errors.As(err, &upstreamErr) || upstreamErr.Code != "error-205" {
+		t.Fatalf("expected error-205, got %T %v", err, err)
+	}
+}
+
+func TestLiveProvider_MediaURLMustBeHTTPS(t *testing.T) {
+	t.Setenv("UPTOKEN_API_KEY", "ut-test")
+
+	p, err := NewLive()
+	if err != nil {
+		t.Fatalf("NewLive: %v", err)
+	}
+	u := "http://cdn.example.com/ref.png"
+	_, _, err = p.EstimateCost(provider.GenerationRequest{Prompt: "x", ImageURL: &u})
+	if err == nil {
+		t.Fatal("expected http media url to be rejected")
+	}
+	var upstreamErr *provider.UpstreamError
+	if !errors.As(err, &upstreamErr) || upstreamErr.Code != "error-401" {
+		t.Fatalf("expected error-401, got %T %v", err, err)
+	}
+}
+
+func TestLiveProvider_GetJobStatus_HTTP502Retryable(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadGateway)
+		_, _ = w.Write([]byte(`{"error":{"code":"error-603","message":"upstream unavailable","type":"provider_error"}}`))
+	}))
+	defer srv.Close()
+
+	t.Setenv("UPTOKEN_API_KEY", "ut-test")
+	t.Setenv("UPTOKEN_BASE_URL", srv.URL)
+
+	p, err := NewLive()
+	if err != nil {
+		t.Fatalf("NewLive: %v", err)
+	}
+	_, err = p.GetJobStatus(context.Background(), "ut-task")
+	if err == nil {
+		t.Fatal("expected retryable provider error")
+	}
+	var upstreamErr *provider.UpstreamError
+	if !errors.As(err, &upstreamErr) || upstreamErr.Code != "error-603" || !upstreamErr.Retryable {
+		t.Fatalf("expected retryable error-603, got %T %v", err, err)
+	}
+}
+
+func TestLiveProvider_GetJobStatus_SandboxFailedCodes(t *testing.T) {
+	cases := []struct {
+		name string
+		code string
+	}{
+		{"poll moderation", "error-301"},
+		{"poll timeout", "error-702"},
+		{"poll failed", "error-701"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				_, _ = w.Write([]byte(`{"status":"failed","error":{"code":"` + tc.code + `","message":"sandbox failure","type":"mock"}}`))
+			}))
+			defer srv.Close()
+
+			t.Setenv("UPTOKEN_API_KEY", "ut-test")
+			t.Setenv("UPTOKEN_BASE_URL", srv.URL)
+
+			p, err := NewLive()
+			if err != nil {
+				t.Fatalf("NewLive: %v", err)
+			}
+			st, err := p.GetJobStatus(context.Background(), "ut-task")
+			if err != nil {
+				t.Fatalf("GetJobStatus: %v", err)
+			}
+			if st.Status != "failed" || st.ErrorCode == nil || *st.ErrorCode != tc.code {
+				t.Fatalf("failed status decode mismatch: %+v", st)
+			}
+		})
 	}
 }
 

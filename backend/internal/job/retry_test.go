@@ -7,6 +7,8 @@ import (
 	"net"
 	"testing"
 	"time"
+
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/provider"
 )
 
 // ---------------------------------------------------------------------------
@@ -97,6 +99,21 @@ func TestClassifyError_HTTP400_InvalidRequest_NonRetryable(t *testing.T) {
 	}
 	if r.Code != "invalid_request" {
 		t.Fatalf("want invalid_request, got %s", r.Code)
+	}
+}
+
+func TestClassifyError_ProviderUpstreamErrorPreservesCode(t *testing.T) {
+	r := ClassifyError(&provider.UpstreamError{
+		Code:      "error-205",
+		Message:   "invalid resolution",
+		Type:      "invalid_request",
+		Retryable: false,
+	})
+	if r.Retryable {
+		t.Fatal("provider validation errors should not be retryable")
+	}
+	if r.Code != "error-205" {
+		t.Fatalf("want provider code error-205, got %s", r.Code)
 	}
 }
 

@@ -36,7 +36,7 @@ Common validation failures:
 
 - `shot_id` missing or empty → every row must have one
 - `prompt_en` shorter than 4 chars → the model won't do useful work with 1-word prompts
-- `duration` outside 2–12 → clamp it or pick a supported value
+- `duration` outside 4–15 → clamp it or pick a supported value
 - `aspect_ratio` not in the allowed set → use one of `16:9`, `9:16`, `1:1`, `4:3`, `3:4`, `21:9`
 
 ### 3. Start Batch

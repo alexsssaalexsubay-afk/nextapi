@@ -171,11 +171,11 @@ export function validateAndPrepareRows(
 
     const durRaw = clean(row.duration)
     const duration = durRaw ? Number.parseInt(durRaw, 10) : 5
-    if (!Number.isFinite(duration) || duration < 2 || duration > 15) {
+    if (!Number.isFinite(duration) || duration < 4 || duration > 15) {
       errors.push({
         index,
         shot_id: shotId,
-        message: "duration must be between 2 and 15 seconds.",
+        message: "duration must be between 4 and 15 seconds.",
       })
       return
     }

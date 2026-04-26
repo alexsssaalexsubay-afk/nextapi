@@ -4,50 +4,71 @@ import { useMemo, useState } from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { AlertCircle, Eye, EyeOff, Loader2, Lock, Mail } from "lucide-react"
+import { AlertCircle, Loader2, Mail, ShieldCheck } from "lucide-react"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
 import { AuthLayout } from "@/components/auth/auth-layout"
 import { Label } from "@/components/ui/label"
 import { useI18n } from "@/lib/i18n/context"
-import { ApiError, loginWithPassword } from "@/lib/api"
+import { ApiError, loginWithEmailCode, sendEmailCode } from "@/lib/api"
 
 export default function SignInPage() {
   const { t } = useI18n()
   const router = useRouter()
   const search = useSearchParams()
-  const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [sendingCode, setSendingCode] = useState(false)
   const [serverError, setServerError] = useState<string | null>(null)
+  const [sentTo, setSentTo] = useState<string | null>(null)
 
   const schema = useMemo(
     () =>
       z.object({
         email: z.string().email(t.auth.invalidEmail),
-        password: z.string().min(8, t.auth.passwordMinLength),
+        code: z.string().regex(/^\d{6}$/, t.auth.codeInvalid),
       }),
-    [t.auth.invalidEmail, t.auth.passwordMinLength],
+    [t.auth.codeInvalid, t.auth.invalidEmail],
   )
   type SignInValues = z.infer<typeof schema>
 
   const {
     register,
+    getValues,
     handleSubmit,
     formState: { errors },
   } = useForm<SignInValues>({
     resolver: zodResolver(schema),
-    defaultValues: { email: "", password: "" },
+    defaultValues: { email: "", code: "" },
   })
+
+  const sendCode = async () => {
+    const email = getValues("email")
+    const parsed = z.string().email().safeParse(email)
+    if (!parsed.success) {
+      setServerError(t.auth.invalidEmail)
+      return
+    }
+    setServerError(null)
+    setSendingCode(true)
+    try {
+      await sendEmailCode(email)
+      setSentTo(email)
+    } catch (error) {
+      setServerError(error instanceof ApiError ? error.message : t.auth.codeSendFailed)
+    } finally {
+      setSendingCode(false)
+    }
+  }
 
   const submit = async (values: SignInValues) => {
     setServerError(null)
     setIsLoading(true)
     try {
-      await loginWithPassword(values.email, values.password)
+      await loginWithEmailCode(values.email, values.code)
       router.replace(search.get("next") || "/")
       router.refresh()
     } catch (error) {
-      setServerError(error instanceof ApiError ? error.message : t.auth.invalidCredentials)
+      setServerError(error instanceof ApiError ? error.message : t.auth.invalidCode)
     } finally {
       setIsLoading(false)
     }
@@ -59,7 +80,7 @@ export default function SignInPage() {
         {t.auth.welcomeBack}
       </h1>
       <p className="mt-2 mb-8 text-center text-[13px] text-muted-foreground text-pretty">
-        {t.auth.signInSubtitle}
+        {t.auth.codeSignInSubtitle}
       </p>
 
       {serverError && (
@@ -96,43 +117,35 @@ export default function SignInPage() {
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <div className="flex items-center justify-between">
-            <Label htmlFor="password" className="text-sm font-medium text-foreground">
-              {t.auth.password}
-            </Label>
-            <Link
-              href="/forgot-password"
-              className="text-[12px] text-signal underline-offset-4 hover:underline"
-            >
-              {t.auth.forgotPassword}
-            </Link>
-          </div>
+          <Label htmlFor="code" className="text-sm font-medium text-foreground">
+            {t.auth.verificationCode}
+          </Label>
           <div className="relative">
-            <Lock
+            <ShieldCheck
               className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
               aria-hidden="true"
             />
             <input
-              id="password"
-              type={showPassword ? "text" : "password"}
-              autoComplete="current-password"
-              placeholder="••••••••"
-              aria-invalid={!!errors.password}
-              className="h-10 w-full rounded-lg border border-input bg-input/30 pl-10 pr-10 text-[14px] text-foreground outline-none transition-colors placeholder:text-muted-foreground/70 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 aria-[invalid=true]:border-destructive"
-              {...register("password")}
+              id="code"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              maxLength={6}
+              placeholder="123456"
+              aria-invalid={!!errors.code}
+              className="h-10 w-full rounded-lg border border-input bg-input/30 pl-10 pr-28 text-[14px] text-foreground outline-none transition-colors placeholder:text-muted-foreground/70 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 aria-[invalid=true]:border-destructive"
+              {...register("code")}
             />
             <button
               type="button"
-              onClick={() => setShowPassword((v) => !v)}
-              aria-label={showPassword ? t.auth.hidePassword : t.auth.showPassword}
-              className="absolute right-1 top-1/2 inline-flex size-8 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground transition-colors hover:text-foreground"
+              onClick={sendCode}
+              disabled={sendingCode}
+              className="absolute right-1 top-1/2 inline-flex h-8 -translate-y-1/2 items-center justify-center rounded-md px-3 text-[12px] font-medium text-signal transition-colors hover:bg-signal/10 disabled:opacity-60"
             >
-              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              {sendingCode ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : t.auth.sendCode}
             </button>
           </div>
-          {errors.password && (
-            <p className="text-[12px] text-destructive">{errors.password.message}</p>
-          )}
+          {errors.code && <p className="text-[12px] text-destructive">{errors.code.message}</p>}
+          {sentTo && <p className="text-[12px] text-muted-foreground">{t.auth.codeSentTo.replace("{email}", sentTo)}</p>}
         </div>
 
         <button

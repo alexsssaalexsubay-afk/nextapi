@@ -17,7 +17,7 @@ class NextAPIGenerateVideo:
             "required": {
                 "auth": ("NEXTAPI_AUTH",),
                 "prompt": ("STRING", {"default": "", "multiline": True}),
-                "duration": ("INT", {"default": 5, "min": 2, "max": 12, "step": 1}),
+                "duration": ("INT", {"default": 5, "min": 4, "max": 15, "step": 1}),
                 "aspect_ratio": (["16:9", "9:16", "1:1", "4:3", "3:4", "21:9"], {"default": "16:9"}),
             },
             "optional": {

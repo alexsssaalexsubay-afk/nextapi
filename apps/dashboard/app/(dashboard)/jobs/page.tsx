@@ -58,7 +58,7 @@ function toJobRow(v: VideoListItem): JobRow {
     : "queued") as JobStatus
   const cents = v.actual_cost_cents ?? v.estimated_cost_cents
   // Surface the upstream invoice currency directly so the dashboard column
-  // matches what users see in the UpToken portal.
+  // matches what users see in the Seedance relay portal.
   const credits = `$${(cents / 100).toFixed(2)}`
   const kind: JobRow["creditsKind"] =
     status === "failed" ? "refunded" : status === "succeeded" ? "billed" : "reserved"

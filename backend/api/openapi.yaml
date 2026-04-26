@@ -1653,7 +1653,7 @@ components:
       properties:
         prompt: { type: string, maxLength: 4000 }
         image_url: { type: string, format: uri, description: "Optional source image for image-to-video." }
-        duration_seconds: { type: integer, minimum: 2, maximum: 15 }
+        duration_seconds: { type: integer, minimum: 4, maximum: 15 }
         resolution: { $ref: '#/components/schemas/Resolution' }
         mode: { type: string, enum: [fast, normal], default: normal }
         aspect_ratio: { $ref: '#/components/schemas/AspectRatio' }

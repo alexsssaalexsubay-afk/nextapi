@@ -7,6 +7,8 @@ import (
 	"net"
 	"strings"
 	"time"
+
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/provider"
 )
 
 // RetryPolicy governs how many times and at what cadence a provider call
@@ -49,8 +51,8 @@ func (p RetryPolicy) DelayFor(attempt int) time.Duration {
 
 // RetryError wraps a provider error with the decoded error class.
 type RetryError struct {
-	Code    string
-	Msg     string
+	Code      string
+	Msg       string
 	Retryable bool
 }
 
@@ -72,6 +74,14 @@ func (e *RetryError) Error() string { return e.Code + ": " + e.Msg }
 func ClassifyError(err error) *RetryError {
 	if err == nil {
 		return nil
+	}
+	var upstreamErr *provider.UpstreamError
+	if errors.As(err, &upstreamErr) {
+		code := strings.TrimSpace(upstreamErr.Code)
+		if code == "" {
+			code = "provider_error"
+		}
+		return &RetryError{Code: code, Msg: upstreamErr.Message, Retryable: upstreamErr.Retryable}
 	}
 	msg := err.Error()
 	lower := strings.ToLower(msg)

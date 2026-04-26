@@ -96,7 +96,7 @@ Click **⬇ Export Results** to download `result_manifest.csv` — the canonical
 |--------|------|-------|
 | `shot_id` | string | Unique within the batch. Used as the MP4 filename. |
 | `prompt_en` | string | English generation prompt. At least 10 words recommended. |
-| `duration` | integer (2–12) | Seconds of video |
+| `duration` | integer (4–15) | Seconds of video |
 | `aspect_ratio` | string | `16:9` / `9:16` / `1:1` / `4:3` / `3:4` / `21:9` |
 
 ### Optional columns

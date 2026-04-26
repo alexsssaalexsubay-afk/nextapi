@@ -1,16 +1,27 @@
 package gateway
 
 import (
+	"encoding/json"
+	"errors"
 	"net/http"
 
-	"github.com/gin-gonic/gin"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/auth"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/idempotency"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/infra/httpx"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/job"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/moderation"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/spend"
 	tmplsvc "github.com/alexsssaalexsubay-afk/nextapi/backend/internal/template"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/throughput"
+	workflowsvc "github.com/alexsssaalexsubay-afk/nextapi/backend/internal/workflow"
+	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 type TemplateHandlers struct {
-	Svc *tmplsvc.Service
+	Svc         *tmplsvc.Service
+	WorkflowSvc *workflowsvc.Service
+	DB          *gorm.DB
 }
 
 // GET /v1/templates
@@ -71,7 +82,7 @@ func (h *TemplateHandlers) Create(c *gin.Context) {
 		PricingMultiplier     float64 `json:"pricing_multiplier"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		httpx.BadRequest(c, "invalid_request", err.Error())
+		httpx.BadRequest(c, "invalid_request", "invalid request body")
 		return
 	}
 	if req.Category == "" {
@@ -123,6 +134,142 @@ func (h *TemplateHandlers) Create(c *gin.Context) {
 	c.JSON(http.StatusCreated, t)
 }
 
+// POST /v1/templates/:id/use
+func (h *TemplateHandlers) Use(c *gin.Context) {
+	org := auth.OrgFrom(c)
+	if org == nil {
+		c.AbortWithStatus(http.StatusUnauthorized)
+		return
+	}
+	if h.WorkflowSvc == nil {
+		httpx.InternalError(c, "template_use_unavailable", "template use is unavailable")
+		return
+	}
+	var req struct {
+		Name string `json:"name"`
+	}
+	_ = c.ShouldBindJSON(&req)
+	row, err := h.WorkflowSvc.CreateFromTemplate(c.Request.Context(), workflowsvc.UseTemplateInput{
+		OrgID:      org.ID,
+		TemplateID: c.Param("id"),
+		Name:       req.Name,
+	})
+	if err != nil {
+		httpx.BadRequest(c, "template_use_failed", "failed to create workflow from template")
+		return
+	}
+	c.JSON(http.StatusCreated, row)
+}
+
+// POST /v1/templates/:id/run
+func (h *TemplateHandlers) Run(c *gin.Context) {
+	org := auth.OrgFrom(c)
+	if org == nil {
+		c.AbortWithStatus(http.StatusUnauthorized)
+		return
+	}
+	if h.WorkflowSvc == nil {
+		httpx.InternalError(c, "template_run_unavailable", "template run is unavailable")
+		return
+	}
+	var req struct {
+		Inputs map[string]any `json:"inputs"`
+	}
+	dec := json.NewDecoder(c.Request.Body)
+	dec.UseNumber()
+	if err := dec.Decode(&req); err != nil {
+		httpx.BadRequest(c, "invalid_request", "invalid request body")
+		return
+	}
+	var apiKeyID *string
+	if ak := auth.APIKeyFrom(c); ak != nil {
+		apiKeyID = &ak.ID
+	}
+	out, err := h.WorkflowSvc.RunTemplate(c.Request.Context(), c.Param("id"), workflowsvc.TemplateRunInput{
+		OrgID:    org.ID,
+		APIKeyID: apiKeyID,
+		Inputs:   req.Inputs,
+	})
+	if err != nil {
+		handleTemplateWorkflowError(c, err)
+		return
+	}
+	if h.DB != nil {
+		idempotency.Commit(c.Request.Context(), h.DB, org.ID, c, http.StatusAccepted, out)
+	}
+	c.JSON(http.StatusAccepted, out)
+}
+
+// POST /v1/templates/:id/run-batch
+func (h *TemplateHandlers) RunBatch(c *gin.Context) {
+	org := auth.OrgFrom(c)
+	if org == nil {
+		c.AbortWithStatus(http.StatusUnauthorized)
+		return
+	}
+	if h.WorkflowSvc == nil {
+		httpx.InternalError(c, "template_batch_unavailable", "template batch is unavailable")
+		return
+	}
+	var req struct {
+		Name        *string          `json:"name"`
+		MaxParallel *int             `json:"max_parallel"`
+		Inputs      map[string]any   `json:"inputs"`
+		Variables   map[string][]any `json:"variables"`
+		Mode        string           `json:"mode"`
+	}
+	dec := json.NewDecoder(c.Request.Body)
+	dec.UseNumber()
+	if err := dec.Decode(&req); err != nil {
+		httpx.BadRequest(c, "invalid_request", "invalid request body")
+		return
+	}
+	var apiKeyID *string
+	if ak := auth.APIKeyFrom(c); ak != nil {
+		apiKeyID = &ak.ID
+	}
+	out, err := h.WorkflowSvc.RunTemplateBatch(c.Request.Context(), c.Param("id"), workflowsvc.TemplateBatchRunInput{
+		OrgID:       org.ID,
+		APIKeyID:    apiKeyID,
+		Name:        req.Name,
+		MaxParallel: req.MaxParallel,
+		Inputs:      req.Inputs,
+		Variables:   req.Variables,
+		Mode:        req.Mode,
+	})
+	if err != nil {
+		handleTemplateWorkflowError(c, err)
+		return
+	}
+	c.JSON(http.StatusCreated, gin.H{
+		"batch_run_id": out.BatchRunID,
+		"job_ids":      out.JobIDs,
+		"total":        out.Total,
+		"accepted":     out.Accepted,
+		"rejected":     out.Rejected,
+		"status":       "running",
+	})
+}
+
+// POST /v1/templates/:id/duplicate
+func (h *TemplateHandlers) Duplicate(c *gin.Context) {
+	org := auth.OrgFrom(c)
+	if org == nil {
+		c.AbortWithStatus(http.StatusUnauthorized)
+		return
+	}
+	row, err := h.Svc.Duplicate(c.Request.Context(), org.ID, c.Param("id"))
+	if err == tmplsvc.ErrNotFound {
+		httpx.NotFoundCode(c, "template_not_found", "template not found")
+		return
+	}
+	if err != nil {
+		httpx.InternalError(c, "template_duplicate_failed", "failed to duplicate template")
+		return
+	}
+	c.JSON(http.StatusCreated, row)
+}
+
 // DELETE /v1/templates/:id
 func (h *TemplateHandlers) Delete(c *gin.Context) {
 	org := auth.OrgFrom(c)
@@ -139,4 +286,45 @@ func (h *TemplateHandlers) Delete(c *gin.Context) {
 		return
 	}
 	c.Status(http.StatusNoContent)
+}
+
+func handleTemplateWorkflowError(c *gin.Context, err error) {
+	if errors.Is(err, tmplsvc.ErrNotFound) || errors.Is(err, workflowsvc.ErrWorkflowNotFound) {
+		httpx.NotFoundCode(c, "template_not_found", "template not found")
+		return
+	}
+	if errors.Is(err, workflowsvc.ErrInvalidWorkflow) {
+		httpx.BadRequest(c, "invalid_template_inputs", "template inputs are invalid")
+		return
+	}
+	if errors.Is(err, job.ErrInsufficient) || errors.Is(err, spend.ErrInsufficientBalance) {
+		httpx.PaymentRequired(c, "insufficient_quota.balance", "top up to continue")
+		return
+	}
+	if errors.Is(err, spend.ErrBudgetCap) {
+		httpx.PaymentRequired(c, "insufficient_quota.budget_cap", "period budget cap reached")
+		return
+	}
+	if errors.Is(err, spend.ErrMonthlyLimit) {
+		httpx.PaymentRequired(c, "insufficient_quota.monthly_limit", "monthly usage limit reached")
+		return
+	}
+	if errors.Is(err, spend.ErrOrgPaused) {
+		httpx.PaymentRequired(c, "insufficient_quota.org_paused", "organization is paused")
+		return
+	}
+	if errors.Is(err, throughput.ErrBurstExceeded) {
+		c.Header("Retry-After", "5")
+		httpx.TooManyRequests(c, "rate_limited.burst_exceeded", "concurrency limit reached")
+		return
+	}
+	if errors.Is(err, moderation.ErrBlocked) {
+		httpx.WriteError(c, http.StatusUnprocessableEntity, "content_moderation.blocked", "content rejected")
+		return
+	}
+	if errors.Is(err, moderation.ErrReviewRequired) {
+		httpx.WriteError(c, http.StatusUnprocessableEntity, "content_moderation.review_required", "queued for review")
+		return
+	}
+	httpx.InternalError(c, "template_run_failed", "failed to run template")
 }

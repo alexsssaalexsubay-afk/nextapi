@@ -9,6 +9,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"sync/atomic"
@@ -95,6 +96,9 @@ func NewLive() (*LiveProvider, error) {
 func (p *LiveProvider) Name() string { return "seedance-relay" }
 
 func (p *LiveProvider) EstimateCost(req provider.GenerationRequest) (int64, int64, error) {
+	if err := validateUpTokenPayload(req); err != nil {
+		return 0, 0, err
+	}
 	t, c := Estimate(req)
 	return t, c, nil
 }
@@ -146,6 +150,9 @@ type uptokenCreateResp struct {
 func (p *LiveProvider) GenerateVideo(ctx context.Context, req provider.GenerationRequest) (string, error) {
 	if !p.breaker.allow() {
 		return "", provider.ErrUpstreamUnavailable
+	}
+	if err := validateUpTokenPayload(req); err != nil {
+		return "", err
 	}
 
 	model := ResolveUpstreamModel(req, p.model)
@@ -244,9 +251,15 @@ func (p *LiveProvider) doCreate(ctx context.Context, body []byte) (string, bool,
 	// 408/429/5xx are retryable; 4xx parameter errors fail fast so we don't
 	// double-charge for prompts upstream already rejected.
 	if resp.StatusCode == 408 || resp.StatusCode == 429 || resp.StatusCode >= 500 {
+		if upstreamErr := decodeUpTokenError(raw, resp.StatusCode); upstreamErr != nil {
+			return "", true, upstreamErr
+		}
 		return "", true, fmt.Errorf("seedance relay create http %d: %s", resp.StatusCode, snippet(raw))
 	}
 	if resp.StatusCode >= 400 {
+		if upstreamErr := decodeUpTokenError(raw, resp.StatusCode); upstreamErr != nil {
+			return "", false, upstreamErr
+		}
 		return "", false, fmt.Errorf("seedance relay create http %d: %s", resp.StatusCode, snippet(raw))
 	}
 
@@ -255,7 +268,13 @@ func (p *LiveProvider) doCreate(ctx context.Context, body []byte) (string, bool,
 		return "", false, fmt.Errorf("seedance relay create decode: %w", err)
 	}
 	if out.Error != nil {
-		return "", false, fmt.Errorf("seedance relay create %s: %s", out.Error.Code, out.Error.Message)
+		retryable := uptokenErrorRetryable(out.Error.Code, resp.StatusCode)
+		return "", retryable, &provider.UpstreamError{
+			Code:      out.Error.Code,
+			Message:   out.Error.Message,
+			Type:      out.Error.Type,
+			Retryable: retryable,
+		}
 	}
 	if out.ID == "" {
 		return "", true, errors.New("seedance relay create returned empty id")
@@ -277,6 +296,10 @@ type uptokenStatusResp struct {
 		Message string `json:"message"`
 		Type    string `json:"type"`
 	} `json:"error,omitempty"`
+}
+
+var allowedAspectRatios = map[string]struct{}{
+	"16:9": {}, "9:16": {}, "1:1": {}, "4:3": {}, "3:4": {}, "21:9": {}, "adaptive": {},
 }
 
 func (p *LiveProvider) GetJobStatus(ctx context.Context, providerJobID string) (*provider.JobStatus, error) {
@@ -325,9 +348,15 @@ func (p *LiveProvider) doStatus(ctx context.Context, providerJobID string) (*pro
 	}
 
 	if resp.StatusCode == 408 || resp.StatusCode == 429 || resp.StatusCode >= 500 {
+		if upstreamErr := decodeUpTokenError(raw, resp.StatusCode); upstreamErr != nil {
+			return nil, true, upstreamErr
+		}
 		return nil, true, fmt.Errorf("seedance relay status http %d: %s", resp.StatusCode, snippet(raw))
 	}
 	if resp.StatusCode >= 400 {
+		if upstreamErr := decodeUpTokenError(raw, resp.StatusCode); upstreamErr != nil {
+			return nil, false, upstreamErr
+		}
 		return nil, false, fmt.Errorf("seedance relay status http %d: %s", resp.StatusCode, snippet(raw))
 	}
 
@@ -348,6 +377,155 @@ func (p *LiveProvider) doStatus(ctx context.Context, providerJobID string) (*pro
 		js.ErrorMessage = &out.Error.Message
 	}
 	return js, false, nil
+}
+
+func validateUpTokenPayload(req provider.GenerationRequest) error {
+	if strings.TrimSpace(req.Prompt) == "" {
+		return &provider.UpstreamError{Code: "error-202", Message: "prompt is required", Type: "invalid_request"}
+	}
+	if req.Resolution != "" {
+		if _, ok := provider.AllowedResolutions()[strings.TrimSpace(req.Resolution)]; !ok {
+			return &provider.UpstreamError{Code: "error-205", Message: "resolution is not allowed by provider config", Type: "invalid_request"}
+		}
+	}
+	if req.AspectRatio != "" {
+		if _, ok := allowedAspectRatios[req.AspectRatio]; !ok {
+			return &provider.UpstreamError{Code: "error-201", Message: "aspect_ratio is unsupported", Type: "invalid_request"}
+		}
+	}
+	if req.DurationSeconds != 0 && (req.DurationSeconds < 4 || req.DurationSeconds > 15) {
+		return &provider.UpstreamError{Code: "error-204", Message: "duration is unsupported", Type: "invalid_request"}
+	}
+	if len(req.ImageURLs) > 9 {
+		return &provider.UpstreamError{Code: "error-206", Message: "too many image_urls", Type: "invalid_request"}
+	}
+	if len(req.VideoURLs) > 3 {
+		return &provider.UpstreamError{Code: "error-207", Message: "too many video_urls", Type: "invalid_request"}
+	}
+	if len(req.AudioURLs) > 3 {
+		return &provider.UpstreamError{Code: "error-208", Message: "too many audio_urls", Type: "invalid_request"}
+	}
+	hasFirstFrame := req.FirstFrameURL != nil && strings.TrimSpace(*req.FirstFrameURL) != ""
+	if hasFirstFrame && len(req.ImageURLs) > 0 {
+		return &provider.UpstreamError{Code: "error-209", Message: "first_frame_url and image_urls are mutually exclusive", Type: "invalid_request"}
+	}
+	if req.LastFrameURL != nil && strings.TrimSpace(*req.LastFrameURL) != "" && !hasFirstFrame {
+		return &provider.UpstreamError{Code: "error-201", Message: "last_frame_url requires first_frame_url", Type: "invalid_request"}
+	}
+	if len(req.AudioURLs) > 0 && len(req.ImageURLs) == 0 && len(req.VideoURLs) == 0 && !hasFirstFrame {
+		return &provider.UpstreamError{Code: "error-210", Message: "audio_urls requires image or video input", Type: "invalid_request"}
+	}
+	if req.ImageURL != nil && strings.TrimSpace(*req.ImageURL) != "" &&
+		(len(req.ImageURLs) > 0 || len(req.VideoURLs) > 0 || len(req.AudioURLs) > 0 || hasFirstFrame) {
+		return &provider.UpstreamError{Code: "error-211", Message: "content and flat params cannot be mixed", Type: "invalid_request"}
+	}
+	if err := validateUpTokenMediaURL(req.ImageURL); err != nil {
+		return err
+	}
+	for i := range req.ImageURLs {
+		if err := validateUpTokenMediaURL(&req.ImageURLs[i]); err != nil {
+			return err
+		}
+	}
+	for i := range req.VideoURLs {
+		if err := validateUpTokenMediaURL(&req.VideoURLs[i]); err != nil {
+			return err
+		}
+	}
+	for i := range req.AudioURLs {
+		if err := validateUpTokenMediaURL(&req.AudioURLs[i]); err != nil {
+			return err
+		}
+	}
+	if err := validateUpTokenMediaURL(req.FirstFrameURL); err != nil {
+		return err
+	}
+	if err := validateUpTokenMediaURL(req.LastFrameURL); err != nil {
+		return err
+	}
+	return nil
+}
+
+func validateUpTokenMediaURL(raw *string) error {
+	if raw == nil || strings.TrimSpace(*raw) == "" {
+		return nil
+	}
+	parsed, err := url.Parse(strings.TrimSpace(*raw))
+	if err != nil || parsed.Host == "" {
+		return &provider.UpstreamError{Code: "error-401", Message: "media url is invalid", Type: "invalid_request"}
+	}
+	if strings.ToLower(parsed.Scheme) == "asset" {
+		if strings.HasPrefix(strings.ToLower(parsed.Host), "ut-asset-") {
+			return nil
+		}
+		return &provider.UpstreamError{Code: "error-401", Message: "asset url is invalid", Type: "invalid_request"}
+	}
+	if strings.ToLower(parsed.Scheme) != "https" {
+		return &provider.UpstreamError{Code: "error-401", Message: "media url must be public https", Type: "invalid_request"}
+	}
+	host := strings.ToLower(parsed.Hostname())
+	if host == "localhost" || strings.HasSuffix(host, ".localhost") {
+		return &provider.UpstreamError{Code: "error-401", Message: "media url must be public https", Type: "invalid_request"}
+	}
+	if ip := net.ParseIP(host); ip != nil && !isPublicIPLite(ip) {
+		return &provider.UpstreamError{Code: "error-401", Message: "media url must be public https", Type: "invalid_request"}
+	}
+	return nil
+}
+
+func decodeUpTokenError(raw []byte, statusCode int) *provider.UpstreamError {
+	var out struct {
+		Error *struct {
+			Code    string `json:"code"`
+			Message string `json:"message"`
+			Type    string `json:"type"`
+		} `json:"error"`
+	}
+	if err := json.Unmarshal(raw, &out); err != nil || out.Error == nil {
+		return nil
+	}
+	return &provider.UpstreamError{
+		Code:      out.Error.Code,
+		Message:   out.Error.Message,
+		Type:      out.Error.Type,
+		Retryable: uptokenErrorRetryable(out.Error.Code, statusCode),
+	}
+}
+
+func uptokenErrorRetryable(code string, statusCode int) bool {
+	if statusCode == 408 || statusCode == 429 || statusCode >= 500 {
+		return true
+	}
+	switch code {
+	case "error-501", "error-505", "error-601", "error-603", "error-604":
+		return true
+	default:
+		return false
+	}
+}
+
+func isPublicIPLite(ip net.IP) bool {
+	if ip == nil || ip.IsLoopback() || ip.IsLinkLocalUnicast() ||
+		ip.IsMulticast() || ip.IsUnspecified() {
+		return false
+	}
+	if v4 := ip.To4(); v4 != nil {
+		switch {
+		case v4[0] == 10,
+			v4[0] == 127,
+			v4[0] == 0,
+			v4[0] == 169 && v4[1] == 254,
+			v4[0] == 172 && v4[1] >= 16 && v4[1] <= 31,
+			v4[0] == 192 && v4[1] == 168,
+			v4[0] == 100 && v4[1] >= 64 && v4[1] <= 127:
+			return false
+		}
+		return true
+	}
+	if ip[0]&0xfe == 0xfc {
+		return false
+	}
+	return true
 }
 
 var (

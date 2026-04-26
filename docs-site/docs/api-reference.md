@@ -49,7 +49,7 @@ Required top-level: **`model`**, **`input`**. `input` must include **`prompt`**.
 }
 ```
 
-Optional `input` fields (when supported by the model) include: `mode` (`fast` | `normal`), `aspect_ratio`, `fps` (`24` | `30`), `generate_audio`, `watermark`, `seed`, `camera_fixed`, and a `references` array of `{ "type", "url", "role" }` objects. See the OpenAPI `VideoInput` schema for the full list and constraints (e.g. `duration_seconds` between **2 and 15** when set).
+Optional `input` fields (when supported by the model) include: `mode` (`fast` | `normal`), `aspect_ratio`, `fps` (`24` | `30`), `generate_audio`, `watermark`, `seed`, `camera_fixed`, and a `references` array of `{ "type", "url", "role" }` objects. See the OpenAPI `VideoInput` schema for the full list and constraints (e.g. `duration_seconds` between **4 and 15** when set).
 
 ### POST `/videos` — success (`202`)
 

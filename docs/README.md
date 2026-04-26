@@ -28,7 +28,7 @@
 | **GLOSSARY-ZH.md** | 中英文对照词汇表（API Key、积分、任务、Webhook 等） |
 | **SETUP-GUIDE.md** | 从 0 部署到生产：DNS、环境变量、systemd、检查清单 |
 | **OPERATOR-HANDBOOK.md** | 运维手册：数据库迁移、管理后台、Seedance 环境变量、应急 |
-| **UPSTREAM-SEEDANCE-RELAY-ZH.md** | Seedance 托管上游接入指南：env、模型映射、错误码 |
+| **UPSTREAM-SEEDANCE-RELAY-ZH.md** | Seedance 托管上游接入指南：env、模型映射、任务回调 URL、错误码；与 `docs/modules/seedance-relay-webhook-assets.md` 互补 |
 | **INTEGRATIONS-GUIDE.md** | 第三方：Resend、Grafana、支付规划等（偏「老板操作」） |
 | **deploy-cloudflare.md** | Cloudflare Pages / Workers 与 GitHub Actions 部署说明 |
 | **modules/** | 各子系统设计（给开发/审代码用） |

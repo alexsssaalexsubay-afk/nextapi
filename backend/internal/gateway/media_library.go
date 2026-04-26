@@ -2,6 +2,7 @@ package gateway
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"io"
 	"log"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/auth"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/domain"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/provider/uptoken"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/storage/r2"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -25,8 +27,14 @@ import (
 // The library is intentionally bounded: per-org caps stop a single account
 // from exhausting bucket quota and per-file caps mirror the temp upload path.
 type MediaLibraryHandlers struct {
-	DB *gorm.DB
-	R2 *r2.Client
+	DB            *gorm.DB
+	R2            *r2.Client
+	UpTokenAssets UpTokenAssetProvider
+}
+
+type UpTokenAssetProvider interface {
+	UploadAsset(ctx context.Context, filename string, contentType string, data []byte) (*uptoken.Asset, error)
+	WaitAssetActive(ctx context.Context, virtualID string, timeout time.Duration) (*uptoken.Asset, error)
 }
 
 // libraryAssetTTL controls how long the presigned GET URL lives in API
@@ -41,14 +49,18 @@ const libraryAssetTTL = 7 * 24 * time.Hour
 const libraryMaxAssetsPerOrg = 250
 
 type libraryAssetResponse struct {
-	ID          string    `json:"id"`
-	Kind        string    `json:"kind"`
-	Filename    string    `json:"filename"`
-	ContentType string    `json:"content_type"`
-	SizeBytes   int64     `json:"size_bytes"`
-	URL         string    `json:"url"`
-	URLExpires  time.Time `json:"url_expires_at"`
-	CreatedAt   time.Time `json:"created_at"`
+	ID                  string    `json:"id"`
+	Kind                string    `json:"kind"`
+	Filename            string    `json:"filename"`
+	ContentType         string    `json:"content_type"`
+	SizeBytes           int64     `json:"size_bytes"`
+	URL                 string    `json:"url"`
+	GenerationURL       string    `json:"generation_url"`
+	URLExpires          time.Time `json:"url_expires_at"`
+	CreatedAt           time.Time `json:"created_at"`
+	SeedanceAssetID     *string   `json:"seedance_asset_id,omitempty"`
+	SeedanceAssetURL    *string   `json:"seedance_asset_url,omitempty"`
+	SeedanceAssetStatus *string   `json:"seedance_asset_status,omitempty"`
 }
 
 // GET /v1/me/library/assets
@@ -95,15 +107,24 @@ func (h *MediaLibraryHandlers) List(c *gin.Context) {
 			log.Printf("library: presign failed key=%s err=%v", rows[i].StorageKey, err)
 			continue
 		}
+		generationURL := url
+		if rows[i].UpTokenStatus != nil && *rows[i].UpTokenStatus == "active" &&
+			rows[i].UpTokenAssetURL != nil && *rows[i].UpTokenAssetURL != "" {
+			generationURL = *rows[i].UpTokenAssetURL
+		}
 		out = append(out, libraryAssetResponse{
-			ID:          rows[i].ID,
-			Kind:        string(rows[i].Kind),
-			Filename:    rows[i].Filename,
-			ContentType: rows[i].ContentType,
-			SizeBytes:   rows[i].SizeBytes,
-			URL:         url,
-			URLExpires:  exp,
-			CreatedAt:   rows[i].CreatedAt,
+			ID:                  rows[i].ID,
+			Kind:                string(rows[i].Kind),
+			Filename:            rows[i].Filename,
+			ContentType:         rows[i].ContentType,
+			SizeBytes:           rows[i].SizeBytes,
+			URL:                 url,
+			GenerationURL:       generationURL,
+			URLExpires:          exp,
+			CreatedAt:           rows[i].CreatedAt,
+			SeedanceAssetID:     rows[i].UpTokenVirtualID,
+			SeedanceAssetURL:    rows[i].UpTokenAssetURL,
+			SeedanceAssetStatus: rows[i].UpTokenStatus,
 		})
 	}
 	c.JSON(http.StatusOK, gin.H{"assets": out, "ttl_seconds": int(libraryAssetTTL.Seconds())})
@@ -231,6 +252,22 @@ func (h *MediaLibraryHandlers) Create(c *gin.Context) {
 		return
 	}
 
+	var upAsset *uptoken.Asset
+	if h.UpTokenAssets != nil {
+		if uploaded, upErr := h.UpTokenAssets.UploadAsset(c.Request.Context(), fh.Filename, detected, data); upErr == nil && uploaded != nil {
+			upAsset = uploaded
+			if uploaded.VirtualID != "" {
+				if active, waitErr := h.UpTokenAssets.WaitAssetActive(c.Request.Context(), uploaded.VirtualID, 20*time.Second); waitErr == nil && active != nil {
+					upAsset = active
+				}
+			}
+		} else if upErr != nil {
+			log.Printf("library: uptoken asset upload failed filename=%s err=%v", fh.Filename, upErr)
+			status := "failed"
+			upAsset = &uptoken.Asset{Status: status}
+		}
+	}
+
 	row := domain.MediaAsset{
 		ID:          id,
 		OrgID:       org.ID,
@@ -239,6 +276,17 @@ func (h *MediaLibraryHandlers) Create(c *gin.Context) {
 		ContentType: detected,
 		Filename:    fh.Filename,
 		SizeBytes:   int64(len(data)),
+	}
+	if upAsset != nil {
+		if upAsset.VirtualID != "" {
+			row.UpTokenVirtualID = &upAsset.VirtualID
+		}
+		if upAsset.AssetURL != "" {
+			row.UpTokenAssetURL = &upAsset.AssetURL
+		}
+		if upAsset.Status != "" {
+			row.UpTokenStatus = &upAsset.Status
+		}
 	}
 	if err := h.DB.WithContext(c.Request.Context()).Create(&row).Error; err != nil {
 		// Best-effort cleanup of the orphan R2 object — better to leak a few
@@ -259,15 +307,24 @@ func (h *MediaLibraryHandlers) Create(c *gin.Context) {
 		}})
 		return
 	}
+	generationURL := url
+	if row.UpTokenStatus != nil && *row.UpTokenStatus == "active" &&
+		row.UpTokenAssetURL != nil && *row.UpTokenAssetURL != "" {
+		generationURL = *row.UpTokenAssetURL
+	}
 	c.JSON(http.StatusCreated, libraryAssetResponse{
-		ID:          row.ID,
-		Kind:        string(row.Kind),
-		Filename:    row.Filename,
-		ContentType: row.ContentType,
-		SizeBytes:   row.SizeBytes,
-		URL:         url,
-		URLExpires:  time.Now().Add(libraryAssetTTL).UTC(),
-		CreatedAt:   row.CreatedAt,
+		ID:                  row.ID,
+		Kind:                string(row.Kind),
+		Filename:            row.Filename,
+		ContentType:         row.ContentType,
+		SizeBytes:           row.SizeBytes,
+		URL:                 url,
+		GenerationURL:       generationURL,
+		URLExpires:          time.Now().Add(libraryAssetTTL).UTC(),
+		CreatedAt:           row.CreatedAt,
+		SeedanceAssetID:     row.UpTokenVirtualID,
+		SeedanceAssetURL:    row.UpTokenAssetURL,
+		SeedanceAssetStatus: row.UpTokenStatus,
 	})
 	_ = ct
 }

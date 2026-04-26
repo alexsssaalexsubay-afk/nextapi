@@ -16,23 +16,28 @@ type Provider interface {
 
 type CheckoutRequest struct {
 	OrgID       string
+	OrderID     string
 	AmountCents int64
 	Credits     int64
+	PaymentType string
+	NotifyURL   string
+	ReturnURL   string
 	SuccessURL  string
 	CancelURL   string
 }
 
 type Checkout struct {
-	URL      string
-	Provider string
+	URL        string
+	Provider   string
 	ExternalID string
 }
 
 type Event struct {
-	Type       string // "topup.succeeded"
-	OrgID      string
-	Credits    int64
-	ExternalID string
+	Type        string // "topup.succeeded"
+	OrgID       string
+	Credits     int64
+	AmountCents int64
+	ExternalID  string
 }
 
 var ErrNotImplemented = errors.New("payment provider not implemented")

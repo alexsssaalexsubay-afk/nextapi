@@ -18,6 +18,15 @@ SEEDANCE_RELAY_MODEL=seedance-2.0-pro
 
 # 可选：公开模型 ID → 上游模型 ID。
 SEEDANCE_RELAY_MODEL_MAP=seedance-2.0:seedance-2.0-pro,seedance-2.0-fast:seedance-2.0-fast
+
+# 托管中继任务完成回调（HMAC-SHA256）；与 OpenAPI/运维约定路径一致。
+SEEDANCE_RELAY_WEBHOOK_SECRET=...
+
+# 可选：为媒体库图片同时在中继侧登记 asset://（默认 false）。
+SEEDANCE_RELAY_ASSETS_ENABLED=false
+
+# 可选：允许的分辨率列表（逗号分隔），默认 480p,720p,1080p。
+SEEDANCE_RELAY_ALLOWED_RESOLUTIONS=480p,720p,1080p
 ```
 
 兼容说明：代码仍能读取旧版变量名，方便老服务器平滑迁移；新部署只写 `SEEDANCE_RELAY_*`。
@@ -42,7 +51,7 @@ SEEDANCE_RELAY_MODEL_MAP=seedance-2.0:seedance-2.0-pro,seedance-2.0-fast:seedanc
 ## 3. 视频能力约束
 
 - 模型：`seedance-2.0-pro`、`seedance-2.0-fast`。
-- 时长：默认 5 秒，当前网关接受 2-15 秒；生产目录主推 4-15 秒。
+- 时长：默认 5 秒；**对外 API 与网关校验为 4–15 秒**（与 Seedance 能力一致）。
 - 分辨率：`480p`、`720p`、`1080p`。
 - 画幅：`16:9`、`9:16`、`1:1`、`4:3`、`3:4`、`21:9`、`adaptive`。
 - `image_urls` 最多 9 个，且不能和 `first_frame_url` 同时使用。
@@ -59,7 +68,15 @@ SEEDANCE_RELAY_MODEL_MAP=seedance-2.0:seedance-2.0-pro,seedance-2.0-fast:seedanc
 - `error-5xx` / `error-6xx`：限流、容量、模型暂不可用，可退避重试。
 - `error-7xx`：生成失败或超时，建议客户简化提示词后重试。
 
-## 5. 上线验收
+## 5. 任务回调（Webhook）
+
+生产环境在托管中继侧登记回调 URL（HTTPS）：
+
+`https://api.nextapi.top/api/webhooks/seedance`
+
+服务端用 `SEEDANCE_RELAY_WEBHOOK_SECRET` 校验 HMAC 签名；详见 `docs/modules/seedance-relay-webhook-assets.md`。未收到回调时，任务仍以轮询为准。
+
+## 6. 上线验收
 
 1. `PROVIDER_MODE=seedance_relay` 且 `SEEDANCE_RELAY_API_KEY` 已在服务器 `.env`。
 2. `GET https://api.nextapi.top/health` 返回 `{"status":"ok"}`。

@@ -133,6 +133,54 @@ export async function loginWithPassword(email: string, password: string): Promis
   return body
 }
 
+export async function sendEmailCode(email: string): Promise<void> {
+  const res = await fetch(`${API_URL}/v1/auth/send-code`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email }),
+  })
+  const body = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    throw new ApiError(
+      body?.error?.message || "Could not send verification code",
+      res.status,
+      body?.error?.code,
+    )
+  }
+}
+
+export async function loginWithEmailCode(email: string, code: string): Promise<LoginResponse> {
+  const res = await fetch(`${API_URL}/v1/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, code }),
+  })
+  const body = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    throw new ApiError(
+      body?.error?.message || "Invalid email or verification code",
+      res.status,
+      body?.error?.code,
+    )
+  }
+  if (typeof body?.session_token === "string") {
+    sessionStorage.setItem(ACCOUNT_SESSION_KEY, body.session_token)
+    writeSessionCookie(body.session_token)
+  }
+  if (typeof body?.dashboard_key?.secret === "string") {
+    cachedKey = body.dashboard_key.secret
+    sessionStorage.setItem(SESSION_KEY, body.dashboard_key.secret)
+  }
+  return body
+}
+
+export async function createTopup(amountCents: number, paymentType: "alipay" | "wxpay") {
+  return apiFetch("/v1/pay/create", {
+    method: "POST",
+    body: JSON.stringify({ amount_cents: amountCents, payment_type: paymentType }),
+  }) as Promise<{ order_id: string; payment_url: string; provider: string }>
+}
+
 export async function logoutAccount(): Promise<void> {
   const token = getAccountSessionToken()
   if (token) {

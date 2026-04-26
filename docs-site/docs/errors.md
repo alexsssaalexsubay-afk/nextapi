@@ -92,7 +92,7 @@ If all 4 retries hit 429, the row is marked `failed` with `error_code: http_429`
 | Sub-message | Fix |
 |-------------|-----|
 | `"prompt is required"` | For `POST /v1/videos`, include `input.prompt`; in Batch Studio manifests, add a non-empty `prompt_en` (or the column your template expects) |
-| `"duration out of range"` / `duration_seconds` | Set `input.duration_seconds` (or legacy `duration_seconds`) between **2 and 15** when you pass a value |
+| `"duration out of range"` / `duration_seconds` | Set `input.duration_seconds` (or legacy `duration_seconds`) between **4 and 15** when you pass a value |
 | `"unsupported aspect_ratio"` | Use one of: `16:9`, `9:16`, `1:1`, `4:3`, `3:4`, `21:9`, `adaptive` |
 | `"invalid reference url"` | Ensure reference URLs start with `https://` and are reachable |
 
@@ -177,7 +177,7 @@ Before contacting support, try these:
 - [ ] No leading/trailing whitespace in the key?
 - [ ] Key is active in the dashboard (not revoked)?
 - [ ] Org has a positive credit balance?
-- [ ] `duration` is between 2 and 12?
+- [ ] `duration` / `duration_seconds` is between 4 and 15 (seconds)?
 - [ ] `aspect_ratio` is a supported value?
 - [ ] Reference URLs are `https://` and publicly reachable?
 - [ ] Prompt is not empty and has enough detail?

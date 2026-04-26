@@ -8,11 +8,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/alicebob/miniredis/v2"
-	"github.com/hibiken/asynq"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/billing"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/domain"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/provider"
+	"github.com/alicebob/miniredis/v2"
+	"github.com/hibiken/asynq"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
@@ -102,8 +102,13 @@ func setupProcessorDB(t *testing.T) *gorm.DB {
 	db.Exec(`CREATE TABLE IF NOT EXISTS videos (
 		id TEXT PRIMARY KEY, org_id TEXT, upstream_job_id TEXT, status TEXT,
 		output TEXT, actual_cost_cents BIGINT, upstream_tokens BIGINT,
-		error_code TEXT, error_message TEXT, started_at DATETIME, finished_at DATETIME,
+		video_seconds REAL, error_code TEXT, error_message TEXT, started_at DATETIME, finished_at DATETIME,
 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP)`)
+	db.Exec(`CREATE TABLE IF NOT EXISTS workflow_runs (
+		id TEXT PRIMARY KEY, workflow_id TEXT NOT NULL, org_id TEXT NOT NULL,
+		job_id TEXT NOT NULL, video_id TEXT, status TEXT NOT NULL DEFAULT 'queued',
+		input_snapshot BLOB NOT NULL DEFAULT '{}', output_snapshot BLOB,
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME)`)
 	return db
 }
 
@@ -340,6 +345,8 @@ func TestHandlePoll_ProviderSucceeded_CreditsReconciled(t *testing.T) {
 	db.Exec(`INSERT INTO jobs (id, org_id, status, reserved_credits, request, provider, provider_job_id)
 		VALUES ('job_poll_ok', ?, 'running', ?, ?, 'mock', ?)`,
 		orgID, reserved, []byte("{}"), provID)
+	db.Exec(`INSERT INTO workflow_runs (id, workflow_id, org_id, job_id, status, input_snapshot)
+		VALUES ('wr_poll_ok', 'wf_poll_ok', ?, 'job_poll_ok', 'running', ?)`, orgID, []byte("{}"))
 
 	bill := billing.NewService(db)
 	balBefore, _ := bill.GetBalance(context.Background(), orgID)
@@ -370,6 +377,13 @@ func TestHandlePoll_ProviderSucceeded_CreditsReconciled(t *testing.T) {
 	if j.CostCredits == nil || *j.CostCredits != expectedBilled {
 		t.Fatalf("cost_credits should equal upstream-derived USD cents: want=%d got=%v",
 			expectedBilled, j.CostCredits)
+	}
+	var run domain.WorkflowRun
+	if err := db.First(&run, "id = ?", "wr_poll_ok").Error; err != nil {
+		t.Fatalf("workflow run not found: %v", err)
+	}
+	if run.Status != "succeeded" || len(run.OutputSnapshot) == 0 {
+		t.Fatalf("workflow run not updated: %#v", run)
 	}
 }
 

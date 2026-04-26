@@ -11,6 +11,28 @@ import (
 // "internal error" or burning a job retry).
 var ErrUpstreamUnavailable = errors.New("provider upstream unavailable")
 
+// UpstreamError preserves provider-native error codes while still allowing the
+// job processor to decide whether a failure should be retried.
+type UpstreamError struct {
+	Code      string
+	Message   string
+	Type      string
+	Retryable bool
+}
+
+func (e *UpstreamError) Error() string {
+	if e == nil {
+		return "provider upstream error"
+	}
+	if e.Message == "" {
+		return e.Code
+	}
+	if e.Code == "" {
+		return e.Message
+	}
+	return e.Code + ": " + e.Message
+}
+
 type GenerationRequest struct {
 	// Model is the public NextAPI model ID (e.g. "seedance-1.5-pro").
 	// Providers translate this to their own upstream model ID.

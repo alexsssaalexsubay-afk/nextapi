@@ -91,7 +91,7 @@ func (h *VideosHandlers) Create(c *gin.Context) {
 		return
 	}
 	if input.Resolution == "" {
-		input.Resolution = "1080p"
+		input.Resolution = provider.DefaultResolution()
 	}
 	if input.Mode == "" {
 		input.Mode = "normal"
@@ -113,7 +113,7 @@ func (h *VideosHandlers) Create(c *gin.Context) {
 	// the obvious metadata/loopback hosts so a customer can't make the
 	// generation pipeline hit internal networks.
 	if input.ImageURL != nil {
-		if err := abuse.ValidatePublicURL(*input.ImageURL); err != nil {
+		if err := abuse.ValidatePublicOrAssetURL(*input.ImageURL); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{
 				"code":    "invalid_image_url",
 				"message": err.Error(),
@@ -122,7 +122,7 @@ func (h *VideosHandlers) Create(c *gin.Context) {
 		}
 	}
 
-	if err := validateVideoParams(input.AspectRatio, input.FPS, input.DurationSeconds); err != nil {
+	if err := validateVideoParams(input.AspectRatio, input.FPS, input.DurationSeconds, input.Resolution); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{
 			"code":    "invalid_request",
 			"message": err.Error(),
@@ -147,7 +147,7 @@ func (h *VideosHandlers) Create(c *gin.Context) {
 
 	// SSRF guards for extended media URLs.
 	for i, u := range input.ImageURLs {
-		if err := abuse.ValidatePublicURL(u); err != nil {
+		if err := abuse.ValidatePublicOrAssetURL(u); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{
 				"code":    "invalid_image_urls",
 				"message": fmt.Sprintf("image_urls[%d]: %s", i, err.Error()),
@@ -156,7 +156,7 @@ func (h *VideosHandlers) Create(c *gin.Context) {
 		}
 	}
 	for i, u := range input.VideoURLs {
-		if err := abuse.ValidatePublicURL(u); err != nil {
+		if err := abuse.ValidatePublicOrAssetURL(u); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{
 				"code":    "invalid_video_urls",
 				"message": fmt.Sprintf("video_urls[%d]: %s", i, err.Error()),
@@ -165,7 +165,7 @@ func (h *VideosHandlers) Create(c *gin.Context) {
 		}
 	}
 	for i, u := range input.AudioURLs {
-		if err := abuse.ValidatePublicURL(u); err != nil {
+		if err := abuse.ValidatePublicOrAssetURL(u); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{
 				"code":    "invalid_audio_urls",
 				"message": fmt.Sprintf("audio_urls[%d]: %s", i, err.Error()),
@@ -174,7 +174,7 @@ func (h *VideosHandlers) Create(c *gin.Context) {
 		}
 	}
 	if input.FirstFrameURL != nil && *input.FirstFrameURL != "" {
-		if err := abuse.ValidatePublicURL(*input.FirstFrameURL); err != nil {
+		if err := abuse.ValidatePublicOrAssetURL(*input.FirstFrameURL); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{
 				"code":    "invalid_first_frame_url",
 				"message": err.Error(),
@@ -183,7 +183,7 @@ func (h *VideosHandlers) Create(c *gin.Context) {
 		}
 	}
 	if input.LastFrameURL != nil && *input.LastFrameURL != "" {
-		if err := abuse.ValidatePublicURL(*input.LastFrameURL); err != nil {
+		if err := abuse.ValidatePublicOrAssetURL(*input.LastFrameURL); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{
 				"code":    "invalid_last_frame_url",
 				"message": err.Error(),
@@ -432,7 +432,7 @@ func (h *VideosHandlers) Get(c *gin.Context) {
 		Table("videos v").
 		Select("v.*, j.provider_job_id as provider_job_id, ak.prefix as api_key_prefix").
 		// videos.upstream_job_id is TEXT (legacy schema), jobs.id is UUID — cast to compare.
-		Joins("LEFT JOIN jobs j ON j.id::text = v.upstream_job_id").
+		Joins("LEFT JOIN jobs j ON CAST(j.id AS TEXT) = v.upstream_job_id").
 		Joins("LEFT JOIN api_keys ak ON ak.id = v.api_key_id").
 		Where("v.id = ? AND v.org_id = ?", id, org.ID).
 		Limit(1).
@@ -545,7 +545,7 @@ func (h *VideosHandlers) List(c *gin.Context) {
 		Table("videos v").
 		Select("v.*, j.provider_job_id as provider_job_id, ak.prefix as api_key_prefix").
 		// videos.upstream_job_id is TEXT (legacy schema), jobs.id is UUID — cast to compare.
-		Joins("LEFT JOIN jobs j ON j.id::text = v.upstream_job_id").
+		Joins("LEFT JOIN jobs j ON CAST(j.id AS TEXT) = v.upstream_job_id").
 		Joins("LEFT JOIN api_keys ak ON ak.id = v.api_key_id").
 		Where("v.org_id = ?", org.ID)
 	if statusFilter := c.Query("status"); statusFilter != "" {
@@ -810,6 +810,25 @@ func (h *VideosHandlers) handleJobError(c *gin.Context, err error) {
 		c.JSON(http.StatusUnprocessableEntity, gin.H{
 			"error": gin.H{"code": "content_moderation.review_required", "message": "queued for review"},
 		})
+		return
+	}
+	var upstreamErr *provider.UpstreamError
+	if errors.As(err, &upstreamErr) {
+		status := http.StatusBadRequest
+		message := "invalid video generation request"
+		switch upstreamErr.Code {
+		case "error-104", "402":
+			status = http.StatusPaymentRequired
+			message = "top up to continue"
+		case "error-501":
+			status = http.StatusTooManyRequests
+			message = "rate limited, retry later"
+		}
+		if upstreamErr.Retryable {
+			status = http.StatusServiceUnavailable
+			message = "generation provider unavailable"
+		}
+		c.JSON(status, gin.H{"error": gin.H{"code": upstreamErr.Code, "message": message}})
 		return
 	}
 	c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "internal_error"}})

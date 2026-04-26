@@ -18,3 +18,7 @@ Modules planned for W1:
 - `billing.md` — D2 credits ledger.
 - `provider.md` — D3 Provider adapter + Seedance.
 - `job.md` — D3 async job engine.
+
+Additional slices (see files in this directory):
+- `seedance-relay-webhook-assets.md` — managed Seedance relay callbacks (`POST /api/webhooks/seedance`), HMAC secret, optional asset library sync.
+- `email-otp-easypay-billing.md` — dashboard email OTP, EasyPay checkout, notify URL behaviour.

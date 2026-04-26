@@ -6,13 +6,13 @@ import (
 	"errors"
 	"time"
 
-	"github.com/hibiken/asynq"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/billing"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/domain"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/moderation"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/provider"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/spend"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/throughput"
+	"github.com/hibiken/asynq"
 	"gorm.io/gorm"
 )
 
@@ -47,11 +47,11 @@ func (s *Service) SetThroughput(tp *throughput.Service) { s.throughput = tp }
 func (s *Service) SetModeration(ms *moderation.Service) { s.moderation = ms }
 
 type CreateInput struct {
-	OrgID           string
-	APIKeyID        *string
-	BatchRunID      *string
-	SkipThroughput  bool // batch service handles throughput externally via AcquireBatch
-	Request         provider.GenerationRequest
+	OrgID          string
+	APIKeyID       *string
+	BatchRunID     *string
+	SkipThroughput bool // batch service handles throughput externally via AcquireBatch
+	Request        provider.GenerationRequest
 }
 
 type CreateResult struct {

@@ -30,6 +30,10 @@ type MediaAsset struct {
 	Filename    string         `gorm:"type:text" json:"filename"`
 	SizeBytes   int64          `json:"size_bytes"`
 	CreatedAt   time.Time      `json:"created_at"`
+
+	UpTokenVirtualID *string `gorm:"column:uptoken_virtual_id" json:"uptoken_virtual_id,omitempty"`
+	UpTokenAssetURL  *string `gorm:"column:uptoken_asset_url" json:"uptoken_asset_url,omitempty"`
+	UpTokenStatus    *string `gorm:"column:uptoken_status" json:"uptoken_status,omitempty"`
 }
 
 // TableName lets GORM use the snake_case table name without auto-pluralising

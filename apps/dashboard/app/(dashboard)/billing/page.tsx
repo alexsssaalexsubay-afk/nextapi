@@ -13,12 +13,6 @@ import {
 import { DashboardShell } from "@/components/dashboard/dashboard-shell"
 import { Button } from "@/components/ui/button"
 import { useTranslations } from "@/lib/i18n/context"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
 import { apiFetch } from "@/lib/api"
 
 type UsagePoint = {
@@ -146,24 +140,15 @@ export default function BillingPage() {
             <Download className="size-3.5" />
             {t.usage.exportCsv}
           </Button>
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span>
-                  <Button
-                    disabled
-                    className="h-8 cursor-not-allowed gap-1.5 bg-foreground/30 text-[12.5px] text-background opacity-50"
-                  >
-                    {t.common.topUp}
-                    <ArrowUpRight className="size-3.5" />
-                  </Button>
-                </span>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" className="max-w-[280px] text-[12px]">
-                {t.billing.preview.topUpDisabledTooltip}
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+          <Button
+            asChild
+            className="h-8 gap-1.5 bg-foreground text-[12.5px] text-background"
+          >
+            <Link href="/recharge">
+              {t.common.topUp}
+              <ArrowUpRight className="size-3.5" />
+            </Link>
+          </Button>
           <Button
             asChild
             variant="outline"

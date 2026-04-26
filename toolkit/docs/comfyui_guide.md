@@ -46,7 +46,7 @@ Submits `POST /v1/video/generations`.
 |-------|------|-------|
 | `auth` | NEXTAPI_AUTH | from NextAPIAuth |
 | `prompt` | STRING | English generation prompt |
-| `duration` | INT 2–12 | seconds |
+| `duration` | INT 4–15 | seconds |
 | `aspect_ratio` | enum | `16:9`, `9:16`, `1:1`, `4:3`, `3:4`, `21:9` |
 | `negative_prompt` | STRING | optional |
 | `character_url` | STRING | from AssetResolver or hardcoded |

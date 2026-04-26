@@ -156,19 +156,19 @@ class TestShotRowValidation:
 
     def test_duration_too_high_fails(self):
         with pytest.raises(Exception, match="Duration"):
-            ShotRow(shot_id="s01", prompt_en="A valid long enough prompt", duration=13, aspect_ratio="16:9")
+            ShotRow(shot_id="s01", prompt_en="A valid long enough prompt", duration=16, aspect_ratio="16:9")
 
     def test_duration_string_converted(self):
         row = ShotRow(shot_id="s01", prompt_en="A valid long enough prompt", duration="5", aspect_ratio="16:9")
         assert row.duration == 5
 
-    def test_boundary_duration_2_accepted(self):
-        row = ShotRow(shot_id="s01", prompt_en="A valid long enough prompt", duration=2, aspect_ratio="16:9")
-        assert row.duration == 2
+    def test_boundary_duration_4_accepted(self):
+        row = ShotRow(shot_id="s01", prompt_en="A valid long enough prompt", duration=4, aspect_ratio="16:9")
+        assert row.duration == 4
 
-    def test_boundary_duration_12_accepted(self):
-        row = ShotRow(shot_id="s01", prompt_en="A valid long enough prompt", duration=12, aspect_ratio="16:9")
-        assert row.duration == 12
+    def test_boundary_duration_15_accepted(self):
+        row = ShotRow(shot_id="s01", prompt_en="A valid long enough prompt", duration=15, aspect_ratio="16:9")
+        assert row.duration == 15
 
 
 # ============================================================================

@@ -23,6 +23,7 @@ import (
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/moderation"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/notify"
 	projsvc "github.com/alexsssaalexsubay-afk/nextapi/backend/internal/project"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/provider/uptoken"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/providerfactory"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/ratelimit"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/spend"
@@ -30,6 +31,7 @@ import (
 	tmplsvc "github.com/alexsssaalexsubay-afk/nextapi/backend/internal/template"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/throughput"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/webhook"
+	workflowsvc "github.com/alexsssaalexsubay-afk/nextapi/backend/internal/workflow"
 	"github.com/gin-gonic/gin"
 	"github.com/hibiken/asynq"
 	"github.com/pressly/goose/v3"
@@ -80,6 +82,8 @@ func main() {
 	jobSvc.SetSpend(spendSvc)
 	jobSvc.SetThroughput(throughputSvc)
 	jobSvc.SetModeration(modSvc)
+	workflowSvc := workflowsvc.NewService(gormDB, jobSvc)
+	workflowSvc.SetThroughput(throughputSvc)
 
 	notifier := notify.New()
 
@@ -88,13 +92,14 @@ func main() {
 	whh := &gateway.WebhookHandlers{DB: gormDB, Webhooks: whSvc}
 	wdh := &gateway.WebhookDeliveryHandlers{DB: gormDB, Webhooks: whSvc}
 	ah := &gateway.AdminHandlers{DB: gormDB, Billing: billSvc, Spend: spendSvc, Throughput: throughputSvc, Notify: notifier}
-	ph := gateway.NewPaymentHandlers(billSvc)
+	ph := gateway.NewPaymentHandlers(billSvc, gormDB)
+	seedanceWebhook := &gateway.UpTokenWebhookHandlers{DB: gormDB, Spend: spendSvc, Throughput: throughputSvc}
 	hook := &gateway.ClerkWebhook{DB: gormDB, Billing: billSvc}
 	models := gateway.ModelsHandlers{}
 	sh := &gateway.SpendHandlers{Svc: spendSvc, DB: gormDB}
 	th := &gateway.ThroughputHandlers{Svc: throughputSvc}
 	mh := &gateway.ModerationHandlers{Svc: modSvc}
-	accountAuth := &gateway.AccountAuthHandlers{DB: gormDB, Auth: authSvc, Billing: billSvc}
+	accountAuth := &gateway.AccountAuthHandlers{DB: gormDB, Auth: authSvc, Billing: billSvc, Redis: rClient, Notify: notifier}
 	rl := &ratelimit.Limiter{Client: rClient}
 	idem := &idempotency.Middleware{DB: gormDB}
 
@@ -146,9 +151,20 @@ func main() {
 	// sign in here with the assigned email/password.
 	v1.POST("/auth/login", ratelimit.Middleware(rl, 20, time.Minute), accountAuth.Login)
 	v1.POST("/auth/signup", ratelimit.Middleware(rl, 10, time.Hour), accountAuth.Signup)
+	v1.POST("/auth/send-code", ratelimit.Middleware(rl, 10, time.Hour), accountAuth.SendOTP)
 	v1.POST("/auth/otp/send", ratelimit.Middleware(rl, 10, time.Hour), accountAuth.SendOTP)
 	v1.GET("/auth/session", accountAuth.Session)
 	v1.POST("/auth/logout", accountAuth.Logout)
+
+	// Compatibility aliases for first-party web flows that are documented as
+	// /api/*. They reuse the same handlers and auth middleware as /v1/*, so
+	// payment and account state still live in the single Go backend.
+	apiCompat := r.Group("/api")
+	apiCompat.POST("/auth/send-code", ratelimit.Middleware(rl, 10, time.Hour), accountAuth.SendOTP)
+	apiCompat.POST("/auth/login", ratelimit.Middleware(rl, 20, time.Minute), accountAuth.Login)
+	apiCompat.GET("/pay/notify", ph.Webhook)
+	apiCompat.POST("/pay/notify", ph.Webhook)
+	apiCompat.POST("/webhooks/seedance", seedanceWebhook.Handle)
 
 	// Clerk-session → API-key bridge (Group A fix). The dashboard / admin SPAs
 	// hit these on first load with a Clerk JWT and exchange it for the
@@ -191,6 +207,7 @@ func main() {
 	// Batch runs — first-class batch entity.
 	batchService := batchsvc.NewService(gormDB, jobSvc)
 	batchService.SetThroughput(throughputSvc)
+	workflowSvc.SetBatchService(batchService)
 	bh2 := &gateway.BatchHandlers{Svc: batchService, Throughput: throughputSvc}
 	api.POST("/batch/runs", idem.Handle(), bh2.Create)
 	api.GET("/batch/runs", bh2.List)
@@ -201,10 +218,14 @@ func main() {
 
 	// Templates
 	tmplService := tmplsvc.NewService(gormDB)
-	tmplH := &gateway.TemplateHandlers{Svc: tmplService}
+	tmplH := &gateway.TemplateHandlers{Svc: tmplService, WorkflowSvc: workflowSvc, DB: gormDB}
 	api.GET("/templates", tmplH.List)
 	api.GET("/templates/:id", tmplH.Get)
 	api.POST("/templates", tmplH.Create)
+	api.POST("/templates/:id/use", tmplH.Use)
+	api.POST("/templates/:id/run", idem.Handle(), tmplH.Run)
+	api.POST("/templates/:id/run-batch", idem.Handle(), tmplH.RunBatch)
+	api.POST("/templates/:id/duplicate", tmplH.Duplicate)
 	api.DELETE("/templates/:id", tmplH.Delete)
 
 	// Projects & workspace
@@ -218,6 +239,19 @@ func main() {
 	api.GET("/projects/:id/assets", projH.ListAssets)
 	api.POST("/projects/:id/assets", projH.CreateAsset)
 	api.DELETE("/projects/:id/assets/:assetId", projH.DeleteAsset)
+
+	workflowH := &gateway.WorkflowHandlers{Svc: workflowSvc}
+	api.GET("/workflows", workflowH.List)
+	api.POST("/workflows", workflowH.Create)
+	api.GET("/workflows/:id", workflowH.Get)
+	api.PATCH("/workflows/:id", workflowH.Update)
+	api.POST("/workflows/:id/duplicate", workflowH.Duplicate)
+	api.POST("/workflows/:id/run", workflowH.Run)
+	api.GET("/workflows/:id/versions", workflowH.ListVersions)
+	api.POST("/workflows/:id/versions", workflowH.CreateVersion)
+	api.POST("/workflows/:id/versions/:versionId/restore", workflowH.RestoreVersion)
+	api.POST("/workflows/:id/save-as-template", workflowH.SaveAsTemplate)
+	api.POST("/workflows/:id/export-api", workflowH.ExportAPI)
 
 	api.GET("/videos", vids.List)
 	api.GET("/videos/:id", vids.Get)
@@ -235,6 +269,13 @@ func main() {
 	// share the same v1 base. Handlers scope by auth.OrgFrom either way.
 	api.GET("/me/billing/ledger", h.Ledger)
 	api.GET("/me/billing/usage", h.Usage)
+	api.POST("/pay/create", ph.CreateTopup)
+
+	apiPayCompat := apiCompat.Group("")
+	apiPayCompat.Use(auth.Business(authSvc))
+	apiPayCompat.Use(ratelimit.Middleware(rl, 600, time.Minute))
+	apiPayCompat.Use(ratelimit.PerKey(rl))
+	apiPayCompat.POST("/pay/create", ph.CreateTopup)
 
 	// Self-service webhook management (sk_* keys manage their own org's webhooks)
 	api.GET("/webhooks", whh.List)
@@ -255,6 +296,13 @@ func main() {
 	api.POST("/me/uploads/media", uploadH.PostMedia)
 
 	libraryH := &gateway.MediaLibraryHandlers{DB: gormDB, R2: uploadH.R2}
+	if os.Getenv("SEEDANCE_RELAY_ASSETS_ENABLED") == "true" {
+		if assets, err := uptoken.NewAssetClientFromEnv(); err == nil {
+			libraryH.UpTokenAssets = assets
+		} else {
+			log.Printf("seedance relay assets: %v (asset registration disabled)", err)
+		}
+	}
 	api.GET("/me/library/assets", libraryH.List)
 	api.POST("/me/library/assets", libraryH.Create)
 	api.DELETE("/me/library/assets/:id", libraryH.Delete)

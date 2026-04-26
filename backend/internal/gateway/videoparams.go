@@ -1,6 +1,11 @@
 package gateway
 
-import "errors"
+import (
+	"errors"
+	"strings"
+
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/provider"
+)
 
 // Allowed values match the gateway model catalogue / video task contract.
 // We validate *before* the spend/throughput pipeline so a malformed enum
@@ -17,10 +22,15 @@ var allowedFPS = map[int]struct{}{
 // validateVideoParams enforces the subset the gateway forwards to providers.
 // Empty strings / zero ints are treated as "unset → provider default"
 // and are not rejected here.
-func validateVideoParams(aspect string, fps int, duration int) error {
+func validateVideoParams(aspect string, fps int, duration int, resolution string) error {
 	if aspect != "" {
 		if _, ok := allowedAspectRatios[aspect]; !ok {
 			return errors.New("aspect_ratio must be one of 16:9, 9:16, 1:1, 4:3, 3:4, 21:9, adaptive")
+		}
+	}
+	if resolution != "" {
+		if _, ok := provider.AllowedResolutions()[strings.TrimSpace(resolution)]; !ok {
+			return errors.New("resolution is unsupported by the configured provider")
 		}
 	}
 	if fps != 0 {
@@ -28,10 +38,10 @@ func validateVideoParams(aspect string, fps int, duration int) error {
 			return errors.New("fps must be 24 or 30")
 		}
 	}
-	// Provider tasks typically allow ~2–15s; we cap at 15s in the catalogue;
+	// Seedance-family providers allow 4–15s; validate before reservation.
 	// anything outside that window is almost certainly a client bug.
-	if duration != 0 && (duration < 2 || duration > 15) {
-		return errors.New("duration_seconds must be between 2 and 15")
+	if duration != 0 && (duration < 4 || duration > 15) {
+		return errors.New("duration_seconds must be between 4 and 15")
 	}
 	return nil
 }

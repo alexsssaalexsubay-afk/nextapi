@@ -16,7 +16,7 @@ NextAPI is a video generation gateway built on top of Seedance. It handles authe
 
 ### What kind of videos can I generate?
 
-Short-form vertical (9:16), standard horizontal (16:9), and square (1:1) videos, from 2 to 12 seconds per clip. Primary use cases:
+Short-form vertical (9:16), standard horizontal (16:9), and square (1:1) videos, from **4 to 15** seconds per clip. Primary use cases:
 - Short drama and series production
 - E-commerce product showcase videos
 - Social media content at scale
@@ -81,7 +81,7 @@ Fix: standardise the physical descriptor text across your manifest. Create a `ch
 ### Why is the output video blurry or low quality?
 
 - Use a detailed, specific prompt — vague prompts produce vague output
-- Avoid very short durations (2–3 seconds) for complex motion — the model has less time to establish the scene
+- Avoid very short durations (4–5 seconds) for complex motion — the model has less time to establish the scene
 - Check that your `negative_prompt` includes `low quality, blur`
 
 ---

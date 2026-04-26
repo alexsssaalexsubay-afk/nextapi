@@ -25,7 +25,7 @@ Quick fixes for the most common problems operators encounter.
 ### `400 bad_request: invalid request body`
 
 - A required field is missing or out of range.
-- Most common: `duration` outside 2–12, or `aspect_ratio` with an unsupported value.
+- Most common: `duration` outside 4–15, or `aspect_ratio` with an unsupported value.
 - Run **Validate CSV** in Batch Studio first; it catches these before submitting.
 
 ### `404 not_found` on `GET /v1/jobs/{id}`

@@ -264,6 +264,7 @@ func (p *Processor) succeed(ctx context.Context, j *domain.Job, st *provider.Job
 			"video_seconds":     videoSeconds,
 			"finished_at":       now,
 		})
+		updateWorkflowRun(ctx, tx, j.ID, "succeeded", outputJSON)
 		// Update batch counters if this job belongs to a batch.
 		if j.BatchRunID != nil {
 			tx.Model(&domain.BatchRun{}).Where("id = ?", *j.BatchRunID).
@@ -313,6 +314,22 @@ func lookupVideoID(ctx context.Context, db *gorm.DB, jobID string) string {
 	return jobID
 }
 
+func updateWorkflowRun(ctx context.Context, tx *gorm.DB, jobID string, status string, output json.RawMessage) {
+	if !tx.Migrator().HasTable(&domain.WorkflowRun{}) {
+		return
+	}
+	updates := map[string]any{
+		"status":     status,
+		"updated_at": time.Now(),
+	}
+	if len(output) > 0 {
+		updates["output_snapshot"] = output
+	}
+	_ = tx.WithContext(ctx).Model(&domain.WorkflowRun{}).
+		Where("job_id = ?", jobID).
+		Updates(updates).Error
+}
+
 func (p *Processor) fail(ctx context.Context, j *domain.Job, code, msg string) error {
 	// Idempotency guard — if already in a terminal state, skip.
 	if j.Status.IsTerminal() {
@@ -355,6 +372,8 @@ func (p *Processor) fail(ctx context.Context, j *domain.Job, code, msg string) e
 			"error_message": msg,
 			"finished_at":   now,
 		})
+		outputJSON, _ := json.Marshal(map[string]any{"error_code": code, "error_message": msg})
+		updateWorkflowRun(ctx, tx, j.ID, "failed", outputJSON)
 		// Update batch counters.
 		if j.BatchRunID != nil {
 			tx.Model(&domain.BatchRun{}).Where("id = ?", *j.BatchRunID).

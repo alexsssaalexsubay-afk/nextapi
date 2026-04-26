@@ -33,7 +33,7 @@ Every manifest **must** have these four columns. Missing any one of them is a va
 |--------|------|-------------|---------|
 | `shot_id` | text | Unique within the batch | `ep01_s01_001` |
 | `prompt_en` | text | Min 10 characters recommended | `Lin Yue walks into the cafe...` |
-| `duration` | number | 2–12 (seconds) | `5` |
+| `duration` | number | 4–15 (seconds) | `5` |
 | `aspect_ratio` | text | See options below | `16:9` |
 
 **Supported aspect ratios:** `16:9` · `9:16` · `1:1` · `4:3` · `3:4` · `21:9`
@@ -96,7 +96,7 @@ Click **🔍 Validate CSV** before running anything.
 
 Batch Studio checks:
 - All required columns are present
-- `duration` is between 2 and 12
+- `duration` is between 4 and 15 (seconds)
 - `aspect_ratio` is a recognised value
 - All `shot_id` values are unique
 - Referenced images are either uploaded in the sidebar or use `https://` URLs

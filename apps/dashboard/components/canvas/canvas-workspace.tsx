@@ -1,0 +1,523 @@
+"use client"
+
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import {
+  addEdge,
+  Background,
+  Controls,
+  Handle,
+  MiniMap,
+  Position,
+  ReactFlow,
+  type Connection,
+  type Edge,
+  type Node,
+  type NodeProps,
+  useEdgesState,
+  useNodesState,
+} from "@xyflow/react"
+import { Code2, ImageIcon, Loader2, Play, Save, Settings2, Sparkles, Type, Video } from "lucide-react"
+import { toast } from "sonner"
+import { apiFetch, ApiError } from "@/lib/api"
+import {
+  createWorkflow,
+  exportWorkflowAPI,
+  runWorkflow,
+  saveWorkflowAsTemplate,
+  updateWorkflow,
+  type ExportAPIResult,
+  type CanvasNodeType,
+  type WorkflowJSON,
+  type WorkflowRecord,
+} from "@/lib/workflows"
+import { useTranslations } from "@/lib/i18n/context"
+import { cn } from "@/lib/utils"
+
+type CanvasNodeData = Record<string, unknown> & {
+  node_type?: CanvasNodeType
+  label?: string
+  prompt?: string
+  image_url?: string
+  preview_url?: string
+  image_type?: "character" | "scene" | "reference"
+  duration?: number
+  aspect_ratio?: string
+  resolution?: string
+  seed?: number | null
+  model?: string
+  video_url?: string
+  node_status?: "idle" | "waiting" | "running" | "success" | "failed" | "skipped"
+  error_message?: string
+}
+
+type CanvasNode = Node<CanvasNodeData, "canvas">
+type CanvasEdge = Edge
+
+type LibraryAsset = {
+  id: string
+  kind: "image" | "video" | "audio"
+  url: string
+  generation_url?: string
+  filename?: string
+}
+
+type CurrentVideo = {
+  id: string
+  model?: string
+  status: string
+  output?: { url?: string; video_url?: string }
+  error_code?: string
+  error_message?: string
+}
+
+const ACTIVE_STATUSES = new Set(["queued", "submitting", "running", "retrying"])
+const RATIOS = ["adaptive", "16:9", "9:16", "1:1", "4:3", "3:4", "21:9"]
+const RESOLUTIONS = ["480p", "720p", "1080p"]
+
+const initialNodes: CanvasNode[] = [
+  node("node_image_1", "image.input", { x: 40, y: 80 }, { label: "Character image", image_type: "character", image_url: "" }),
+  node("node_prompt_1", "prompt.input", { x: 40, y: 260 }, { label: "Prompt", prompt: "" }),
+  node("node_params_1", "video.params", { x: 40, y: 440 }, { label: "Video params", duration: 5, aspect_ratio: "9:16", resolution: "1080p", seed: null }),
+  node("node_seedance_1", "seedance.video", { x: 420, y: 250 }, { label: "Seedance video", model: "seedance-2.0-pro" }),
+  node("node_output_1", "output.preview", { x: 780, y: 250 }, { label: "Output preview" }),
+]
+
+const initialEdges: CanvasEdge[] = [
+  { id: "edge_image_video", source: "node_image_1", target: "node_seedance_1" },
+  { id: "edge_prompt_video", source: "node_prompt_1", target: "node_seedance_1" },
+  { id: "edge_params_video", source: "node_params_1", target: "node_seedance_1" },
+  { id: "edge_video_output", source: "node_seedance_1", target: "node_output_1" },
+]
+
+function node(id: string, type: CanvasNodeType, position: { x: number; y: number }, data: CanvasNodeData): CanvasNode {
+  return { id, type: "canvas", position, data: { ...data, node_type: type } }
+}
+
+function FlowNode({ data, type, selected }: NodeProps<CanvasNode>) {
+  const nodeType = String(data.node_type || type)
+  const Icon =
+    nodeType === "image.input" ? ImageIcon :
+      nodeType === "prompt.input" ? Type :
+        nodeType === "video.params" ? Settings2 :
+          nodeType === "seedance.video" ? Sparkles :
+            Video
+  return (
+    <div
+      className={cn(
+        "min-w-48 rounded-xl border bg-card/95 px-3 py-2 shadow-sm backdrop-blur",
+        selected ? "border-signal" : "border-border/80",
+      )}
+    >
+      <Handle type="target" position={Position.Left} className="!bg-signal" />
+      <div className="flex items-center gap-2">
+        <Icon className="size-3.5 text-signal" />
+        <div>
+          <div className="text-[12px] font-medium">{String(data.label || nodeType)}</div>
+          <div className="font-mono text-[10px] text-muted-foreground">{nodeType}</div>
+        </div>
+      </div>
+      {data.node_status ? (
+        <span className={cn(
+          "mt-2 inline-flex rounded-full border px-2 py-0.5 font-mono text-[10px]",
+          data.node_status === "running" && "border-signal/40 text-signal",
+          data.node_status === "waiting" && "border-muted-foreground/30 text-muted-foreground",
+          data.node_status === "success" && "border-status-success/40 text-status-success",
+          data.node_status === "failed" && "border-status-failed/40 text-status-failed",
+        )}>
+          {data.node_status}
+        </span>
+      ) : null}
+      {nodeType === "image.input" && data.image_url ? (
+        <div className="mt-2 overflow-hidden rounded-md border border-border/70">
+          {/* eslint-disable-next-line @next/next/no-img-element -- presigned/user URL preview */}
+          <img src={String(data.preview_url || data.image_url)} alt="" className="h-20 w-full object-cover" />
+        </div>
+      ) : null}
+      {nodeType === "output.preview" && data.video_url ? (
+        <video src={String(data.video_url)} controls className="mt-2 aspect-video w-56 rounded-md bg-black object-contain" />
+      ) : null}
+      <Handle type="source" position={Position.Right} className="!bg-signal" />
+    </div>
+  )
+}
+
+const nodeTypes = { canvas: FlowNode }
+
+export function CanvasWorkspace() {
+  const t = useTranslations()
+  const labels = t.canvas
+  const [nodes, setNodes, onNodesChange] = useNodesState<CanvasNode>(initialNodes)
+  const [edges, setEdges, onEdgesChange] = useEdgesState<CanvasEdge>(initialEdges)
+  const [selectedId, setSelectedId] = useState<string>("node_prompt_1")
+  const [workflow, setWorkflow] = useState<WorkflowRecord | null>(null)
+  const [name, setName] = useState(labels.defaultName)
+  const [saving, setSaving] = useState(false)
+  const [running, setRunning] = useState(false)
+  const [templateSaving, setTemplateSaving] = useState(false)
+  const [exporting, setExporting] = useState(false)
+  const [exportResult, setExportResult] = useState<ExportAPIResult | null>(null)
+  const [currentVideo, setCurrentVideo] = useState<CurrentVideo | null>(null)
+  const [assets, setAssets] = useState<LibraryAsset[]>([])
+  const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const selectedNode = useMemo(() => nodes.find((n) => n.id === selectedId) ?? null, [nodes, selectedId])
+
+  useEffect(() => {
+    apiFetch("/v1/me/library/assets?kind=image")
+      .then((res) => {
+        const body = res as { assets?: LibraryAsset[] }
+        setAssets(Array.isArray(body.assets) ? body.assets : [])
+      })
+      .catch(() => setAssets([]))
+  }, [])
+
+  const onConnect = useCallback(
+    (connection: Connection) => setEdges((eds) => addEdge({ ...connection, id: `edge_${Date.now()}` }, eds)),
+    [setEdges],
+  )
+
+  const updateSelectedData = useCallback((patch: CanvasNodeData) => {
+    if (!selectedId) return
+    setNodes((items) => items.map((item) => item.id === selectedId ? { ...item, data: { ...item.data, ...patch } } : item))
+  }, [selectedId, setNodes])
+
+  const addNode = (type: CanvasNodeType) => {
+    const id = `node_${type.replace(".", "_")}_${Date.now()}`
+    const data: CanvasNodeData =
+      type === "image.input" ? { label: labels.imageNode, image_type: "reference", image_url: "" } :
+        type === "prompt.input" ? { label: labels.promptNode, prompt: "" } :
+          type === "video.params" ? { label: labels.paramsNode, duration: 5, aspect_ratio: "9:16", resolution: "1080p", seed: null } :
+            type === "seedance.video" ? { label: labels.videoNode, model: "seedance-2.0-pro" } :
+              { label: labels.outputNode }
+    setNodes((items) => [...items, { id, type: "canvas", position: { x: 180 + items.length * 24, y: 120 + items.length * 16 }, data: { ...data, node_type: type } }])
+    setSelectedId(id)
+  }
+
+  const toWorkflowJSON = useCallback((): WorkflowJSON => ({
+    name,
+    model: seedanceModel(nodes),
+    nodes: nodes.map((n) => ({
+      id: n.id,
+      type: String(n.data.node_type) as CanvasNodeType,
+      position: n.position,
+      data: stripRuntimeData(n.data),
+    })),
+    edges: edges.map((edge) => ({ id: edge.id, source: edge.source, target: edge.target })),
+  }), [edges, name, nodes])
+
+  const validateClient = (json: WorkflowJSON): string | null => {
+    const seedance = json.nodes.filter((n) => n.type === "seedance.video")
+    if (seedance.length !== 1) return labels.errorSeedanceRequired
+    const seedanceID = seedance[0].id
+    const upstream = json.edges.filter((edge) => edge.target === seedanceID).map((edge) => edge.source)
+    if (!json.nodes.some((n) => upstream.includes(n.id) && n.type === "prompt.input" && String(n.data.prompt || "").trim())) {
+      return labels.errorPromptRequired
+    }
+    if (!json.nodes.some((n) => upstream.includes(n.id) && n.type === "image.input" && String(n.data.image_url || "").trim())) {
+      return labels.errorImageRequired
+    }
+    return null
+  }
+
+  const save = async () => {
+    const json = toWorkflowJSON()
+    const err = validateClient(json)
+    if (err) {
+      toast.error(err)
+      return null
+    }
+    setSaving(true)
+    try {
+      const saved = workflow
+        ? await updateWorkflow(workflow.id, { name, workflow_json: json })
+        : await createWorkflow({ name, workflow_json: json })
+      setWorkflow(saved)
+      toast.success(labels.saved)
+      return saved
+    } catch (e) {
+      toast.error(e instanceof ApiError ? e.message : labels.saveFailed)
+      return null
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const refreshVideo = useCallback(async (id: string) => {
+    const video = await apiFetch(`/v1/videos/${id}`) as CurrentVideo
+    setCurrentVideo(video)
+    const url = video.output?.url || video.output?.video_url
+    const nodeStatus = taskStatusToNodeStatus(video.status)
+    setNodes((items) => items.map((item) => {
+      const nodeType = String(item.data.node_type)
+      if (nodeType === "seedance.video") {
+        return { ...item, data: { ...item.data, node_status: nodeStatus, error_message: video.error_message } }
+      }
+      if (nodeType === "output.preview" && url) {
+        return { ...item, data: { ...item.data, node_status: "success", video_url: url } }
+      }
+      return item
+    }))
+    return video
+  }, [setNodes])
+
+  useEffect(() => {
+    if (!currentVideo?.id || !ACTIVE_STATUSES.has(currentVideo.status)) return
+    if (pollRef.current) clearTimeout(pollRef.current)
+    pollRef.current = setTimeout(() => {
+      void refreshVideo(currentVideo.id).catch(() => undefined)
+    }, 4000)
+    return () => {
+      if (pollRef.current) clearTimeout(pollRef.current)
+    }
+  }, [currentVideo?.id, currentVideo?.status, refreshVideo])
+
+  const run = async () => {
+    if (running) return
+    setRunning(true)
+    try {
+      const saved = workflow ?? await save()
+      if (!saved) return
+      setNodes((items) => items.map((item) => String(item.data.node_type) === "seedance.video" ? { ...item, data: { ...item.data, node_status: "running", error_message: undefined } } : item))
+      const result = await runWorkflow(saved.id)
+      toast.success(labels.runCreated)
+      setCurrentVideo({ id: result.task_id, status: result.status })
+      void refreshVideo(result.task_id).catch(() => undefined)
+    } catch (e) {
+      toast.error(e instanceof ApiError ? e.message : labels.runFailed)
+      setNodes((items) => items.map((item) => String(item.data.node_type) === "seedance.video" ? { ...item, data: { ...item.data, node_status: "failed" } } : item))
+    } finally {
+      setRunning(false)
+    }
+  }
+
+  const saveTemplate = async () => {
+    setTemplateSaving(true)
+    try {
+      const saved = workflow ?? await save()
+      if (!saved) return
+      await saveWorkflowAsTemplate(saved.id, { name, category: "canvas" })
+      toast.success(labels.templateSaved)
+    } catch (e) {
+      toast.error(e instanceof ApiError ? e.message : labels.templateSaveFailed)
+    } finally {
+      setTemplateSaving(false)
+    }
+  }
+
+  const exportAPI = async () => {
+    setExporting(true)
+    try {
+      const saved = workflow ?? await save()
+      if (!saved) return
+      const result = await exportWorkflowAPI(saved.id)
+      setExportResult(result)
+      toast.success(labels.exportReady)
+    } catch (e) {
+      toast.error(e instanceof ApiError ? e.message : labels.exportFailed)
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  const videoURL = currentVideo?.output?.url || currentVideo?.output?.video_url
+
+  return (
+    <div className="flex h-[calc(100vh-3.5rem)] min-h-[720px] flex-col">
+      <header className="flex items-center justify-between border-b border-border/60 px-5 py-3">
+        <div>
+          <h1 className="text-[18px] font-medium tracking-tight">{labels.title}</h1>
+          <p className="mt-1 text-[12.5px] text-muted-foreground">{labels.subtitle}</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <input
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            className="h-9 w-64 rounded-md border border-border/80 bg-card/60 px-3 text-[13px] focus:outline-none"
+          />
+          <button type="button" onClick={save} disabled={saving} className="inline-flex h-9 items-center gap-2 rounded-full border border-border/80 px-4 text-[12.5px] hover:bg-card disabled:opacity-60">
+            {saving ? <Loader2 className="size-3.5 animate-spin" /> : <Save className="size-3.5" />}
+            {labels.save}
+          </button>
+          <button type="button" onClick={saveTemplate} disabled={templateSaving} className="inline-flex h-9 items-center gap-2 rounded-full border border-border/80 px-4 text-[12.5px] hover:bg-card disabled:opacity-60">
+            {templateSaving ? <Loader2 className="size-3.5 animate-spin" /> : <Sparkles className="size-3.5" />}
+            {labels.saveTemplate}
+          </button>
+          <button type="button" onClick={exportAPI} disabled={exporting} className="inline-flex h-9 items-center gap-2 rounded-full border border-border/80 px-4 text-[12.5px] hover:bg-card disabled:opacity-60">
+            {exporting ? <Loader2 className="size-3.5 animate-spin" /> : <Code2 className="size-3.5" />}
+            {labels.exportApi}
+          </button>
+          <button type="button" onClick={run} disabled={running} className="inline-flex h-9 items-center gap-2 rounded-full bg-foreground px-4 text-[12.5px] font-medium text-background disabled:opacity-60">
+            {running ? <Loader2 className="size-3.5 animate-spin" /> : <Play className="size-3.5" />}
+            {labels.run}
+          </button>
+        </div>
+      </header>
+      <div className="grid min-h-0 flex-1 grid-cols-[220px_minmax(0,1fr)_340px]">
+        <aside className="border-r border-border/60 bg-card/20 p-3">
+          <div className="mb-3 text-[11px] uppercase tracking-[0.16em] text-muted-foreground">{labels.nodes}</div>
+          <NodeButton label={labels.imageNode} onClick={() => addNode("image.input")} />
+          <NodeButton label={labels.promptNode} onClick={() => addNode("prompt.input")} />
+          <NodeButton label={labels.paramsNode} onClick={() => addNode("video.params")} />
+          <NodeButton label={labels.videoNode} onClick={() => addNode("seedance.video")} />
+          <NodeButton label={labels.outputNode} onClick={() => addNode("output.preview")} />
+        </aside>
+        <main className="min-h-0">
+          <ReactFlow
+            nodes={nodes}
+            edges={edges}
+            nodeTypes={nodeTypes}
+            onNodesChange={onNodesChange}
+            onEdgesChange={onEdgesChange}
+            onConnect={onConnect}
+            onNodeClick={(_, nodeItem) => setSelectedId(nodeItem.id)}
+            fitView
+          >
+            <Background />
+            <MiniMap pannable zoomable />
+            <Controls />
+          </ReactFlow>
+        </main>
+        <aside className="flex min-h-0 flex-col border-l border-border/60 bg-card/20">
+          <NodeInspector node={selectedNode} assets={assets} labels={labels} onChange={updateSelectedData} />
+          <div className="border-t border-border/60 p-4">
+            <div className="text-[12px] font-medium">{labels.statusTitle}</div>
+            <div className="mt-2 rounded-lg border border-border/70 bg-background/70 p-3 text-[12px]">
+              <div className="font-mono text-muted-foreground">{currentVideo?.id ?? labels.noTask}</div>
+              <div className="mt-2">{labels.status}: {currentVideo?.status ?? "idle"}</div>
+              {videoURL ? <video src={videoURL} controls className="mt-3 aspect-video w-full rounded-md bg-black object-contain" /> : null}
+              {currentVideo?.error_code ? <div className="mt-2 text-status-failed">{currentVideo.error_code}</div> : null}
+            </div>
+            {exportResult ? (
+              <div className="mt-3 rounded-lg border border-border/70 bg-background/70 p-3">
+                <div className="mb-2 text-[12px] font-medium">{labels.exportedApi}</div>
+                <pre className="max-h-48 overflow-auto whitespace-pre-wrap rounded-md bg-card/70 p-2 font-mono text-[10.5px] text-muted-foreground">
+                  {exportResult.curl}
+                </pre>
+              </div>
+            ) : null}
+          </div>
+        </aside>
+      </div>
+    </div>
+  )
+}
+
+function NodeButton({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <button type="button" onClick={onClick} className="mb-2 flex w-full items-center justify-between rounded-lg border border-border/70 bg-background/70 px-3 py-2 text-left text-[12.5px] hover:bg-card">
+      <span>{label}</span>
+      <span className="text-muted-foreground">+</span>
+    </button>
+  )
+}
+
+function NodeInspector({
+  node: selectedNode,
+  assets,
+  labels,
+  onChange,
+}: {
+  node: CanvasNode | null
+  assets: LibraryAsset[]
+  labels: ReturnType<typeof useTranslations>["canvas"]
+  onChange: (patch: CanvasNodeData) => void
+}) {
+  if (!selectedNode) {
+    return <div className="p-4 text-[12.5px] text-muted-foreground">{labels.selectNode}</div>
+  }
+  const type = String(selectedNode.data.node_type) as CanvasNodeType
+  return (
+    <div className="min-h-0 flex-1 overflow-y-auto p-4">
+      <div className="mb-3">
+        <div className="text-[12px] font-medium">{labels.inspector}</div>
+        <div className="font-mono text-[10.5px] text-muted-foreground">{type}</div>
+      </div>
+      <label className="mb-3 block">
+        <span className="mb-1 block text-[11px] text-muted-foreground">{labels.label}</span>
+        <input value={String(selectedNode.data.label || "")} onChange={(e) => onChange({ label: e.target.value })} className="h-9 w-full rounded-md border border-border/80 bg-background px-3 text-[12.5px] focus:outline-none" />
+      </label>
+      {type === "image.input" ? (
+        <div className="space-y-3">
+          <label className="block">
+            <span className="mb-1 block text-[11px] text-muted-foreground">{labels.imageType}</span>
+            <select value={String(selectedNode.data.image_type || "reference")} onChange={(e) => onChange({ image_type: e.target.value as CanvasNodeData["image_type"] })} className="h-9 w-full rounded-md border border-border/80 bg-background px-3 text-[12.5px]">
+              <option value="character">{labels.character}</option>
+              <option value="scene">{labels.scene}</option>
+              <option value="reference">{labels.reference}</option>
+            </select>
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-[11px] text-muted-foreground">{labels.imageUrl}</span>
+            <input value={String(selectedNode.data.image_url || "")} onChange={(e) => onChange({ image_url: e.target.value })} className="h-9 w-full rounded-md border border-border/80 bg-background px-3 font-mono text-[11.5px] focus:outline-none" />
+          </label>
+          <div>
+            <div className="mb-1 text-[11px] text-muted-foreground">{labels.assetLibrary}</div>
+            <div className="grid grid-cols-3 gap-2">
+              {assets.slice(0, 9).map((asset) => (
+                <button key={asset.id} type="button" onClick={() => onChange({ image_url: asset.generation_url || asset.url, preview_url: asset.url, asset_id: asset.id })} className="overflow-hidden rounded-md border border-border/70">
+                  {/* eslint-disable-next-line @next/next/no-img-element -- presigned URL */}
+                  <img src={asset.url} alt={asset.filename || asset.id} className="aspect-square w-full object-cover" />
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      ) : null}
+      {type === "prompt.input" ? (
+        <label className="block">
+          <span className="mb-1 block text-[11px] text-muted-foreground">{labels.prompt}</span>
+          <textarea value={String(selectedNode.data.prompt || "")} onChange={(e) => onChange({ prompt: e.target.value })} rows={8} className="w-full resize-none rounded-md border border-border/80 bg-background px-3 py-2 text-[12.5px] focus:outline-none" />
+        </label>
+      ) : null}
+      {type === "video.params" ? (
+        <div className="space-y-3">
+          <label className="block">
+            <span className="mb-1 block text-[11px] text-muted-foreground">{labels.duration}</span>
+            <input type="number" min={4} max={15} value={Number(selectedNode.data.duration || 5)} onChange={(e) => onChange({ duration: Number(e.target.value) })} className="h-9 w-full rounded-md border border-border/80 bg-background px-3 text-[12.5px]" />
+          </label>
+          <Select label={labels.aspectRatio} value={String(selectedNode.data.aspect_ratio || "9:16")} values={RATIOS} onChange={(value) => onChange({ aspect_ratio: value })} />
+          <Select label={labels.resolution} value={String(selectedNode.data.resolution || "1080p")} values={RESOLUTIONS} onChange={(value) => onChange({ resolution: value })} />
+          <label className="block">
+            <span className="mb-1 block text-[11px] text-muted-foreground">{labels.seed}</span>
+            <input value={selectedNode.data.seed == null ? "" : String(selectedNode.data.seed)} onChange={(e) => onChange({ seed: e.target.value.trim() ? Number(e.target.value) : null })} className="h-9 w-full rounded-md border border-border/80 bg-background px-3 font-mono text-[12px]" />
+          </label>
+        </div>
+      ) : null}
+      {type === "seedance.video" ? (
+        <label className="block">
+          <span className="mb-1 block text-[11px] text-muted-foreground">{labels.model}</span>
+          <input value={String(selectedNode.data.model || "seedance-2.0-pro")} onChange={(e) => onChange({ model: e.target.value })} className="h-9 w-full rounded-md border border-border/80 bg-background px-3 font-mono text-[12px]" />
+        </label>
+      ) : null}
+    </div>
+  )
+}
+
+function Select({ label, value, values, onChange }: { label: string; value: string; values: string[]; onChange: (value: string) => void }) {
+  return (
+    <label className="block">
+      <span className="mb-1 block text-[11px] text-muted-foreground">{label}</span>
+      <select value={value} onChange={(e) => onChange(e.target.value)} className="h-9 w-full rounded-md border border-border/80 bg-background px-3 text-[12.5px]">
+        {values.map((item) => <option key={item} value={item}>{item}</option>)}
+      </select>
+    </label>
+  )
+}
+
+function stripRuntimeData(data: CanvasNodeData): Record<string, unknown> {
+  const { node_type: _nodeType, video_url: _videoURL, preview_url: _previewURL, ...rest } = data
+  return rest
+}
+
+function seedanceModel(nodes: CanvasNode[]): string {
+  const seedance = nodes.find((n) => String(n.data.node_type) === "seedance.video")
+  return String(seedance?.data.model || "seedance-2.0-pro")
+}
+
+function taskStatusToNodeStatus(status: string): NonNullable<CanvasNodeData["node_status"]> {
+  if (status === "queued" || status === "submitting") return "waiting"
+  if (status === "running" || status === "retrying") return "running"
+  if (status === "succeeded") return "success"
+  if (status === "failed" || status === "timed_out" || status === "canceled" || status === "cancelled") return "failed"
+  return "idle"
+}

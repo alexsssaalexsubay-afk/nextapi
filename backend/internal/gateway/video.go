@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/gin-gonic/gin"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/abuse"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/auth"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/domain"
@@ -16,6 +15,7 @@ import (
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/provider"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/spend"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/throughput"
+	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
 
@@ -63,7 +63,7 @@ func (h *VideoHandlers) Generate(c *gin.Context) {
 		return
 	}
 	if req.Resolution == "" {
-		req.Resolution = "1080p"
+		req.Resolution = provider.DefaultResolution()
 	}
 	if req.Mode == "" {
 		req.Mode = "normal"
@@ -74,7 +74,7 @@ func (h *VideoHandlers) Generate(c *gin.Context) {
 
 	// Vendor-SSRF guard, mirrors the new /v1/videos surface.
 	if req.ImageURL != nil {
-		if err := abuse.ValidatePublicURL(*req.ImageURL); err != nil {
+		if err := abuse.ValidatePublicOrAssetURL(*req.ImageURL); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{
 				"code":    "invalid_image_url",
 				"message": err.Error(),
@@ -85,7 +85,7 @@ func (h *VideoHandlers) Generate(c *gin.Context) {
 
 	// Validate video parameters once, so both endpoints reject the same
 	// invalid values with the same error codes.
-	if err := validateVideoParams(req.AspectRatio, req.FPS, req.DurationSeconds); err != nil {
+	if err := validateVideoParams(req.AspectRatio, req.FPS, req.DurationSeconds, req.Resolution); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{
 			"code":    "invalid_request",
 			"message": err.Error(),
@@ -103,7 +103,7 @@ func (h *VideoHandlers) Generate(c *gin.Context) {
 
 	// SSRF guards for extended media URLs.
 	for i, u := range req.ImageURLs {
-		if err := abuse.ValidatePublicURL(u); err != nil {
+		if err := abuse.ValidatePublicOrAssetURL(u); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{
 				"code":    "invalid_image_urls",
 				"message": fmt.Sprintf("image_urls[%d]: %s", i, err.Error()),
@@ -112,7 +112,7 @@ func (h *VideoHandlers) Generate(c *gin.Context) {
 		}
 	}
 	for i, u := range req.VideoURLs {
-		if err := abuse.ValidatePublicURL(u); err != nil {
+		if err := abuse.ValidatePublicOrAssetURL(u); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{
 				"code":    "invalid_video_urls",
 				"message": fmt.Sprintf("video_urls[%d]: %s", i, err.Error()),
@@ -121,7 +121,7 @@ func (h *VideoHandlers) Generate(c *gin.Context) {
 		}
 	}
 	for i, u := range req.AudioURLs {
-		if err := abuse.ValidatePublicURL(u); err != nil {
+		if err := abuse.ValidatePublicOrAssetURL(u); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{
 				"code":    "invalid_audio_urls",
 				"message": fmt.Sprintf("audio_urls[%d]: %s", i, err.Error()),
@@ -130,7 +130,7 @@ func (h *VideoHandlers) Generate(c *gin.Context) {
 		}
 	}
 	if req.FirstFrameURL != nil && *req.FirstFrameURL != "" {
-		if err := abuse.ValidatePublicURL(*req.FirstFrameURL); err != nil {
+		if err := abuse.ValidatePublicOrAssetURL(*req.FirstFrameURL); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{
 				"code":    "invalid_first_frame_url",
 				"message": err.Error(),
@@ -139,7 +139,7 @@ func (h *VideoHandlers) Generate(c *gin.Context) {
 		}
 	}
 	if req.LastFrameURL != nil && *req.LastFrameURL != "" {
-		if err := abuse.ValidatePublicURL(*req.LastFrameURL); err != nil {
+		if err := abuse.ValidatePublicOrAssetURL(*req.LastFrameURL); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{
 				"code":    "invalid_last_frame_url",
 				"message": err.Error(),
@@ -217,6 +217,25 @@ func (h *VideoHandlers) Generate(c *gin.Context) {
 			c.JSON(http.StatusUnprocessableEntity, gin.H{
 				"error": gin.H{"code": "content_moderation.review_required", "message": "content queued for human review"},
 			})
+			return
+		}
+		var upstreamErr *provider.UpstreamError
+		if errors.As(err, &upstreamErr) {
+			status := http.StatusBadRequest
+			message := "invalid video generation request"
+			switch upstreamErr.Code {
+			case "error-104", "402":
+				status = http.StatusPaymentRequired
+				message = "top up to continue"
+			case "error-501":
+				status = http.StatusTooManyRequests
+				message = "rate limited, retry later"
+			}
+			if upstreamErr.Retryable {
+				status = http.StatusServiceUnavailable
+				message = "generation provider unavailable"
+			}
+			c.JSON(status, gin.H{"error": gin.H{"code": upstreamErr.Code, "message": message}})
 			return
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "internal_error"}})

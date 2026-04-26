@@ -6,16 +6,20 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"fmt"
+	"math/big"
 	"net/http"
 	"os"
 	"strings"
 	"time"
 
-	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/auth"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/billing"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/domain"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/notify"
+	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
+	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -23,17 +27,34 @@ import (
 const (
 	accountSessionHeader = "X-NextAPI-Session"
 	accountSessionTTL    = 30 * 24 * time.Hour
+	emailOTPCodeTTL      = 5 * time.Minute
+	emailOTPCooldownTTL  = 60 * time.Second
 )
+
+const consumeOTPScript = `
+local v = redis.call("GET", KEYS[1])
+if not v then
+  return 0
+end
+if v ~= ARGV[1] then
+  return 0
+end
+redis.call("DEL", KEYS[1])
+return 1
+`
 
 type AccountAuthHandlers struct {
 	DB      *gorm.DB
 	Auth    *auth.Service
 	Billing *billing.Service
+	Redis   *redis.Client
+	Notify  *notify.Notifier
 }
 
 type accountLoginReq struct {
 	Email    string `json:"email" binding:"required"`
-	Password string `json:"password" binding:"required"`
+	Password string `json:"password"`
+	Code     string `json:"code"`
 }
 
 type accountSignupReq struct {
@@ -48,7 +69,16 @@ func (h *AccountAuthHandlers) Login(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "invalid_request"}})
 		return
 	}
-	user, org, err := h.lookupPasswordUser(c.Request.Context(), req.Email, req.Password)
+	var (
+		user *domain.User
+		org  *domain.Org
+		err  error
+	)
+	if strings.TrimSpace(req.Code) != "" {
+		user, org, err = h.lookupEmailOTPUser(c.Request.Context(), req.Email, req.Code)
+	} else {
+		user, org, err = h.lookupPasswordUser(c.Request.Context(), req.Email, req.Password)
+	}
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": gin.H{"code": "invalid_credentials", "message": "email or password is incorrect"}})
 		return
@@ -139,14 +169,53 @@ func (h *AccountAuthHandlers) Signup(c *gin.Context) {
 }
 
 func (h *AccountAuthHandlers) SendOTP(c *gin.Context) {
-	c.JSON(http.StatusNotImplemented, gin.H{"error": gin.H{
-		"code":    "otp_provider_not_configured",
-		"message": "phone/email OTP is planned but not enabled on this deployment yet",
-	}})
+	var req struct {
+		Email string `json:"email" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "invalid_request"}})
+		return
+	}
+	email := normalizeEmail(req.Email)
+	if email == "" || !strings.Contains(email, "@") {
+		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "invalid_email"}})
+		return
+	}
+	if h.Redis == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": gin.H{"code": "otp_unavailable"}})
+		return
+	}
+	if h.Notify == nil || !h.Notify.Enabled() {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": gin.H{"code": "email_provider_unavailable"}})
+		return
+	}
+	cooldownKey := authCodeCooldownKey(email)
+	ok, err := h.Redis.SetNX(c.Request.Context(), cooldownKey, "1", emailOTPCooldownTTL).Result()
+	if err != nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": gin.H{"code": "otp_unavailable"}})
+		return
+	}
+	if !ok {
+		c.JSON(http.StatusTooManyRequests, gin.H{"error": gin.H{"code": "otp_rate_limited", "message": "please wait before requesting another code"}})
+		return
+	}
+	code := generateCode()
+	if err := h.Redis.Set(c.Request.Context(), authCodeKey(email), otpDigest(email, code), emailOTPCodeTTL).Err(); err != nil {
+		_ = h.Redis.Del(c.Request.Context(), cooldownKey).Err()
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": gin.H{"code": "otp_unavailable"}})
+		return
+	}
+	h.Notify.Send(notify.Mail{
+		To:      []string{email},
+		Subject: "NextAPI 验证码",
+		Text:    fmt.Sprintf("你的验证码是：%s（5分钟有效）", code),
+		Tag:     "auth-email-otp",
+	})
+	c.JSON(http.StatusOK, gin.H{"ok": true, "expires_in": int(emailOTPCodeTTL.Seconds())})
 }
 
 func (h *AccountAuthHandlers) lookupPasswordUser(ctx context.Context, email, password string) (*domain.User, *domain.Org, error) {
-	email = strings.ToLower(strings.TrimSpace(email))
+	email = normalizeEmail(email)
 	if email == "" || password == "" {
 		return nil, nil, errors.New("missing credentials")
 	}
@@ -162,6 +231,26 @@ func (h *AccountAuthHandlers) lookupPasswordUser(ctx context.Context, email, pas
 	}
 	org, err := h.primaryOrg(ctx, user.ID)
 	return &user, org, err
+}
+
+func (h *AccountAuthHandlers) lookupEmailOTPUser(ctx context.Context, email, code string) (*domain.User, *domain.Org, error) {
+	email = normalizeEmail(email)
+	code = strings.TrimSpace(code)
+	if email == "" || code == "" {
+		return nil, nil, errors.New("missing otp credentials")
+	}
+	if h.Redis == nil {
+		return nil, nil, errors.New("otp unavailable")
+	}
+	key := authCodeKey(email)
+	ok, err := h.Redis.Eval(ctx, consumeOTPScript, []string{key}, otpDigest(email, code)).Int()
+	if err != nil {
+		return nil, nil, err
+	}
+	if ok != 1 {
+		return nil, nil, errors.New("invalid otp")
+	}
+	return h.findOrCreateEmailAccount(ctx, email)
 }
 
 func (h *AccountAuthHandlers) requireAccountSession(c *gin.Context) (*domain.User, *domain.Org, *domain.AuthSession, bool) {
@@ -204,6 +293,81 @@ func (h *AccountAuthHandlers) primaryOrg(ctx context.Context, userID string) (*d
 		return nil, err
 	}
 	if err := h.DB.WithContext(ctx).Where("id = ?", member.OrgID).First(&org).Error; err != nil {
+		return nil, err
+	}
+	return &org, nil
+}
+
+func (h *AccountAuthHandlers) findOrCreateEmailAccount(ctx context.Context, email string) (*domain.User, *domain.Org, error) {
+	var existing domain.User
+	if err := h.DB.WithContext(ctx).Where("lower(email) = ? AND deleted_at IS NULL", email).First(&existing).Error; err == nil {
+		if existing.EmailVerifiedAt == nil {
+			now := time.Now()
+			_ = h.DB.WithContext(ctx).Model(&existing).Update("email_verified_at", now).Error
+			existing.EmailVerifiedAt = &now
+		}
+		org, err := h.primaryOrg(ctx, existing.ID)
+		if err == nil {
+			return &existing, org, nil
+		}
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil, err
+		}
+	}
+
+	now := time.Now()
+	userID := "usr_" + strings.ReplaceAll(uuid.NewString(), "-", "")
+	org := domain.Org{ID: uuid.NewString(), Name: email + "'s org", OwnerUserID: userID}
+	user := domain.User{ID: userID, Email: email, EmailVerifiedAt: &now}
+	err := h.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&user).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("lower(email) = ? AND deleted_at IS NULL", email).First(&user).Error; err != nil {
+			return err
+		}
+		if user.EmailVerifiedAt == nil {
+			if err := tx.Model(&user).Update("email_verified_at", now).Error; err != nil {
+				return err
+			}
+			user.EmailVerifiedAt = &now
+		}
+		if found, err := h.primaryOrgTx(ctx, tx, user.ID); err == nil {
+			org = *found
+			return nil
+		}
+		org = domain.Org{ID: uuid.NewString(), Name: email + "'s org", OwnerUserID: user.ID}
+		if err := tx.Create(&org).Error; err != nil {
+			return err
+		}
+		if err := tx.Create(&domain.OrgMember{OrgID: org.ID, UserID: user.ID, Role: "owner"}).Error; err != nil {
+			return err
+		}
+		signupBonus := billing.SignupBonusAmount
+		if err := tx.Create(&domain.CreditsLedger{
+			OrgID:        org.ID,
+			DeltaCredits: signupBonus,
+			DeltaCents:   &signupBonus,
+			Reason:       domain.ReasonSignupBonus,
+			Note:         "welcome to NextAPI (email otp)",
+		}).Error; err != nil {
+			return err
+		}
+		return nil
+	})
+	return &user, &org, err
+}
+
+func (h *AccountAuthHandlers) primaryOrgTx(ctx context.Context, tx *gorm.DB, userID string) (*domain.Org, error) {
+	var org domain.Org
+	if err := tx.WithContext(ctx).Where("owner_user_id = ?", userID).Order("created_at ASC").First(&org).Error; err == nil {
+		return &org, nil
+	}
+	var member domain.OrgMember
+	if err := tx.WithContext(ctx).Where("user_id = ?", userID).First(&member).Error; err != nil {
+		return nil, err
+	}
+	if err := tx.WithContext(ctx).Where("id = ?", member.OrgID).First(&org).Error; err != nil {
 		return nil, err
 	}
 	return &org, nil
@@ -346,5 +510,31 @@ func randomToken(prefix string) (string, error) {
 
 func hashToken(raw string) string {
 	sum := sha256.Sum256([]byte(raw))
+	return hex.EncodeToString(sum[:])
+}
+
+func normalizeEmail(email string) string {
+	return strings.ToLower(strings.TrimSpace(email))
+}
+
+func authCodeKey(email string) string {
+	return "auth:code:" + email
+}
+
+func authCodeCooldownKey(email string) string {
+	return "auth:code-cooldown:" + email
+}
+
+func generateCode() string {
+	n, err := rand.Int(rand.Reader, big.NewInt(900000))
+	if err != nil {
+		return fmt.Sprintf("%06d", time.Now().UnixNano()%900000+100000)
+	}
+	return fmt.Sprintf("%06d", n.Int64()+100000)
+}
+
+func otpDigest(email, code string) string {
+	pepper := os.Getenv("AUTH_OTP_PEPPER")
+	sum := sha256.Sum256([]byte(email + ":" + strings.TrimSpace(code) + ":" + pepper))
 	return hex.EncodeToString(sum[:])
 }

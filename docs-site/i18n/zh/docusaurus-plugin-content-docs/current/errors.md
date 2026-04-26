@@ -93,7 +93,7 @@ curl https://api.nextapi.top/v1/videos/does-not-exist \
 | 错误提示 | 修复方式 |
 |---------|---------|
 | `"prompt is required"` | 对 `POST /v1/videos` 需在 `input` 中提供 `prompt`；Batch Studio 清单里加非空 `prompt_en`（或模板要求的那一列） |
-| `"duration out of range"` / `duration_seconds` | 主接口使用 `input.duration_seconds`；旧版平铺体使用 `duration_seconds`；有值时一般为 **2–15** 秒 |
+| `"duration out of range"` / `duration_seconds` | 主接口使用 `input.duration_seconds`；旧版平铺体使用 `duration_seconds`；有值时一般为 **4–15** 秒 |
 | `"unsupported aspect_ratio"` | 使用：`16:9`、`9:16`、`1:1`、`4:3`、`3:4`、`21:9`、`adaptive` |
 | `"invalid reference url"` | 参考图必须是 `https://` 开头且可公开访问的链接 |
 
@@ -180,7 +180,7 @@ curl https://api.nextapi.top/v1/videos/does-not-exist \
 - [ ] 密钥前后没有多余空格？
 - [ ] 控制台里密钥是激活状态（未撤销）？
 - [ ] 组织积分余额大于零？
-- [ ] `duration` 在 2–12 之间？
+- [ ] `duration` 在 4–15 之间？
 - [ ] `aspect_ratio` 是支持的值？
 - [ ] 参考图是 `https://` 链接且可公开访问？
 - [ ] 提示词不为空且有足够的描述细节？

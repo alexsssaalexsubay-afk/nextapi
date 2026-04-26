@@ -16,6 +16,7 @@ import {
   LogOut,
   Search,
   Webhook,
+  Workflow,
 } from "lucide-react"
 import { Logo } from "@/components/nextapi/logo"
 import { Kbd } from "@/components/nextapi/kbd"
@@ -97,6 +98,8 @@ export function DashboardShell({
       items: [
         { label: t.nav.dashboard.keys, href: "/keys", icon: Key },
         { label: t.nav.dashboard.library, href: "/library", icon: FolderOpen },
+        { label: t.nav.dashboard.templates, href: "/templates", icon: Clapperboard },
+        { label: t.nav.dashboard.canvas, href: "/canvas", icon: Workflow },
         {
           label: t.nav.dashboard.batchStudio,
           href: "/batch",
@@ -110,6 +113,7 @@ export function DashboardShell({
       heading: t.nav.dashboard.account,
       items: [
         { label: t.nav.dashboard.billing, href: "/billing", icon: CreditCard },
+        { label: t.nav.dashboard.recharge, href: "/recharge", icon: CreditCard },
       ],
     },
   ]

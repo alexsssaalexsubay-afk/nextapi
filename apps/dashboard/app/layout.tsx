@@ -3,6 +3,7 @@ import { ThemeProvider } from "@/components/theme-provider"
 import { I18nProvider } from "@/lib/i18n/context"
 import { Toaster } from "sonner"
 import "@/globals.css"
+import "@xyflow/react/dist/style.css"
 
 export const dynamic = "force-dynamic"
 

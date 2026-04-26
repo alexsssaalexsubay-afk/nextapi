@@ -58,7 +58,7 @@ function parseMediaURLs(raw: string): string[] {
   return raw
     .split(/\r?\n|,/)
     .map((v) => v.trim())
-    .filter((v) => v.startsWith("https://"))
+    .filter((v) => v.startsWith("https://") || v.startsWith("asset://ut-asset-"))
 }
 
 // Mirrors backend/internal/provider/seedance/pricing.go
@@ -110,6 +110,7 @@ type LibraryAsset = {
   id: string
   kind: "image" | "video" | "audio"
   url: string
+  generation_url?: string
   filename?: string
   size_bytes?: number
 }
@@ -233,14 +234,15 @@ export default function NewJobPage() {
 
   const attachFromLibrary = (asset: LibraryAsset) => {
     if (asset.kind !== "image") return
+    const generationURL = asset.generation_url || asset.url
     if (mode === "image" && !imageUrl.trim()) {
-      setImageUrl(asset.url)
+      setImageUrl(generationURL)
       return
     }
     setReferenceImageURLs((prev) => {
       const existing = parseMediaURLs(prev)
-      if (existing.includes(asset.url)) return prev
-      return [...existing, asset.url].slice(0, 9).join("\n")
+      if (existing.includes(generationURL)) return prev
+      return [...existing, generationURL].slice(0, 9).join("\n")
     })
     toast.success(t.jobs.new.form.tempUploadSuccess)
   }

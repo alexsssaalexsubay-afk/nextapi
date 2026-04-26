@@ -41,6 +41,26 @@ func ValidatePublicURL(raw string) error {
 	return nil
 }
 
+func ValidatePublicOrAssetURL(raw string) error {
+	if strings.TrimSpace(raw) == "" {
+		return nil
+	}
+	u, err := url.Parse(raw)
+	if err != nil {
+		return errors.New("invalid url")
+	}
+	if strings.ToLower(u.Scheme) == "asset" {
+		if strings.HasPrefix(strings.ToLower(u.Host), "ut-asset-") {
+			return nil
+		}
+		return errors.New("invalid asset url")
+	}
+	if strings.ToLower(u.Scheme) != "https" {
+		return errors.New("only public https urls or active asset urls are accepted")
+	}
+	return ValidatePublicURL(raw)
+}
+
 // isPublicIPLite is a slim copy of webhook.isPublicIP. Kept here to
 // avoid an import cycle (abuse → webhook would pull in gorm etc).
 func isPublicIPLite(ip net.IP) bool {
