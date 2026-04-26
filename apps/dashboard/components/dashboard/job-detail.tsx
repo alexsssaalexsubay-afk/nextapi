@@ -106,14 +106,14 @@ export function JobDetail({ jobId }: { jobId: string }) {
     return (
       <div className="flex flex-col items-center justify-center gap-3 p-20 text-center">
         <AlertTriangle className="size-8 text-status-failed" />
-        <p className="text-[13.5px] font-medium">Failed to load job</p>
+        <p className="text-[13.5px] font-medium">{td.loadFailedTitle}</p>
         <p className="text-[12.5px] text-muted-foreground">{loadError}</p>
         <button
           onClick={() => fetchJob()}
           className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border/80 bg-card/40 px-3 text-[12.5px] text-foreground hover:bg-card"
         >
           <RefreshCcw className="size-3.5" />
-          Retry
+          {td.retry}
         </button>
       </div>
     )
@@ -123,13 +123,13 @@ export function JobDetail({ jobId }: { jobId: string }) {
     return (
       <div className="flex items-center justify-center gap-3 p-20 text-muted-foreground">
         <Loader2 className="size-5 animate-spin" />
-        <span className="text-[13px]">Loading job…</span>
+        <span className="text-[13px]">{td.loading}</span>
       </div>
     )
   }
 
   const state = toJobStatus(video.status)
-  const prompt = (video.input?.prompt as string) || "(no prompt)"
+  const prompt = (video.input?.prompt as string) || td.noPrompt
   const videoURL = video.output?.url
   const reservedCredits = (video.estimated_cost_cents / 100).toFixed(2)
   const billedCredits = video.actual_cost_cents != null
@@ -246,7 +246,7 @@ function OutputPanel({ state, videoURL }: { state: JobStatus; videoURL?: string 
           </a>
         )}
       </div>
-      <div className="relative aspect-video overflow-hidden bg-[oklch(0.11_0.004_260)]">
+      <div className="relative mx-auto aspect-video w-full max-h-[70vh] overflow-hidden bg-[oklch(0.11_0.004_260)]">
         {state === "submitting" && <SubmittingView />}
         {state === "queued" && <QueuedView />}
         {state === "running" && <RunningView />}
@@ -379,9 +379,7 @@ function PayloadPanel({ input }: { input?: Record<string, unknown> }) {
 
   const inputJson = input
     ? JSON.stringify(input, null, 2)
-    : `{
-  "prompt": "(loading…)"
-}`
+    : `{\n  "prompt": "${r.loadingPlaceholder}"\n}`
 
   return (
     <CodeBlock
@@ -410,27 +408,27 @@ function EventsPanel({
   const e = t.jobs.detail.events
 
   const rows = [
-    { ev: "job.submitted", note: "reservation taken", color: "queued" },
+    { ev: "job.submitted", note: e.notes.submitted, color: "queued" },
     state !== "submitting" && {
       ev: "job.queued",
-      note: "upstream acknowledged",
+      note: e.notes.queued,
       color: "queued",
     },
     (state === "running" || state === "succeeded" || state === "failed") && {
       ev: "job.running",
-      note: "rendering started",
+      note: e.notes.running,
       color: "running",
     },
     state === "succeeded" && {
       ev: "job.succeeded",
-      note: "video available",
+      note: e.notes.succeeded,
       color: "success",
     },
     state === "failed" && {
       ev: "job.failed",
       note: errorCode
         ? `${errorCode}${errorMessage ? ": " + errorMessage : ""}`
-        : "see error details",
+        : e.notes.failedDefault,
       color: "failed",
     },
   ].filter(Boolean) as { ev: string; note: string; color: string }[]
@@ -666,8 +664,8 @@ function UpstreamPanel({
     <section className="rounded-xl border border-border/80 bg-card/40 p-5">
       <h2 className="text-[13px] font-medium tracking-tight">{u.title}</h2>
       <dl className="mt-4 space-y-2.5 font-mono text-[12px]">
-        <Line label={u.provider} value="seedance.bytedance" />
-        <Line label={u.model} value={model || "seedance-2.0-pro"} />
+        <Line label={u.provider} value={u.providerValue} />
+        <Line label={u.model} value={model || u.modelDefault} />
         <Line label={u.retries} value={u.retriesValue} />
         {state === "failed" && errorCode && (
           <Line label={u.errorCode} value={errorCode} highlight />

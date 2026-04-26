@@ -7,6 +7,7 @@ import {
   Download,
   ExternalLink,
   Film,
+  FolderOpen,
   ImageIcon,
   Loader2,
   Music,
@@ -116,6 +117,19 @@ export default function NewJobPage() {
   const [showAdvanced, setShowAdvanced] = useState(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Stable per-attempt key — only rotates after a terminal status, so a double
+  // click during the same submission is deduped server-side instead of creating
+  // a second job and a second reservation.
+  const [idempotencyKey, setIdempotencyKey] = useState<string>(() =>
+    typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`,
+  )
+  const rotateIdempotencyKey = useCallback(() => {
+    setIdempotencyKey(
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random()}`,
+    )
+  }, [])
 
   // Load models from backend
   useEffect(() => {
@@ -276,9 +290,10 @@ export default function NewJobPage() {
   }
 
   const submitJob = async () => {
+    if (submitting) return
+    if (currentVideo && ACTIVE_STATUSES.has(currentVideo.status)) return
     setSubmitting(true)
     setSubmitError(null)
-    const idempotencyKey = crypto.randomUUID()
     const input: Record<string, unknown> = {
       prompt,
       duration_seconds: Number(duration),
@@ -368,10 +383,22 @@ export default function NewJobPage() {
         ...logs,
       ])
       toast.error(msg)
+      // Submission failed — rotate the key so the user can retry as a fresh
+      // request rather than re-hitting the deduped first attempt.
+      rotateIdempotencyKey()
     } finally {
       setSubmitting(false)
     }
   }
+
+  // When the active job reaches a terminal state, mint a fresh key so the next
+  // generation creates a new reservation. While a job is active we keep the
+  // same key so a stuttering network or a double click does not double-bill.
+  useEffect(() => {
+    if (currentVideo && !ACTIVE_STATUSES.has(currentVideo.status)) {
+      rotateIdempotencyKey()
+    }
+  }, [currentVideo?.status, rotateIdempotencyKey])
 
   const retryCurrentVideo = async () => {
     if (!currentVideo?.id) return
@@ -403,7 +430,12 @@ export default function NewJobPage() {
     Boolean(imageUrl.trim() || lastFrameUrl.trim()) ||
     imageURLs.length > 0 ||
     videoURLs.length > 0
-  const canSubmit = !submitting && Boolean(prompt.trim()) && (mode === "text" || hasVisualMedia)
+  const hasActiveJob = !!currentVideo && ACTIVE_STATUSES.has(currentVideo.status)
+  const canSubmit =
+    !submitting &&
+    !hasActiveJob &&
+    Boolean(prompt.trim()) &&
+    (mode === "text" || hasVisualMedia)
   const attachmentCount =
     (imageUrl.trim() ? 1 : 0) +
     (lastFrameUrl.trim() ? 1 : 0) +
@@ -546,6 +578,13 @@ export default function NewJobPage() {
                       uploading={mediaUploading === "audio"}
                       onUpload={(file) => uploadTempMedia(file, "audio")}
                     />
+                    <Link
+                      href="/library"
+                      className="inline-flex h-9 items-center gap-2 rounded-full border border-border/80 bg-card/60 px-3 text-[12px] text-muted-foreground transition-colors hover:bg-card hover:text-foreground"
+                    >
+                      <FolderOpen className="size-3.5" />
+                      {t.jobs.new.composer.openLibrary}
+                    </Link>
                   </div>
                 </div>
 
@@ -699,13 +738,19 @@ export default function NewJobPage() {
                         disabled={!canSubmit}
                         className={cn(
                           "inline-flex h-10 items-center gap-2 rounded-full bg-foreground px-5 text-[13px] font-medium text-background transition-all",
-                          !canSubmit && "opacity-60",
+                          !canSubmit && "cursor-not-allowed opacity-60",
                         )}
+                        title={hasActiveJob ? t.jobs.new.form.activeJobBlocking : undefined}
                       >
                         {submitting ? (
                           <>
                             <span className="size-3 animate-spin rounded-full border-2 border-background border-t-transparent" />
                             {t.jobs.states.submitting}
+                          </>
+                        ) : hasActiveJob ? (
+                          <>
+                            <Loader2 className="size-3.5 animate-spin" />
+                            {t.jobs.new.form.activeJobRunning}
                           </>
                         ) : (
                           <>

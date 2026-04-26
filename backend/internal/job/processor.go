@@ -10,6 +10,7 @@ import (
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/domain"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/infra/metrics"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/provider"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/provider/seedance"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/spend"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/throughput"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/webhook"
@@ -205,15 +206,25 @@ func (p *Processor) HandlePoll(ctx context.Context, t *asynq.Task) error {
 }
 
 func (p *Processor) succeed(ctx context.Context, j *domain.Job, st *provider.JobStatus) error {
-	actualCredits := j.ReservedCredits
 	now := time.Now()
-	// Best-effort: derive video seconds from stored request when upstream doesn't provide it.
+
+	// Reconcile cost in USD cents using upstream-reported tokens when available,
+	// falling back to the original reservation. We never charge MORE than the
+	// reservation (any positive delta becomes a refund) so a runaway upstream
+	// token count cannot retroactively overdraft the customer.
+	var req provider.GenerationRequest
 	var videoSeconds *float64
 	if len(j.Request) > 0 {
-		var req provider.GenerationRequest
 		if err := json.Unmarshal(j.Request, &req); err == nil && req.DurationSeconds > 0 {
 			vs := float64(req.DurationSeconds)
 			videoSeconds = &vs
+		}
+	}
+	actualCredits := j.ReservedCredits
+	if st.ActualTokensUsed != nil && *st.ActualTokensUsed > 0 {
+		usdCents := seedance.USDCentsFromTokens(req, *st.ActualTokensUsed)
+		if usdCents > 0 && usdCents < actualCredits {
+			actualCredits = usdCents
 		}
 	}
 	err := p.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {

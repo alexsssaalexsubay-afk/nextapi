@@ -8,11 +8,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/alicebob/miniredis/v2"
+	"github.com/hibiken/asynq"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/billing"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/domain"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/provider"
-	"github.com/alicebob/miniredis/v2"
-	"github.com/hibiken/asynq"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
@@ -313,6 +313,8 @@ func TestHandlePoll_ProviderSucceeded_CreditsReconciled(t *testing.T) {
 	db := setupProcessorDB(t)
 
 	url := "https://mock.nextapi.top/result.mp4"
+	// Upstream actually used 300 tokens. With the standard text-to-video price
+	// of $0.0070/1k tokens that's $0.0021 → 1 USD cent (rounded up).
 	actualTokens := int64(300)
 	prov := &controlledProvider{
 		statusResult: &provider.JobStatus{
@@ -326,9 +328,14 @@ func TestHandlePoll_ProviderSucceeded_CreditsReconciled(t *testing.T) {
 	const orgID = "org5"
 	const reserved = int64(1_000)
 
-	// Insert org credits.
 	db.Create(&domain.CreditsLedger{OrgID: orgID, DeltaCredits: 10_000, Reason: domain.ReasonTopup})
-	// Insert a running job (provider already submitted).
+	// The reservation half of the lifecycle: deduct `reserved` up-front, then
+	// the worker's succeed path is expected to refund (reserved - actual).
+	db.Create(&domain.CreditsLedger{
+		OrgID: orgID, DeltaCredits: -reserved, Reason: domain.ReasonReservation,
+		JobID: ptr("job_poll_ok"),
+	})
+
 	provID := "prov_poll_test"
 	db.Exec(`INSERT INTO jobs (id, org_id, status, reserved_credits, request, provider, provider_job_id)
 		VALUES ('job_poll_ok', ?, 'running', ?, ?, 'mock', ?)`,
@@ -350,15 +357,22 @@ func TestHandlePoll_ProviderSucceeded_CreditsReconciled(t *testing.T) {
 		t.Fatalf("video_url mismatch: %v", j.VideoURL)
 	}
 
-	// ActualTokensUsed is telemetry, not money. The reserved product-cents
-	// amount remains the billed amount unless a provider returns an explicit
-	// cost in our billing unit.
+	// 300 upstream tokens → 1 USD cent at the normal-text price. The other
+	// 999 cents of the reservation must come back to the customer as a refund.
+	const expectedBilled = int64(1)
+	const expectedRefund = reserved - expectedBilled
 	balAfter, _ := bill.GetBalance(context.Background(), orgID)
-	if balAfter != balBefore {
+	if balAfter != balBefore+expectedRefund {
 		t.Fatalf("credits reconciliation wrong: before=%d want=%d got=%d",
-			balBefore, balBefore, balAfter)
+			balBefore, balBefore+expectedRefund, balAfter)
+	}
+	if j.CostCredits == nil || *j.CostCredits != expectedBilled {
+		t.Fatalf("cost_credits should equal upstream-derived USD cents: want=%d got=%v",
+			expectedBilled, j.CostCredits)
 	}
 }
+
+func ptr[T any](v T) *T { return &v }
 
 // ---------------------------------------------------------------------------
 // HandlePoll — provider failed → refund

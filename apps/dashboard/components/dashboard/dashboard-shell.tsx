@@ -8,6 +8,7 @@ import {
   BookOpen,
   Clapperboard,
   CreditCard,
+  FolderOpen,
   Gauge,
   Key,
   LayoutDashboard,
@@ -95,6 +96,7 @@ export function DashboardShell({
       heading: t.nav.dashboard.build,
       items: [
         { label: t.nav.dashboard.keys, href: "/keys", icon: Key },
+        { label: t.nav.dashboard.library, href: "/library", icon: FolderOpen },
         {
           label: t.nav.dashboard.batchStudio,
           href: "/batch",

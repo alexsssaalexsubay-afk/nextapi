@@ -254,6 +254,11 @@ func main() {
 	api.POST("/me/uploads/image", uploadH.PostImage)
 	api.POST("/me/uploads/media", uploadH.PostMedia)
 
+	libraryH := &gateway.MediaLibraryHandlers{DB: gormDB, R2: uploadH.R2}
+	api.GET("/me/library/assets", libraryH.List)
+	api.POST("/me/library/assets", libraryH.Create)
+	api.DELETE("/me/library/assets/:id", libraryH.Delete)
+
 	api.GET("/me/keys", h.ListKeys)
 	api.POST("/me/keys", h.CreateKey)
 	api.GET("/me/keys/:id", h.GetKey)
