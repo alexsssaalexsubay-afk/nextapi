@@ -153,7 +153,7 @@ export function JobsTable({
                             </div>
                             <div className="grid gap-2 text-[12px] text-muted-foreground sm:grid-cols-2 lg:grid-cols-4">
                               <Meta label="Tokens" value={r.tokenCount != null ? r.tokenCount.toLocaleString() : "—"} />
-                              <Meta label="Cost" value={`$${r.creditsAmount}`} />
+                              <Meta label="Cost" value={r.creditsAmount} />
                               <Meta label="Resolution" value={r.resolution || "—"} />
                               <Meta label="Ratio" value={r.ratio || "—"} />
                               <Meta label="API key" value={r.apiKeyHint ? `${r.apiKeyHint}…` : "—"} />
@@ -170,9 +170,35 @@ export function JobsTable({
                             )}
                             <div className="flex flex-wrap items-center gap-2">
                               {r.videoURL && (
-                                <a href={r.videoURL} download className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border/80 px-3 text-[12.5px] hover:bg-background">
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    const url = r.videoURL!
+                                    try {
+                                      const res = await fetch(url, { mode: "cors", credentials: "omit" })
+                                      if (!res.ok) throw new Error(String(res.status))
+                                      const blob = await res.blob()
+                                      const o = URL.createObjectURL(blob)
+                                      const a = document.createElement("a")
+                                      a.href = o
+                                      a.download = `nextapi-${r.id}.mp4`
+                                      a.rel = "noopener"
+                                      document.body.appendChild(a)
+                                      a.click()
+                                      a.remove()
+                                      setTimeout(() => URL.revokeObjectURL(o), 4000)
+                                    } catch {
+                                      const a = document.createElement("a")
+                                      a.href = url
+                                      a.target = "_blank"
+                                      a.rel = "noopener noreferrer"
+                                      a.click()
+                                    }
+                                  }}
+                                  className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border/80 px-3 text-[12.5px] hover:bg-background"
+                                >
                                   <Download className="size-3.5" /> Download
-                                </a>
+                                </button>
                               )}
                               {r.videoURL && (
                                 <button

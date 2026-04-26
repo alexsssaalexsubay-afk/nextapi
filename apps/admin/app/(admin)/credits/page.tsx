@@ -39,7 +39,7 @@ type ApiOrg = {
 const NUMBER_FMT = new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
 function formatCredits(cents: number): string {
-  return NUMBER_FMT.format(cents / 100)
+  return `$${NUMBER_FMT.format(cents / 100)}`
 }
 
 export default function CreditsPage() {
@@ -113,19 +113,25 @@ export default function CreditsPage() {
     e.preventDefault()
     setAdjustError(null)
     setAdjustOk(false)
-    const credits = Math.trunc(Number(deltaInput))
-    if (!selectedOrgId || Number.isNaN(credits) || credits === 0) {
+    // Operators type a USD amount (1.00 = $1.00). Convert to cents for the
+    // ledger so the on-disk unit stays aligned with the upstream invoice.
+    const usd = Number(deltaInput)
+    if (!selectedOrgId || Number.isNaN(usd) || usd === 0) {
+      setAdjustError(p.form.invalid)
+      return
+    }
+    const cents = Math.round(usd * 100)
+    if (cents === 0) {
       setAdjustError(p.form.invalid)
       return
     }
     setAdjustSubmitting(true)
     try {
-      // Ledger is stored in cents; the operator types whole credits.
       await adminFetch("/credits/adjust", {
         method: "POST",
         body: JSON.stringify({
           org_id: selectedOrgId,
-          delta: credits * 100,
+          delta: cents,
           note: adjustNote.trim() || undefined,
         }),
       })
@@ -230,18 +236,21 @@ export default function CreditsPage() {
                   })}
                 </select>
               </label>
-              <label className="flex w-32 flex-col gap-1">
+              <label className="flex w-36 flex-col gap-1">
                 <span className="text-[10.5px] uppercase tracking-[0.14em] text-muted-foreground">
-                  {p.form.delta}
+                  {p.form.delta} (USD)
                 </span>
-                <input
-                  type="number"
-                  step={1}
-                  value={deltaInput}
-                  onChange={(ev) => setDeltaInput(ev.target.value)}
-                  className="rounded-md border border-border/80 bg-background/40 px-2 py-1.5 font-mono text-foreground"
-                  placeholder={p.form.deltaPlaceholder}
-                />
+                <div className="relative">
+                  <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 font-mono text-muted-foreground">$</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={deltaInput}
+                    onChange={(ev) => setDeltaInput(ev.target.value)}
+                    className="w-full rounded-md border border-border/80 bg-background/40 pl-5 pr-2 py-1.5 font-mono text-foreground"
+                    placeholder="100.00"
+                  />
+                </div>
               </label>
               <label className="flex min-w-[220px] flex-1 flex-col gap-1">
                 <span className="text-[10.5px] uppercase tracking-[0.14em] text-muted-foreground">

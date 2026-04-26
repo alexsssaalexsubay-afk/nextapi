@@ -131,11 +131,35 @@ export function JobDetail({ jobId }: { jobId: string }) {
   const state = toJobStatus(video.status)
   const prompt = (video.input?.prompt as string) || td.noPrompt
   const videoURL = video.output?.url
-  const reservedCredits = (video.estimated_cost_cents / 100).toFixed(2)
-  const billedCredits = video.actual_cost_cents != null
-    ? (video.actual_cost_cents / 100).toFixed(2)
+  // USD strings — what the upstream invoice is denominated in.
+  const reservedUSD = `$${(video.estimated_cost_cents / 100).toFixed(2)}`
+  const billedUSD = video.actual_cost_cents != null
+    ? `$${(video.actual_cost_cents / 100).toFixed(2)}`
     : null
   const isActive = ACTIVE_STATUSES.has(video.status)
+  const handleDownload = async () => {
+    if (!videoURL) return
+    try {
+      const res = await fetch(videoURL, { mode: "cors", credentials: "omit" })
+      if (!res.ok) throw new Error(`download failed: ${res.status}`)
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = `nextapi-${jobId}.mp4`
+      a.rel = "noopener"
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      setTimeout(() => URL.revokeObjectURL(url), 4000)
+    } catch {
+      const a = document.createElement("a")
+      a.href = videoURL
+      a.target = "_blank"
+      a.rel = "noopener noreferrer"
+      a.click()
+    }
+  }
 
   return (
     <div className="space-y-6 p-6">
@@ -178,14 +202,14 @@ export function JobDetail({ jobId }: { jobId: string }) {
             </button>
           )}
           {state === "succeeded" && videoURL && (
-            <a
-              href={videoURL}
-              download
+            <button
+              type="button"
+              onClick={handleDownload}
               className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border/80 bg-card/40 px-3 text-[12.5px] text-foreground hover:bg-card"
             >
               <Download className="size-3.5" />
               {td.downloadMp4}
-            </a>
+            </button>
           )}
         </div>
       </div>
@@ -212,8 +236,8 @@ export function JobDetail({ jobId }: { jobId: string }) {
           />
           <BillingPanel
             state={state}
-            reserved={reservedCredits}
-            billed={billedCredits}
+            reserved={reservedUSD}
+            billed={billedUSD}
           />
           <UpstreamPanel
             state={state}
@@ -589,9 +613,9 @@ function BillingPanel({
   const billedLabel =
     state === "failed" ? b.billedFailed : state === "succeeded" ? b.billedSuccess : b.pendingBill
 
-  const billedValue = billed ?? (state === "succeeded" ? "—" : state === "failed" ? "0.00" : "—")
-  const refundedValue = state === "failed" ? reserved : "0.00"
-  const netValue = billed ?? (state === "succeeded" ? "—" : "0.00")
+  const billedValue = billed ?? (state === "succeeded" ? "—" : state === "failed" ? "$0.00" : "—")
+  const refundedValue = state === "failed" ? reserved : "$0.00"
+  const netValue = billed ?? (state === "succeeded" ? "—" : "$0.00")
 
   return (
     <section className="rounded-xl border border-border/80 bg-card/40 p-5">

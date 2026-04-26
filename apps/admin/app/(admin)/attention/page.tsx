@@ -83,8 +83,10 @@ function mapJobToRow(j: ApiJob, orgNames: Map<string, string>): Row {
   const created = j.CreatedAt ?? j.created_at ?? ""
   const severity: Row["severity"] =
     status === "failed" ? "high" : status === "running" ? "medium" : "medium"
+  // `reserved` is in cents (matches the worker billing unit). Show USD so
+  // operators can reconcile against the upstream invoice without doing math.
   const credits =
-    reserved > 0 ? `${reserved} held` : "—"
+    reserved > 0 ? `$${(reserved / 100).toFixed(2)} held` : "—"
   return {
     id,
     org,

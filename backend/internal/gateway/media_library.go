@@ -66,9 +66,14 @@ func (h *MediaLibraryHandlers) List(c *gin.Context) {
 		Where("org_id = ?", org.ID).
 		Order("created_at DESC").
 		Limit(500)
-	if kind := strings.TrimSpace(c.Query("kind")); kind != "" {
-		q = q.Where("kind = ?", kind)
+	// The permanent library is image-only by product policy; ignore any
+	// non-image kind a caller asks for so we never accidentally expose a
+	// row inserted before the policy was tightened.
+	if kind := strings.TrimSpace(c.Query("kind")); kind != "" && kind != "image" {
+		c.JSON(http.StatusOK, gin.H{"assets": []libraryAssetResponse{}, "ttl_seconds": int(libraryAssetTTL.Seconds())})
+		return
 	}
+	q = q.Where("kind = ?", "image")
 
 	var rows []domain.MediaAsset
 	if err := q.Find(&rows).Error; err != nil {
@@ -180,6 +185,17 @@ func (h *MediaLibraryHandlers) Create(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{
 			"code":    "invalid_request",
 			"message": "unsupported media type",
+		}})
+		return
+	}
+	// Permanent library only stores images. Videos and audio belong to the
+	// per-job temporary uploads channel: keeping the persistent quota lean
+	// avoids R2 bloat and matches the UpToken/Jianying composer model where
+	// only stills are reusable references between sessions.
+	if kind != "image" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{
+			"code":    "invalid_request",
+			"message": "the permanent library only accepts images; use the temporary upload for video/audio",
 		}})
 		return
 	}

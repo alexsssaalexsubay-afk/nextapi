@@ -40,7 +40,7 @@ function toJobRow(v: VideoListItem): JobRow {
   const status = (["queued", "running", "succeeded", "failed"].includes(v.status)
     ? v.status
     : "queued") as JobStatus
-  const credits = (v.estimated_cost_cents / 100).toFixed(2)
+  const credits = `$${(v.estimated_cost_cents / 100).toFixed(2)}`
   const kind: JobRow["creditsKind"] =
     status === "failed" ? "refunded" : status === "succeeded" ? "billed" : "reserved"
   return {
@@ -86,7 +86,7 @@ export default function DashboardHome() {
     }
   }, [])
 
-  const credits = me?.balance != null ? (me.balance / 100).toFixed(2) : "—"
+  const credits = me?.balance != null ? `$${(me.balance / 100).toFixed(2)}` : "—"
   const activeKeys = me?.api_keys_active != null ? String(me.api_keys_active) : "—"
   const jobsTodayValue = jobs ? String(jobs.length) : "—"
 
@@ -127,7 +127,7 @@ export default function DashboardHome() {
           <StatCard
             label={t.dashboard.stats.available}
             value={credits}
-            unit={t.common.credits}
+            unit=""
             caption={me ? t.dashboard.stats.availableHint : t.common.loading}
           />
           <StatCard

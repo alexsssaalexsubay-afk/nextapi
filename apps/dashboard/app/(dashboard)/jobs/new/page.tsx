@@ -72,11 +72,46 @@ function pricePer1K(hasImage: boolean): number {
   return hasImage ? 0.0043 : 0.007
 }
 
-// Returns display credits (1.00 = one standard 6s 1080p text generation)
-function estimateCostCredits(duration: number, resolution: string, hasImage: boolean): number {
-  const base = (55000 * 6 * 1.0) / 1000 * 0.007
-  const current = (55000 * duration * resolutionScale(resolution)) / 1000 * pricePer1K(hasImage)
-  return Math.ceil((current / base) * 100) / 100
+// Returns the estimated invoice in USD. Mirrors the backend's pricing.go so
+// the user sees the same dollar figure that will land on the upstream invoice.
+function estimateCostUSD(duration: number, resolution: string, hasImage: boolean): number {
+  const usd = (55000 * duration * resolutionScale(resolution)) / 1000 * pricePer1K(hasImage)
+  return Math.ceil(usd * 100) / 100
+}
+
+function formatUSD(usd: number): string {
+  return `$${usd.toFixed(2)}`
+}
+
+function formatCents(cents: number | null | undefined): string {
+  if (cents == null) return "—"
+  return formatUSD(cents / 100)
+}
+
+// Trigger a real download by fetching the URL as a blob and synthesizing a
+// click. Plain `<a download>` is ignored when the URL is on a different origin
+// without CORS — we proxy through fetch() and let the browser save the bytes.
+async function downloadAsFile(url: string, filename: string): Promise<void> {
+  const res = await fetch(url, { mode: "cors", credentials: "omit" })
+  if (!res.ok) throw new Error(`download failed: ${res.status}`)
+  const blob = await res.blob()
+  const objectURL = URL.createObjectURL(blob)
+  const a = document.createElement("a")
+  a.href = objectURL
+  a.download = filename
+  a.rel = "noopener"
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  setTimeout(() => URL.revokeObjectURL(objectURL), 4000)
+}
+
+type LibraryAsset = {
+  id: string
+  kind: "image" | "video" | "audio"
+  url: string
+  filename?: string
+  size_bytes?: number
 }
 
 function toJobStatus(status: string): JobStatus {
@@ -113,8 +148,10 @@ export default function NewJobPage() {
   const [mediaUploading, setMediaUploading] = useState<TempMedia["kind"] | null>(null)
   const [tempMedia, setTempMedia] = useState<TempMedia[]>([])
   const [eventLog, setEventLog] = useState<string[]>([])
-  const [estimatedCost, setEstimatedCost] = useState(1.0)
+  const [estimatedUSD, setEstimatedUSD] = useState(0)
   const [showAdvanced, setShowAdvanced] = useState(false)
+  const [libraryAssets, setLibraryAssets] = useState<LibraryAsset[]>([])
+  const [libraryLoading, setLibraryLoading] = useState(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   // Stable per-attempt key — only rotates after a terminal status, so a double
@@ -157,8 +194,8 @@ export default function NewJobPage() {
           parseMediaURLs(referenceImageURLs).length > 0 ||
           parseMediaURLs(referenceVideoURLs).length > 0,
       )
-      setEstimatedCost(
-        estimateCostCredits(Number(duration), resolution, hasVisualReference),
+      setEstimatedUSD(
+        estimateCostUSD(Number(duration), resolution, hasVisualReference),
       )
     }, 300)
   }, [duration, resolution, imageUrl, lastFrameUrl, referenceImageURLs, referenceVideoURLs])
@@ -177,6 +214,36 @@ export default function NewJobPage() {
     const last = window.localStorage.getItem("nextapi.last_video_prompt")
     if (last) setPrompt(last)
   }, [])
+
+  const reloadLibrary = useCallback(async () => {
+    setLibraryLoading(true)
+    try {
+      const res = (await apiFetch("/v1/me/library/assets?kind=image")) as { assets?: LibraryAsset[] }
+      setLibraryAssets(Array.isArray(res?.assets) ? res.assets : [])
+    } catch {
+      setLibraryAssets([])
+    } finally {
+      setLibraryLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    void reloadLibrary()
+  }, [reloadLibrary])
+
+  const attachFromLibrary = (asset: LibraryAsset) => {
+    if (asset.kind !== "image") return
+    if (mode === "image" && !imageUrl.trim()) {
+      setImageUrl(asset.url)
+      return
+    }
+    setReferenceImageURLs((prev) => {
+      const existing = parseMediaURLs(prev)
+      if (existing.includes(asset.url)) return prev
+      return [...existing, asset.url].slice(0, 9).join("\n")
+    })
+    toast.success(t.jobs.new.form.tempUploadSuccess)
+  }
 
   const refreshCurrentVideo = useCallback(async (id: string) => {
     const video = await apiFetch(`/v1/videos/${id}`) as CurrentVideo
@@ -466,28 +533,16 @@ export default function NewJobPage() {
           {t.jobs.detail.backToJobs}
         </Link>
       </div>
-      <div className="mx-auto grid w-full max-w-[1360px] min-w-0 grid-cols-1 gap-6 p-6 xl:grid-cols-[minmax(0,1fr)_420px]">
-        <section className="flex min-w-0 flex-col gap-5">
-          <div className="rounded-[28px] border border-border/80 bg-gradient-to-br from-card/80 via-card/40 to-background p-6 shadow-sm">
-            <div className="flex flex-wrap items-start justify-between gap-4">
-              <div>
-                <div className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-                  {t.jobs.new.kicker}
-                </div>
-                <h1 className="mt-2 text-[28px] font-medium tracking-tight">{t.jobs.new.title}</h1>
-                <p className="mt-2 max-w-[680px] text-[13px] leading-relaxed text-muted-foreground">
-                  {t.jobs.new.intro}
-                </p>
-              </div>
-              <div className="rounded-2xl border border-border/80 bg-background/70 px-4 py-3">
-                <div className="text-[10.5px] uppercase tracking-[0.16em] text-muted-foreground">
-                  {t.jobs.new.estimatedCost}
-                </div>
-                <div className="mt-1 flex items-baseline gap-1.5">
-                  <span className="font-mono text-[24px] text-foreground">{estimatedCost.toFixed(2)}</span>
-                  <span className="text-[12px] text-muted-foreground">{t.common.credits}</span>
-                </div>
-              </div>
+      <div className="mx-auto grid w-full max-w-[1360px] min-w-0 grid-cols-1 gap-4 p-4 xl:grid-cols-[minmax(0,1fr)_400px]">
+        <section className="flex min-w-0 flex-col gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border/70 bg-card/40 px-4 py-2.5">
+            <div className="flex items-center gap-3">
+              <h1 className="text-[15px] font-medium tracking-tight">{t.jobs.new.title}</h1>
+              <span className="hidden text-[11.5px] text-muted-foreground sm:inline">{t.jobs.new.kicker}</span>
+            </div>
+            <div className="flex items-baseline gap-1">
+              <span className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">{t.jobs.new.estimatedCost}</span>
+              <span className="ml-2 font-mono text-[18px] text-foreground">{formatUSD(estimatedUSD)}</span>
             </div>
           </div>
 
@@ -550,76 +605,116 @@ export default function NewJobPage() {
                 }
               }}
             >
-              <div className="rounded-2xl border border-dashed border-border/80 bg-background/70 p-4">
-                <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <div className="text-[12.5px] font-medium">{t.jobs.new.composer.attachments}</div>
-                    <p className="mt-1 text-[11.5px] text-muted-foreground">{t.jobs.new.composer.attachmentsHint}</p>
+              <div className="grid gap-3 lg:grid-cols-2">
+                <div className="rounded-2xl border border-border/80 bg-background/70 p-3">
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="text-[12px] font-medium">{t.jobs.new.composer.permLibraryTitle}</div>
+                      <p className="mt-0.5 truncate text-[11px] text-muted-foreground">{t.jobs.new.composer.permLibraryHint}</p>
+                    </div>
+                    <Link
+                      href="/library"
+                      className="inline-flex h-7 items-center gap-1 rounded-full border border-border/70 px-2.5 text-[11px] text-muted-foreground transition-colors hover:bg-card hover:text-foreground"
+                    >
+                      <FolderOpen className="size-3" />
+                      {t.jobs.new.composer.permLibraryManage}
+                    </Link>
                   </div>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex max-h-24 gap-2 overflow-x-auto pb-1">
+                    {libraryLoading && libraryAssets.length === 0 ? (
+                      <div className="flex h-20 w-full items-center justify-center text-[11px] text-muted-foreground">
+                        <Loader2 className="size-3.5 animate-spin" />
+                      </div>
+                    ) : libraryAssets.length === 0 ? (
+                      <div className="flex h-20 w-full items-center justify-center text-center text-[11px] text-muted-foreground">
+                        {t.jobs.new.composer.permLibraryEmpty}
+                      </div>
+                    ) : (
+                      libraryAssets.map((asset) => (
+                        <button
+                          key={asset.id}
+                          type="button"
+                          onClick={() => attachFromLibrary(asset)}
+                          className="group relative h-20 w-20 shrink-0 overflow-hidden rounded-lg border border-border/70 bg-card/60 transition-all hover:border-foreground"
+                          title={asset.filename || asset.id}
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element -- presigned URL */}
+                          <img src={asset.url} alt="" className="absolute inset-0 h-full w-full object-cover" />
+                          <span className="absolute inset-x-0 bottom-0 bg-background/80 px-1 py-0.5 text-[9.5px] text-foreground/80 opacity-0 backdrop-blur transition-opacity group-hover:opacity-100">
+                            +
+                          </span>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-dashed border-border/80 bg-background/70 p-3">
+                  <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="text-[12px] font-medium">{t.jobs.new.composer.tempUploadTitle}</div>
+                      <p className="mt-0.5 truncate text-[11px] text-muted-foreground">{t.jobs.new.composer.tempUploadHint}</p>
+                    </div>
+                    <span className="rounded-full border border-border/70 px-2 py-0.5 font-mono text-[10px] text-muted-foreground">
+                      {attachmentCount}/12
+                    </span>
+                  </div>
+                  <div className="mb-2 flex flex-wrap gap-1.5">
                     <AttachmentUploadButton
                       icon={ImageIcon}
-                      label={t.jobs.new.form.referenceImages}
+                      label={t.jobs.new.composer.addImage}
                       accept="image/*"
                       uploading={imageUploading || mediaUploading === "image"}
                       onUpload={(file) => mode === "image" && !imageUrl.trim() ? onImagePicked(file) : uploadTempMedia(file, "image")}
                     />
                     <AttachmentUploadButton
                       icon={Film}
-                      label={t.jobs.new.form.referenceVideos}
+                      label={t.jobs.new.composer.addVideo}
                       accept="video/mp4,video/quicktime,video/*"
                       uploading={mediaUploading === "video"}
                       onUpload={(file) => uploadTempMedia(file, "video")}
                     />
                     <AttachmentUploadButton
                       icon={Music}
-                      label={t.jobs.new.form.referenceAudio}
+                      label={t.jobs.new.composer.addAudio}
                       accept="audio/mpeg,audio/wav,audio/aac,audio/*"
                       uploading={mediaUploading === "audio"}
                       onUpload={(file) => uploadTempMedia(file, "audio")}
                     />
-                    <Link
-                      href="/library"
-                      className="inline-flex h-9 items-center gap-2 rounded-full border border-border/80 bg-card/60 px-3 text-[12px] text-muted-foreground transition-colors hover:bg-card hover:text-foreground"
-                    >
-                      <FolderOpen className="size-3.5" />
-                      {t.jobs.new.composer.openLibrary}
-                    </Link>
                   </div>
+                  {!hasAnyMedia && tempMedia.length === 0 ? (
+                    <div className="flex h-20 items-center justify-center rounded-lg bg-card/40 text-center text-[11px] text-muted-foreground">
+                      <span className="max-w-[320px] truncate">{t.jobs.new.composer.emptyAttachments}</span>
+                    </div>
+                  ) : (
+                    <div className="flex max-h-24 gap-2 overflow-x-auto pb-1">
+                      {imageUrl.trim() && (
+                        <AttachmentPreview
+                          kind={t.jobs.new.form.firstLastFrame}
+                          label={imageUrl.trim()}
+                          url={imageUrl.trim()}
+                          onRemove={() => setImageUrl("")}
+                        />
+                      )}
+                      {lastFrameUrl.trim() && (
+                        <AttachmentPreview
+                          kind={t.jobs.new.form.lastFrameUrl}
+                          label={lastFrameUrl.trim()}
+                          onRemove={() => setLastFrameUrl("")}
+                        />
+                      )}
+                      {tempMedia.map((item) => (
+                        <AttachmentPreview
+                          key={item.key}
+                          kind={item.kind}
+                          label={item.name}
+                          url={item.kind === "image" ? item.url : undefined}
+                          onRemove={() => removeTempMedia(item)}
+                        />
+                      ))}
+                    </div>
+                  )}
                 </div>
-
-                {!hasAnyMedia && tempMedia.length === 0 ? (
-                  <div className="flex min-h-[82px] items-center justify-center rounded-xl bg-card/40 text-center text-[12px] text-muted-foreground">
-                    <span className="max-w-[420px]">{t.jobs.new.composer.emptyAttachments}</span>
-                  </div>
-                ) : (
-                  <div className="flex gap-3 overflow-x-auto pb-1">
-                    {imageUrl.trim() && (
-                      <AttachmentPreview
-                        kind={t.jobs.new.form.firstLastFrame}
-                        label={imageUrl.trim()}
-                        url={imageUrl.trim()}
-                        onRemove={() => setImageUrl("")}
-                      />
-                    )}
-                    {lastFrameUrl.trim() && (
-                      <AttachmentPreview
-                        kind={t.jobs.new.form.lastFrameUrl}
-                        label={lastFrameUrl.trim()}
-                        onRemove={() => setLastFrameUrl("")}
-                      />
-                    )}
-                    {tempMedia.map((item) => (
-                      <AttachmentPreview
-                        key={item.key}
-                        kind={item.kind}
-                        label={item.name}
-                        url={item.kind === "image" ? item.url : undefined}
-                        onRemove={() => removeTempMedia(item)}
-                      />
-                    ))}
-                  </div>
-                )}
               </div>
 
               <div className="rounded-2xl border border-border/80 bg-background">
@@ -652,11 +747,11 @@ export default function NewJobPage() {
                   </div>
                 </div>
                 <textarea
-                  rows={8}
+                  rows={4}
                   value={prompt}
                   onChange={(e) => setPrompt(e.target.value)}
                   placeholder={t.jobs.new.form.promptPlaceholder}
-                  className="min-h-[180px] w-full resize-none bg-transparent px-4 py-4 text-[14px] leading-relaxed text-foreground placeholder:text-muted-foreground/60 focus:outline-none"
+                  className="min-h-[110px] w-full resize-y bg-transparent px-4 py-3 text-[13.5px] leading-relaxed text-foreground placeholder:text-muted-foreground/60 focus:outline-none"
                 />
                 <div className="border-t border-border/60 px-4 py-3">
                   <div className="grid gap-3 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
@@ -731,7 +826,7 @@ export default function NewJobPage() {
                     </div>
                     <div className="ml-auto flex items-center gap-3">
                       <span className="font-mono text-[11.5px] text-muted-foreground">
-                        {t.jobs.new.willReserve} <span className="text-foreground">{estimatedCost.toFixed(2)} {t.common.credits}</span>
+                        {t.jobs.new.willReserve} <span className="text-foreground">{formatUSD(estimatedUSD)}</span>
                       </span>
                       <button
                         onClick={submitJob}
@@ -792,7 +887,7 @@ export default function NewJobPage() {
           </div>
         </section>
 
-        <aside className="flex min-w-0 flex-col gap-4">
+        <aside className="flex min-w-0 flex-col gap-3">
           <StatusFlowCard status={currentVideo?.status ?? "idle"} labels={t.jobs.new.flow} />
           <CurrentTaskCard
             video={currentVideo}
@@ -801,34 +896,6 @@ export default function NewJobPage() {
             logs={eventLog}
             labels={t.jobs.new.task}
           />
-          <div className="rounded-xl border border-border/80 bg-card/40 p-5">
-            <h2 className="text-[13px] font-medium tracking-tight">
-              {t.jobs.new.estimatedCost}
-            </h2>
-            <div className="mt-3 flex items-baseline gap-1.5">
-              <span className="font-mono text-[24px] text-foreground">
-                {estimatedCost.toFixed(2)}
-              </span>
-              <span className="text-[12px] text-muted-foreground">{t.common.credits}</span>
-            </div>
-            <div className="mt-3 flex flex-wrap gap-1.5 font-mono text-[10.5px]">
-              <span className="rounded-sm bg-signal/10 px-1.5 py-0.5 text-signal">
-                {mode === "image" ? t.jobs.new.form.modeImageToVideo : t.jobs.new.form.modeTextToVideo}
-              </span>
-              <span className="rounded-sm bg-card px-1.5 py-0.5 text-muted-foreground">
-                {model}
-              </span>
-              <span className="rounded-sm bg-card px-1.5 py-0.5 text-muted-foreground">
-                {resolution}
-              </span>
-              <span className="rounded-sm bg-card px-1.5 py-0.5 text-muted-foreground">
-                {duration}s
-              </span>
-            </div>
-            <p className="mt-3 text-[11.5px] leading-relaxed text-muted-foreground">
-              {t.jobs.new.estimatedCostNote}
-            </p>
-          </div>
         </aside>
       </div>
     </DashboardShell>
@@ -1091,6 +1158,8 @@ function CurrentTaskCard({
     finished: string
     details: string
     download: string
+    downloading: string
+    downloadFailed: string
     retry: string
     retrying: string
     callbackConsole: string
@@ -1098,6 +1167,8 @@ function CurrentTaskCard({
     status: Record<string, string>
   }
 }) {
+  // Hooks must run on every render — keep above any early return.
+  const [downloading, setDownloading] = useState(false)
   if (!video) {
     return (
       <div className="rounded-xl border border-border/80 bg-card/40 p-5">
@@ -1114,6 +1185,26 @@ function CurrentTaskCard({
   const active = ACTIVE_STATUSES.has(video.status)
   const videoURL = video.output?.url || video.output?.video_url
   const cost = video.actual_cost_cents ?? video.estimated_cost_cents
+  const onDownload = async () => {
+    if (!videoURL || downloading) return
+    setDownloading(true)
+    try {
+      const filename = `nextapi-${video.id}.mp4`
+      await downloadAsFile(videoURL, filename)
+    } catch {
+      try {
+        const a = document.createElement("a")
+        a.href = videoURL
+        a.target = "_blank"
+        a.rel = "noopener noreferrer"
+        a.click()
+      } catch {
+        toast.error(labels.downloadFailed)
+      }
+    } finally {
+      setDownloading(false)
+    }
+  }
 
   return (
     <div className="rounded-xl border border-border/80 bg-card/40 p-5">
@@ -1125,9 +1216,9 @@ function CurrentTaskCard({
         <StatusPill status={status} label={labels.status[video.status] ?? video.status} />
       </div>
 
-      <div className="mt-4 overflow-hidden rounded-lg border border-border/70 bg-background">
+      <div className="mt-4 max-h-[55vh] overflow-hidden rounded-lg border border-border/70 bg-background">
         {videoURL ? (
-          <video src={videoURL} controls className="aspect-video w-full bg-black object-contain" />
+          <video src={videoURL} controls className="aspect-video max-h-[55vh] w-full bg-black object-contain" />
         ) : (
           <div className="flex aspect-video flex-col items-center justify-center gap-2 px-4 text-center text-[12px] text-muted-foreground">
             {active ? <Loader2 className="size-4 animate-spin" /> : null}
@@ -1151,7 +1242,7 @@ function CurrentTaskCard({
 
       <div className="mt-4 grid grid-cols-2 gap-2 text-[12px]">
         <Metric label={labels.model} value={video.model || "—"} />
-        <Metric label={labels.cost} value={cost != null ? `$${(cost / 100).toFixed(2)}` : "—"} />
+        <Metric label={labels.cost} value={formatCents(cost)} />
         <Metric label={labels.tokens} value={video.upstream_tokens != null ? video.upstream_tokens.toLocaleString() : "—"} />
         <Metric label={labels.finished} value={video.finished_at ? new Date(video.finished_at).toLocaleTimeString() : "—"} />
       </div>
@@ -1171,9 +1262,15 @@ function CurrentTaskCard({
           <ExternalLink className="size-3.5" /> {labels.details}
         </Link>
         {videoURL && (
-          <a href={videoURL} download className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border/80 px-3 text-[12.5px] hover:bg-background">
-            <Download className="size-3.5" /> {labels.download}
-          </a>
+          <button
+            type="button"
+            onClick={onDownload}
+            disabled={downloading}
+            className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border/80 px-3 text-[12.5px] hover:bg-background disabled:opacity-50"
+          >
+            {downloading ? <Loader2 className="size-3.5 animate-spin" /> : <Download className="size-3.5" />}
+            {downloading ? labels.downloading : labels.download}
+          </button>
         )}
         {video.status === "failed" && (
           <button

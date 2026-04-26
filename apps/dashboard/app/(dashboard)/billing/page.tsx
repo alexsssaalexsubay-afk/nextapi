@@ -70,7 +70,14 @@ const CREDITS_FMT = new Intl.NumberFormat("en-US", {
 })
 
 function formatCredits(cents: number): string {
-  return CREDITS_FMT.format(cents / 100)
+  return `$${CREDITS_FMT.format(cents / 100)}`
+}
+
+function formatSignedUSD(cents: number): string {
+  const absStr = CREDITS_FMT.format(Math.abs(cents) / 100)
+  if (cents > 0) return `+$${absStr}`
+  if (cents < 0) return `-$${absStr}`
+  return `$${absStr}`
 }
 
 export default function BillingPage() {

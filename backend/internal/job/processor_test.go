@@ -357,8 +357,9 @@ func TestHandlePoll_ProviderSucceeded_CreditsReconciled(t *testing.T) {
 		t.Fatalf("video_url mismatch: %v", j.VideoURL)
 	}
 
-	// 300 upstream tokens → 1 USD cent at the normal-text price. The other
-	// 999 cents of the reservation must come back to the customer as a refund.
+	// 300 upstream tokens → 1 USD cent at the normal-text price. The 999
+	// cents of unused reservation must come back to the customer as a refund
+	// so their net spend equals the upstream invoice.
 	const expectedBilled = int64(1)
 	const expectedRefund = reserved - expectedBilled
 	balAfter, _ := bill.GetBalance(context.Background(), orgID)
@@ -369,6 +370,59 @@ func TestHandlePoll_ProviderSucceeded_CreditsReconciled(t *testing.T) {
 	if j.CostCredits == nil || *j.CostCredits != expectedBilled {
 		t.Fatalf("cost_credits should equal upstream-derived USD cents: want=%d got=%v",
 			expectedBilled, j.CostCredits)
+	}
+}
+
+// Underestimation case: upstream burned far more tokens than the reservation
+// expected. The worker must debit the shortfall (charge the customer extra)
+// so we never silently absorb the upstream cost.
+func TestHandlePoll_ProviderSucceeded_UnderestimatedReservation(t *testing.T) {
+	db := setupProcessorDB(t)
+
+	url := "https://mock.nextapi.top/result.mp4"
+	actualTokens := int64(120_545) // ~$0.84 at the normal text price
+	prov := &controlledProvider{
+		statusResult: &provider.JobStatus{
+			Status:           "succeeded",
+			VideoURL:         &url,
+			ActualTokensUsed: &actualTokens,
+		},
+	}
+	proc, _ := newProcessorWithRedis(t, db, prov)
+
+	const orgID = "org_under"
+	const reserved = int64(46) // ceil rounding mirrors the dashboard estimate.
+
+	db.Create(&domain.CreditsLedger{OrgID: orgID, DeltaCredits: 10_000, Reason: domain.ReasonTopup})
+	db.Create(&domain.CreditsLedger{
+		OrgID: orgID, DeltaCredits: -reserved, Reason: domain.ReasonReservation,
+		JobID: ptr("job_underbill"),
+	})
+
+	provID := "prov_underbill"
+	db.Exec(`INSERT INTO jobs (id, org_id, status, reserved_credits, request, provider, provider_job_id)
+		VALUES ('job_underbill', ?, 'running', ?, ?, 'mock', ?)`,
+		orgID, reserved, []byte("{}"), provID)
+
+	bill := billing.NewService(db)
+	balBefore, _ := bill.GetBalance(context.Background(), orgID)
+
+	if err := proc.HandlePoll(context.Background(), makePollTask("job_underbill")); err != nil {
+		t.Fatalf("HandlePoll failed: %v", err)
+	}
+
+	var j domain.Job
+	db.First(&j, "id = ?", "job_underbill")
+	const expectedBilled = int64(85) // ceil(120545/1000 * 0.0070 * 100)
+	const expectedDebit = expectedBilled - reserved
+	if j.CostCredits == nil || *j.CostCredits != expectedBilled {
+		t.Fatalf("cost_credits must follow upstream tokens: want=%d got=%v",
+			expectedBilled, j.CostCredits)
+	}
+	balAfter, _ := bill.GetBalance(context.Background(), orgID)
+	if balAfter != balBefore-expectedDebit {
+		t.Fatalf("expected -%d cents debit on shortfall: before=%d after=%d",
+			expectedDebit, balBefore, balAfter)
 	}
 }
 

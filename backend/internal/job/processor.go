@@ -220,10 +220,14 @@ func (p *Processor) succeed(ctx context.Context, j *domain.Job, st *provider.Job
 			videoSeconds = &vs
 		}
 	}
+	// Customer is invoiced exactly what the upstream charged us, in USD cents.
+	// Pre-check reserved an estimate; the worker now reconciles against the
+	// real upstream token count so the dashboard total matches the upstream
+	// portal line-for-line. If the reservation was higher than the actual,
+	// the delta is refunded; if lower, the customer is debited the shortfall.
 	actualCredits := j.ReservedCredits
 	if st.ActualTokensUsed != nil && *st.ActualTokensUsed > 0 {
-		usdCents := seedance.USDCentsFromTokens(req, *st.ActualTokensUsed)
-		if usdCents > 0 && usdCents < actualCredits {
+		if usdCents := seedance.USDCentsFromTokens(req, *st.ActualTokensUsed); usdCents > 0 {
 			actualCredits = usdCents
 		}
 	}
