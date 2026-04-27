@@ -61,6 +61,9 @@ func (r *Runner) GenerateStoryboard(ctx context.Context, in director.GenerateSho
 		}
 		return r.runProviderManagedFallbackWithStatus(ctx, in, deps, "sidecar_unavailable", true)
 	}
+	if !r.allowFallback {
+		return nil, fmt.Errorf("%w: sidecar_not_configured", director.ErrPlannerUnavailable)
+	}
 	return r.runProviderManagedFallbackWithStatus(ctx, in, deps, "sidecar_not_configured", false)
 }
 

@@ -95,7 +95,7 @@ Director-mode calls terminate at these platform-owned interfaces:
 
 No frontend code receives provider keys.
 
-`engine: "advanced"` activates the internal advanced runner. The dashboard Director page sends this by default. The runner first calls `VIMAX_RUNTIME_URL` when configured. If no sidecar is configured, it falls back to a provider-managed planner so the web product remains usable during staged deployment. Set `VIMAX_RUNTIME_DISABLE_FALLBACK=true` in production only after the sidecar is healthy and monitored.
+`engine: "advanced"` activates the internal advanced runner. The dashboard Director page sends this by default. The runner first calls `VIMAX_RUNTIME_URL` when configured. Production is fail-closed by default: if the sidecar is missing or unhealthy, the request is unavailable instead of silently degrading. Only set `VIMAX_RUNTIME_ALLOW_FALLBACK=true` in a staging/debug environment when an operator intentionally wants the provider-managed fallback path.
 
 ## Engine Observability Contract
 

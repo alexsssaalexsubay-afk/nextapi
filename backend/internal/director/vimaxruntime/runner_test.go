@@ -3,6 +3,7 @@ package vimaxruntime
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -105,5 +106,19 @@ func TestRuntimeStatusFailClosedWhenFallbackDisabled(t *testing.T) {
 	}
 	if status.EngineUsed != director.EngineAdvancedRequested || status.Reason != "sidecar_not_configured" {
 		t.Fatalf("runtime should expose missing sidecar without pretending fallback ran: %+v", status)
+	}
+}
+
+func TestGenerateStoryboardFailClosedWhenSidecarMissing(t *testing.T) {
+	text := &fakePlannerText{response: `{"title":"Plan","summary":"Summary","shots":[{"shotIndex":1,"title":"Shot","duration":4,"videoPrompt":"video","imagePrompt":"image","referenceAssets":[]}]}`}
+	runner := NewRunner(RunnerConfig{AllowFallback: false})
+	_, err := runner.GenerateStoryboard(context.Background(), director.GenerateShotsInput{
+		Engine:          "advanced",
+		Story:           "story",
+		ShotCount:       1,
+		DurationPerShot: 4,
+	}, director.PlannerDeps{Text: text})
+	if !errors.Is(err, director.ErrPlannerUnavailable) {
+		t.Fatalf("error = %v; want ErrPlannerUnavailable", err)
 	}
 }
