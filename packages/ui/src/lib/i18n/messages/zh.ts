@@ -2087,6 +2087,8 @@ export const zh: Messages = {
       note: "备注",
       saveVIP: "保存 VIP",
       otpDirector: "更新 AI Director VIP 权限",
+      noProvidersTitle: "还没有配置任何 Provider",
+      noProvidersBody: "先从左侧选择文字模型预设并填入 Key，保存后设为默认；AI Director 只有在文字 Provider 与 VIP 权限同时就绪时才会进入真实导演链路。",
     },
     leadsPage: {
       title: "销售线索",
@@ -2464,6 +2466,8 @@ export const zh: Messages = {
     invalidEmail: "邮箱格式无效",
     passwordMinLength: "密码至少 8 个字符",
     invalidCredentials: "邮箱或密码错误",
+    passwordLogin: "密码登录",
+    codeLogin: "验证码登录",
     codeSignInSubtitle: "使用 6 位邮箱验证码登录",
     verificationCode: "验证码",
     sendCode: "发送验证码",

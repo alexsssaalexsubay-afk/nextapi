@@ -95,8 +95,8 @@ export function GalleryStrip() {
             </span>
           </h2>
           <p className="mt-4 text-[15px] leading-relaxed text-muted-foreground">
-            Sampled from production traffic this week. Raw model output,
-            no hand-picks.
+            Operator-curated launch examples. Swap these slots from Admin as
+            soon as real customer-approved outputs are ready.
           </p>
         </div>
 

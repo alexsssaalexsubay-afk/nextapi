@@ -16,7 +16,7 @@ billing, throughput, moderation, and webhook paths.
 - Optional storyboard image generation may call image providers and save results
   into the asset library.
 - Video generation still uses the existing `job.Service.Create` path. AI
-  Director must not call UpToken/Seedance providers directly.
+  Director must not call Seedance relay providers directly.
 - Canvas remains the editable workflow surface.
 - AI Director is a VIP-gated workspace feature. VIP access only unlocks the
   surface; text, image, and video calls still consume the normal credits.

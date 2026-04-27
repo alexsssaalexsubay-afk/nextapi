@@ -316,7 +316,12 @@ export default function AIProvidersPage() {
           </section>
           <section className="premium-surface rounded-3xl p-5">
             <h2 className="mb-4 text-sm font-medium">{p.title}</h2>
-            {loading ? <div className="text-sm text-muted-foreground">{t.common.loading}...</div> : (
+            {loading ? <div className="text-sm text-muted-foreground">{t.common.loading}...</div> : providers.length === 0 ? (
+              <div className="rounded-3xl border border-dashed border-white/15 bg-background/35 p-6 text-sm text-muted-foreground">
+                <div className="text-base font-medium text-foreground">{p.noProvidersTitle}</div>
+                <p className="mt-2 max-w-2xl leading-relaxed">{p.noProvidersBody}</p>
+              </div>
+            ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead className="text-left text-xs uppercase text-muted-foreground"><tr><th className="py-2">{p.name}</th><th>{p.type}</th><th>{p.provider}</th><th>{p.apiKeyHint}</th><th>{p.defaultProvider}</th><th className="text-right">Actions</th></tr></thead>

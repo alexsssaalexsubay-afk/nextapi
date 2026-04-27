@@ -6,7 +6,7 @@ This catalog keeps model choice layered instead of dumping every model into the 
 
 - Text providers call `GenerateTextWithProvider`.
 - Image providers call `GenerateImageWithProvider`.
-- Video providers continue to use the existing video task path (`createVideoTask`, Seedance/UpToken, jobs, billing).
+- Video providers continue to use the existing video task path (`createVideoTask`, Seedance relay, jobs, billing).
 - API keys stay encrypted in `ai_providers`; frontend never receives keys.
 
 ## Admin Presets

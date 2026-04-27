@@ -63,7 +63,8 @@ func (r *Runtime) TestProvider(ctx context.Context, providerID string) error {
 	case domain.AIProviderTypeImage:
 		_, err = r.GenerateImageWithProvider(ctx, prov.ID, "simple gray square", ImageOptions{Resolution: "1024x1024"})
 	case domain.AIProviderTypeVideo:
-		if strings.TrimSpace(prov.Provider) != "uptoken-seedance" {
+		videoProvider := strings.TrimSpace(prov.Provider)
+		if videoProvider != "seedance-relay" && videoProvider != "uptoken-seedance" {
 			err = ErrInvalidProvider
 		}
 	default:

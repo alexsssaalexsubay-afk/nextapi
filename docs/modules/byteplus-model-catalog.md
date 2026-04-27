@@ -20,6 +20,6 @@ Expose stable NextAPI model IDs, not raw vendor contract details:
 
 ## Integration Notes
 
-- Video generation remains routed through the existing Seedance/UpToken provider and task/billing system.
+- Video generation remains routed through the existing Seedance relay provider and task/billing system.
 - Image/text models are catalogued in the dashboard for provider readiness but remain disabled until admin provider configuration is implemented.
 - Durations are 4-15 seconds in UI controls; use a slider for customer workflows.

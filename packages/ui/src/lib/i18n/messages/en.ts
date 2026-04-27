@@ -2103,6 +2103,8 @@ export const en = {
       note: "Note",
       saveVIP: "Save VIP",
       otpDirector: "Update AI Director VIP access",
+      noProvidersTitle: "No providers configured yet",
+      noProvidersBody: "Start by choosing a text model preset on the left, fill the key, save it, and set it as default. AI Director only enters the live director path when both a text provider and VIP access are ready.",
     },
     leadsPage: {
       title: "Sales leads",
@@ -2485,6 +2487,8 @@ export const en = {
     invalidEmail: "Invalid email address",
     passwordMinLength: "Password must be at least 8 characters",
     invalidCredentials: "Invalid email or password",
+    passwordLogin: "Password",
+    codeLogin: "Email code",
     codeSignInSubtitle: "Sign in with a 6-digit email verification code",
     verificationCode: "Verification code",
     sendCode: "Send code",

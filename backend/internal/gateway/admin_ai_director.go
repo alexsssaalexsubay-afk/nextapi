@@ -3,6 +3,7 @@ package gateway
 import (
 	"errors"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -36,11 +37,17 @@ func (h *AdminHandlers) AdminAIDirectorStatus(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "internal_error"}})
 			return
 		}
+		configured := err == nil && strings.TrimSpace(row.APIKeyEncrypted) != "" && strings.TrimSpace(row.Model) != ""
+		defaultID := row.ID
+		model := row.Model
+		if typ == domain.AIProviderTypeVideo && !configured {
+			configured, defaultID, model = runtimeVideoProviderStatus()
+		}
 		providers = append(providers, providerStatus{
 			Type:       typ,
-			Configured: err == nil && strings.TrimSpace(row.APIKeyEncrypted) != "" && strings.TrimSpace(row.Model) != "",
-			DefaultID:  row.ID,
-			Model:      row.Model,
+			Configured: configured,
+			DefaultID:  defaultID,
+			Model:      model,
 		})
 	}
 	var activeVIPs int64
@@ -124,4 +131,42 @@ func adminActor(c *gin.Context) string {
 		}
 	}
 	return "unknown"
+}
+
+func runtimeVideoProviderStatus() (bool, string, string) {
+	mode := strings.ToLower(strings.TrimSpace(os.Getenv("PROVIDER_MODE")))
+	if mode == "" || mode == "mock" {
+		return false, "", ""
+	}
+	switch mode {
+	case "live":
+		if strings.TrimSpace(os.Getenv("VOLC_API_KEY")) == "" {
+			return false, "", ""
+		}
+		model := strings.TrimSpace(os.Getenv("SEEDANCE_MODEL"))
+		if model == "" {
+			model = "seedance-v2-pro"
+		}
+		return true, "runtime:volcengine", model
+	case "seedance_relay", "seedance-relay", "relay", "uptoken":
+		if strings.TrimSpace(os.Getenv("SEEDANCE_RELAY_API_KEY")) == "" && strings.TrimSpace(os.Getenv("UPTOKEN_API_KEY")) == "" {
+			return false, "", ""
+		}
+		model := strings.TrimSpace(firstNonEmpty(os.Getenv("SEEDANCE_RELAY_MODEL"), os.Getenv("UPTOKEN_MODEL")))
+		if model == "" {
+			model = "seedance-2.0-pro"
+		}
+		return true, "runtime:seedance-relay", model
+	default:
+		return false, "", ""
+	}
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			return value
+		}
+	}
+	return ""
 }

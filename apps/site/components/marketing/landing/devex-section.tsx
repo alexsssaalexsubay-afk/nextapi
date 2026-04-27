@@ -32,7 +32,7 @@ function checkRateLimit(): { allowed: boolean; remaining: number } {
   return { allowed: true, remaining: DEMO_LIMIT - timestamps.length }
 }
 
-function generateMockResponse() {
+function generateSampleResponse() {
   const id = `vid_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`
   return {
     id,
@@ -90,7 +90,7 @@ export function DevexSection() {
 
     await new Promise((r) => setTimeout(r, 1200 + Math.random() * 800))
 
-    const resp = generateMockResponse()
+    const resp = generateSampleResponse()
     setDemoResult(JSON.stringify(resp, null, 2))
     setRunning(false)
   }
@@ -158,7 +158,7 @@ export function DevexSection() {
     Response: running ? (
       <div className="flex items-center gap-2 py-8 text-zinc-400">
         <Loader2 className="size-4 animate-spin" />
-        <span>Generating video...</span>
+        <span>Preparing sample response...</span>
       </div>
     ) : responseContent ? (
       <span>{responseContent}</span>

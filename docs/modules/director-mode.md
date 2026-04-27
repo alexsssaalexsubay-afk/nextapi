@@ -29,7 +29,7 @@
 - Existing AI provider runtime for text and image calls.
 - Existing media asset library for generated reference images.
 - Existing workflow JSON schema and Canvas editor.
-- Existing workflow run path, batch service, job service, billing, throughput, moderation, and Seedance/UpToken provider path.
+- Existing workflow run path, batch service, job service, billing, throughput, moderation, and Seedance relay provider path.
 - Existing Redis/job queue for high-concurrency video generation. Director planning creates workflow JSON; multi-shot video generation must run through workflow/batch jobs rather than blocking the HTTP request.
 
 ## Non-Reusable Modules
@@ -42,7 +42,7 @@
 
 - Text/story/script planning: `generateTextWithProvider`.
 - Shot image generation: `generateImageWithProvider`.
-- Video generation: workflow run -> existing job service -> provider adapter -> UpToken/Seedance.
+- Video generation: workflow run -> existing job service -> provider adapter -> Seedance relay.
 - Storage: generated images are persisted through the existing media asset library/R2 path.
 
 ## Upstream Director Runtime Audit
@@ -294,7 +294,7 @@ Treat Director Mode as production-ready only after these checks have executable 
 - Sidecar requests must include a managed provider policy and must never contain raw upstream model keys.
 - Go -> sidecar uses `X-Director-Sidecar-Token` when `DIRECTOR_SIDECAR_TOKEN` is set.
 - sidecar -> Go uses `X-Director-Runtime-Token` and never receives decrypted provider keys.
-- Video execution remains in the Go backend queue path: workflow -> batch/job -> provider adapter -> UpToken/Seedance -> webhook/status -> assets/billing.
+- Video execution remains in the Go backend queue path: workflow -> batch/job -> provider adapter -> Seedance relay -> webhook/status -> assets/billing.
 
 # Next Phase: Historical Assets and Agent Self-Evolution
 
