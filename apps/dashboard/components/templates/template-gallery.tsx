@@ -370,10 +370,27 @@ function TemplateForm({
           )}
         </label>
       ))}
-      <SelectField label={labels.duration} value={inputs.duration ?? "5"} values={["5", "10"]} onChange={(value) => onChange("duration", value)} />
+      <RangeField label={labels.duration} value={Number(inputs.duration || 5)} min={4} max={15} onChange={(value) => onChange("duration", String(value))} />
       <SelectField label={labels.aspectRatio} value={inputs.aspect_ratio ?? "9:16"} values={["9:16", "16:9", "1:1"]} onChange={(value) => onChange("aspect_ratio", value)} />
       <SelectField label={labels.resolution} value={inputs.resolution ?? "1080p"} values={["480p", "720p", "1080p"]} onChange={(value) => onChange("resolution", value)} />
     </div>
+  )
+}
+
+function RangeField({ label, value, min, max, onChange }: { label: string; value: number; min: number; max: number; onChange: (value: number) => void }) {
+  const safeValue = Math.min(max, Math.max(min, value))
+  return (
+    <label className="rounded-xl border border-border/80 bg-background px-3 py-2">
+      <span className="flex items-center justify-between text-[11px] text-muted-foreground">
+        <span>{label}</span>
+        <span className="font-mono text-[12px] text-foreground">{safeValue}s</span>
+      </span>
+      <input type="range" min={min} max={max} value={safeValue} onChange={(event) => onChange(Number(event.target.value))} className="mt-2 w-full accent-signal" />
+      <span className="mt-1 flex justify-between font-mono text-[10px] text-muted-foreground">
+        <span>{min}s</span>
+        <span>{max}s</span>
+      </span>
+    </label>
   )
 }
 

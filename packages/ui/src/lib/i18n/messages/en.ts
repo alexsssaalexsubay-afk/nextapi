@@ -1922,6 +1922,8 @@ export const en = {
       saved: "Saved.",
       createProvider: "Create provider",
       updateProvider: "Update provider",
+      preset: "Model preset",
+      choosePreset: "Choose provider / model preset (then only fill the key)",
       test: "Test",
       setDefault: "Set default",
       delete: "Delete",

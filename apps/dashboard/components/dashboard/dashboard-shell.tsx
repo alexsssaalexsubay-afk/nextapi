@@ -15,6 +15,8 @@ import {
   LayoutDashboard,
   LifeBuoy,
   LogOut,
+  PanelLeftClose,
+  PanelLeftOpen,
   Search,
   Webhook,
   Workflow,
@@ -47,6 +49,7 @@ export function DashboardShell({
   const [balance, setBalance] = useState<number | null>(null)
   const [initials, setInitials] = useState<string>("—")
   const [signingOut, setSigningOut] = useState(false)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
 
   async function onSignOut() {
     if (signingOut) return
@@ -63,6 +66,7 @@ export function DashboardShell({
   useEffect(() => {
     if (typeof window !== "undefined") {
       console.info(`[NextAPI dashboard] build ${BUILD_LABEL}`)
+      setSidebarCollapsed(window.localStorage.getItem("nextapi.sidebar.collapsed") === "1")
     }
     let cancelled = false
     apiFetch("/v1/auth/me").then((res) => {
@@ -84,6 +88,14 @@ export function DashboardShell({
     }).catch(() => { /* non-fatal: sidebar still renders */ })
     return () => { cancelled = true }
   }, [])
+
+  function toggleSidebar() {
+    setSidebarCollapsed((value) => {
+      const next = !value
+      window.localStorage.setItem("nextapi.sidebar.collapsed", next ? "1" : "0")
+      return next
+    })
+  }
 
   const sections = [
     {
@@ -123,11 +135,19 @@ export function DashboardShell({
 
   return (
     <div className="flex min-h-screen bg-background">
-      <aside className="hidden w-[240px] shrink-0 flex-col border-r border-sidebar-border bg-sidebar md:flex">
-        <div className="flex h-14 items-center border-b border-sidebar-border px-4">
-          <Link href="/" className="flex items-center gap-2">
+      <aside className={cn("hidden shrink-0 flex-col border-r border-sidebar-border bg-sidebar transition-[width] duration-200 md:flex", sidebarCollapsed ? "w-[72px]" : "w-[240px]")}>
+        <div className={cn("flex h-14 items-center border-b border-sidebar-border px-4", sidebarCollapsed ? "justify-center" : "justify-between")}>
+          <Link href="/" className="flex min-w-0 items-center gap-2">
             <Logo />
           </Link>
+          <button
+            type="button"
+            onClick={toggleSidebar}
+            className={cn("rounded-md p-1.5 text-muted-foreground hover:bg-sidebar-accent hover:text-foreground", sidebarCollapsed && "absolute left-1/2 -translate-x-1/2 opacity-0 focus:opacity-100")}
+            aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            {sidebarCollapsed ? <PanelLeftOpen className="size-4" /> : <PanelLeftClose className="size-4" />}
+          </button>
         </div>
 
         <div className="flex items-center gap-2 border-b border-sidebar-border px-3 py-2.5">
@@ -136,11 +156,11 @@ export function DashboardShell({
               <div className="flex size-5 items-center justify-center rounded-sm bg-signal/10 font-mono text-[10px] font-medium text-signal">
                 {initials[0] ?? "–"}
               </div>
-              <span className="max-w-[130px] truncate text-[12.5px] text-foreground">
+              <span className={cn("max-w-[130px] truncate text-[12.5px] text-foreground", sidebarCollapsed && "hidden")}>
                 {orgName ?? "—"}
               </span>
             </div>
-            <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+            <span className={cn("font-mono text-[10px] uppercase tracking-wider text-muted-foreground", sidebarCollapsed && "hidden")}>
               live
             </span>
           </div>
@@ -149,7 +169,7 @@ export function DashboardShell({
         <nav className="flex-1 overflow-y-auto px-2 py-3 scroll-thin">
           {sections.map((s) => (
             <div key={s.heading} className="mb-5">
-              <div className="mb-1.5 px-2 font-mono text-[10.5px] uppercase tracking-[0.16em] text-muted-foreground">
+              <div className={cn("mb-1.5 px-2 font-mono text-[10.5px] uppercase tracking-[0.16em] text-muted-foreground", sidebarCollapsed && "sr-only")}>
                 {s.heading}
               </div>
               <ul className="flex flex-col gap-0.5">
@@ -160,17 +180,19 @@ export function DashboardShell({
                     <li key={item.label}>
                       <Link
                         href={item.href}
+                        title={sidebarCollapsed ? item.label : undefined}
                         className={cn(
                           "flex items-center gap-2.5 rounded-md px-2 py-1.5 text-[13px] transition-colors",
+                          sidebarCollapsed && "justify-center px-0",
                           active
                             ? "bg-sidebar-accent text-foreground"
                             : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-foreground",
                         )}
                       >
                         <Icon className={cn("size-4", active ? "text-signal" : "")} />
-                        <span className="flex-1">{item.label}</span>
+                        <span className={cn("flex-1", sidebarCollapsed && "sr-only")}>{item.label}</span>
                         {"badge" in item && (item as { badge?: string }).badge && (
-                          <span className="rounded-sm bg-sidebar-accent px-1.5 font-mono text-[10px] text-muted-foreground">
+                          <span className={cn("rounded-sm bg-sidebar-accent px-1.5 font-mono text-[10px] text-muted-foreground", sidebarCollapsed && "hidden")}>
                             {(item as { badge?: string }).badge}
                           </span>
                         )}
@@ -184,14 +206,20 @@ export function DashboardShell({
         </nav>
 
         <div className="border-t border-sidebar-border p-3">
+          {sidebarCollapsed && (
+            <button type="button" onClick={toggleSidebar} className="mb-2 flex w-full items-center justify-center rounded-md px-2 py-1.5 text-muted-foreground hover:bg-sidebar-accent hover:text-foreground" aria-label="Expand sidebar">
+              <PanelLeftOpen className="size-4" />
+            </button>
+          )}
           <a
             href="mailto:support@nextapi.top?subject=NextAPI%20support%20request"
-            className="flex items-center gap-2.5 rounded-md px-2 py-1.5 text-[13px] text-muted-foreground transition-colors hover:text-foreground"
+            className={cn("flex items-center gap-2.5 rounded-md px-2 py-1.5 text-[13px] text-muted-foreground transition-colors hover:text-foreground", sidebarCollapsed && "justify-center")}
+            title={sidebarCollapsed ? t.common.support : undefined}
           >
             <LifeBuoy className="size-4" />
-            {t.common.support}
+            <span className={cn(sidebarCollapsed && "sr-only")}>{t.common.support}</span>
           </a>
-          <div className="mt-2 rounded-md border border-sidebar-border bg-background/60 p-2.5">
+          <div className={cn("mt-2 rounded-md border border-sidebar-border bg-background/60 p-2.5", sidebarCollapsed && "hidden")}>
             <div className="flex items-center gap-2">
               <span className="relative inline-flex h-1.5 w-1.5">
                 <span className="absolute inset-0 rounded-full bg-status-success op-pulse" />

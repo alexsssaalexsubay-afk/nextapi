@@ -54,6 +54,45 @@ var models = []publicModel{
 		PriceCentsPerSecond: map[string]int{"480p": 5, "720p": 7, "1080p": 10},
 		Status:              "ga",
 	},
+	{
+		ID: "seedance-1.5-pro", Family: "seedance",
+		Description:        "Video generation — compatibility tier for Seedance 1.5 Pro.",
+		MaxDurationSeconds: 15, MinDurationSeconds: 4, SupportsAutoDuration: true,
+		SupportedResolutions:  []string{"480p", "720p", "1080p"},
+		SupportedAspectRatios: []string{"16:9", "9:16", "1:1", "4:3", "3:4", "21:9", "adaptive"},
+		SupportsAudioOutput:   true,
+		ModalitySupport: map[string]bool{
+			"text_to_video": true, "image_to_video": true,
+		},
+		PriceCentsPerSecond: map[string]int{"480p": 8, "720p": 10, "1080p": 15},
+		Status:              "compat",
+	},
+	{
+		ID: "seedance-1.0-pro", Family: "seedance",
+		Description:        "Video generation — compatibility tier for Seedance 1.0 Pro.",
+		MaxDurationSeconds: 15, MinDurationSeconds: 4, SupportsAutoDuration: true,
+		SupportedResolutions:  []string{"480p", "720p", "1080p"},
+		SupportedAspectRatios: []string{"16:9", "9:16", "1:1", "4:3", "3:4", "21:9", "adaptive"},
+		SupportsAudioOutput: false,
+		ModalitySupport: map[string]bool{
+			"text_to_video": true, "image_to_video": true,
+		},
+		PriceCentsPerSecond: map[string]int{"480p": 8, "720p": 10, "1080p": 15},
+		Status:              "compat",
+	},
+	{
+		ID: "seedance-1.0-pro-fast", Family: "seedance",
+		Description:        "Video generation — compatibility fast tier for Seedance 1.0 Pro Fast.",
+		MaxDurationSeconds: 15, MinDurationSeconds: 4, SupportsAutoDuration: true,
+		SupportedResolutions:  []string{"480p", "720p", "1080p"},
+		SupportedAspectRatios: []string{"16:9", "9:16", "1:1", "4:3", "3:4", "21:9", "adaptive"},
+		SupportsAudioOutput: false,
+		ModalitySupport: map[string]bool{
+			"text_to_video": true, "image_to_video": true,
+		},
+		PriceCentsPerSecond: map[string]int{"480p": 5, "720p": 7, "1080p": 10},
+		Status:              "compat",
+	},
 }
 
 // canonicalModelID maps legacy public IDs to the current catalogue entry

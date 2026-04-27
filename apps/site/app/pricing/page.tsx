@@ -97,13 +97,12 @@ export default function PricingPage() {
                   {[
                     ["seedance-2.0-pro", "t2v", "5s", "720p"],
                     ["seedance-2.0-pro", "t2v", "5s", "1080p"],
-                    ["seedance-2.0-pro", "t2v", "6s", "1080p"],
+                    ["seedance-2.0-fast", "t2v", "6s", "1080p"],
                     ["seedance-2.0-pro", "i2v", "6s", "1080p"],
                     ["seedance-2.0-pro", "t2v", "10s", "1080p"],
-                    ["seedance-2.0-pro", "t2v", "6s", "2K"],
-                    ["seedance-2.0-pro", "t2v", "6s", "4K"],
-                    ["seedance-2.0-lite", "t2v", "6s", "1080p"],
-                    ["seedance-2.0-lite", "i2v", "6s", "1080p"],
+                    ["seedance-1.5-pro", "t2v", "6s", "720p"],
+                    ["seedance-1.0-pro", "t2v", "6s", "720p"],
+                    ["seedance-1.0-pro-fast", "t2v", "6s", "720p"],
                   ].map((r, i) => (
                     <tr key={i} className="text-foreground/90">
                       <td className="px-5 py-3">{r[0]}</td>

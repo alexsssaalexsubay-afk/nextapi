@@ -4,6 +4,7 @@ import { FormEvent, useCallback, useEffect, useState } from "react"
 import { AdminShell } from "@/components/admin/admin-shell"
 import { OTPDialog, type OTPDialogResult } from "@/components/admin/otp-dialog"
 import { adminFetch, adminFetchWithOTP } from "@/lib/admin-api"
+import { presetByID, presetsForType } from "@/lib/ai-provider-presets"
 import { useTranslations } from "@/lib/i18n/context"
 
 type AIProvider = {
@@ -121,6 +122,26 @@ export default function AIProvidersPage() {
     setForm({ name: "", type: "text", provider: "deepseek", baseUrl: "", apiKey: "", model: "deepseek-chat", enabled: true, isDefault: false, configJSON: "{}" })
   }
 
+  function applyPreset(id: string) {
+    const preset = presetByID(id)
+    if (!preset) return
+    setSelected(null)
+    setForm((current) => ({
+      ...current,
+      name: preset.label,
+      type: preset.type,
+      provider: preset.provider,
+      baseUrl: preset.baseURL,
+      model: preset.model,
+      configJSON: JSON.stringify({
+        api_style: preset.apiStyle,
+        capability: preset.capability,
+        tier: preset.tier,
+        anthropic_version: preset.apiStyle === "anthropic" ? "2023-06-01" : undefined,
+      }, null, 2),
+    }))
+  }
+
   function withOTP(action: string, target: string, hint: string, run: (result: ConfirmedOTP) => Promise<void>) {
     setPending({ action, target, hint, run })
   }
@@ -229,6 +250,13 @@ export default function AIProvidersPage() {
           <h2 className="text-sm font-medium">{selected ? p.updateProvider : p.createProvider}</h2>
           {error && <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">{error}</div>}
           {ok && <div className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-600">{ok}</div>}
+          <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+            {p.preset}
+            <select className="h-9 rounded-md border border-border bg-background px-2 text-sm text-foreground" value="" onChange={(e) => applyPreset(e.target.value)}>
+              <option value="">{p.choosePreset}</option>
+              {presetsForType(form.type).map((preset) => <option key={preset.id} value={preset.id}>{preset.label} · {preset.capability}</option>)}
+            </select>
+          </label>
           <Field label={p.name} value={form.name} onChange={(v) => setForm((s) => ({ ...s, name: v }))} />
           <label className="flex flex-col gap-1 text-xs text-muted-foreground">
             {p.type}

@@ -2,8 +2,8 @@
 
 import Link from "next/link"
 import { useEffect, useState } from "react"
+import { ModelSelect } from "@/components/ai/model-select"
 import { DashboardShell } from "@/components/dashboard/dashboard-shell"
-import { AI_MODEL_CATALOG, type AIModelCategory } from "@/lib/ai-model-catalog"
 import { useTranslations } from "@/lib/i18n/context"
 import { createDirectorWorkflow, generateDirectorShotImages, generateDirectorShots, getDirectorStatus, runBackendDirectorPipeline, type DirectorShot, type DirectorStatus, type DirectorStoryboard } from "@/lib/workflows"
 
@@ -14,7 +14,7 @@ export default function DirectorPage() {
   const [genre, setGenre] = useState("short drama")
   const [style, setStyle] = useState("cinematic realistic")
   const [shotCount, setShotCount] = useState(3)
-  const [duration, setDuration] = useState(4)
+  const [duration, setDuration] = useState(5)
   const [videoModel, setVideoModel] = useState("seedance-2.0-pro")
   const [storyboard, setStoryboard] = useState<DirectorStoryboard | null>(null)
   const [status, setStatus] = useState<DirectorStatus | null>(null)
@@ -160,9 +160,9 @@ export default function DirectorPage() {
             <Field label={labels.genre} value={genre} onChange={setGenre} />
             <Field label={labels.style} value={style} onChange={setStyle} />
             <label className="flex flex-col gap-1 text-xs text-muted-foreground">{labels.shots}<input className="h-9 rounded-md border border-border bg-background px-2 text-sm text-foreground" type="number" min={1} max={12} value={shotCount} onChange={(e) => setShotCount(Number(e.target.value))} /></label>
-            <label className="flex flex-col gap-1 text-xs text-muted-foreground">{labels.secondsPerShot}<input className="h-9 rounded-md border border-border bg-background px-2 text-sm text-foreground" type="number" min={1} max={10} value={duration} onChange={(e) => setDuration(Number(e.target.value))} /></label>
+            <RangeField label={labels.secondsPerShot} value={duration} min={4} max={15} onChange={setDuration} />
           </div>
-          <ModelCatalog selectedVideoModel={videoModel} onVideoModelChange={setVideoModel} labels={labels} />
+          <ModelSelect label={labels.modelCatalog} value={videoModel} onChange={setVideoModel} category="video" helper={labels.modelCatalogHint} />
           <div className="flex flex-wrap gap-2">
             <button disabled={loading || blocked || story.trim() === ""} onClick={() => void generate()} className="h-10 rounded-md border border-border px-4 text-sm disabled:opacity-50">{loading ? labels.working : labels.generateShots}</button>
             <button disabled={loading || blocked || story.trim() === ""} onClick={() => void generateDirectorWorkflow()} className="h-10 rounded-md bg-foreground px-4 text-sm text-background disabled:opacity-50">{loading ? labels.working : labels.generateDirectorWorkflow}</button>
@@ -205,51 +205,23 @@ function StatusBanner({ status, labels }: { status: DirectorStatus | null; label
   return <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">{text}</div>
 }
 
-function ModelCatalog({
-  selectedVideoModel,
-  onVideoModelChange,
-  labels,
-}: {
-  selectedVideoModel: string
-  onVideoModelChange: (value: string) => void
-  labels: ReturnType<typeof useTranslations>["directorPage"]
-}) {
-  const groups: AIModelCategory[] = ["script", "text", "image", "video"]
-  return (
-    <div className="space-y-3 rounded-lg border border-border/70 bg-background/60 p-3">
-      <div>
-        <div className="text-xs font-medium">{labels.modelCatalog}</div>
-        <div className="mt-1 text-[11px] text-muted-foreground">{labels.modelCatalogHint}</div>
-      </div>
-      {groups.map((group) => (
-        <div key={group}>
-          <div className="mb-1 text-[10px] uppercase tracking-[0.14em] text-muted-foreground">{labels.modelGroups[group]}</div>
-          <div className="grid grid-cols-2 gap-2">
-            {AI_MODEL_CATALOG.filter((item) => item.category === group).map((item) => {
-              const selected = item.category === "video" && item.id === selectedVideoModel
-              return (
-                <button
-                  key={item.id}
-                  type="button"
-                  disabled={!item.enabled && item.category !== "video"}
-                  onClick={() => item.category === "video" && item.enabled ? onVideoModelChange(item.id) : undefined}
-                  className={`rounded-md border px-2 py-2 text-left text-xs ${selected ? "border-signal bg-signal/10" : "border-border/70 bg-card/40"} ${item.enabled ? "" : "opacity-60"}`}
-                >
-                  <div className="flex items-center gap-2">
-                    <span className="grid size-5 place-items-center rounded bg-muted font-mono text-[11px]">{item.icon}</span>
-                    <span className="font-medium">{item.name}</span>
-                  </div>
-                  <div className="mt-1 text-[10px] text-muted-foreground">{item.provider} · {item.enabled ? labels.online : labels.comingSoon}</div>
-                </button>
-              )
-            })}
-          </div>
-        </div>
-      ))}
-    </div>
-  )
-}
-
 function Field({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
   return <label className="flex flex-col gap-1 text-xs text-muted-foreground">{label}<input className="h-9 rounded-md border border-border bg-background px-2 text-sm text-foreground" value={value} onChange={(e) => onChange(e.target.value)} /></label>
+}
+
+function RangeField({ label, value, min, max, onChange }: { label: string; value: number; min: number; max: number; onChange: (value: number) => void }) {
+  const safeValue = Math.min(max, Math.max(min, value))
+  return (
+    <label className="flex flex-col gap-2 rounded-lg border border-border/70 bg-background/60 px-3 py-2">
+      <span className="flex items-center justify-between text-xs text-muted-foreground">
+        <span>{label}</span>
+        <span className="font-mono text-sm text-foreground">{safeValue}s</span>
+      </span>
+      <input type="range" min={min} max={max} value={safeValue} onChange={(e) => onChange(Number(e.target.value))} className="accent-signal" />
+      <span className="flex justify-between font-mono text-[10px] text-muted-foreground">
+        <span>{min}s</span>
+        <span>{max}s</span>
+      </span>
+    </label>
+  )
 }

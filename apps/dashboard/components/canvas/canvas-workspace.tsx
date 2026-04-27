@@ -19,8 +19,8 @@ import {
 } from "@xyflow/react"
 import { Code2, ImageIcon, Loader2, Play, Save, Settings2, Sparkles, Type, Video } from "lucide-react"
 import { toast } from "sonner"
+import { ModelSelect } from "@/components/ai/model-select"
 import { apiFetch, ApiError } from "@/lib/api"
-import { AI_MODEL_CATALOG } from "@/lib/ai-model-catalog"
 import {
   createWorkflow,
   exportWorkflowAPI,
@@ -509,10 +509,7 @@ function NodeInspector({
       ) : null}
       {type === "video.params" ? (
         <div className="space-y-3">
-          <label className="block">
-            <span className="mb-1 block text-[11px] text-muted-foreground">{labels.duration}</span>
-            <input type="number" min={4} max={15} value={Number(selectedNode.data.duration || 5)} onChange={(e) => onChange({ duration: Number(e.target.value) })} className="h-9 w-full rounded-md border border-border/80 bg-background px-3 text-[12.5px]" />
-          </label>
+          <RangeField label={labels.duration} value={Number(selectedNode.data.duration || 5)} min={4} max={15} onChange={(duration) => onChange({ duration })} />
           <Select label={labels.aspectRatio} value={String(selectedNode.data.aspect_ratio || "9:16")} values={RATIOS} onChange={(value) => onChange({ aspect_ratio: value })} />
           <Select label={labels.resolution} value={String(selectedNode.data.resolution || "1080p")} values={RESOLUTIONS} onChange={(value) => onChange({ resolution: value })} />
           <label className="block">
@@ -522,23 +519,26 @@ function NodeInspector({
         </div>
       ) : null}
       {type === "seedance.video" ? (
-        <div className="space-y-2">
-          <span className="block text-[11px] text-muted-foreground">{labels.model}</span>
-          {AI_MODEL_CATALOG.filter((item) => item.category === "video").map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              disabled={!item.enabled}
-              onClick={() => onChange({ model: item.id })}
-              className={`w-full rounded-md border px-3 py-2 text-left text-[12px] ${String(selectedNode.data.model || "seedance-2.0-pro") === item.id ? "border-signal bg-signal/10" : "border-border/70 bg-background"} ${item.enabled ? "" : "opacity-60"}`}
-            >
-              <span className="font-medium">{item.icon} {item.name}</span>
-              <span className="ml-2 text-[10px] text-muted-foreground">{item.enabled ? item.provider : labels.comingSoon}</span>
-            </button>
-          ))}
-        </div>
+        <ModelSelect label={labels.model} value={String(selectedNode.data.model || "seedance-2.0-pro")} onChange={(model) => onChange({ model })} category="video" />
       ) : null}
     </div>
+  )
+}
+
+function RangeField({ label, value, min, max, onChange }: { label: string; value: number; min: number; max: number; onChange: (value: number) => void }) {
+  const safeValue = Math.min(max, Math.max(min, value))
+  return (
+    <label className="block rounded-lg border border-border/80 bg-background px-3 py-2">
+      <span className="flex items-center justify-between text-[11px] text-muted-foreground">
+        <span>{label}</span>
+        <span className="font-mono text-[12px] text-foreground">{safeValue}s</span>
+      </span>
+      <input type="range" min={min} max={max} value={safeValue} onChange={(e) => onChange(Number(e.target.value))} className="mt-2 w-full accent-signal" />
+      <span className="mt-1 flex justify-between font-mono text-[10px] text-muted-foreground">
+        <span>{min}s</span>
+        <span>{max}s</span>
+      </span>
+    </label>
   )
 }
 

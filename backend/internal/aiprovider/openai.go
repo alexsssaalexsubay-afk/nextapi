@@ -96,6 +96,9 @@ func (r *Runtime) loadProvider(ctx context.Context, providerID string, typ strin
 }
 
 func (r *Runtime) openAIChat(ctx context.Context, prov domain.AIProvider, apiKey string, messages []Message, options TextOptions) (TextResult, error) {
+	if apiStyle(prov) == "anthropic" || strings.EqualFold(prov.Provider, "anthropic") {
+		return r.anthropicChat(ctx, prov, apiKey, messages, options)
+	}
 	model := strings.TrimSpace(options.Model)
 	if model == "" {
 		model = prov.Model
@@ -185,19 +188,143 @@ func (r *Runtime) postJSON(ctx context.Context, url string, apiKey string, body 
 	return data, nil
 }
 
+func (r *Runtime) anthropicChat(ctx context.Context, prov domain.AIProvider, apiKey string, messages []Message, options TextOptions) (TextResult, error) {
+	model := strings.TrimSpace(options.Model)
+	if model == "" {
+		model = prov.Model
+	}
+	maxTokens := 1024
+	if options.MaxTokens != nil && *options.MaxTokens > 0 {
+		maxTokens = *options.MaxTokens
+	}
+	system, turnMessages := anthropicMessages(messages)
+	body := map[string]any{
+		"model":      model,
+		"max_tokens": maxTokens,
+		"messages":   turnMessages,
+	}
+	if system != "" {
+		body["system"] = system
+	}
+	if options.Temperature != nil {
+		body["temperature"] = *options.Temperature
+	}
+	raw, err := r.postAnthropicJSON(ctx, endpoint(prov, "/v1/messages"), apiKey, body, anthropicVersion(prov))
+	if err != nil {
+		return TextResult{}, err
+	}
+	var parsed struct {
+		Content []struct {
+			Type string `json:"type"`
+			Text string `json:"text"`
+		} `json:"content"`
+		Usage json.RawMessage `json:"usage"`
+	}
+	if err := json.Unmarshal(raw, &parsed); err != nil {
+		return TextResult{}, err
+	}
+	var b strings.Builder
+	for _, block := range parsed.Content {
+		if block.Text != "" {
+			if b.Len() > 0 {
+				b.WriteString("\n")
+			}
+			b.WriteString(block.Text)
+		}
+	}
+	if strings.TrimSpace(b.String()) == "" {
+		return TextResult{}, errors.New("empty provider response")
+	}
+	return TextResult{Text: b.String(), Raw: raw, Usage: parsed.Usage}, nil
+}
+
+func (r *Runtime) postAnthropicJSON(ctx context.Context, url string, apiKey string, body any, version string) (json.RawMessage, error) {
+	buf, _ := json.Marshal(body)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(buf))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Anthropic-Version", version)
+	if strings.TrimSpace(apiKey) != "" {
+		req.Header.Set("X-API-Key", apiKey)
+	}
+	resp, err := r.http.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	data, _ := io.ReadAll(io.LimitReader(resp.Body, 2<<20))
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, errors.New("provider request failed")
+	}
+	return data, nil
+}
+
+func anthropicMessages(messages []Message) (string, []Message) {
+	var systemParts []string
+	out := make([]Message, 0, len(messages))
+	for _, msg := range messages {
+		role := strings.TrimSpace(msg.Role)
+		content := strings.TrimSpace(msg.Content)
+		if content == "" {
+			continue
+		}
+		if role == "system" {
+			systemParts = append(systemParts, content)
+			continue
+		}
+		if role != "assistant" {
+			role = "user"
+		}
+		out = append(out, Message{Role: role, Content: content})
+	}
+	if len(out) == 0 {
+		out = append(out, Message{Role: "user", Content: "OK"})
+	}
+	return strings.Join(systemParts, "\n\n"), out
+}
+
 func endpoint(prov domain.AIProvider, suffix string) string {
 	base := strings.TrimRight(strings.TrimSpace(prov.BaseURL), "/")
 	if base == "" {
 		switch prov.Provider {
+		case "anthropic":
+			base = "https://api.anthropic.com"
 		case "deepseek":
 			base = "https://api.deepseek.com/v1"
+		case "google", "gemini":
+			base = "https://generativelanguage.googleapis.com/v1beta/openai"
 		case "glm":
 			base = "https://open.bigmodel.cn/api/paas/v4"
+		case "kimi", "moonshot":
+			base = "https://api.moonshot.cn/v1"
+		case "minimax":
+			base = "https://api.minimax.io/v1"
+		case "qwen", "dashscope":
+			base = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+		case "byteplus":
+			base = "https://ark.ap-southeast.bytepluses.com/api/v3"
 		default:
 			base = "https://api.openai.com/v1"
 		}
 	}
 	return base + suffix
+}
+
+func apiStyle(prov domain.AIProvider) string {
+	var cfg ProviderConfig
+	_ = json.Unmarshal(prov.ConfigJSON, &cfg)
+	return strings.TrimSpace(cfg.APIStyle)
+}
+
+func anthropicVersion(prov domain.AIProvider) string {
+	var cfg ProviderConfig
+	_ = json.Unmarshal(prov.ConfigJSON, &cfg)
+	if strings.TrimSpace(cfg.AnthropicVersion) != "" {
+		return strings.TrimSpace(cfg.AnthropicVersion)
+	}
+	return "2023-06-01"
 }
 
 func (r *Runtime) log(ctx context.Context, prov *domain.AIProvider, request string, usage json.RawMessage, err error) {

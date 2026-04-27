@@ -1906,6 +1906,8 @@ export const zh: Messages = {
       saved: "已保存。",
       createProvider: "创建 Provider",
       updateProvider: "更新 Provider",
+      preset: "模型预设",
+      choosePreset: "选择厂商 / 模型预设（只需再填 Key）",
       test: "测试连接",
       setDefault: "设为默认",
       delete: "删除",

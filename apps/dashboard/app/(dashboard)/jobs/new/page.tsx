@@ -18,6 +18,7 @@ import {
   Type,
   X,
 } from "lucide-react"
+import { ModelSelect } from "@/components/ai/model-select"
 import { DashboardShell } from "@/components/dashboard/dashboard-shell"
 import { StatusPill, type JobStatus } from "@/components/nextapi/status-pill"
 import { useTranslations } from "@/lib/i18n/context"
@@ -49,7 +50,7 @@ type TempMedia = {
   expires_at?: string
 }
 
-const FALLBACK_MODELS = ["seedance-2.0-pro", "seedance-2.0-fast"]
+const DEFAULT_MODEL = "seedance-2.0-pro"
 const ACTIVE_STATUSES = new Set(["queued", "submitting", "running", "retrying"])
 const RATIOS = ["adaptive", "16:9", "9:16", "1:1", "4:3", "3:4", "21:9"]
 const RESOLUTIONS = ["480p", "720p", "1080p"]
@@ -130,8 +131,7 @@ export default function NewJobPage() {
   const [currentVideo, setCurrentVideo] = useState<CurrentVideo | null>(null)
   const [retrying, setRetrying] = useState(false)
   const [mode, setMode] = useState<Mode>("text")
-  const [models, setModels] = useState<string[]>(FALLBACK_MODELS)
-  const [model, setModel] = useState(FALLBACK_MODELS[0])
+  const [model, setModel] = useState(DEFAULT_MODEL)
   const [duration, setDuration] = useState("5")
   const [resolution, setResolution] = useState("720p")
   const [aspectRatio, setAspectRatio] = useState("adaptive")
@@ -167,22 +167,6 @@ export default function NewJobPage() {
         ? crypto.randomUUID()
         : `${Date.now()}-${Math.random()}`,
     )
-  }, [])
-
-  // Load models from backend
-  useEffect(() => {
-    apiFetch("/v1/models")
-      .then((res) => {
-        const items: { id: string }[] = res?.data ?? res ?? []
-        const ids = items.map((m) => m.id).filter(Boolean)
-        if (ids.length > 0) {
-          setModels(ids)
-          setModel(ids[0])
-        }
-      })
-      .catch(() => {
-        // silently fall back to hardcoded models
-      })
   }, [])
 
   // Debounced cost estimate
@@ -758,18 +742,7 @@ export default function NewJobPage() {
                 <div className="border-t border-border/60 px-4 py-3">
                   <div className="grid gap-3 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
                     <div className="grid gap-3 md:grid-cols-2">
-                      <label className="min-w-0">
-                        <span className="mb-1 block text-[10.5px] uppercase tracking-[0.14em] text-muted-foreground">{t.jobs.new.form.model}</span>
-                        <select
-                          value={model}
-                          onChange={(e) => setModel(e.target.value)}
-                          className="h-9 w-full rounded-md border border-border/80 bg-card/60 px-3 font-mono text-[12px] text-foreground focus:border-signal/50 focus:outline-none"
-                        >
-                          {models.map((m) => (
-                            <option key={m} value={m}>{m}</option>
-                          ))}
-                        </select>
-                      </label>
+                      <ModelSelect label={t.jobs.new.form.model} value={model} onChange={setModel} category="video" />
                       <label className="min-w-0">
                         <span className="mb-1 block text-[10.5px] uppercase tracking-[0.14em] text-muted-foreground">{t.jobs.new.form.webhook}</span>
                         <input

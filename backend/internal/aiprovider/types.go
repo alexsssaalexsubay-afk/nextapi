@@ -43,3 +43,8 @@ type ProviderInput struct {
 	IsDefault  bool            `json:"is_default"`
 	ConfigJSON json.RawMessage `json:"config_json"`
 }
+
+type ProviderConfig struct {
+	APIStyle         string `json:"api_style,omitempty"`
+	AnthropicVersion string `json:"anthropic_version,omitempty"`
+}
