@@ -42,6 +42,10 @@ type StoryPlanner interface {
 	GenerateStoryboard(ctx context.Context, in GenerateShotsInput, deps PlannerDeps) (*Storyboard, error)
 }
 
+type RuntimeInspector interface {
+	RuntimeStatus(ctx context.Context) EngineStatus
+}
+
 type PlannerDeps struct {
 	Text  TextGenerator
 	Image ImageGenerator
@@ -58,7 +62,11 @@ func (s *Service) GenerateShots(ctx context.Context, in GenerateShotsInput) (*St
 		if s.planner == nil {
 			return nil, ErrPlannerUnavailable
 		}
-		return s.planner.GenerateStoryboard(ctx, normalized, PlannerDeps{Text: s.text, Image: s.image})
+		out, err := s.planner.GenerateStoryboard(ctx, normalized, PlannerDeps{Text: s.text, Image: s.image})
+		if err != nil {
+			return nil, err
+		}
+		return applyEngineDefaults(out, normalized.Engine), nil
 	}
 	messages := []aiprovider.Message{
 		{Role: "system", Content: systemPrompt},
@@ -70,7 +78,7 @@ func (s *Service) GenerateShots(ctx context.Context, in GenerateShotsInput) (*St
 	}
 	out, err := parseStoryboard(res.Text, normalized)
 	if err == nil {
-		return out, nil
+		return applyEngineDefaults(out, normalized.Engine), nil
 	}
 	repairMessages := append(messages, aiprovider.Message{
 		Role:    "user",
@@ -80,7 +88,26 @@ func (s *Service) GenerateShots(ctx context.Context, in GenerateShotsInput) (*St
 	if repairErr != nil {
 		return nil, repairErr
 	}
-	return parseStoryboard(repaired.Text, normalized)
+	repairedOut, err := parseStoryboard(repaired.Text, normalized)
+	if err != nil {
+		return nil, err
+	}
+	return applyEngineDefaults(repairedOut, normalized.Engine), nil
+}
+
+func (s *Service) RuntimeStatus(ctx context.Context) EngineStatus {
+	if inspector, ok := s.planner.(RuntimeInspector); ok {
+		return inspector.RuntimeStatus(ctx)
+	}
+	return EngineStatus{
+		RequestedEngine:   EngineAdvancedRequested,
+		EngineUsed:        EngineAdvancedFallback,
+		FallbackUsed:      true,
+		FallbackEnabled:   true,
+		SidecarConfigured: false,
+		SidecarHealthy:    false,
+		Reason:            "runtime_inspector_not_configured",
+	}
 }
 
 func BuildWorkflowFromShots(storyboard Storyboard, options WorkflowOptions) (json.RawMessage, error) {
@@ -106,9 +133,11 @@ func BuildWorkflowFromShots(storyboard Storyboard, options WorkflowOptions) (jso
 	if model == "" {
 		model = "seedance-2.0-pro"
 	}
+	totalDuration := 0
 	nodes := make([]workflow.Node, 0, len(storyboard.Shots)*4+2)
 	edges := make([]workflow.Edge, 0, len(storyboard.Shots)*4)
 	for i, shot := range storyboard.Shots {
+		totalDuration += shot.Duration
 		col := i * 360
 		promptID := fmt.Sprintf("shot_%d_prompt", shot.ShotIndex)
 		paramsID := fmt.Sprintf("shot_%d_params", shot.ShotIndex)
@@ -153,7 +182,17 @@ func BuildWorkflowFromShots(storyboard Storyboard, options WorkflowOptions) (jso
 			edges = append(edges, workflow.Edge{ID: "edge_" + videoID + "_output", Source: videoID, Target: outputID})
 		}
 	}
-	def := workflow.Definition{Name: name, Model: model, Nodes: nodes, Edges: edges}
+	metadata, _ := json.Marshal(map[string]any{
+		"source":               "director",
+		"engine_used":          storyboard.EngineUsed,
+		"engine_status":        storyboard.EngineStatus,
+		"shot_count":           len(storyboard.Shots),
+		"total_duration":       totalDuration,
+		"merge_enabled":        options.EnableMerge,
+		"fallback_visible":     storyboard.EngineStatus != nil && storyboard.EngineStatus.FallbackUsed,
+		"provider_video_model": model,
+	})
+	def := workflow.Definition{Name: name, Model: model, Metadata: metadata, Nodes: nodes, Edges: edges}
 	return json.Marshal(def)
 }
 
@@ -167,19 +206,23 @@ func StoryboardToDirectorPlan(storyboard Storyboard, characters []CharacterInput
 		})
 	}
 	return DirectorPlan{
-		Title:      storyboard.Title,
-		Summary:    storyboard.Summary,
-		Characters: characters,
-		Scenes:     scenes,
-		Shots:      storyboard.Shots,
+		Title:        storyboard.Title,
+		Summary:      storyboard.Summary,
+		Characters:   characters,
+		Scenes:       scenes,
+		Shots:        storyboard.Shots,
+		EngineUsed:   storyboard.EngineUsed,
+		EngineStatus: storyboard.EngineStatus,
 	}
 }
 
 func DirectorPlanToStoryboard(plan DirectorPlan) Storyboard {
 	return Storyboard{
-		Title:   plan.Title,
-		Summary: plan.Summary,
-		Shots:   plan.Shots,
+		Title:        plan.Title,
+		Summary:      plan.Summary,
+		Shots:        plan.Shots,
+		EngineUsed:   plan.EngineUsed,
+		EngineStatus: plan.EngineStatus,
 	}
 }
 
@@ -211,6 +254,26 @@ func position(x, y int) json.RawMessage {
 	return b
 }
 
+func applyEngineDefaults(out *Storyboard, requestedEngine string) *Storyboard {
+	if out == nil {
+		return nil
+	}
+	requestedEngine = strings.TrimSpace(requestedEngine)
+	if requestedEngine == "" {
+		requestedEngine = EngineNextAPI
+	}
+	if out.EngineUsed == "" {
+		out.EngineUsed = requestedEngine
+	}
+	if out.EngineStatus == nil {
+		out.EngineStatus = &EngineStatus{
+			RequestedEngine: requestedEngine,
+			EngineUsed:      out.EngineUsed,
+		}
+	}
+	return out
+}
+
 func normalizeInput(in GenerateShotsInput) (GenerateShotsInput, error) {
 	in.Story = strings.TrimSpace(in.Story)
 	if in.Story == "" {
@@ -218,9 +281,9 @@ func normalizeInput(in GenerateShotsInput) (GenerateShotsInput, error) {
 	}
 	in.Engine = strings.TrimSpace(in.Engine)
 	if in.Engine == "" {
-		in.Engine = "nextapi"
+		in.Engine = EngineNextAPI
 	}
-	if in.Engine != "nextapi" && in.Engine != "advanced" {
+	if in.Engine != EngineNextAPI && in.Engine != EngineAdvancedRequested {
 		return in, ErrInvalidInput
 	}
 	if in.ShotCount <= 0 {

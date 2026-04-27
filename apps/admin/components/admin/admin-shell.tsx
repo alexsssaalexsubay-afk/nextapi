@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import {
   AlertOctagon,
   Bot,
@@ -14,6 +14,8 @@ import {
   LifeBuoy,
   LogOut,
   Megaphone,
+  PanelLeftClose,
+  PanelLeftOpen,
   Percent,
   ScrollText,
   ShieldCheck,
@@ -56,6 +58,11 @@ export function AdminShell({
   const t = useTranslations()
   const router = useRouter()
   const [signingOut, setSigningOut] = useState(false)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+
+  useEffect(() => {
+    setSidebarCollapsed(window.localStorage.getItem("nextapi.admin.sidebar.collapsed") === "1")
+  }, [])
 
   async function onSignOut() {
     if (signingOut) return
@@ -69,6 +76,14 @@ export function AdminShell({
     }
   }
 
+  function toggleSidebar() {
+    setSidebarCollapsed((value) => {
+      const next = !value
+      window.localStorage.setItem("nextapi.admin.sidebar.collapsed", next ? "1" : "0")
+      return next
+    })
+  }
+
   const sections: { heading: string; items: NavItem[] }[] = [
     {
       heading: t.nav.admin.operations,
@@ -79,13 +94,11 @@ export function AdminShell({
           label: t.nav.admin.attention,
           href: "/attention",
           icon: AlertOctagon,
-          badge: { value: "7", tone: "alert" },
         },
         {
           label: t.nav.admin.incidents,
           href: "/incidents",
           icon: ShieldCheck,
-          badge: { value: "1", tone: "warn" },
         },
       ],
     },
@@ -117,23 +130,31 @@ export function AdminShell({
       <div aria-hidden className="pointer-events-none absolute bottom-[-18%] left-[18%] h-[380px] w-[520px] rounded-full bg-signal/12 blur-3xl" />
       <MfaBanner />
       <div className="relative z-10 flex flex-1">
-      <aside className="hidden w-[236px] shrink-0 flex-col border-r border-white/10 bg-sidebar/84 shadow-[24px_0_80px_-68px] shadow-status-failed backdrop-blur-2xl md:flex">
-        <div className="flex h-12 items-center justify-between border-b border-white/10 px-4">
+      <aside className={cn("hidden shrink-0 flex-col border-r border-white/10 bg-sidebar/84 shadow-[24px_0_80px_-68px] shadow-status-failed backdrop-blur-2xl transition-[width] duration-200 md:flex", sidebarCollapsed ? "w-[72px]" : "w-[236px]")}>
+        <div className={cn("flex h-12 items-center border-b border-white/10 px-4", sidebarCollapsed ? "justify-center" : "justify-between")}>
           <Link href="https://nextapi.top" className="flex items-center gap-2">
             <Logo />
           </Link>
-          <span className="rounded-sm border border-status-failed/40 bg-status-failed/10 px-1.5 py-0.5 font-mono text-[9.5px] uppercase tracking-[0.18em] text-status-failed">
+          <button
+            type="button"
+            onClick={toggleSidebar}
+            className={cn("rounded-md p-1.5 text-muted-foreground transition hover:bg-sidebar-accent hover:text-foreground", sidebarCollapsed && "absolute left-1/2 -translate-x-1/2 opacity-0 focus:opacity-100")}
+            aria-label={sidebarCollapsed ? t.common.expandSidebar : t.common.collapseSidebar}
+          >
+            {sidebarCollapsed ? <PanelLeftOpen className="size-4" /> : <PanelLeftClose className="size-4" />}
+          </button>
+          <span className={cn("rounded-sm border border-status-failed/40 bg-status-failed/10 px-1.5 py-0.5 font-mono text-[9.5px] uppercase tracking-[0.18em] text-status-failed", sidebarCollapsed && "hidden")}>
             {t.admin.shell.sidebarBadge}
           </span>
         </div>
 
-        <div className="border-b border-white/10 px-3 py-2.5">
+        <div className={cn("border-b border-white/10 px-3 py-2.5", sidebarCollapsed && "px-2")}>
           <div className="flex items-center justify-between rounded-xl border border-white/10 bg-background/55 px-2 py-1.5 shadow-sm backdrop-blur-md">
             <div className="flex items-center gap-2">
               <Terminal className="size-3.5 text-signal" />
-              <span className="font-mono text-[11.5px] text-foreground">ops.nextapi.top</span>
+              <span className={cn("font-mono text-[11.5px] text-foreground", sidebarCollapsed && "sr-only")}>ops.nextapi.top</span>
             </div>
-            <span className="font-mono text-[9.5px] uppercase tracking-[0.16em] text-muted-foreground">
+            <span className={cn("font-mono text-[9.5px] uppercase tracking-[0.16em] text-muted-foreground", sidebarCollapsed && "hidden")}>
               {t.admin.shell.prodBadge.toLowerCase()}
             </span>
           </div>
@@ -142,7 +163,7 @@ export function AdminShell({
         <nav className="flex-1 overflow-y-auto px-2 py-3 scroll-thin">
           {sections.map((s) => (
             <div key={s.heading} className="mb-5">
-              <div className="mb-1.5 px-2 font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+              <div className={cn("mb-1.5 px-2 font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground", sidebarCollapsed && "sr-only")}>
                 {s.heading}
               </div>
               <ul className="flex flex-col gap-0.5">
@@ -153,19 +174,22 @@ export function AdminShell({
                     <li key={item.label}>
                       <Link
                         href={item.href}
+                        title={sidebarCollapsed ? item.label : undefined}
                         className={cn(
                           "flex items-center gap-2.5 rounded-md px-2 py-1.5 text-[12.5px] transition-colors",
+                          sidebarCollapsed && "justify-center px-0",
                           active
                             ? "bg-gradient-to-r from-status-failed/16 via-signal/10 to-transparent text-foreground shadow-[inset_2px_0_0] shadow-status-failed"
                             : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-foreground",
                         )}
-                      >
+                        >
                         <Icon className={cn("size-4", active ? "text-signal" : "")} />
-                        <span className="flex-1">{item.label}</span>
+                        <span className={cn("flex-1", sidebarCollapsed && "sr-only")}>{item.label}</span>
                         {item.badge && (
                           <span
                             className={cn(
                               "rounded-sm px-1.5 font-mono text-[10px]",
+                              sidebarCollapsed && "hidden",
                               item.badge.tone === "alert" &&
                                 "bg-status-failed/15 text-status-failed",
                               item.badge.tone === "warn" &&
@@ -187,27 +211,33 @@ export function AdminShell({
         </nav>
 
         <div className="border-t border-sidebar-border p-3">
+          {sidebarCollapsed && (
+            <button type="button" onClick={toggleSidebar} className="mb-2 flex w-full items-center justify-center rounded-md px-2 py-1.5 text-muted-foreground hover:bg-sidebar-accent hover:text-foreground" aria-label={t.common.expandSidebar}>
+              <PanelLeftOpen className="size-4" />
+            </button>
+          )}
           <a
             href="https://docs.nextapi.top"
             target="_blank"
             rel="noreferrer"
-            className="mb-2 flex items-center gap-2.5 rounded-md px-2 py-1.5 text-[12.5px] text-muted-foreground transition-colors hover:text-foreground"
+            title={sidebarCollapsed ? t.nav.admin.runbooks : undefined}
+            className={cn("mb-2 flex items-center gap-2.5 rounded-md px-2 py-1.5 text-[12.5px] text-muted-foreground transition-colors hover:text-foreground", sidebarCollapsed && "justify-center")}
           >
             <LifeBuoy className="size-4" />
-            {t.nav.admin.runbooks}
+            <span className={cn(sidebarCollapsed && "sr-only")}>{t.nav.admin.runbooks}</span>
           </a>
-          <div className="rounded-xl border border-white/10 bg-background/55 p-2.5 shadow-sm backdrop-blur-md">
+          <div className={cn("rounded-xl border border-white/10 bg-background/55 p-2.5 shadow-sm backdrop-blur-md", sidebarCollapsed && "hidden")}>
             <div className="flex items-center justify-between">
               <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
                 {t.admin.shell.onCall}
               </span>
-              <span className="font-mono text-[10px] text-muted-foreground">22:14 UTC</span>
+              <span className="font-mono text-[10px] text-muted-foreground">manual</span>
             </div>
             <div className="mt-1.5 flex items-center gap-2">
               <div className="flex size-5 items-center justify-center rounded-full bg-signal/15 font-mono text-[9.5px] text-signal">
-                MW
+                OP
               </div>
-              <span className="text-[12px] text-foreground">m. winters</span>
+              <span className="text-[12px] text-foreground">{t.admin.shell.prodBadge.toLowerCase()}</span>
             </div>
           </div>
         </div>
@@ -234,7 +264,7 @@ export function AdminShell({
                 <span className="absolute inset-0 rounded-full bg-status-success op-pulse" />
                 <span className="relative inline-block h-1.5 w-1.5 rounded-full bg-status-success" />
               </span>
-              api · 142 rps · p99 412ms
+              api · telemetry pending
             </div>
             <span
               className="hidden font-mono text-[10px] text-muted-foreground/80 md:inline"

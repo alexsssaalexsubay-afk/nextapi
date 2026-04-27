@@ -1,4 +1,4 @@
-# STATUS — as of 2026-04-24
+# STATUS — as of 2026-04-28
 
 Legend: ✅ closed-loop (builds, tests pass, wired) · 🟡 compiles but not integration-tested · 🔴 stub / not started
 
@@ -13,6 +13,36 @@ Legend: ✅ closed-loop (builds, tests pass, wired) · 🟡 compiles but not int
 | Site (Next.js) | `cd apps/site && pnpm next build` | ✅ exit 0 |
 | Docs site (Docusaurus) | `cd docs-site && pnpm build` | ✅ exit 0 (EN + zh) |
 | Node deps | `pnpm install` | ✅ (peer dep warnings for Clerk + React 19, non-blocking) |
+
+## Documentation / product-spec update (2026-04-28)
+
+Docs now define the product acceptance contract for the next UX/Director/model-configuration pass:
+
+- Button states and color semantics are explicit in `docs/modules/design-system.md` and `docs/modules/visual-design-system.md`.
+- Director Mode has separate planning/execution state machines and explicit no-silent-fallback acceptance criteria in `docs/modules/director-mode.md`.
+- Admin/model configuration docs define configurable provider fields, fallback guardrails, pricing/entitlement knobs, docs/help URLs, and i18n obligations.
+- User docs index now names required download/use/help entry points for quickstart, API docs, Director guide, completed assets, degraded runs, and provider setup.
+
+No new code validation was run for this docs-only update.
+
+## Product UX / Admin configurability checkpoint (2026-04-28)
+
+This pass moved several world-class UX requirements from notes into code:
+
+- Dashboard and Admin now share collapsible left-navigation behavior with persisted local preference and localized accessibility labels.
+- AI Director model selection is compact and hierarchical: recommended models first, provider groups below, with model logo, live/compat status, tier, and capability tags.
+- AI Director primary CTA now shows an estimated video reserve before execution, using the same Seedance-style 1080p duration heuristic as the backend estimate path.
+- Premium buttons now have consistent hover, active-scale, disabled, and disabled-cursor states in the shared UI stylesheet.
+- Admin AI Providers now includes a model capability coverage panel for `text`, `image`, `video`, and `avatar`, so operators can see what is actually configured instead of guessing from raw key rows.
+
+Validation:
+
+- `pnpm --filter @nextapi/ui check-i18n` → ✅ `en` and `zh` key parity OK (`1907` leaf keys)
+- `pnpm --filter @nextapi/dashboard typecheck` → ✅ exit 0
+- `pnpm --filter @nextapi/admin typecheck` → ✅ exit 0
+- `go test ./backend/internal/template ./backend/internal/workflow ./backend/internal/gateway ./backend/internal/director/...` → ✅ exit 0
+
+Still not claimed as done: live deployed sidecar, real Seedance end-to-end from browser, actual media stitching after all shot videos complete, and production DB migration application.
 
 ## Closed-loop (code + tests + build-verified)
 
@@ -71,6 +101,7 @@ Legend: ✅ closed-loop (builds, tests pass, wired) · 🟡 compiles but not int
 | Per-key `provisioned_concurrency` API surface | DB column + Redis enforced; not yet exposed in create/update key handlers |
 | Queue tiering end-to-end | Worker configs set (critical:8, dedicated:5, priority:3, default:1, concurrency:100); not load-tested |
 | Sales inquiry endpoint | `POST /v1/sales/inquiry` accepts form; does not actually send email (logs only) |
+| NextAPI Director engine observability + queue handoff | Backend now exposes advanced sidecar vs provider-managed fallback evidence (`engine_used`, `engine_status`, `fallback_used`, sidecar configured/healthy), persists engine metadata into workflow JSON, and can immediately run the generated workflow so multi-shot jobs enter the existing batch/video queue. Dashboard displays fallback explicitly and shows workflow/batch/job/merge handoff state. Verified with `go test ./backend/internal/job -run 'TestBatchWorkflowRunClosesAfterAllJobsSucceed|TestHandlePoll_ProviderSucceeded_CreditsReconciled|TestHandlePoll_ProviderFailed_CreditsRefunded'`, `go test ./backend/internal/workflow ./backend/internal/director/... ./backend/internal/gateway/...`, `pnpm --filter @nextapi/ui check-i18n`, `pnpm --filter @nextapi/dashboard typecheck`, and `go build ./backend/cmd/server ./backend/cmd/worker`. Real deployed sidecar + live Seedance end-to-end still requires runtime validation. |
 
 ## Placeholder — stub or not started
 

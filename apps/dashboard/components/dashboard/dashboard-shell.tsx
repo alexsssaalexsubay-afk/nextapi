@@ -148,7 +148,7 @@ export function DashboardShell({
             type="button"
             onClick={toggleSidebar}
             className={cn("rounded-md p-1.5 text-muted-foreground hover:bg-sidebar-accent hover:text-foreground", sidebarCollapsed && "absolute left-1/2 -translate-x-1/2 opacity-0 focus:opacity-100")}
-            aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            aria-label={sidebarCollapsed ? t.common.expandSidebar : t.common.collapseSidebar}
           >
             {sidebarCollapsed ? <PanelLeftOpen className="size-4" /> : <PanelLeftClose className="size-4" />}
           </button>
@@ -211,7 +211,7 @@ export function DashboardShell({
 
         <div className="border-t border-sidebar-border p-3">
           {sidebarCollapsed && (
-            <button type="button" onClick={toggleSidebar} className="mb-2 flex w-full items-center justify-center rounded-md px-2 py-1.5 text-muted-foreground hover:bg-sidebar-accent hover:text-foreground" aria-label="Expand sidebar">
+            <button type="button" onClick={toggleSidebar} className="mb-2 flex w-full items-center justify-center rounded-md px-2 py-1.5 text-muted-foreground hover:bg-sidebar-accent hover:text-foreground" aria-label={t.common.expandSidebar}>
               <PanelLeftOpen className="size-4" />
             </button>
           )}
@@ -246,23 +246,25 @@ export function DashboardShell({
 
       <div className="relative z-10 flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b border-white/10 bg-background/64 px-6 shadow-[0_18px_70px_-58px] shadow-signal backdrop-blur-2xl">
-          <button className="flex h-8 flex-1 items-center gap-2 rounded-full border border-white/12 bg-card/55 px-3 text-left text-[12.5px] text-muted-foreground shadow-sm backdrop-blur-md transition-colors hover:border-signal/30 hover:bg-card">
+          <button className="flex h-8 min-w-0 max-w-xl flex-1 items-center gap-2 rounded-full border border-white/12 bg-card/55 px-3 text-left text-[12.5px] text-muted-foreground shadow-sm backdrop-blur-md transition-colors hover:border-signal/30 hover:bg-card">
             <Search className="size-3.5" />
             <span className="flex-1">{t.common.typeToSearch}</span>
             <Kbd>⌘K</Kbd>
           </button>
-          <div className="flex items-center gap-3">
-            <span className="hidden items-center gap-1 text-[12px] text-muted-foreground md:inline-flex">
+          <div className="ml-auto flex items-center gap-2">
+            <div className="hidden items-center gap-2 rounded-full border border-white/12 bg-card/55 px-3 py-1.5 text-[12px] text-muted-foreground shadow-sm backdrop-blur-md md:inline-flex">
+              <span>{t.dashboard.stats.available}</span>
               <span className="font-mono text-foreground">
                 {balance !== null ? `$${(balance / 100).toFixed(2)}` : "—"}
               </span>
-            </span>
+            </div>
             <Link
               href="/billing"
               className="premium-button rounded-full border border-white/20 bg-[radial-gradient(circle_at_20%_0%,rgba(255,255,255,0.42),transparent_30%),linear-gradient(110deg,#2563eb_0%,#7c3aed_42%,#db2777_100%)] px-3 py-1.5 text-[12px] font-medium text-white transition-all"
             >
               {t.common.topUp}
             </Link>
+            <div className="flex items-center gap-1 rounded-full border border-white/12 bg-card/45 px-1.5 py-1 shadow-sm backdrop-blur-md">
             <button
               type="button"
               onClick={() => {
@@ -276,6 +278,7 @@ export function DashboardShell({
             </button>
             <LocaleToggle />
             <ThemeToggle />
+            </div>
             <div className="flex size-7 items-center justify-center rounded-full border border-white/14 bg-card/70 font-mono text-[11px] text-foreground shadow-sm backdrop-blur-md">
               {initials.slice(0, 2) || "–"}
             </div>

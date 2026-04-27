@@ -26,7 +26,23 @@ Operator-only surface to inspect + intervene without touching DB directly.
   Credits / System Health.
 - Every credit adjustment shows up in `credits_ledger` with `reason=adjustment`.
 
+## Product Configuration Surface
+
+Admin is the source of truth for operator-configurable product behavior. These settings should be visible before they affect users:
+
+| Area | Configurable item | Required user/admin evidence |
+|------|-------------------|------------------------------|
+| AI providers | Provider family, base URL, encrypted API key, enabled flag, capabilities, default model, allowed models, priority, timeout, fallback allowed. | Provider health/status and model availability shown without leaking keys. |
+| AI Director | Org entitlement, requested default engine, sidecar URL health, fallback policy, reference-image enablement, merge enablement, planning fee policy. | Dashboard/admin show actual engine and fallback status for every run. |
+| Pricing | Global markup, membership tiers, per-org overrides, optional planning/reference-image fees. | Pre-submit estimate separates planning, images, video shots, merge, and reconciliation. |
+| Usage limits | Monthly budget, in-flight liability cap, queue tier, provisioned concurrency, rate limit. | Blocked states explain limit name and recovery path. |
+| Docs/help | Public docs URL, support URL, API quickstart URL, download/use guide URL. | Dashboard result cards and empty states link to the right guide. |
+| i18n | English/Chinese copy parity for admin-visible and user-visible labels. | `check-i18n` passes or the skipped validation is documented. |
+
+Admin-configurable does not mean user-invisible. If a setting changes provider, model, price, entitlement, fallback, quota, or output availability, the affected user surface must expose the practical effect.
+
 ## Invariants
 - Admin actions never bypass the ledger — every change is auditable.
 - The shared `ADMIN_TOKEN` is never sent to browser JavaScript.
 - Admin panel copy is localized through `packages/ui`.
+- Admin must not enable hidden runtime fallback that contradicts user-facing copy, run metadata, or billing evidence.

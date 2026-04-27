@@ -97,6 +97,32 @@ No frontend code receives provider keys.
 
 `engine: "advanced"` activates the internal advanced runner. The dashboard Director page sends this by default. The runner first calls `VIMAX_RUNTIME_URL` when configured. If no sidecar is configured, it falls back to a provider-managed planner so the web product remains usable during staged deployment. Set `VIMAX_RUNTIME_DISABLE_FALLBACK=true` in production only after the sidecar is healthy and monitored.
 
+## Engine Observability Contract
+
+`engine: "advanced"` is only the requested mode. It must not be treated as proof that the full advanced sidecar path actually ran.
+
+Every Director planning response should expose the actual engine outcome to the API caller, dashboard, admin/debug surfaces, and logs:
+
+- `requested_engine`: the user/API request, usually `advanced`.
+- `engine_used`: the runtime that actually produced the storyboard.
+  - `advanced_sidecar`: the Go backend called `VIMAX_RUNTIME_URL`, the sidecar returned a valid storyboard, and the storyboard was converted into NextAPI workflow JSON.
+  - `advanced_fallback`: the advanced request was served by the provider-managed planner because the sidecar was not configured or was unavailable and fallback was allowed.
+  - `nextapi`: the default provider-managed NextAPI planner, not the advanced sidecar.
+- `fallback_used`: true only when the request asked for advanced behavior but the sidecar did not produce the storyboard.
+- `fallback_enabled`: true when operator configuration allows provider-managed fallback.
+- `sidecar_configured`: true when `VIMAX_RUNTIME_URL` is configured.
+- `sidecar_healthy`: true only when the sidecar path is currently proven healthy for this run or by a live health check; it must not be inferred from configuration alone.
+- `reason`: short machine-readable explanation for degraded mode, such as missing sidecar URL, sidecar error, fallback disabled, or provider planner unavailable.
+
+The fallback is intentionally provider-managed, not "full advanced". It can preserve product continuity and generate a usable editable workflow, but it does not prove that the vendored screenwriter/character/storyboard call graph ran. User-facing copy, admin status, release notes, and acceptance summaries must not silently claim "advanced sidecar is live" when `engine_used` is `advanced_fallback`.
+
+Why this matters:
+
+- Commercial honesty: VIP access unlocks the workspace, but operators need to know whether users received the advanced sidecar experience or a compatibility planner.
+- Debuggability: sidecar deployment, callback auth, provider failures, and storyboard validation errors have different owners and remediation paths.
+- Safety: disabling fallback is the only way to prove production traffic fails closed when the advanced sidecar is required.
+- Billing and support: planning, reference-image generation, workflow creation, and video execution have different costs and evidence trails.
+
 The sidecar receives only callback coordinates:
 
 - `DIRECTOR_RUNTIME_CALLBACK_URL`
@@ -120,6 +146,76 @@ Both require `X-Director-Runtime-Token`.
 - `seedance.video`
 
 When merge is requested, it appends `video.merge` and `output.preview`; otherwise each video connects directly to output preview.
+
+## Director Workflow State Machine
+
+Director mode has two related but separate state tracks: planning state and execution state. UI, API responses, logs, and admin/debug panels should name both when possible.
+
+Planning states:
+
+| State | Meaning | Allowed next states |
+|-------|---------|---------------------|
+| `draft` | User is editing story, characters, style, provider/model choices, or budget. | `planning_requested`, `cancelled` |
+| `planning_requested` | Request accepted; entitlement, moderation, provider config, and sidecar/fallback policy are being checked. | `planning_running`, `blocked`, `failed`, `cancelled` |
+| `planning_running` | Text/storyboard planner is producing structured shots. | `workflow_ready`, `degraded_workflow_ready`, `failed` |
+| `workflow_ready` | Workflow JSON is valid and produced by the requested/accepted engine. | `execution_requested`, `archived` |
+| `degraded_workflow_ready` | Workflow JSON is valid but produced by a fallback or lower-capability route. | `execution_requested`, `retry_planning`, `archived` |
+| `blocked` | Missing entitlement, provider, model, quota, moderation approval, or fail-closed sidecar requirement. | `draft`, `planning_requested` |
+| `failed` | Planning could not produce valid workflow JSON. | `retry_planning`, `draft` |
+| `cancelled` | User/operator cancelled before execution. | `draft` |
+
+Execution states:
+
+| State | Meaning | Allowed next states |
+|-------|---------|---------------------|
+| `execution_requested` | User chose to run generated workflow. | `queued`, `blocked`, `failed` |
+| `queued` | Workflow/batch/job records exist and are waiting for worker capacity. | `running`, `cancelled`, `failed` |
+| `running` | One or more video/image/merge jobs are in progress through the existing job system. | `partial_success`, `succeeded`, `failed`, `cancelled` |
+| `partial_success` | Some shots/assets succeeded and others failed or need retry. | `running`, `succeeded`, `failed` |
+| `succeeded` | Requested final outputs are ready and persisted through platform storage. | `archived` |
+| `failed` | Execution stopped with no complete usable output for the requested run. | `execution_requested`, `draft` |
+| `cancelled` | User/operator cancelled queued or running work. | `draft` |
+
+State requirements:
+
+- Do not collapse planning fallback into success copy. `degraded_workflow_ready` must be visible before execution.
+- Do not create video jobs from `/v1/director/mode/run` unless the request explicitly asks for execution/queue handoff.
+- Every transition that bills, reserves credits, refunds credits, or creates external provider tasks must leave an auditable record.
+- Refresh/reload must recover the latest state from backend records, not local component state only.
+
+## Historical Assets MVP
+
+Phase 2 starts from explicit user-selected assets, not invisible global memory.
+
+Existing reusable primitives:
+
+- `media_assets`: uploaded/generated image, video, and audio assets.
+- `characters`: reusable character records with reference image URLs.
+- `workflow_versions`: Canvas/workflow version history.
+
+New schema anchors added in `00032_director_asset_memory.sql`:
+
+- `director_jobs`: durable Director-level job envelope linking story, workflow, workflow run, batch run, engine evidence, selected characters, plan snapshot, and budget snapshot.
+- `director_steps`: future Step Machine rows for `story_plan`, `character_plan`, `storyboard`, `image_submit`, `video_submit`, `quality_check`, `merge`, and final asset handoff.
+- `director_metering`: per-step cost/usage rows for text, image, video, merge, and future evaluation calls.
+- `director_checkpoints`: resumable state snapshots so long Director jobs can continue after process restarts.
+- `brand_kits`, `scene_assets`, `style_presets`, `prompt_memories`, `asset_embeddings`: asset memory primitives for brand, location, visual style, prompt preference, and similarity retrieval.
+- `generation_feedback`, `agent_prompt_versions`, `model_performance_stats`: controlled self-improvement primitives for feedback, prompt versioning, offline evaluation, and model routing decisions.
+
+Current vertical slice:
+
+- The Dashboard Director page lists existing `characters`.
+- Users can select historical characters before generating a storyboard.
+- Selected character names, ids, and reference image URLs are sent to `/v1/director/generate-shots` and `/v1/director/mode/run`.
+- The Go Director service passes those characters to both the advanced sidecar request and provider-managed fallback prompt.
+
+Not yet claimed:
+
+- Automatic character-image injection into every video node.
+- Vector retrieval over historical assets.
+- Automatic prompt evolution.
+- Automatic model routing changes.
+- Actual media stitching into a final merged video file.
 
 # Code Implementation
 
@@ -171,6 +267,24 @@ Recommended admin-configurable knobs:
 6. Deploy the advanced sidecar on the API server and set `VIMAX_RUNTIME_URL=http://127.0.0.1:<port>` when ready.
 7. Enable merge only after the merge worker/service is production-ready.
 
+## Production Acceptance
+
+Treat Director Mode as production-ready only after these checks have executable evidence. A successful fallback run is useful, but it is not acceptance for the advanced sidecar.
+
+- Provider readiness: default text provider is enabled, decryptable, and returns a valid JSON storyboard; default image provider is enabled only if reference images are part of the test.
+- Entitlement readiness: the test org has AI Director VIP entitlement and a normal non-entitled org is blocked with `ai_director_vip_required`.
+- Sidecar deployment: `services/director_sidecar` is running on the API VPS or private network; `/health` returns ok; `DIRECTOR_SIDECAR_TOKEN`, `DIRECTOR_RUNTIME_CALLBACK_URL`, and `DIRECTOR_RUNTIME_TOKEN` are set consistently.
+- Callback security: sidecar -> Go calls to `/v1/internal/director-runtime/text` and `/v1/internal/director-runtime/image` require `X-Director-Runtime-Token`; Go -> sidecar includes `X-Director-Sidecar-Token` when configured.
+- Advanced sidecar proof: a `POST /v1/director/mode/run` request with `engine: "advanced"` returns workflow JSON plus engine evidence showing `engine_used: "advanced_sidecar"`, `fallback_used: false`, `sidecar_configured: true`, and `sidecar_healthy: true`.
+- Fallback drill: with the sidecar stopped and fallback allowed, the same request must show `engine_used: "advanced_fallback"` and `fallback_used: true`; dashboard/admin copy should show degraded mode rather than a full advanced claim.
+- Fail-closed drill: with the sidecar stopped and fallback disabled, `engine: "advanced"` must fail with a planner/runtime unavailable error and must not create a misleading workflow record.
+- Workflow execution: the returned workflow opens in Canvas, creates normal Seedance jobs through the existing workflow/batch/job system, and does not run video generation inside `/v1/director/mode/run`.
+- Asset path: generated reference images, when enabled, are persisted through the media library/R2 path and return asset ids or stable URLs; sidecar-local files are not product outputs.
+- Observability: logs or metrics include requested engine, actual engine, fallback flag, sidecar configured/healthy state, provider ids, org id, workflow id, and sanitized error reason.
+- Cost visibility: UI copy distinguishes planning, reference images, video shots, merge, and final reconciliation; do not hide text/image planning costs if they later become billable.
+- No silent fallback: acceptance must include a fail-closed run with fallback disabled and a degraded run with fallback enabled. The user-facing response, workflow metadata, admin surface, and logs must all agree on `engine_used` and `fallback_used`.
+- No secret fallback: if a configured provider/model is unavailable, the system may suggest an operator-approved alternative, but it must not bill or launch on a different provider/model unless the user or workflow policy explicitly allowed that route.
+
 # Server Deployment Notes
 
 - Web entry: `app.nextapi.top` dashboard.
@@ -181,3 +295,28 @@ Recommended admin-configurable knobs:
 - Go -> sidecar uses `X-Director-Sidecar-Token` when `DIRECTOR_SIDECAR_TOKEN` is set.
 - sidecar -> Go uses `X-Director-Runtime-Token` and never receives decrypted provider keys.
 - Video execution remains in the Go backend queue path: workflow -> batch/job -> provider adapter -> UpToken/Seedance -> webhook/status -> assets/billing.
+
+# Next Phase: Historical Assets and Agent Self-Evolution
+
+These are intentionally next-phase capabilities, not launch blockers for Director Mode.
+
+## Historical Asset Awareness
+
+Director should eventually use the existing media library as memory, but only through explicit, auditable product paths:
+
+- Reuse uploaded character references, generated reference images, prior successful clips, and user-approved brand/style assets as optional context.
+- Prefer asset ids and signed/stable URLs from the NextAPI media library; do not let the sidecar read arbitrary local paths or private object storage credentials.
+- Track which historical assets influenced each shot so users can remove, replace, or audit references.
+- Respect org boundaries, deletion, retention, moderation, and licensing metadata.
+- Keep final video generation in the workflow/job system so historical-asset reuse still inherits billing, spend controls, and provider safety.
+
+## Agent Self-Evolution
+
+Self-evolution should mean controlled improvement loops, not autonomous production mutation:
+
+- Capture user edits to storyboards, rejected shots, successful final clips, retry reasons, moderation outcomes, and support tags as feedback signals.
+- Convert feedback into versioned prompts, style guides, shot templates, and evaluation fixtures reviewed by operators.
+- Run offline evaluations before promotion; compare sidecar output, provider-managed fallback output, cost, latency, policy failures, and user edit distance.
+- Require admin-visible release notes and rollback for any promoted Director prompt/runtime version.
+- Never allow the sidecar or agent loop to change provider keys, pricing, entitlement, workflow execution, billing, or safety policy.
+- Keep the public contract stable: users request `engine: "advanced"`; observability reports the actual engine and version behind it.

@@ -25,6 +25,27 @@
 - `Table` — header text-zinc-400 uppercase tracking-wider text-xs.
 - `StatusBadge(status)` — single helper that maps job status → Badge variant.
 
+## Button State Contract
+
+Buttons must communicate availability and risk without relying on hidden behavior.
+
+| State | Required treatment | Forbidden behavior |
+|-------|--------------------|--------------------|
+| `default` | Enabled, clear action verb, semantic variant from the action role. | Multiple primary CTAs in the same decision area. |
+| `hover` | Slight contrast lift only; keep text/icon stable. | Changing the meaning, price, provider, or destination. |
+| `focus-visible` | Visible ring using `violet-500/40` for normal actions and `red-500/40` for destructive actions. | Removing outlines without a replacement. |
+| `active` | Pressed visual feedback within the same size box. | Layout shift. |
+| `loading` | Preserve width, show spinner or progress copy, block duplicate submits. | Silent disabled state with no explanation. |
+| `disabled` | Muted zinc treatment plus nearby reason copy or tooltip. | Hiding required setup, entitlement, quota, or provider errors. |
+| `destructive` | Red/rose treatment, explicit object name, confirmation for irreversible changes. | Using red for non-destructive emphasis. |
+
+Color mapping:
+
+- Primary product actions use violet/gradient only when they create or advance user value.
+- Secondary actions use zinc outline/glass and must not compete with the primary CTA.
+- Warning actions use amber copy/badge first; do not make amber look like a primary CTA.
+- Destructive actions use red/rose and must stay visually distinct from failed-status badges.
+
 ## Layout
 - Dashboard shell: sidebar (w-60) + top bar (h-14) + content (max-w-6xl, px-8 py-10).
 - Marketing (`apps/site`): centered, max-w-6xl, generous vertical rhythm.

@@ -1,9 +1,10 @@
 package director
 
 type CharacterInput struct {
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	AssetID     string `json:"asset_id"`
+	Name            string   `json:"name"`
+	Description     string   `json:"description"`
+	AssetID         string   `json:"asset_id"`
+	ReferenceImages []string `json:"reference_images,omitempty"`
 }
 
 type GenerateShotsInput struct {
@@ -17,6 +18,23 @@ type GenerateShotsInput struct {
 	Characters      []CharacterInput `json:"characters"`
 	Scene           string           `json:"scene"`
 	TextProviderID  string           `json:"text_provider_id"`
+}
+
+const (
+	EngineNextAPI           = "nextapi"
+	EngineAdvancedRequested = "advanced"
+	EngineAdvancedSidecar   = "advanced_sidecar"
+	EngineAdvancedFallback  = "advanced_fallback"
+)
+
+type EngineStatus struct {
+	RequestedEngine   string `json:"requested_engine"`
+	EngineUsed        string `json:"engine_used"`
+	FallbackUsed      bool   `json:"fallback_used"`
+	FallbackEnabled   bool   `json:"fallback_enabled"`
+	SidecarConfigured bool   `json:"sidecar_configured"`
+	SidecarHealthy    bool   `json:"sidecar_healthy"`
+	Reason            string `json:"reason,omitempty"`
 }
 
 type Shot struct {
@@ -36,17 +54,21 @@ type Shot struct {
 }
 
 type Storyboard struct {
-	Title   string `json:"title"`
-	Summary string `json:"summary"`
-	Shots   []Shot `json:"shots"`
+	Title        string        `json:"title"`
+	Summary      string        `json:"summary"`
+	Shots        []Shot        `json:"shots"`
+	EngineUsed   string        `json:"engine_used,omitempty"`
+	EngineStatus *EngineStatus `json:"engine_status,omitempty"`
 }
 
 type DirectorPlan struct {
-	Title      string           `json:"title"`
-	Summary    string           `json:"summary"`
-	Characters []CharacterInput `json:"characters"`
-	Scenes     []DirectorScene  `json:"scenes"`
-	Shots      []Shot           `json:"shots"`
+	Title        string           `json:"title"`
+	Summary      string           `json:"summary"`
+	Characters   []CharacterInput `json:"characters"`
+	Scenes       []DirectorScene  `json:"scenes"`
+	Shots        []Shot           `json:"shots"`
+	EngineUsed   string           `json:"engine_used,omitempty"`
+	EngineStatus *EngineStatus    `json:"engine_status,omitempty"`
 }
 
 type DirectorScene struct {

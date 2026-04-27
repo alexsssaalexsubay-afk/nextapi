@@ -1,6 +1,8 @@
 import { SiteNav } from "@/components/marketing/site-nav"
 import { LandingHero } from "@/components/marketing/landing/landing-hero"
 import { IntegrationsStrip } from "@/components/marketing/landing/integrations-strip"
+import { HowItWorks } from "@/components/marketing/how-it-works"
+import { TrustRail } from "@/components/marketing/trust-rail"
 import { FeaturesGrid } from "@/components/marketing/landing/features-grid"
 import { GalleryStrip } from "@/components/marketing/landing/gallery-strip"
 import { DevexSection } from "@/components/marketing/landing/devex-section"
@@ -14,6 +16,8 @@ export default function HomePage() {
       <main>
         <LandingHero />
         <IntegrationsStrip />
+        <HowItWorks />
+        <TrustRail />
         <FeaturesGrid />
         <GalleryStrip />
         <DevexSection />

@@ -1,6 +1,18 @@
 import { apiFetch } from "@/lib/api"
 import type { DirectorPlan } from "@/lib/director-runtime/types"
 
+export type DirectorEngineUsed = "advanced_sidecar" | "advanced_fallback" | "nextapi"
+
+export type DirectorEngineStatus = {
+  requested_engine?: string
+  engine_used?: DirectorEngineUsed | string
+  fallback_used?: boolean
+  fallback_enabled?: boolean
+  sidecar_configured?: boolean
+  sidecar_healthy?: boolean
+  reason?: string
+}
+
 export type CanvasNodeType =
   | "image.input"
   | "prompt.input"
@@ -26,6 +38,7 @@ export type WorkflowJSON = {
   id?: string
   name: string
   model?: string
+  metadata?: Record<string, unknown>
   nodes: WorkflowNode[]
   edges: WorkflowEdge[]
 }
@@ -66,10 +79,19 @@ export type DirectorShot = {
   referenceImageUrl?: string
 }
 
+export type DirectorCharacterInput = {
+  name: string
+  description?: string
+  asset_id?: string
+  reference_images?: string[]
+}
+
 export type DirectorStoryboard = {
   title: string
   summary: string
   shots: DirectorShot[]
+  engine_used?: DirectorEngineUsed | string
+  engine_status?: DirectorEngineStatus
 }
 
 export type DirectorStatus = {
@@ -81,6 +103,15 @@ export type DirectorStatus = {
   merge_enabled: boolean
   blocking_reason?: "vip_required" | "text_provider_not_configured"
   usage_notice: string
+  engine_used?: DirectorEngineUsed | string
+  engine_status?: DirectorEngineStatus
+  runtime?: DirectorEngineStatus
+  requested_engine?: string
+  fallback_used?: boolean
+  fallback_enabled?: boolean
+  sidecar_configured?: boolean
+  sidecar_healthy?: boolean
+  reason?: string
 }
 
 export type LibraryAsset = {
@@ -118,6 +149,15 @@ export type CharacterRecord = {
   reference_images: string[]
 }
 
+export type TemplateInputField = {
+  key: string
+  label: string
+  type?: "text" | "textarea" | "image" | "number" | "select"
+  placeholder?: string
+  target_node_id?: string
+  required?: boolean
+}
+
 export type TemplateRecord = {
   id: string
   name: string
@@ -125,6 +165,13 @@ export type TemplateRecord = {
   category: string
   visibility: string
   description?: string | null
+  default_model?: string
+  default_resolution?: string
+  default_duration?: number
+  default_aspect_ratio?: string
+  default_max_parallel?: number
+  input_schema?: TemplateInputField[]
+  recommended_inputs_schema?: TemplateInputField[]
   estimated_cost_cents?: number | null
   workflow_json?: WorkflowJSON
 }
@@ -194,6 +241,7 @@ export async function generateDirectorShots(input: {
   shot_count?: number
   duration_per_shot?: number
   scene?: string
+  characters?: DirectorCharacterInput[]
   text_provider_id?: string
 }): Promise<DirectorStoryboard> {
   return apiFetch("/v1/director/generate-shots", {
@@ -235,15 +283,17 @@ export async function runBackendDirectorPipeline(input: {
   style?: string
   shot_count?: number
   duration_per_shot?: number
+  characters?: DirectorCharacterInput[]
   text_provider_id?: string
   image_provider_id?: string
   generate_images?: boolean
+  run_workflow?: boolean
   options?: { name?: string; ratio?: string; resolution?: string; generate_audio?: boolean; model?: string; enable_merge?: boolean }
-}): Promise<{ plan: DirectorPlan; workflow: WorkflowJSON; record?: WorkflowRecord }> {
+}): Promise<{ plan: DirectorPlan & { engine_used?: DirectorEngineUsed | string; engine_status?: DirectorEngineStatus }; workflow: WorkflowJSON; record?: WorkflowRecord; run?: WorkflowRunResult | null; engine_used?: DirectorEngineUsed | string; engine_status?: DirectorEngineStatus }> {
   return apiFetch("/v1/director/mode/run", {
     method: "POST",
     body: JSON.stringify(input),
-  }) as Promise<{ plan: DirectorPlan; workflow: WorkflowJSON; record?: WorkflowRecord }>
+  }) as Promise<{ plan: DirectorPlan & { engine_used?: DirectorEngineUsed | string; engine_status?: DirectorEngineStatus }; workflow: WorkflowJSON; record?: WorkflowRecord; run?: WorkflowRunResult | null; engine_used?: DirectorEngineUsed | string; engine_status?: DirectorEngineStatus }>
 }
 
 export async function listLibraryAssets(kind = "image"): Promise<LibraryAsset[]> {

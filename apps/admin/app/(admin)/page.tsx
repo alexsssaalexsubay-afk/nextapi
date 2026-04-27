@@ -25,11 +25,11 @@ function formatInt(n: number): string {
   return new Intl.NumberFormat("en-US").format(n)
 }
 
-// TODO: align with backend response — map overview fields to pulse labels (queue depth vs jobs 24h).
 function mapOverviewToPulse(overview: OverviewPayload) {
   return {
-    queueDepth: formatInt(overview.jobs_last_24h),
-    reservedCredits: formatInt(overview.credits_used_all_time),
+    usersTotal: formatInt(overview.users_total),
+    jobs24h: formatInt(overview.jobs_last_24h),
+    creditsUsed: formatInt(overview.credits_used_all_time),
   }
 }
 
@@ -104,33 +104,33 @@ export default function AdminOverviewPage() {
         <section className="grid grid-cols-2 gap-px overflow-hidden rounded-3xl border border-white/12 bg-border/60 shadow-[0_24px_80px_-60px] shadow-status-failed md:grid-cols-5">
           <Pulse
             label={t.admin.pulse.upstream}
-            value={t.admin.pulse.healthy}
-            tone="success"
-            sub={t.admin.pulse.upstreamHint}
+            value={t.admin.pulse.unavailable}
+            tone="default"
+            sub={t.admin.overviewPage.realDataOnly}
           />
           <Pulse
-            label={t.admin.pulse.queueDepth}
-            value={pulseFromApi?.queueDepth ?? "14"}
+            label={t.admin.pulse.jobs24h}
+            value={pulseFromApi?.jobs24h ?? "—"}
             tone="default"
-            sub={t.admin.pulse.queueDepthHint}
+            sub={t.admin.pulse.jobs24hHint}
           />
           <Pulse
             label={t.admin.pulse.successRate}
-            value="99.4%"
-            tone="success"
-            sub={t.admin.pulse.successRateHint}
+            value="—"
+            tone="default"
+            sub={t.admin.overviewPage.realDataOnly}
           />
           <Pulse
             label={t.admin.pulse.webhookDelivery}
-            value="99.97%"
-            tone="success"
-            sub={t.admin.pulse.webhookDeliveryHint}
+            value="—"
+            tone="default"
+            sub={t.admin.overviewPage.realDataOnly}
           />
           <Pulse
-            label={t.admin.pulse.reservedCredits}
-            value={pulseFromApi?.reservedCredits ?? "8,412"}
+            label={t.admin.pulse.creditsUsed}
+            value={pulseFromApi?.creditsUsed ?? "—"}
             tone="warn"
-            sub={t.admin.pulse.reservedCreditsHint}
+            sub={t.admin.pulse.creditsUsedHint}
           />
         </section>
 
@@ -143,9 +143,6 @@ export default function AdminOverviewPage() {
                 <h2 className="text-[13.5px] font-medium tracking-tight">
                   {t.admin.attention.title}
                 </h2>
-                <span className="rounded-sm bg-status-failed/15 px-1.5 py-0.5 font-mono text-[10px] text-status-failed">
-                  7
-                </span>
               </div>
               <Link
                 href="/attention"
@@ -156,71 +153,7 @@ export default function AdminOverviewPage() {
               </Link>
             </header>
 
-            <div className="divide-y divide-border/60 font-mono text-[12px]">
-              <AttentionRow
-                id="job_7Hc9Xk2Lm3NpQ4rS"
-                org="linear-media"
-                reason={t.admin.attention.rules.upstreamTimeout}
-                amount={`${t.usage.refunded} 1.00`}
-                tone="failed"
-                age="2m"
-                inspectLabel={t.admin.attention.actions.inspect.toLowerCase()}
-              />
-              <AttentionRow
-                id="job_4Pt8Yz0Qj9WxVb1A"
-                org="acme-prod"
-                reason={t.admin.attention.rules.webhookFailing}
-                amount="—"
-                tone="failed"
-                age="6m"
-                inspectLabel={t.admin.attention.actions.inspect.toLowerCase()}
-              />
-              <AttentionRow
-                id="job_2Lm0FhRk8NeGxT3C"
-                org="parallax-studio"
-                reason={t.admin.attention.rules.stuck}
-                amount="—"
-                tone="warn"
-                age="11m"
-                inspectLabel={t.admin.attention.actions.inspect.toLowerCase()}
-              />
-              <AttentionRow
-                id="job_9Qr5Dp7Bj1OeNm6X"
-                org="northwind-labs"
-                reason={t.admin.attention.rules.refundDrift}
-                amount={`${t.usage.refunded} 1.00`}
-                tone="warn"
-                age="18m"
-                inspectLabel={t.admin.attention.actions.inspect.toLowerCase()}
-              />
-              <AttentionRow
-                id="job_6Xw3Nv2Hc8MkLp4Y"
-                org="acme-prod"
-                reason={t.admin.attention.rules.policyViolation}
-                amount={`${t.usage.refunded} 1.00`}
-                tone="failed"
-                age="24m"
-                inspectLabel={t.admin.attention.actions.inspect.toLowerCase()}
-              />
-              <AttentionRow
-                id="job_3Bf0Kq9Uj2IwAa5R"
-                org="stellar-post"
-                reason={t.admin.attention.rules.ipAllowlist}
-                amount="hold"
-                tone="failed"
-                age="31m"
-                inspectLabel={t.admin.attention.actions.inspect.toLowerCase()}
-              />
-              <AttentionRow
-                id="job_8Vn7Mj4Tp1LyFb2Q"
-                org="acme-prod"
-                reason={t.admin.attention.rules.rotationOverdue}
-                amount="—"
-                tone="warn"
-                age="44m"
-                inspectLabel={t.admin.attention.actions.inspect.toLowerCase()}
-              />
-            </div>
+            <OperatorEmptyState icon={AlertOctagon} message={t.admin.overviewPage.noAttentionData} />
             <div className="flex items-center justify-between border-t border-border/60 bg-background/30 px-5 py-2.5">
               <span className="font-mono text-[10.5px] text-muted-foreground">
                 {t.admin.attention.subtitle}
@@ -249,29 +182,7 @@ export default function AdminOverviewPage() {
                   <ArrowUpRight className="size-3" />
                 </Link>
               </header>
-              <ul className="divide-y divide-border/60 text-[12.5px]">
-                <IncidentRow
-                  level="monitoring"
-                  levelLabel={t.common.monitoring.toLowerCase()}
-                  title={t.admin.overviewPage.incidentFeed.monitoringTitle}
-                  since={t.admin.overviewPage.incidentFeed.monitoringSince}
-                  note={t.admin.overviewPage.incidentFeed.monitoringNote}
-                />
-                <IncidentRow
-                  level="resolved"
-                  levelLabel={t.common.resolved.toLowerCase()}
-                  title={t.admin.overviewPage.incidentFeed.resolvedTitle}
-                  since={t.admin.overviewPage.incidentFeed.resolvedSince}
-                  note={t.admin.overviewPage.incidentFeed.resolvedNote}
-                />
-                <IncidentRow
-                  level="scheduled"
-                  levelLabel={t.common.scheduled.toLowerCase()}
-                  title={t.admin.overviewPage.incidentFeed.scheduledTitle}
-                  since={t.admin.overviewPage.incidentFeed.scheduledSince}
-                  note={t.admin.overviewPage.incidentFeed.scheduledNote}
-                />
-              </ul>
+              <OperatorEmptyState icon={ShieldAlert} message={t.admin.overviewPage.noIncidentData} compact />
             </section>
 
             <section className="overflow-hidden rounded-xl border border-border/80 bg-card/40">
@@ -290,32 +201,7 @@ export default function AdminOverviewPage() {
                   <ArrowUpRight className="size-3" />
                 </Link>
               </header>
-              <ul className="divide-y divide-border/60 font-mono text-[11.5px]">
-                <AdjRow
-                  org="linear-media"
-                  delta="+120.00"
-                  reason={t.admin.overviewPage.adjReasons.goodwillCredit}
-                  by="m. winters"
-                />
-                <AdjRow
-                  org="acme-prod"
-                  delta="−8.42"
-                  reason={t.admin.overviewPage.adjReasons.refundReconciliation}
-                  by="s. patel"
-                />
-                <AdjRow
-                  org="parallax-studio"
-                  delta="+500.00"
-                  reason={t.admin.overviewPage.adjReasons.topUpPurchase}
-                  by="billing-bot"
-                />
-                <AdjRow
-                  org="northwind-labs"
-                  delta="+14.00"
-                  reason={t.admin.overviewPage.adjReasons.failedJobRefund}
-                  by="j. li"
-                />
-              </ul>
+              <OperatorEmptyState icon={Banknote} message={t.admin.overviewPage.noLedgerPreview} compact />
               <div className="flex items-center justify-between border-t border-border/60 bg-background/30 px-5 py-2.5">
                 <span className="font-mono text-[10.5px] text-muted-foreground">
                   {t.admin.credits.threshold}: {t.admin.credits.thresholdValue}
@@ -336,7 +222,7 @@ export default function AdminOverviewPage() {
               <h2 className="text-[13.5px] font-medium tracking-tight">
                 {t.admin.liveFeed.title}
               </h2>
-              <StatusPill status="running" label={t.admin.liveFeed.tailing} size="sm" />
+              <StatusPill status="queued" label={t.admin.pulse.unavailable} size="sm" />
             </div>
             <div className="flex items-center gap-2 font-mono text-[11px] text-muted-foreground">
               <button className="rounded-md border border-border/80 bg-card/40 px-2 py-0.5 text-foreground">
@@ -347,67 +233,31 @@ export default function AdminOverviewPage() {
               <button className="rounded-md px-2 py-0.5 hover:text-foreground">billing.*</button>
             </div>
           </header>
-          <ul className="divide-y divide-border/60 font-mono text-[11.5px]">
-            <EventRow
-              ts="22:14:03.812"
-              ev="job.succeeded"
-              org="acme-prod"
-              meta="billed=0.84 · 38.7s · seedance-2.0-pro"
-              tone="success"
-            />
-            <EventRow
-              ts="22:14:03.411"
-              ev="webhook.delivered"
-              org="acme-prod"
-              meta="200 · 142ms · https://acme.com/hooks/nextapi"
-              tone="success"
-            />
-            <EventRow
-              ts="22:14:02.954"
-              ev="job.running"
-              org="linear-media"
-              meta="pool=A · region=us-east-1"
-              tone="running"
-            />
-            <EventRow
-              ts="22:14:02.601"
-              ev="job.queued"
-              org="parallax-studio"
-              meta="position=2 · eta=14s"
-              tone="queued"
-            />
-            <EventRow
-              ts="22:14:02.188"
-              ev="credit.reserved"
-              org="northwind-labs"
-              meta="+1.00 · idem=b7e3a1d9"
-              tone="default"
-            />
-            <EventRow
-              ts="22:14:01.744"
-              ev="job.failed"
-              org="stellar-post"
-              meta={`content_policy.pre · ${t.usage.refunded.toLowerCase()}=1.00`}
-              tone="failed"
-            />
-            <EventRow
-              ts="22:14:01.321"
-              ev="webhook.delivered"
-              org="stellar-post"
-              meta="200 · 98ms · https://stellar.io/nx"
-              tone="success"
-            />
-            <EventRow
-              ts="22:14:00.902"
-              ev="key.used"
-              org="acme-prod"
-              meta="sk_live_7Hc9…4rS · 142 rps (60s)"
-              tone="default"
-            />
-          </ul>
+          <OperatorEmptyState icon={Clock3} message={t.admin.overviewPage.noLiveFeed} />
         </section>
       </div>
     </AdminShell>
+  )
+}
+
+function OperatorEmptyState({
+  icon: Icon,
+  message,
+  compact = false,
+}: {
+  icon: React.ComponentType<{ className?: string }>
+  message: string
+  compact?: boolean
+}) {
+  return (
+    <div className={cn("grid place-items-center px-5 text-center", compact ? "min-h-36 py-8" : "min-h-64 py-12")}>
+      <div className="max-w-md">
+        <div className="mx-auto flex size-10 items-center justify-center rounded-2xl border border-white/12 bg-background/55 text-muted-foreground shadow-sm backdrop-blur-md">
+          <Icon className="size-4" />
+        </div>
+        <p className="mt-3 text-[12.5px] leading-relaxed text-muted-foreground">{message}</p>
+      </div>
+    </div>
   )
 }
 

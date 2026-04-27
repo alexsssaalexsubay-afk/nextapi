@@ -33,14 +33,22 @@ type DirectorHandlers struct {
 }
 
 type directorStatusResponse struct {
-	Available               bool   `json:"available"`
-	RequiresVIP             bool   `json:"requires_vip"`
-	Entitled                bool   `json:"entitled"`
-	TextProviderConfigured  bool   `json:"text_provider_configured"`
-	ImageProviderConfigured bool   `json:"image_provider_configured"`
-	MergeEnabled            bool   `json:"merge_enabled"`
-	BlockingReason          string `json:"blocking_reason,omitempty"`
-	UsageNotice             string `json:"usage_notice"`
+	Available               bool                  `json:"available"`
+	RequiresVIP             bool                  `json:"requires_vip"`
+	Entitled                bool                  `json:"entitled"`
+	TextProviderConfigured  bool                  `json:"text_provider_configured"`
+	ImageProviderConfigured bool                  `json:"image_provider_configured"`
+	MergeEnabled            bool                  `json:"merge_enabled"`
+	Runtime                 director.EngineStatus `json:"runtime"`
+	EngineStatus            director.EngineStatus `json:"engine_status"`
+	EngineUsed              string                `json:"engine_used"`
+	FallbackUsed            bool                  `json:"fallback_used"`
+	FallbackEnabled         bool                  `json:"fallback_enabled"`
+	SidecarConfigured       bool                  `json:"sidecar_configured"`
+	SidecarHealthy          bool                  `json:"sidecar_healthy"`
+	Reason                  string                `json:"reason,omitempty"`
+	BlockingReason          string                `json:"blocking_reason,omitempty"`
+	UsageNotice             string                `json:"usage_notice"`
 }
 
 func (h *DirectorHandlers) Status(c *gin.Context) {
@@ -128,16 +136,18 @@ func (h *DirectorHandlers) RunDirectorMode(c *gin.Context) {
 		return
 	}
 	var req struct {
-		Story           string                   `json:"story" binding:"required"`
-		Engine          string                   `json:"engine"`
-		Genre           string                   `json:"genre"`
-		Style           string                   `json:"style"`
-		ShotCount       int                      `json:"shot_count"`
-		Duration        int                      `json:"duration_per_shot"`
-		GenerateImages  bool                     `json:"generate_images"`
-		TextProviderID  string                   `json:"text_provider_id"`
-		ImageProviderID string                   `json:"image_provider_id"`
-		Options         director.WorkflowOptions `json:"options"`
+		Story           string                    `json:"story" binding:"required"`
+		Engine          string                    `json:"engine"`
+		Genre           string                    `json:"genre"`
+		Style           string                    `json:"style"`
+		ShotCount       int                       `json:"shot_count"`
+		Duration        int                       `json:"duration_per_shot"`
+		GenerateImages  bool                      `json:"generate_images"`
+		TextProviderID  string                    `json:"text_provider_id"`
+		ImageProviderID string                    `json:"image_provider_id"`
+		Characters      []director.CharacterInput `json:"characters"`
+		Options         director.WorkflowOptions  `json:"options"`
+		RunWorkflow     *bool                     `json:"run_workflow"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		httpx.BadRequest(c, "invalid_request", "invalid request body")
@@ -151,6 +161,7 @@ func (h *DirectorHandlers) RunDirectorMode(c *gin.Context) {
 		Style:           req.Style,
 		ShotCount:       req.ShotCount,
 		DurationPerShot: req.Duration,
+		Characters:      req.Characters,
 		TextProviderID:  req.TextProviderID,
 	}
 	storyboard, err := h.Service.GenerateShots(c.Request.Context(), shotsReq)
@@ -211,10 +222,38 @@ func (h *DirectorHandlers) RunDirectorMode(c *gin.Context) {
 		httpx.InternalError(c, "workflow_create_failed", "failed to create workflow")
 		return
 	}
+	var runResult *workflow.RunResult
+	shouldRunWorkflow := req.RunWorkflow == nil || *req.RunWorkflow
+	if shouldRunWorkflow {
+		var apiKeyID *string
+		if ak := auth.APIKeyFrom(c); ak != nil {
+			apiKeyID = &ak.ID
+		}
+		runResult, err = h.WorkflowSvc.Run(c.Request.Context(), row.ID, workflow.RunInput{
+			OrgID:    org.ID,
+			APIKeyID: apiKeyID,
+		})
+		if err != nil {
+			(&WorkflowHandlers{}).handleWorkflowError(c, err)
+			return
+		}
+		if runResult.TaskID != "" {
+			c.Set("created_job_id", runResult.TaskID)
+		}
+		if len(runResult.JobIDs) > 0 {
+			c.Set("created_job_id", runResult.JobIDs[0])
+		}
+		if runResult.BatchRunID != "" {
+			c.Set("created_batch_run_id", runResult.BatchRunID)
+		}
+	}
 	c.JSON(http.StatusOK, gin.H{
-		"plan":     director.StoryboardToDirectorPlan(*storyboard, shotsReq.Characters),
-		"workflow": json.RawMessage(def),
-		"record":   row,
+		"plan":          director.StoryboardToDirectorPlan(*storyboard, shotsReq.Characters),
+		"workflow":      json.RawMessage(def),
+		"record":        row,
+		"run":           runResult,
+		"engine_used":   storyboard.EngineUsed,
+		"engine_status": storyboard.EngineStatus,
 	})
 }
 
@@ -303,8 +342,16 @@ func (h *DirectorHandlers) directorStatus(ctx context.Context, orgID string) (*d
 		TextProviderConfigured:  textConfigured,
 		ImageProviderConfigured: imageConfigured,
 		MergeEnabled:            os.Getenv("VIDEO_MERGE_ENABLED") == "true",
+		Runtime:                 h.Service.RuntimeStatus(ctx),
 		UsageNotice:             "AI Director can use text, image, and video generation. VIP access unlocks the workspace, but every live generation still consumes credits.",
 	}
+	out.EngineUsed = out.Runtime.EngineUsed
+	out.EngineStatus = out.Runtime
+	out.FallbackUsed = out.Runtime.FallbackUsed
+	out.FallbackEnabled = out.Runtime.FallbackEnabled
+	out.SidecarConfigured = out.Runtime.SidecarConfigured
+	out.SidecarHealthy = out.Runtime.SidecarHealthy
+	out.Reason = out.Runtime.Reason
 	out.Available = out.Entitled && out.TextProviderConfigured
 	switch {
 	case !out.Entitled:

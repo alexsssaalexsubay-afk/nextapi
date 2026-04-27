@@ -17,7 +17,7 @@ import {
   useEdgesState,
   useNodesState,
 } from "@xyflow/react"
-import { Code2, ImageIcon, Loader2, Play, Save, Settings2, Sparkles, Type, Video } from "lucide-react"
+import { AlertTriangle, CheckCircle2, Code2, GitBranch, ImageIcon, Loader2, Play, Save, Settings2, Sparkles, Type, Video, Workflow } from "lucide-react"
 import { toast } from "sonner"
 import { ModelSelect } from "@/components/ai/model-select"
 import { apiFetch, ApiError } from "@/lib/api"
@@ -98,44 +98,65 @@ function FlowNode({ data, type, selected }: NodeProps<CanvasNode>) {
       nodeType === "prompt.input" ? Type :
         nodeType === "video.params" ? Settings2 :
           nodeType === "seedance.video" ? Sparkles :
+            nodeType === "video.merge" ? GitBranch :
             Video
+  const status = data.node_status
   return (
     <div
       className={cn(
-        "min-w-48 rounded-xl border bg-card/95 px-3 py-2 shadow-sm backdrop-blur",
-        selected ? "border-signal" : "border-border/80",
+        "min-w-56 overflow-hidden rounded-2xl border bg-card/92 shadow-[0_18px_60px_-44px] backdrop-blur transition-all",
+        selected ? "border-signal shadow-signal/30" : "border-white/12",
       )}
     >
       <Handle type="target" position={Position.Left} className="!bg-signal" />
-      <div className="flex items-center gap-2">
-        <Icon className="size-3.5 text-signal" />
-        <div>
-          <div className="text-[12px] font-medium">{String(data.label || nodeType)}</div>
-          <div className="font-mono text-[10px] text-muted-foreground">{nodeType}</div>
+      <div className={cn("h-1", nodeAccent(nodeType))} />
+      <div className="px-3 py-2.5">
+        <div className="flex items-center gap-2">
+          <span className="flex size-8 items-center justify-center rounded-xl border border-white/12 bg-background/60 shadow-sm">
+            <Icon className="size-3.5 text-signal" />
+          </span>
+          <div className="min-w-0">
+            <div className="truncate text-[12.5px] font-medium">{String(data.label || nodeType)}</div>
+            <div className="font-mono text-[10px] text-muted-foreground">{nodeType}</div>
+          </div>
         </div>
+        {status ? <NodeStatusBadge status={status} /> : null}
+        {nodeType === "image.input" && data.image_url ? (
+          <div className="mt-3 overflow-hidden rounded-xl border border-white/12">
+            {/* eslint-disable-next-line @next/next/no-img-element -- presigned/user URL preview */}
+            <img src={String(data.preview_url || data.image_url)} alt="" className="h-24 w-full object-cover" />
+          </div>
+        ) : null}
+        {nodeType === "output.preview" && data.video_url ? (
+          <video src={String(data.video_url)} controls className="mt-3 aspect-video w-full rounded-xl bg-black object-contain" />
+        ) : null}
       </div>
-      {data.node_status ? (
-        <span className={cn(
-          "mt-2 inline-flex rounded-full border px-2 py-0.5 font-mono text-[10px]",
-          data.node_status === "running" && "border-signal/40 text-signal",
-          data.node_status === "waiting" && "border-muted-foreground/30 text-muted-foreground",
-          data.node_status === "success" && "border-status-success/40 text-status-success",
-          data.node_status === "failed" && "border-status-failed/40 text-status-failed",
-        )}>
-          {data.node_status}
-        </span>
-      ) : null}
-      {nodeType === "image.input" && data.image_url ? (
-        <div className="mt-2 overflow-hidden rounded-md border border-border/70">
-          {/* eslint-disable-next-line @next/next/no-img-element -- presigned/user URL preview */}
-          <img src={String(data.preview_url || data.image_url)} alt="" className="h-20 w-full object-cover" />
-        </div>
-      ) : null}
-      {nodeType === "output.preview" && data.video_url ? (
-        <video src={String(data.video_url)} controls className="mt-2 aspect-video w-56 rounded-md bg-black object-contain" />
-      ) : null}
       <Handle type="source" position={Position.Right} className="!bg-signal" />
     </div>
+  )
+}
+
+function nodeAccent(nodeType: string) {
+  if (nodeType === "image.input") return "bg-cyan-400/70"
+  if (nodeType === "prompt.input") return "bg-violet-400/70"
+  if (nodeType === "video.params") return "bg-amber-400/70"
+  if (nodeType === "seedance.video") return "bg-fuchsia-500/70"
+  if (nodeType === "video.merge") return "bg-emerald-400/70"
+  return "bg-signal/70"
+}
+
+function NodeStatusBadge({ status }: { status: NonNullable<CanvasNodeData["node_status"]> }) {
+  return (
+    <span className={cn(
+      "mt-3 inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 font-mono text-[10px]",
+      status === "running" && "border-signal/40 bg-signal/10 text-signal",
+      status === "waiting" && "border-muted-foreground/30 bg-card/40 text-muted-foreground",
+      status === "success" && "border-status-success/40 bg-status-success/10 text-status-success",
+      status === "failed" && "border-status-failed/40 bg-status-failed/10 text-status-failed",
+    )}>
+      {status === "running" ? <Loader2 className="size-3 animate-spin" /> : status === "success" ? <CheckCircle2 className="size-3" /> : status === "failed" ? <AlertTriangle className="size-3" /> : null}
+      {status}
+    </span>
   )
 }
 
@@ -342,13 +363,23 @@ export function CanvasWorkspace() {
   const videoURL = currentVideo?.output?.url || currentVideo?.output?.video_url
 
   return (
-    <div className="flex h-[calc(100vh-3.5rem)] min-h-[720px] flex-col overflow-hidden rounded-t-3xl">
-      <header className="flex items-center justify-between border-b border-white/10 bg-background/42 px-5 py-3 backdrop-blur-md">
-        <div>
-          <h1 className="text-[18px] font-medium tracking-tight">{labels.title}</h1>
-          <p className="mt-1 text-[12.5px] text-muted-foreground">{labels.subtitle}</p>
+    <div className="flex h-[calc(100vh-3.5rem)] min-h-[720px] flex-col overflow-hidden rounded-t-[32px] border-t border-white/10 bg-background/25">
+      <header className="flex flex-wrap items-center justify-between gap-4 border-b border-white/10 bg-background/52 px-5 py-3 shadow-[0_18px_70px_-58px] shadow-signal backdrop-blur-xl">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="flex size-8 items-center justify-center rounded-2xl border border-white/12 bg-card/55 text-signal shadow-sm backdrop-blur-md">
+              <Workflow className="size-4" />
+            </span>
+            <div>
+              <h1 className="text-[18px] font-medium tracking-tight">{labels.title}</h1>
+              <p className="mt-0.5 text-[12.5px] text-muted-foreground">{labels.subtitle}</p>
+            </div>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <div className="hidden rounded-full border border-white/12 bg-card/55 px-3 py-1.5 font-mono text-[11px] text-muted-foreground shadow-sm backdrop-blur-md lg:block">
+            {nodes.length} {labels.nodes} · {edges.length} {labels.edges}
+          </div>
           <input
             value={name}
             onChange={(event) => setName(event.target.value)}
@@ -372,9 +403,12 @@ export function CanvasWorkspace() {
           </button>
         </div>
       </header>
-      <div className="grid min-h-0 flex-1 grid-cols-[220px_minmax(0,1fr)_340px]">
+      <div className="grid min-h-0 flex-1 grid-cols-[240px_minmax(0,1fr)_360px]">
         <aside className="border-r border-white/10 bg-card/30 p-3 backdrop-blur-md">
-          <div className="mb-3 text-[11px] uppercase tracking-[0.16em] text-muted-foreground">{labels.nodes}</div>
+          <div className="mb-3 rounded-2xl border border-white/10 bg-background/45 px-3 py-2">
+            <div className="font-mono text-[11px] uppercase tracking-[0.16em] text-muted-foreground">{labels.nodes}</div>
+            <p className="mt-1 text-[11.5px] leading-relaxed text-muted-foreground">{labels.nodeLibraryHint}</p>
+          </div>
           <NodeButton label={labels.imageNode} onClick={() => addNode("image.input")} />
           <NodeButton label={labels.promptNode} onClick={() => addNode("prompt.input")} />
           <NodeButton label={labels.paramsNode} onClick={() => addNode("video.params")} />
@@ -382,7 +416,10 @@ export function CanvasWorkspace() {
           <NodeButton label={labels.mergeNode} onClick={() => addNode("video.merge")} />
           <NodeButton label={labels.outputNode} onClick={() => addNode("output.preview")} />
         </aside>
-        <main className="min-h-0 bg-background/18">
+        <main className="relative min-h-0 bg-background/18">
+          <div className="pointer-events-none absolute left-4 top-4 z-10 rounded-full border border-white/12 bg-background/60 px-3 py-1.5 font-mono text-[10.5px] uppercase tracking-[0.14em] text-muted-foreground shadow-sm backdrop-blur-md">
+            {labels.canvasRoute}
+          </div>
           <ReactFlow
             nodes={nodes}
             edges={edges}
@@ -400,18 +437,12 @@ export function CanvasWorkspace() {
         </main>
         <aside className="flex min-h-0 flex-col border-l border-white/10 bg-card/30 backdrop-blur-md">
           <NodeInspector node={selectedNode} assets={assets} labels={labels} uploadingImage={uploadingImage} onUploadImage={uploadImageForSelectedNode} onChange={updateSelectedData} />
-          <div className="border-t border-border/60 p-4">
-            <div className="text-[12px] font-medium">{labels.statusTitle}</div>
-            <div className="mt-2 rounded-lg border border-border/70 bg-background/70 p-3 text-[12px]">
-              <div className="font-mono text-muted-foreground">{currentVideo?.id ?? labels.noTask}</div>
-              <div className="mt-2">{labels.status}: {currentVideo?.status ?? "idle"}</div>
-              {videoURL ? <video src={videoURL} controls className="mt-3 aspect-video w-full rounded-md bg-black object-contain" /> : null}
-              {currentVideo?.error_code ? <div className="mt-2 text-status-failed">{currentVideo.error_code}</div> : null}
-            </div>
+          <div className="border-t border-white/10 p-4">
+            <RunStatusCard currentVideo={currentVideo} videoURL={videoURL} exportResult={exportResult} labels={labels} />
             {exportResult ? (
-              <div className="mt-3 rounded-lg border border-border/70 bg-background/70 p-3">
+              <div className="mt-3 rounded-2xl border border-white/12 bg-background/70 p-3">
                 <div className="mb-2 text-[12px] font-medium">{labels.exportedApi}</div>
-                <pre className="max-h-48 overflow-auto whitespace-pre-wrap rounded-md bg-card/70 p-2 font-mono text-[10.5px] text-muted-foreground">
+                <pre className="max-h-48 overflow-auto whitespace-pre-wrap rounded-xl bg-card/70 p-2 font-mono text-[10.5px] text-muted-foreground">
                   {exportResult.curl}
                 </pre>
               </div>
@@ -429,6 +460,43 @@ function NodeButton({ label, onClick }: { label: string; onClick: () => void }) 
       <span>{label}</span>
       <span className="text-muted-foreground">+</span>
     </button>
+  )
+}
+
+function RunStatusCard({
+  currentVideo,
+  videoURL,
+  exportResult,
+  labels,
+}: {
+  currentVideo: CurrentVideo | null
+  videoURL?: string
+  exportResult: ExportAPIResult | null
+  labels: ReturnType<typeof useTranslations>["canvas"]
+}) {
+  const status = currentVideo?.status ?? "idle"
+  return (
+    <section className="rounded-3xl border border-white/12 bg-background/55 p-3 shadow-sm backdrop-blur-md">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <div className="text-[12px] font-medium">{labels.statusTitle}</div>
+          <div className="mt-1 font-mono text-[10.5px] text-muted-foreground">{currentVideo?.id ?? labels.noTask}</div>
+        </div>
+        <NodeStatusBadge status={taskStatusToNodeStatus(status)} />
+      </div>
+      <div className="mt-3 grid gap-2 text-[12px]">
+        <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-card/40 px-3 py-2">
+          <span className="text-muted-foreground">{labels.status}</span>
+          <span className="font-mono text-foreground">{status}</span>
+        </div>
+        <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-card/40 px-3 py-2">
+          <span className="text-muted-foreground">{labels.exportApi}</span>
+          <span className={cn("font-mono", exportResult ? "text-status-success" : "text-muted-foreground")}>{exportResult ? labels.exportReady : labels.noTask}</span>
+        </div>
+      </div>
+      {videoURL ? <video src={videoURL} controls className="mt-3 aspect-video w-full rounded-2xl bg-black object-contain" /> : null}
+      {currentVideo?.error_code ? <div className="mt-2 rounded-2xl border border-status-failed/30 bg-status-failed/10 px-3 py-2 text-[12px] text-status-failed">{currentVideo.error_code}</div> : null}
+    </section>
   )
 }
 

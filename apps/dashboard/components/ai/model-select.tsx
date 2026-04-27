@@ -5,6 +5,21 @@ import { Check, ChevronDown } from "lucide-react"
 import { AI_MODEL_CATALOG, type AIModelCatalogItem, type AIModelCategory } from "@/lib/ai-model-catalog"
 import { cn } from "@/lib/utils"
 
+type ModelSelectStatusLabels = {
+  live?: string
+  configured?: string
+  compat?: string
+  comingSoon?: string
+  recommended?: string
+  allModels?: string
+  bestForFlow?: string
+  tierAdvanced?: string
+  tierPrimary?: string
+  tierEconomy?: string
+  tierExperimental?: string
+  tierCompat?: string
+}
+
 const providerStyles: Record<AIModelCatalogItem["providerSlug"], string> = {
   nextapi: "from-indigo-500 to-sky-500 text-white",
   byteplus: "from-violet-500 to-fuchsia-500 text-white",
@@ -35,6 +50,7 @@ export function ModelSelect({
   category,
   helper,
   includeDisabled = false,
+  statusLabels,
 }: {
   label?: string
   value: string
@@ -42,11 +58,24 @@ export function ModelSelect({
   category: AIModelCategory
   helper?: string
   includeDisabled?: boolean
+  statusLabels?: ModelSelectStatusLabels
 }) {
   const [open, setOpen] = useState(false)
   const rootRef = useRef<HTMLDivElement | null>(null)
   const items = AI_MODEL_CATALOG.filter((item) => item.category === category && (includeDisabled || item.enabled))
   const selected = items.find((item) => item.id === value) ?? AI_MODEL_CATALOG.find((item) => item.id === value) ?? items[0]
+  const recommendedItems = items
+    .filter((item) => item.enabled && (item.tier === "primary" || item.tier === "advanced" || item.status === "live"))
+    .slice(0, 3)
+  const groupedItems = items.reduce<Array<{ provider: string; items: AIModelCatalogItem[] }>>((groups, item) => {
+    const group = groups.find((entry) => entry.provider === item.provider)
+    if (group) {
+      group.items.push(item)
+    } else {
+      groups.push({ provider: item.provider, items: [item] })
+    }
+    return groups
+  }, [])
 
   useEffect(() => {
     function onPointerDown(event: PointerEvent) {
@@ -70,43 +99,121 @@ export function ModelSelect({
         <span className="min-w-0 flex-1">
           <span className="block truncate font-medium text-foreground">{selected.name}</span>
           <span className="block truncate text-[11px] text-muted-foreground">
-            {selected.provider} · {selected.status === "compat" ? "兼容路由" : selected.enabled ? "可用" : "未配置"}
+            {selected.provider} · {modelStatusLabel(selected, statusLabels)}
           </span>
         </span>
         <ChevronDown className={cn("size-4 text-muted-foreground transition", open && "rotate-180")} />
       </button>
       {helper && <div className="mt-1 text-[11px] leading-relaxed text-muted-foreground">{helper}</div>}
       {open && (
-        <div className="absolute z-50 mt-2 max-h-80 w-full overflow-y-auto rounded-xl border border-border/80 bg-popover p-1.5 text-popover-foreground shadow-xl">
-          {items.map((item) => {
-            const active = item.id === selected.id
-            return (
-              <button
-                key={item.id}
-                type="button"
-                disabled={!item.enabled}
-                onClick={() => {
-                  if (!item.enabled) return
-                  onChange(item.id)
-                  setOpen(false)
-                }}
-                className={cn(
-                  "flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left transition",
-                  active ? "bg-signal/10" : "hover:bg-muted/70",
-                  item.enabled ? "" : "cursor-not-allowed opacity-55",
-                )}
-              >
-                <ProviderLogo item={item} className="size-8" />
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[13px] font-medium">{item.name}</span>
-                  <span className="block truncate text-[11px] text-muted-foreground">{item.provider} · {item.description}</span>
-                </span>
-                {active && <Check className="size-4 text-signal" />}
-              </button>
-            )
-          })}
+        <div className="absolute z-50 mt-2 max-h-[26rem] w-full overflow-y-auto rounded-2xl border border-white/12 bg-popover/96 p-2 text-popover-foreground shadow-[0_24px_80px_-45px_rgba(79,70,229,0.45)] backdrop-blur-2xl">
+          {recommendedItems.length > 0 && (
+            <div className="mb-2 rounded-xl border border-signal/20 bg-signal/10 p-1.5">
+              <div className="flex items-center justify-between px-2 py-1 text-[10px] font-medium uppercase tracking-[0.14em] text-signal">
+                <span>{statusLabels?.recommended ?? "Recommended"}</span>
+                <span>{statusLabels?.bestForFlow ?? "Best fit"}</span>
+              </div>
+              {recommendedItems.map((item) => (
+                <ModelOption
+                  key={`recommended-${item.id}`}
+                  item={item}
+                  active={item.id === selected.id}
+                  statusLabels={statusLabels}
+                  onPick={() => {
+                    onChange(item.id)
+                    setOpen(false)
+                  }}
+                />
+              ))}
+            </div>
+          )}
+          {groupedItems.map((group) => (
+            <div key={group.provider} className="mt-1.5 first:mt-0">
+              <div className="flex items-center justify-between px-2 py-1 text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                <span>{group.provider}</span>
+                <span>{group.items.length}</span>
+              </div>
+              {group.items.map((item) => (
+                <ModelOption
+                  key={item.id}
+                  item={item}
+                  active={item.id === selected.id}
+                  statusLabels={statusLabels}
+                  onPick={() => {
+                    if (!item.enabled) return
+                    onChange(item.id)
+                    setOpen(false)
+                  }}
+                />
+              ))}
+            </div>
+          ))}
         </div>
       )}
     </div>
   )
+}
+
+function ModelOption({
+  item,
+  active,
+  statusLabels,
+  onPick,
+}: {
+  item: AIModelCatalogItem
+  active: boolean
+  statusLabels?: ModelSelectStatusLabels
+  onPick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      disabled={!item.enabled}
+      onClick={onPick}
+      className={cn(
+        "group flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left transition-all duration-150",
+        active ? "bg-signal/10 ring-1 ring-signal/25" : "hover:bg-muted/70",
+        item.enabled ? "active:scale-[0.99]" : "cursor-not-allowed opacity-55",
+      )}
+    >
+      <ProviderLogo item={item} className="size-8" />
+      <span className="min-w-0 flex-1">
+        <span className="flex min-w-0 items-center gap-2">
+          <span className="truncate text-[13px] font-medium">{item.name}</span>
+          <span className="shrink-0 rounded-full border border-border/70 bg-background/45 px-1.5 py-0.5 text-[10px] text-muted-foreground">
+            {modelStatusLabel(item, statusLabels)}
+          </span>
+        </span>
+        <span className="mt-0.5 block truncate text-[11px] text-muted-foreground">{item.description}</span>
+        <span className="mt-1 flex flex-wrap gap-1">
+          {item.tier && (
+            <span className="rounded-full border border-white/10 bg-card/45 px-1.5 py-0.5 text-[10px] text-muted-foreground">
+              {tierLabel(item.tier, statusLabels)}
+            </span>
+          )}
+          {(item.capabilities ?? []).slice(0, 3).map((capability) => (
+            <span key={capability} className="rounded-full border border-signal/20 bg-signal/10 px-1.5 py-0.5 text-[10px] text-signal">
+              {capability.replace("_", " ")}
+            </span>
+          ))}
+        </span>
+      </span>
+      {active && <Check className="size-4 shrink-0 text-signal" />}
+    </button>
+  )
+}
+
+function modelStatusLabel(item: AIModelCatalogItem, labels?: ModelSelectStatusLabels) {
+  if (item.status === "compat") return labels?.compat ?? "Compatible"
+  if (item.status === "coming_soon" || !item.enabled) return labels?.comingSoon ?? "Not live"
+  if (item.status === "configured") return labels?.configured ?? "Configured"
+  return labels?.live ?? "Live"
+}
+
+function tierLabel(tier: NonNullable<AIModelCatalogItem["tier"]>, labels?: ModelSelectStatusLabels) {
+  if (tier === "advanced") return labels?.tierAdvanced ?? "Advanced"
+  if (tier === "primary") return labels?.tierPrimary ?? "Primary"
+  if (tier === "economy") return labels?.tierEconomy ?? "Economy"
+  if (tier === "experimental") return labels?.tierExperimental ?? "Experimental"
+  return labels?.tierCompat ?? "Compat"
 }

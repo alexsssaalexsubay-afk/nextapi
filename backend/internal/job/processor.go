@@ -77,14 +77,21 @@ func (p *Processor) HandleGenerate(ctx context.Context, t *asynq.Task) error {
 	// Mark as submitting (first transition from queued → submitting).
 	if j.Status == domain.JobQueued || j.Status == domain.JobRetrying {
 		now := time.Now()
-		p.DB.WithContext(ctx).Model(&j).Updates(map[string]any{
+		previousStatus := j.Status
+		if err := p.DB.WithContext(ctx).Model(&j).Updates(map[string]any{
 			"status":        domain.JobSubmitting,
 			"submitting_at": now,
-		})
+		}).Error; err != nil {
+			return err
+		}
+		if previousStatus == domain.JobQueued && j.BatchRunID != nil {
+			markBatchJobStarted(ctx, p.DB, *j.BatchRunID)
+		}
 		p.DB.WithContext(ctx).Model(&domain.Video{}).Where("upstream_job_id = ?", j.ID).Updates(map[string]any{
 			"status":     "submitting",
 			"started_at": now,
 		})
+		j.Status = domain.JobSubmitting
 	}
 
 	var req provider.GenerationRequest
@@ -290,7 +297,7 @@ func (p *Processor) succeed(ctx context.Context, j *domain.Job, st *provider.Job
 			tx.Model(&domain.BatchRun{}).Where("id = ?", *j.BatchRunID).
 				Updates(map[string]any{
 					"succeeded_count": gorm.Expr("succeeded_count + 1"),
-					"running_count":   gorm.Expr("GREATEST(running_count - 1, 0)"),
+					"running_count":   decrementCounter("running_count"),
 				})
 			p.maybeCloseBatch(ctx, tx, *j.BatchRunID)
 		}
@@ -355,6 +362,19 @@ func lookupVideoID(ctx context.Context, db *gorm.DB, jobID string) string {
 	return jobID
 }
 
+func markBatchJobStarted(ctx context.Context, db *gorm.DB, batchID string) {
+	_ = db.WithContext(ctx).Model(&domain.BatchRun{}).
+		Where("id = ?", batchID).
+		Updates(map[string]any{
+			"queued_count":  decrementCounter("queued_count"),
+			"running_count": gorm.Expr("running_count + 1"),
+		}).Error
+}
+
+func decrementCounter(column string) any {
+	return gorm.Expr("CASE WHEN " + column + " > 0 THEN " + column + " - 1 ELSE 0 END")
+}
+
 func updateWorkflowRun(ctx context.Context, tx *gorm.DB, jobID string, status string, output json.RawMessage) {
 	if !tx.Migrator().HasTable(&domain.WorkflowRun{}) {
 		return
@@ -367,7 +387,23 @@ func updateWorkflowRun(ctx context.Context, tx *gorm.DB, jobID string, status st
 		updates["output_snapshot"] = output
 	}
 	_ = tx.WithContext(ctx).Model(&domain.WorkflowRun{}).
-		Where("job_id = ?", jobID).
+		Where("job_id = ? AND batch_run_id IS NULL", jobID).
+		Updates(updates).Error
+}
+
+func updateBatchWorkflowRun(ctx context.Context, tx *gorm.DB, batchID string, status string, output json.RawMessage) {
+	if !tx.Migrator().HasTable(&domain.WorkflowRun{}) {
+		return
+	}
+	updates := map[string]any{
+		"status":     status,
+		"updated_at": time.Now(),
+	}
+	if len(output) > 0 {
+		updates["output_snapshot"] = output
+	}
+	_ = tx.WithContext(ctx).Model(&domain.WorkflowRun{}).
+		Where("batch_run_id = ?", batchID).
 		Updates(updates).Error
 }
 
@@ -417,11 +453,13 @@ func (p *Processor) fail(ctx context.Context, j *domain.Job, code, msg string) e
 		updateWorkflowRun(ctx, tx, j.ID, "failed", outputJSON)
 		// Update batch counters.
 		if j.BatchRunID != nil {
-			tx.Model(&domain.BatchRun{}).Where("id = ?", *j.BatchRunID).
-				Updates(map[string]any{
-					"failed_count":  gorm.Expr("failed_count + 1"),
-					"running_count": gorm.Expr("GREATEST(running_count - 1, 0)"),
-				})
+			updates := map[string]any{"failed_count": gorm.Expr("failed_count + 1")}
+			if current.Status == domain.JobQueued {
+				updates["queued_count"] = decrementCounter("queued_count")
+			} else {
+				updates["running_count"] = decrementCounter("running_count")
+			}
+			tx.Model(&domain.BatchRun{}).Where("id = ?", *j.BatchRunID).Updates(updates)
 			p.maybeCloseBatch(ctx, tx, *j.BatchRunID)
 		}
 		return nil
@@ -506,6 +544,23 @@ func (p *Processor) maybeCloseBatch(ctx context.Context, tx *gorm.DB, batchID st
 		"status":       status,
 		"completed_at": now,
 	})
+	mergeStatus, mergeOutput := updateMergeJobsForBatch(ctx, tx, batchID, status, now)
+	output, _ := json.Marshal(map[string]any{
+		"batch_run_id":    batchID,
+		"status":          status,
+		"total_shots":     br.TotalShots,
+		"succeeded_count": br.SucceededCount,
+		"failed_count":    br.FailedCount,
+		"merge_status":    mergeStatus,
+		"merge":           mergeOutput,
+	})
+	workflowStatus := "succeeded"
+	if status == "failed" {
+		workflowStatus = "failed"
+	} else if status == "partial_failure" {
+		workflowStatus = "partial_failure"
+	}
+	updateBatchWorkflowRun(ctx, tx, batchID, workflowStatus, output)
 	// Fire batch.completed webhook.
 	if p.Webhooks != nil {
 		_ = p.Webhooks.Enqueue(ctx, br.OrgID, "batch.completed", map[string]any{
@@ -517,4 +572,46 @@ func (p *Processor) maybeCloseBatch(ctx context.Context, tx *gorm.DB, batchID st
 			"completed_at":    now.UTC().Format(time.RFC3339),
 		})
 	}
+}
+
+func updateMergeJobsForBatch(ctx context.Context, tx *gorm.DB, batchID string, batchStatus string, now time.Time) (string, map[string]any) {
+	if !tx.Migrator().HasTable(&domain.VideoMergeJob{}) {
+		return "", nil
+	}
+	type clipRow struct {
+		JobID    string
+		VideoID  string
+		VideoURL string
+		Status   string
+	}
+	var clips []clipRow
+	if err := tx.WithContext(ctx).
+		Table("jobs").
+		Select("jobs.id AS job_id, COALESCE(videos.id, '') AS video_id, COALESCE(jobs.video_url, '') AS video_url, jobs.status AS status").
+		Joins("LEFT JOIN videos ON videos.upstream_job_id = jobs.id").
+		Where("jobs.batch_run_id = ?", batchID).
+		Order("jobs.created_at ASC").
+		Scan(&clips).Error; err != nil {
+		return "merge_manifest_failed", map[string]any{"error": "failed to collect shot urls"}
+	}
+	output := map[string]any{
+		"batch_run_id": batchID,
+		"clips":        clips,
+	}
+	mergeStatus := "ready_for_merge"
+	if batchStatus != "completed" {
+		mergeStatus = "blocked_by_failed_shot"
+	}
+	if len(clips) == 0 {
+		mergeStatus = "blocked_no_clips"
+	}
+	snapshot, _ := json.Marshal(output)
+	_ = tx.WithContext(ctx).Model(&domain.VideoMergeJob{}).
+		Where("batch_run_id = ? AND status IN ?", batchID, []string{"waiting_for_shots", "ready_for_merge", "blocked_by_failed_shot"}).
+		Updates(map[string]any{
+			"status":          mergeStatus,
+			"output_snapshot": snapshot,
+			"updated_at":      now,
+		}).Error
+	return mergeStatus, output
 }

@@ -7,8 +7,17 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/aiprovider"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/director"
 )
+
+type fakePlannerText struct {
+	response string
+}
+
+func (f *fakePlannerText) GenerateTextWithProvider(ctx context.Context, providerID string, messages []aiprovider.Message, options aiprovider.TextOptions) (aiprovider.TextResult, error) {
+	return aiprovider.TextResult{Text: f.response}, nil
+}
 
 func TestRunnerSendsManagedCallbackAndToken(t *testing.T) {
 	var got RunRequest
@@ -65,5 +74,25 @@ func TestRunnerSendsManagedCallbackAndToken(t *testing.T) {
 	}
 	if !got.Policy.NoExternalKeys || got.Policy.ProductBrand != "NextAPI Director" {
 		t.Fatalf("policy not enforced: %+v", got.Policy)
+	}
+	if out.EngineUsed != director.EngineAdvancedSidecar || out.EngineStatus == nil || out.EngineStatus.FallbackUsed {
+		t.Fatalf("sidecar engine status not exposed: used=%q status=%+v", out.EngineUsed, out.EngineStatus)
+	}
+}
+
+func TestRunnerMarksFallbackWhenSidecarMissing(t *testing.T) {
+	text := &fakePlannerText{response: `{"title":"Plan","summary":"Summary","shots":[{"shotIndex":1,"title":"Shot","duration":4,"videoPrompt":"video","imagePrompt":"image","referenceAssets":[]}]}`}
+	runner := NewRunner(RunnerConfig{AllowFallback: true})
+	out, err := runner.GenerateStoryboard(context.Background(), director.GenerateShotsInput{
+		Engine:          "advanced",
+		Story:           "story",
+		ShotCount:       1,
+		DurationPerShot: 4,
+	}, director.PlannerDeps{Text: text})
+	if err != nil {
+		t.Fatalf("GenerateStoryboard: %v", err)
+	}
+	if out.EngineUsed != director.EngineAdvancedFallback || out.EngineStatus == nil || !out.EngineStatus.FallbackUsed || out.EngineStatus.Reason != "sidecar_not_configured" {
+		t.Fatalf("fallback engine status not exposed: used=%q status=%+v", out.EngineUsed, out.EngineStatus)
 	}
 }

@@ -56,10 +56,10 @@ export function JobsTable({
   }
 
   return (
-    <div className="overflow-hidden rounded-xl border border-border/80 bg-card/40">
+    <div className={cn("overflow-hidden", compact ? "bg-transparent" : "rounded-2xl border border-white/12 bg-card/40")}>
       <div className="overflow-x-auto">
         <table className="w-full text-[13px]">
-          <thead className="bg-card/70 text-left text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+          <thead className="bg-card/55 text-left text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
             <tr>
               <th className="px-4 py-2.5 font-mono font-normal">{t.jobs.columns.id}</th>
               <th className="px-4 py-2.5 font-mono font-normal">{t.jobs.columns.status}</th>

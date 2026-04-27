@@ -43,6 +43,26 @@
 - 英文入口：`docs-site/docs/`
 - 零基础专页：`non-coder-guide`（中/英各一份）
 
+## 产品内使用 / 下载入口要求
+
+面向用户的 Dashboard、Director、任务结果页、API 文档页需要保持同一套入口命名，避免用户生成完成后找不到下一步：
+
+| 场景 | 必须提供的入口 | 指向 |
+|------|----------------|------|
+| 首次进入控制台 | `Quickstart` / `快速开始` | 对外文档站快速开始页 |
+| API 对接 | `API docs` / `API 文档` | OpenAPI/Mintlify 或 Docusaurus API 入口 |
+| Director 空状态 | `Director guide` / `导演模式指南` | Director 使用文档或模块说明摘要 |
+| 任务成功 | `Download` / `下载`、`Open workflow` / `打开工作流`、`Use via API` / `通过 API 使用` | 稳定资产 URL、Canvas 工作流、对应 API 示例 |
+| 任务失败/降级 | `Troubleshooting` / `排查指南` | 错误、模型配置、fallback 说明 |
+| 管理员配置缺失 | `Provider setup` / `模型配置` | Admin AI providers 设置说明 |
+
+验收标准：
+
+- 下载入口必须出现在完成态资产旁边，不能只藏在详情页或日志里。
+- 使用文档入口必须出现在空状态、错误态、降级态和成功态中至少一个相关位置。
+- 英文和中文文案同时维护；新增用户可见入口时同步更新 i18n 消息和文档索引。
+- 如果某入口暂未实现，UI/文档必须标注为 `Preview` / `预览` 或 `Coming soon` / `即将推出`，不能伪装成可用能力。
+
 ---
 
 ## 与代码同步

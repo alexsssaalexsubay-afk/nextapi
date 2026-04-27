@@ -138,6 +138,15 @@ func (h *WorkflowHandlers) Run(c *gin.Context) {
 		h.handleWorkflowError(c, err)
 		return
 	}
+	if res.TaskID != "" {
+		c.Set("created_job_id", res.TaskID)
+	}
+	if len(res.JobIDs) > 0 {
+		c.Set("created_job_id", res.JobIDs[0])
+	}
+	if res.BatchRunID != "" {
+		c.Set("created_batch_run_id", res.BatchRunID)
+	}
 	c.JSON(http.StatusAccepted, res)
 }
 

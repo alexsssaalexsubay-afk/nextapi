@@ -110,7 +110,7 @@ func setupProcessorDB(t *testing.T) *gorm.DB {
 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP)`)
 	db.Exec(`CREATE TABLE IF NOT EXISTS workflow_runs (
 		id TEXT PRIMARY KEY, workflow_id TEXT NOT NULL, org_id TEXT NOT NULL,
-		job_id TEXT NOT NULL, video_id TEXT, status TEXT NOT NULL DEFAULT 'queued',
+		job_id TEXT, batch_run_id TEXT, video_id TEXT, status TEXT NOT NULL DEFAULT 'queued',
 		input_snapshot BLOB NOT NULL DEFAULT '{}', output_snapshot BLOB,
 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME)`)
 	return db
@@ -151,6 +151,21 @@ func insertQueuedJob(t *testing.T, db *gorm.DB, orgID string, reserved int64) st
 		DeltaCredits: reserved,
 		Reason:       domain.ReasonTopup,
 	})
+	return id
+}
+
+func insertQueuedBatchJob(t *testing.T, db *gorm.DB, orgID, batchRunID string, reserved int64) string {
+	t.Helper()
+	req, _ := json.Marshal(provider.GenerationRequest{
+		Prompt: "batch shot", DurationSeconds: 5, Resolution: "480p", Mode: "fast",
+	})
+	id := fmt.Sprintf("job_%d", time.Now().UnixNano())
+	if err := db.Exec(
+		`INSERT INTO jobs (id, org_id, batch_run_id, status, reserved_credits, request, provider) VALUES (?, ?, ?, 'queued', ?, ?, 'mock')`,
+		id, orgID, batchRunID, reserved, req,
+	).Error; err != nil {
+		t.Fatal(err)
+	}
 	return id
 }
 
@@ -441,6 +456,72 @@ func TestHandlePoll_ProviderSucceeded_UnderestimatedReservation(t *testing.T) {
 	if balAfter != balBefore-expectedDebit {
 		t.Fatalf("expected -%d cents debit on shortfall: before=%d after=%d",
 			expectedDebit, balBefore, balAfter)
+	}
+}
+
+func TestBatchWorkflowRunClosesAfterAllJobsSucceed(t *testing.T) {
+	db := setupProcessorDB(t)
+	prov := &controlledProvider{}
+	proc, _ := newProcessorWithRedis(t, db, prov)
+
+	const orgID = "org_batch"
+	const batchID = "batch_all_success"
+	if err := db.Exec(`INSERT INTO batch_runs (id, org_id, status, total_shots, queued_count, running_count, succeeded_count, failed_count)
+		VALUES (?, ?, 'running', 2, 2, 0, 0, 0)`, batchID, orgID).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Exec(`INSERT INTO workflow_runs (id, workflow_id, org_id, batch_run_id, status, input_snapshot)
+		VALUES ('wr_batch_ok', 'wf_batch_ok', ?, ?, 'running', ?)`, orgID, batchID, []byte("{}")).Error; err != nil {
+		t.Fatal(err)
+	}
+	jobOne := insertQueuedBatchJob(t, db, orgID, batchID, 1_000)
+	time.Sleep(time.Nanosecond)
+	jobTwo := insertQueuedBatchJob(t, db, orgID, batchID, 1_000)
+
+	if err := proc.HandleGenerate(context.Background(), makeGenerateTask(jobOne)); err != nil {
+		t.Fatalf("HandleGenerate job one: %v", err)
+	}
+	var br domain.BatchRun
+	if err := db.First(&br, "id = ?", batchID).Error; err != nil {
+		t.Fatal(err)
+	}
+	if br.QueuedCount != 1 || br.RunningCount != 1 {
+		t.Fatalf("after first start counts = queued:%d running:%d; want 1/1", br.QueuedCount, br.RunningCount)
+	}
+	if err := proc.HandlePoll(context.Background(), makePollTask(jobOne)); err != nil {
+		t.Fatalf("HandlePoll job one: %v", err)
+	}
+	if err := db.First(&br, "id = ?", batchID).Error; err != nil {
+		t.Fatal(err)
+	}
+	if br.Status != "running" || br.QueuedCount != 1 || br.RunningCount != 0 || br.SucceededCount != 1 {
+		t.Fatalf("after first success batch = %#v; want running queued=1 running=0 succeeded=1", br)
+	}
+	var run domain.WorkflowRun
+	if err := db.First(&run, "id = ?", "wr_batch_ok").Error; err != nil {
+		t.Fatal(err)
+	}
+	if run.Status != "running" {
+		t.Fatalf("workflow run closed too early: %s", run.Status)
+	}
+
+	if err := proc.HandleGenerate(context.Background(), makeGenerateTask(jobTwo)); err != nil {
+		t.Fatalf("HandleGenerate job two: %v", err)
+	}
+	if err := proc.HandlePoll(context.Background(), makePollTask(jobTwo)); err != nil {
+		t.Fatalf("HandlePoll job two: %v", err)
+	}
+	if err := db.First(&br, "id = ?", batchID).Error; err != nil {
+		t.Fatal(err)
+	}
+	if br.Status != "completed" || br.QueuedCount != 0 || br.RunningCount != 0 || br.SucceededCount != 2 {
+		t.Fatalf("closed batch = %#v; want completed queued=0 running=0 succeeded=2", br)
+	}
+	if err := db.First(&run, "id = ?", "wr_batch_ok").Error; err != nil {
+		t.Fatal(err)
+	}
+	if run.Status != "succeeded" || len(run.OutputSnapshot) == 0 {
+		t.Fatalf("workflow run not closed with batch: %#v", run)
 	}
 }
 

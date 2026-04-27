@@ -41,13 +41,66 @@ func (r *Runner) GenerateStoryboard(ctx context.Context, in director.GenerateSho
 	if r.endpointURL != "" {
 		out, err := r.runSidecar(ctx, in)
 		if err == nil {
-			return normalizeStoryboard(&out.Storyboard, in)
+			storyboard, err := normalizeStoryboard(&out.Storyboard, in)
+			if err != nil {
+				return nil, err
+			}
+			storyboard.EngineUsed = director.EngineAdvancedSidecar
+			storyboard.EngineStatus = &director.EngineStatus{
+				RequestedEngine:   director.EngineAdvancedRequested,
+				EngineUsed:        director.EngineAdvancedSidecar,
+				FallbackUsed:      false,
+				FallbackEnabled:   r.allowFallback,
+				SidecarConfigured: true,
+				SidecarHealthy:    true,
+			}
+			return storyboard, nil
 		}
 		if !r.allowFallback {
 			return nil, fmt.Errorf("%w: %v", director.ErrPlannerUnavailable, err)
 		}
+		return r.runProviderManagedFallbackWithStatus(ctx, in, deps, "sidecar_unavailable", true)
 	}
-	return r.runProviderManagedFallback(ctx, in, deps)
+	return r.runProviderManagedFallbackWithStatus(ctx, in, deps, "sidecar_not_configured", false)
+}
+
+func (r *Runner) RuntimeStatus(ctx context.Context) director.EngineStatus {
+	status := director.EngineStatus{
+		RequestedEngine:   director.EngineAdvancedRequested,
+		EngineUsed:        director.EngineAdvancedFallback,
+		FallbackUsed:      true,
+		FallbackEnabled:   r.allowFallback,
+		SidecarConfigured: r.endpointURL != "",
+		SidecarHealthy:    false,
+	}
+	if r.endpointURL == "" {
+		status.Reason = "sidecar_not_configured"
+		return status
+	}
+	healthCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+	req, err := http.NewRequestWithContext(healthCtx, http.MethodGet, strings.TrimRight(r.endpointURL, "/")+"/health", nil)
+	if err != nil {
+		status.Reason = "health_request_failed"
+		return status
+	}
+	if r.runtimeToken != "" {
+		req.Header.Set("X-Director-Sidecar-Token", r.runtimeToken)
+	}
+	resp, err := r.http.Do(req)
+	if err != nil {
+		status.Reason = "sidecar_unreachable"
+		return status
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		status.Reason = "sidecar_unhealthy"
+		return status
+	}
+	status.EngineUsed = director.EngineAdvancedSidecar
+	status.FallbackUsed = false
+	status.SidecarHealthy = true
+	return status
 }
 
 func (r *Runner) runSidecar(ctx context.Context, in director.GenerateShotsInput) (*RunResponse, error) {
@@ -121,6 +174,24 @@ func (r *Runner) runProviderManagedFallback(ctx context.Context, in director.Gen
 		return nil, director.ErrInvalidStoryboard
 	}
 	return normalizeStoryboard(&out, in)
+}
+
+func (r *Runner) runProviderManagedFallbackWithStatus(ctx context.Context, in director.GenerateShotsInput, deps director.PlannerDeps, reason string, sidecarConfigured bool) (*director.Storyboard, error) {
+	out, err := r.runProviderManagedFallback(ctx, in, deps)
+	if err != nil {
+		return nil, err
+	}
+	out.EngineUsed = director.EngineAdvancedFallback
+	out.EngineStatus = &director.EngineStatus{
+		RequestedEngine:   director.EngineAdvancedRequested,
+		EngineUsed:        director.EngineAdvancedFallback,
+		FallbackUsed:      true,
+		FallbackEnabled:   r.allowFallback,
+		SidecarConfigured: sidecarConfigured,
+		SidecarHealthy:    false,
+		Reason:            reason,
+	}
+	return out, nil
 }
 
 func normalizeStoryboard(out *director.Storyboard, in director.GenerateShotsInput) (*director.Storyboard, error) {

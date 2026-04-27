@@ -12,11 +12,12 @@ const (
 )
 
 type Definition struct {
-	ID    string `json:"id,omitempty"`
-	Name  string `json:"name,omitempty"`
-	Model string `json:"model,omitempty"`
-	Nodes []Node `json:"nodes"`
-	Edges []Edge `json:"edges"`
+	ID       string          `json:"id,omitempty"`
+	Name     string          `json:"name,omitempty"`
+	Model    string          `json:"model,omitempty"`
+	Metadata json.RawMessage `json:"metadata,omitempty"`
+	Nodes    []Node          `json:"nodes"`
+	Edges    []Edge          `json:"edges"`
 }
 
 type Node struct {

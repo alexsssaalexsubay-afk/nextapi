@@ -38,8 +38,10 @@ __pycache__/
 .vscode/
 .idea/
 .cursor/
+.autonomous/
 .omc/
 *.swp
+Icon?
 
 # Logs
 *.log

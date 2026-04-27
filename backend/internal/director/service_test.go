@@ -97,6 +97,9 @@ func TestGenerateShotsVimaxEngineUsesPlanner(t *testing.T) {
 	if planner.lastProviderID != "provider_text" || out.Title != "Planned" {
 		t.Fatalf("planner did not receive provider or output: provider=%q out=%+v", planner.lastProviderID, out)
 	}
+	if out.EngineUsed != EngineAdvancedRequested || out.EngineStatus == nil || out.EngineStatus.EngineUsed != EngineAdvancedRequested {
+		t.Fatalf("engine status was not applied: used=%q status=%+v", out.EngineUsed, out.EngineStatus)
+	}
 }
 
 func TestGenerateShotImagesReturnsProviderError(t *testing.T) {

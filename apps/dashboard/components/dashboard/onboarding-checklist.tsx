@@ -141,11 +141,11 @@ export function OnboardingChecklist() {
   return (
     <div
       className={cn(
-        "rounded-xl border border-border/80 bg-card/40 transition-opacity duration-300",
+        "premium-surface overflow-hidden rounded-[28px] transition-opacity duration-300",
         fading && "opacity-0",
       )}
     >
-      <div className="flex items-center justify-between border-b border-border/60 px-5 py-4">
+      <div className="flex items-center justify-between border-b border-white/10 bg-background/30 px-5 py-4">
         <div>
           <h2 className="text-[15px] font-medium tracking-tight text-foreground">
             {t.dashboard.onboarding.title}
@@ -172,18 +172,18 @@ export function OnboardingChecklist() {
         </div>
       </div>
 
-      <ul className="divide-y divide-border/60">
+      <ul className="divide-y divide-white/10">
         {allSteps.map((s) => {
           const Icon = s.icon
           return (
             <li key={s.id}>
-              <div className="flex w-full items-center gap-4 px-5 py-4">
+              <div className="flex w-full items-center gap-4 px-5 py-4 transition-colors hover:bg-card/35">
                 <div
                   className={cn(
-                    "flex size-7 shrink-0 items-center justify-center rounded-full border",
+                    "flex size-8 shrink-0 items-center justify-center rounded-full border shadow-sm backdrop-blur-md",
                     s.done
                       ? "border-status-success/40 bg-status-success/10 text-status-success"
-                      : "border-border bg-background text-muted-foreground",
+                      : "border-white/12 bg-background/55 text-muted-foreground",
                   )}
                 >
                   {s.done ? <Check className="size-3.5" /> : <Icon className="size-3.5" />}

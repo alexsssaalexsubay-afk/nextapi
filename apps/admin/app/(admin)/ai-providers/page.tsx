@@ -4,7 +4,7 @@ import { FormEvent, useCallback, useEffect, useState } from "react"
 import { AdminShell } from "@/components/admin/admin-shell"
 import { OTPDialog, type OTPDialogResult } from "@/components/admin/otp-dialog"
 import { adminFetch, adminFetchWithOTP } from "@/lib/admin-api"
-import { presetByID, presetsForType } from "@/lib/ai-provider-presets"
+import { AI_PROVIDER_PRESETS, presetByID, presetsForType, type AIProviderPreset } from "@/lib/ai-provider-presets"
 import { useTranslations } from "@/lib/i18n/context"
 
 type AIProvider = {
@@ -48,6 +48,9 @@ type AIDirectorEntitlement = {
 type ConfirmedOTP = Extract<OTPDialogResult, { confirmed: true }>
 
 const TYPES = ["text", "image", "video"] as const
+const CAPABILITIES = ["text", "image", "video", "avatar"] as const
+
+type CapabilityKind = (typeof CAPABILITIES)[number]
 
 export default function AIProvidersPage() {
   const t = useTranslations()
@@ -296,6 +299,7 @@ export default function AIProvidersPage() {
                 <div>{directorStatus?.active_vips ?? 0}</div>
               </div>
             </div>
+            <CapabilityMatrix providers={providers} directorStatus={directorStatus} copy={p} />
             <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_120px]">
               <Field label={p.orgID} value={vipOrgID} onChange={setVipOrgID} />
               <button type="button" onClick={() => void loadEntitlement()} className="self-end rounded-full border border-white/12 bg-card/55 px-3 py-2 text-sm shadow-sm backdrop-blur-md">{p.loadVIP}</button>
@@ -336,6 +340,135 @@ export default function AIProvidersPage() {
       </div>
     </AdminShell>
   )
+}
+
+function CapabilityMatrix({
+  providers,
+  directorStatus,
+  copy,
+}: {
+  providers: AIProvider[]
+  directorStatus: AIDirectorAdminStatus | null
+  copy: ReturnType<typeof useTranslations>["admin"]["aiProvidersPage"]
+}) {
+  const hintByCapability: Record<CapabilityKind, string> = {
+    text: copy.missingTextHint,
+    image: copy.missingImageHint,
+    video: copy.missingVideoHint,
+    avatar: copy.missingAvatarHint,
+  }
+
+  return (
+    <div className="mb-5 rounded-3xl border border-white/12 bg-background/35 p-4 shadow-inner backdrop-blur-md">
+      <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h3 className="text-sm font-medium">{copy.modelCoverage}</h3>
+          <p className="mt-1 text-xs text-muted-foreground">{copy.modelCoverageHint}</p>
+        </div>
+      </div>
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        {CAPABILITIES.map((capability) => {
+          const configuredProviders = providers.filter((provider) => providerSupportsCapability(provider, capability))
+          const enabledProviders = configuredProviders.filter((provider) => provider.enabled)
+          const presets = AI_PROVIDER_PRESETS.filter((preset) => presetSupportsCapability(preset, capability))
+          const status = capabilityStatus(capability, enabledProviders, configuredProviders, directorStatus)
+          const defaultModel = capabilityDefaultModel(capability, configuredProviders, directorStatus)
+          const toneClass = status === "live"
+            ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600"
+            : status === "configured"
+              ? "border-amber-500/30 bg-amber-500/10 text-amber-600"
+              : "border-white/12 bg-card/45 text-muted-foreground"
+
+          return (
+            <article key={capability} className="rounded-2xl border border-white/12 bg-card/45 p-3 text-xs shadow-sm backdrop-blur-md">
+              <div className="flex items-center justify-between gap-2">
+                <div className="font-medium">{capabilityLabel(capability, copy)}</div>
+                <span className={`rounded-full border px-2 py-0.5 font-mono text-[10px] ${toneClass}`}>
+                  {status === "live" ? copy.live : status === "configured" ? copy.configuredOnly : copy.notLive}
+                </span>
+              </div>
+              <div className="mt-3 space-y-1.5 text-muted-foreground">
+                <CapabilityLine label={copy.defaultModel} value={defaultModel || copy.noDefault} mono />
+                <CapabilityLine label={copy.enabledProviders} value={String(enabledProviders.length)} />
+                <CapabilityLine label={copy.presetCount} value={String(presets.length)} />
+              </div>
+              <p className="mt-3 min-h-10 text-[11px] leading-relaxed text-muted-foreground">
+                {status === "live" ? copy.readyHint : hintByCapability[capability]}
+              </p>
+              <div className="mt-3 border-t border-border/60 pt-3">
+                <div className="mb-2 font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">{copy.presets}</div>
+                <div className="flex flex-wrap gap-1.5">
+                  {presets.slice(0, 3).map((preset) => (
+                    <span key={preset.id} className="rounded-full border border-white/12 bg-background/45 px-2 py-0.5 text-[10px] text-foreground">
+                      {preset.model}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </article>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+function CapabilityLine({ label, value, mono = false }: { label: string; value: string; mono?: boolean }) {
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <span>{label}</span>
+      <span className={mono ? "max-w-32 truncate font-mono text-[10px] text-foreground" : "font-medium text-foreground"}>
+        {value}
+      </span>
+    </div>
+  )
+}
+
+function capabilityLabel(capability: CapabilityKind, copy: ReturnType<typeof useTranslations>["admin"]["aiProvidersPage"]) {
+  if (capability === "avatar") return copy.avatar
+  return copy[capability]
+}
+
+function capabilityStatus(
+  capability: CapabilityKind,
+  enabledProviders: AIProvider[],
+  configuredProviders: AIProvider[],
+  directorStatus: AIDirectorAdminStatus | null,
+): "live" | "configured" | "missing" {
+  const directorProvider = capability === "avatar" ? null : directorStatus?.providers.find((item) => item.type === capability)
+  if (directorProvider?.configured || enabledProviders.some((provider) => provider.is_default)) return "live"
+  if (enabledProviders.length > 0 || configuredProviders.length > 0) return "configured"
+  return "missing"
+}
+
+function capabilityDefaultModel(
+  capability: CapabilityKind,
+  configuredProviders: AIProvider[],
+  directorStatus: AIDirectorAdminStatus | null,
+) {
+  if (capability !== "avatar") {
+    const directorProvider = directorStatus?.providers.find((item) => item.type === capability)
+    if (directorProvider?.model) return directorProvider.model
+  }
+  return configuredProviders.find((provider) => provider.is_default)?.model ?? configuredProviders[0]?.model ?? ""
+}
+
+function providerSupportsCapability(provider: AIProvider, capability: CapabilityKind) {
+  if (capability === "avatar") return isAvatarModel(provider.model, provider.name, provider.config_json)
+  if (capability === "video") return provider.type === "video" && !isAvatarModel(provider.model, provider.name, provider.config_json)
+  return provider.type === capability
+}
+
+function presetSupportsCapability(preset: AIProviderPreset, capability: CapabilityKind) {
+  if (capability === "avatar") return isAvatarModel(preset.model, preset.label, { capability: preset.capability })
+  if (capability === "video") return preset.type === "video" && !isAvatarModel(preset.model, preset.label, { capability: preset.capability })
+  return preset.type === capability
+}
+
+function isAvatarModel(model: string, name: string, config?: Record<string, unknown>) {
+  const capability = typeof config?.capability === "string" ? config.capability : ""
+  const haystack = `${model} ${name} ${capability}`.toLowerCase()
+  return haystack.includes("avatar") || haystack.includes("omnihuman") || haystack.includes("digital human") || haystack.includes("数字人")
 }
 
 function Field({ label, value, type = "text", onChange }: { label: string; value: string; type?: string; onChange: (v: string) => void }) {

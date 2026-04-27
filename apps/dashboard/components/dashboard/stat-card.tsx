@@ -1,3 +1,4 @@
+import type { ComponentType } from "react"
 import { cn } from "@/lib/utils"
 
 export function StatCard({
@@ -7,6 +8,8 @@ export function StatCard({
   trend,
   caption,
   sparkline,
+  icon: Icon,
+  tone = "signal",
   className,
 }: {
   label: string
@@ -15,14 +18,34 @@ export function StatCard({
   trend?: { value: string; positive?: boolean }
   caption?: string
   sparkline?: number[]
+  icon?: ComponentType<{ className?: string }>
+  tone?: "signal" | "success" | "warn" | "muted"
   className?: string
 }) {
   return (
-    <div className={cn("premium-surface flex flex-col gap-3 overflow-hidden rounded-3xl p-5", className)}>
+    <div className={cn("premium-surface relative flex min-h-40 flex-col gap-3 overflow-hidden rounded-3xl p-5", className)}>
+      <div aria-hidden className={cn(
+        "pointer-events-none absolute -right-10 -top-10 size-28 rounded-full blur-2xl",
+        tone === "signal" && "bg-signal/18",
+        tone === "success" && "bg-status-success/16",
+        tone === "warn" && "bg-status-running/16",
+        tone === "muted" && "bg-muted-foreground/10",
+      )} />
       <div className="flex items-center justify-between">
         <span className="font-mono text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
           {label}
         </span>
+        {Icon && (
+          <span className={cn(
+            "flex size-8 items-center justify-center rounded-2xl border border-white/12 bg-background/55 shadow-sm backdrop-blur-md",
+            tone === "success" && "text-status-success",
+            tone === "warn" && "text-status-running",
+            tone === "muted" && "text-muted-foreground",
+            tone === "signal" && "text-signal",
+          )}>
+            <Icon className="size-4" />
+          </span>
+        )}
         {trend && (
           <span
             className={cn(

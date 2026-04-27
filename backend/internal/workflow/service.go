@@ -262,6 +262,7 @@ func (s *Service) Run(ctx context.Context, workflowID string, in RunInput) (*Run
 		VideoID:            video.ID,
 		Status:             video.Status,
 		EstimatedCostCents: res.EstimatedCredits,
+		JobIDs:             []string{res.JobID},
 	}, nil
 }
 
@@ -298,13 +299,9 @@ func (s *Service) runBatch(ctx context.Context, row *domain.Workflow, in RunInpu
 	}
 	run.Status = "running"
 	run.BatchRunID = &res.BatchRunID
-	if len(res.JobIDs) > 0 {
-		run.JobID = &res.JobIDs[0]
-	}
 	if err := s.db.WithContext(ctx).Model(&domain.WorkflowRun{}).Where("id = ?", run.ID).Updates(map[string]any{
 		"status":       run.Status,
 		"batch_run_id": run.BatchRunID,
-		"job_id":       run.JobID,
 	}).Error; err != nil {
 		return nil, err
 	}
