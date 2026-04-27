@@ -7,9 +7,21 @@ import (
 	"testing"
 
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/domain"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/videomerge"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
+
+func TestMergeEnabledReflectsServiceWiring(t *testing.T) {
+	svc := NewService(nil, nil)
+	if svc.MergeEnabled() {
+		t.Fatal("merge should be disabled before merge service is wired")
+	}
+	svc.SetMergeService(videomerge.NewService(nil))
+	if !svc.MergeEnabled() {
+		t.Fatal("merge should be enabled after merge service is wired")
+	}
+}
 
 func TestServiceVersioning(t *testing.T) {
 	db := setupServiceTestDB(t)

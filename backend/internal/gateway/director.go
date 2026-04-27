@@ -9,7 +9,6 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"os"
 	"strings"
 	"time"
 
@@ -341,7 +340,7 @@ func (h *DirectorHandlers) directorStatus(ctx context.Context, orgID string) (*d
 		Entitled:                entitled,
 		TextProviderConfigured:  textConfigured,
 		ImageProviderConfigured: imageConfigured,
-		MergeEnabled:            os.Getenv("VIDEO_MERGE_ENABLED") == "true",
+		MergeEnabled:            h.WorkflowSvc.MergeEnabled(),
 		Runtime:                 h.Service.RuntimeStatus(ctx),
 		UsageNotice:             "AI Director can use text, image, and video generation. VIP access unlocks the workspace, but every live generation still consumes credits.",
 	}

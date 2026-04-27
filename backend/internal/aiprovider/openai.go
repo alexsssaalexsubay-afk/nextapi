@@ -7,6 +7,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -63,15 +64,36 @@ func (r *Runtime) TestProvider(ctx context.Context, providerID string) error {
 	case domain.AIProviderTypeImage:
 		_, err = r.GenerateImageWithProvider(ctx, prov.ID, "simple gray square", ImageOptions{Resolution: "1024x1024"})
 	case domain.AIProviderTypeVideo:
-		videoProvider := strings.TrimSpace(prov.Provider)
-		if videoProvider != "seedance-relay" && videoProvider != "uptoken-seedance" {
-			err = ErrInvalidProvider
-		}
+		err = validateVideoRuntimeProvider(*prov)
 	default:
 		err = ErrInvalidProvider
 	}
 	if err != nil {
 		return err
+	}
+	return nil
+}
+
+func validateVideoRuntimeProvider(prov domain.AIProvider) error {
+	videoProvider := strings.TrimSpace(prov.Provider)
+	if videoProvider != "seedance-relay" && videoProvider != "uptoken-seedance" {
+		return ErrInvalidProvider
+	}
+	if strings.TrimSpace(prov.Model) == "" {
+		return ErrInvalidProvider
+	}
+	mode := strings.ToLower(strings.TrimSpace(os.Getenv("PROVIDER_MODE")))
+	switch mode {
+	case "seedance_relay", "seedance-relay", "relay", "uptoken":
+		if strings.TrimSpace(os.Getenv("SEEDANCE_RELAY_API_KEY")) == "" && strings.TrimSpace(os.Getenv("UPTOKEN_API_KEY")) == "" {
+			return ErrProviderDisabled
+		}
+	case "live":
+		if strings.TrimSpace(os.Getenv("VOLC_API_KEY")) == "" {
+			return ErrProviderDisabled
+		}
+	default:
+		return ErrProviderDisabled
 	}
 	return nil
 }

@@ -36,6 +36,8 @@ func (s *Service) SetBatchService(batches *batchsvc.Service) { s.batches = batch
 
 func (s *Service) SetMergeService(merges *videomerge.Service) { s.merges = merges }
 
+func (s *Service) MergeEnabled() bool { return s != nil && s.merges != nil }
+
 type CreateInput struct {
 	OrgID        string
 	ProjectID    *string
