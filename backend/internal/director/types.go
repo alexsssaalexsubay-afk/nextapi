@@ -8,6 +8,7 @@ type CharacterInput struct {
 
 type GenerateShotsInput struct {
 	OrgID           string           `json:"-"`
+	Engine          string           `json:"engine,omitempty"`
 	Story           string           `json:"story"`
 	Genre           string           `json:"genre"`
 	Style           string           `json:"style"`

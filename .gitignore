@@ -29,6 +29,11 @@ coverage/
 *.out
 coverage.out
 
+# Python
+__pycache__/
+*.py[cod]
+.venv-director/
+
 # Editor / tools
 .vscode/
 .idea/

@@ -10,13 +10,15 @@ import (
 )
 
 type fakeText struct {
-	responses []string
-	err       error
-	calls     int
+	responses      []string
+	err            error
+	calls          int
+	lastProviderID string
 }
 
 func (f *fakeText) GenerateTextWithProvider(ctx context.Context, providerID string, messages []aiprovider.Message, options aiprovider.TextOptions) (aiprovider.TextResult, error) {
 	f.calls++
+	f.lastProviderID = providerID
 	if f.err != nil {
 		return aiprovider.TextResult{}, f.err
 	}
@@ -26,6 +28,35 @@ func (f *fakeText) GenerateTextWithProvider(ctx context.Context, providerID stri
 	out := f.responses[0]
 	f.responses = f.responses[1:]
 	return aiprovider.TextResult{Text: out}, nil
+}
+
+type fakeImage struct {
+	err            error
+	calls          int
+	lastProviderID string
+}
+
+func (f *fakeImage) GenerateImageWithProvider(ctx context.Context, providerID string, prompt string, options aiprovider.ImageOptions) (aiprovider.ImageResult, error) {
+	f.calls++
+	f.lastProviderID = providerID
+	if f.err != nil {
+		return aiprovider.ImageResult{}, f.err
+	}
+	return aiprovider.ImageResult{ImageURL: "https://cdn.nextapi.test/shot.png"}, nil
+}
+
+type fakePlanner struct {
+	calls          int
+	lastProviderID string
+}
+
+func (f *fakePlanner) GenerateStoryboard(ctx context.Context, in GenerateShotsInput, deps PlannerDeps) (*Storyboard, error) {
+	f.calls++
+	f.lastProviderID = in.TextProviderID
+	if deps.Text == nil {
+		return nil, ErrPlannerUnavailable
+	}
+	return &Storyboard{Title: "Planned", Summary: "ViMax-managed plan", Shots: []Shot{{ShotIndex: 1, Title: "A", Duration: 4, Scene: "S", Camera: "push", Emotion: "calm", Action: "act", VideoPrompt: "video", ImagePrompt: "image", ReferenceAssets: []string{}}}}, nil
 }
 
 func TestGenerateShotsValidatesAndRepairs(t *testing.T) {
@@ -48,6 +79,39 @@ func TestGenerateShotsProviderFailure(t *testing.T) {
 	svc := NewService(&fakeText{err: errors.New("provider down")})
 	if _, err := svc.GenerateShots(context.Background(), GenerateShotsInput{Story: "x"}); err == nil {
 		t.Fatal("expected provider error")
+	}
+}
+
+func TestGenerateShotsVimaxEngineUsesPlanner(t *testing.T) {
+	ft := &fakeText{}
+	planner := &fakePlanner{}
+	svc := NewService(ft)
+	svc.SetStoryPlanner(planner)
+	out, err := svc.GenerateShots(context.Background(), GenerateShotsInput{Engine: "advanced", Story: "make a short film", ShotCount: 1, DurationPerShot: 4, TextProviderID: "provider_text"})
+	if err != nil {
+		t.Fatalf("GenerateShots: %v", err)
+	}
+	if planner.calls != 1 || ft.calls != 0 {
+		t.Fatalf("planner/text calls = %d/%d, want 1/0", planner.calls, ft.calls)
+	}
+	if planner.lastProviderID != "provider_text" || out.Title != "Planned" {
+		t.Fatalf("planner did not receive provider or output: provider=%q out=%+v", planner.lastProviderID, out)
+	}
+}
+
+func TestGenerateShotImagesReturnsProviderError(t *testing.T) {
+	img := &fakeImage{err: errors.New("image provider down")}
+	svc := NewService(&fakeText{})
+	svc.SetImageGenerator(img)
+	_, err := svc.GenerateShotImages(context.Background(), GenerateShotImagesInput{
+		ImageProviderID: "provider_image",
+		Shots:           []Shot{{ShotIndex: 1, ImagePrompt: "reference image"}},
+	})
+	if !errors.Is(err, ErrImageGenerationFailed) {
+		t.Fatalf("err=%v want ErrImageGenerationFailed", err)
+	}
+	if img.lastProviderID != "provider_image" {
+		t.Fatalf("provider=%q want provider_image", img.lastProviderID)
 	}
 }
 

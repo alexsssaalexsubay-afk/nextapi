@@ -72,7 +72,6 @@ func (h *DirectorHandlers) GenerateShots(c *gin.Context) {
 		return
 	}
 	req.OrgID = org.ID
-	req.TextProviderID = ""
 	out, err := h.Service.GenerateShots(c.Request.Context(), req)
 	if err != nil {
 		handleDirectorError(c, err)
@@ -129,13 +128,16 @@ func (h *DirectorHandlers) RunDirectorMode(c *gin.Context) {
 		return
 	}
 	var req struct {
-		Story          string                   `json:"story" binding:"required"`
-		Genre          string                   `json:"genre"`
-		Style          string                   `json:"style"`
-		ShotCount      int                      `json:"shot_count"`
-		Duration       int                      `json:"duration_per_shot"`
-		GenerateImages bool                     `json:"generate_images"`
-		Options        director.WorkflowOptions `json:"options"`
+		Story           string                   `json:"story" binding:"required"`
+		Engine          string                   `json:"engine"`
+		Genre           string                   `json:"genre"`
+		Style           string                   `json:"style"`
+		ShotCount       int                      `json:"shot_count"`
+		Duration        int                      `json:"duration_per_shot"`
+		GenerateImages  bool                     `json:"generate_images"`
+		TextProviderID  string                   `json:"text_provider_id"`
+		ImageProviderID string                   `json:"image_provider_id"`
+		Options         director.WorkflowOptions `json:"options"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		httpx.BadRequest(c, "invalid_request", "invalid request body")
@@ -143,11 +145,13 @@ func (h *DirectorHandlers) RunDirectorMode(c *gin.Context) {
 	}
 	shotsReq := director.GenerateShotsInput{
 		OrgID:           org.ID,
+		Engine:          req.Engine,
 		Story:           req.Story,
 		Genre:           req.Genre,
 		Style:           req.Style,
 		ShotCount:       req.ShotCount,
 		DurationPerShot: req.Duration,
+		TextProviderID:  req.TextProviderID,
 	}
 	storyboard, err := h.Service.GenerateShots(c.Request.Context(), shotsReq)
 	if err != nil {
@@ -159,25 +163,29 @@ func (h *DirectorHandlers) RunDirectorMode(c *gin.Context) {
 			return
 		}
 		generated, imgErr := h.Service.GenerateShotImages(c.Request.Context(), director.GenerateShotImagesInput{
-			OrgID:      org.ID,
-			Style:      req.Style,
-			Resolution: req.Options.Resolution,
-			Shots:      storyboard.Shots,
+			OrgID:           org.ID,
+			ImageProviderID: req.ImageProviderID,
+			Style:           req.Style,
+			Resolution:      req.Options.Resolution,
+			Shots:           storyboard.Shots,
 		})
-		if imgErr == nil {
-			storyboard.Shots = generated
-			if h.R2 != nil && h.DB != nil {
-				for i := range storyboard.Shots {
-					if storyboard.Shots[i].ReferenceImageURL == "" {
-						continue
-					}
-					id, url, saveErr := h.persistGeneratedImage(c.Request.Context(), org.ID, storyboard.Shots[i].ReferenceImageURL)
-					if saveErr != nil {
-						continue
-					}
-					storyboard.Shots[i].ReferenceImageAssetID = id
-					storyboard.Shots[i].ReferenceImageURL = url
+		if imgErr != nil {
+			handleDirectorError(c, imgErr)
+			return
+		}
+		storyboard.Shots = generated
+		if h.R2 != nil && h.DB != nil {
+			for i := range storyboard.Shots {
+				if storyboard.Shots[i].ReferenceImageURL == "" {
+					continue
 				}
+				id, url, saveErr := h.persistGeneratedImage(c.Request.Context(), org.ID, storyboard.Shots[i].ReferenceImageURL)
+				if saveErr != nil {
+					handleDirectorError(c, director.ErrImageGenerationFailed)
+					return
+				}
+				storyboard.Shots[i].ReferenceImageAssetID = id
+				storyboard.Shots[i].ReferenceImageURL = url
 			}
 		}
 	}
@@ -225,7 +233,6 @@ func (h *DirectorHandlers) GenerateShotImages(c *gin.Context) {
 		return
 	}
 	req.OrgID = org.ID
-	req.ImageProviderID = ""
 	for i := range req.Shots {
 		req.Shots[i].ReferenceImageURL = ""
 		req.Shots[i].ReferenceImageAssetID = ""
@@ -413,6 +420,10 @@ func handleDirectorError(c *gin.Context, err error) {
 	switch {
 	case errors.Is(err, director.ErrInvalidInput), errors.Is(err, director.ErrInvalidStoryboard):
 		httpx.BadRequest(c, "invalid_request", "invalid request body")
+	case errors.Is(err, director.ErrPlannerUnavailable):
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": gin.H{"code": "director_runtime_unavailable", "message": "director runtime is unavailable"}})
+	case errors.Is(err, director.ErrImageGenerationFailed):
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": gin.H{"code": "director_image_failed", "message": "director image generation failed"}})
 	case errors.Is(err, aiprovider.ErrProviderNotFound):
 		httpx.BadRequest(c, "provider_not_found", "provider not found")
 	case errors.Is(err, aiprovider.ErrProviderDisabled), errors.Is(err, aiprovider.ErrInvalidProvider):

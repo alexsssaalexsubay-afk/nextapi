@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/abuse"
@@ -13,6 +14,7 @@ import (
 	batchsvc "github.com/alexsssaalexsubay-afk/nextapi/backend/internal/batch"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/billing"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/director"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/director/vimaxruntime"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/gateway"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/idempotency"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/infra/config"
@@ -95,6 +97,13 @@ func main() {
 	aiRuntime := aiprovider.NewRuntime(aiProviderSvc)
 	directorSvc := director.NewService(aiRuntime)
 	directorSvc.SetImageGenerator(aiRuntime)
+	directorSvc.SetStoryPlanner(vimaxruntime.NewRunner(vimaxruntime.RunnerConfig{
+		EndpointURL:     os.Getenv("VIMAX_RUNTIME_URL"),
+		RuntimeToken:    os.Getenv("DIRECTOR_SIDECAR_TOKEN"),
+		CallbackBaseURL: envOr("DIRECTOR_RUNTIME_CALLBACK_URL", "http://127.0.0.1:8080/v1/internal/director-runtime"),
+		CallbackToken:   os.Getenv("DIRECTOR_RUNTIME_TOKEN"),
+		AllowFallback:   os.Getenv("VIMAX_RUNTIME_DISABLE_FALLBACK") != "true",
+	}))
 
 	notifier := notify.New()
 
@@ -148,6 +157,11 @@ func main() {
 
 	v1 := r.Group("/v1")
 	v1.GET("/health", okJSON)
+	drh := &gateway.DirectorRuntimeHandlers{Text: aiRuntime, Image: aiRuntime, Token: os.Getenv("DIRECTOR_RUNTIME_TOKEN")}
+	directorRuntime := v1.Group("/internal/director-runtime")
+	directorRuntime.Use(ratelimit.Middleware(rl, 300, time.Minute))
+	directorRuntime.POST("/text", drh.TextCompletion)
+	directorRuntime.POST("/image", drh.ImageGeneration)
 	v1.POST("/webhooks/clerk", hook.Handle)
 	v1.POST("/webhooks/payments/:provider", ph.Webhook)
 	// Sales inquiry — public, costs us a notification round-trip per call,
@@ -449,4 +463,11 @@ func main() {
 
 func okJSON(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"status": "ok"})
+}
+
+func envOr(key, fallback string) string {
+	if v := strings.TrimSpace(os.Getenv(key)); v != "" {
+		return v
+	}
+	return fallback
 }

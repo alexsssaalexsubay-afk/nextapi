@@ -34,6 +34,7 @@ export default function DirectorPage() {
     setWorkflowID(null)
     try {
       const next = await generateDirectorShots({
+        engine: "advanced",
         story,
         genre,
         style,
@@ -91,6 +92,7 @@ export default function DirectorPage() {
     setWorkflowID(null)
     try {
       const res = await runBackendDirectorPipeline({
+        engine: "advanced",
         story,
         genre,
         style,

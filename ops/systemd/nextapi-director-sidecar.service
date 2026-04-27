@@ -1,0 +1,20 @@
+[Unit]
+Description=NextAPI Director Runtime Sidecar
+After=network-online.target nextapi-server.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=deploy
+WorkingDirectory=/opt/nextapi
+EnvironmentFile=/opt/nextapi/.env
+Environment=NEXTAPI_REPO_ROOT=/opt/nextapi
+ExecStart=/opt/nextapi/.venv-director/bin/uvicorn services.director_sidecar.app:app --host 127.0.0.1 --port 8091
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target

@@ -12,8 +12,10 @@ import (
 )
 
 var (
-	ErrInvalidInput      = errors.New("invalid_director_input")
-	ErrInvalidStoryboard = errors.New("invalid_storyboard")
+	ErrInvalidInput          = errors.New("invalid_director_input")
+	ErrInvalidStoryboard     = errors.New("invalid_storyboard")
+	ErrPlannerUnavailable    = errors.New("director_planner_unavailable")
+	ErrImageGenerationFailed = errors.New("director_image_generation_failed")
 )
 
 type TextGenerator interface {
@@ -25,8 +27,9 @@ type ImageGenerator interface {
 }
 
 type Service struct {
-	text  TextGenerator
-	image ImageGenerator
+	text    TextGenerator
+	image   ImageGenerator
+	planner StoryPlanner
 }
 
 func NewService(text TextGenerator) *Service {
@@ -35,10 +38,27 @@ func NewService(text TextGenerator) *Service {
 
 func (s *Service) SetImageGenerator(image ImageGenerator) { s.image = image }
 
+type StoryPlanner interface {
+	GenerateStoryboard(ctx context.Context, in GenerateShotsInput, deps PlannerDeps) (*Storyboard, error)
+}
+
+type PlannerDeps struct {
+	Text  TextGenerator
+	Image ImageGenerator
+}
+
+func (s *Service) SetStoryPlanner(planner StoryPlanner) { s.planner = planner }
+
 func (s *Service) GenerateShots(ctx context.Context, in GenerateShotsInput) (*Storyboard, error) {
 	normalized, err := normalizeInput(in)
 	if err != nil {
 		return nil, err
+	}
+	if normalized.Engine == "advanced" {
+		if s.planner == nil {
+			return nil, ErrPlannerUnavailable
+		}
+		return s.planner.GenerateStoryboard(ctx, normalized, PlannerDeps{Text: s.text, Image: s.image})
 	}
 	messages := []aiprovider.Message{
 		{Role: "system", Content: systemPrompt},
@@ -115,7 +135,7 @@ func BuildWorkflowFromShots(storyboard Storyboard, options WorkflowOptions) (jso
 	outputData, _ := json.Marshal(map[string]any{"label": "Output preview"})
 	outputID := "output"
 	if options.EnableMerge {
-		mergeData, _ := json.Marshal(map[string]any{"label": "Merge", "status": "disabled"})
+		mergeData, _ := json.Marshal(map[string]any{"label": "Merge", "mode": "auto"})
 		mergeID := "merge"
 		nodes = append(nodes,
 			workflow.Node{ID: mergeID, Type: workflow.NodeVideoMerge, Position: position(len(storyboard.Shots)*360+260, 180), Data: mergeData},
@@ -179,7 +199,7 @@ func (s *Service) GenerateShotImages(ctx context.Context, in GenerateShotImagesI
 			Style:      in.Style,
 		})
 		if err != nil {
-			continue
+			return nil, fmt.Errorf("%w: image generation failed", ErrImageGenerationFailed)
 		}
 		out[i].ReferenceImageURL = img.ImageURL
 	}
@@ -194,6 +214,13 @@ func position(x, y int) json.RawMessage {
 func normalizeInput(in GenerateShotsInput) (GenerateShotsInput, error) {
 	in.Story = strings.TrimSpace(in.Story)
 	if in.Story == "" {
+		return in, ErrInvalidInput
+	}
+	in.Engine = strings.TrimSpace(in.Engine)
+	if in.Engine == "" {
+		in.Engine = "nextapi"
+	}
+	if in.Engine != "nextapi" && in.Engine != "advanced" {
 		return in, ErrInvalidInput
 	}
 	if in.ShotCount <= 0 {

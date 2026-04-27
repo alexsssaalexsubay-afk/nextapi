@@ -187,6 +187,7 @@ export async function exportWorkflowAPI(id: string): Promise<ExportAPIResult> {
 }
 
 export async function generateDirectorShots(input: {
+  engine?: "nextapi" | "advanced"
   story: string
   genre?: string
   style?: string
@@ -228,11 +229,14 @@ export async function generateDirectorShotImages(input: {
 }
 
 export async function runBackendDirectorPipeline(input: {
+  engine?: "nextapi" | "advanced"
   story: string
   genre?: string
   style?: string
   shot_count?: number
   duration_per_shot?: number
+  text_provider_id?: string
+  image_provider_id?: string
   generate_images?: boolean
   options?: { name?: string; ratio?: string; resolution?: string; generate_audio?: boolean; model?: string; enable_merge?: boolean }
 }): Promise<{ plan: DirectorPlan; workflow: WorkflowJSON; record?: WorkflowRecord }> {
