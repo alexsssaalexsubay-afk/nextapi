@@ -51,7 +51,7 @@ func NewLive() (*LiveProvider, error) {
 	}
 	model := os.Getenv("SEEDANCE_MODEL")
 	if model == "" {
-		model = "seedance-v2-pro"
+		model = "seedance-2.0-pro"
 	}
 	base := os.Getenv("SEEDANCE_BASE_URL")
 	if base == "" {

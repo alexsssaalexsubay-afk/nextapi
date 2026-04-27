@@ -42,7 +42,7 @@ func estimateTokens(req provider.GenerationRequest) int64 {
 
 func pricePer1K(req provider.GenerationRequest) float64 {
 	fast := req.Mode == "fast"
-	img := req.ImageURL != nil && *req.ImageURL != ""
+	img := provider.HasVisualInput(req)
 	switch {
 	case fast && img:
 		return priceFastImage

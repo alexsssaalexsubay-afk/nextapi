@@ -20,6 +20,7 @@ import {
 } from "lucide-react"
 import { ModelSelect } from "@/components/ai/model-select"
 import { DashboardShell } from "@/components/dashboard/dashboard-shell"
+import { apiFetch } from "@/lib/api"
 import { useTranslations } from "@/lib/i18n/context"
 import { createDirectorWorkflow, generateDirectorShotImages, generateDirectorShots, getDirectorStatus, listCharacters, runBackendDirectorPipeline, type CharacterRecord, type DirectorCharacterInput, type DirectorEngineStatus, type DirectorShot, type DirectorStatus, type DirectorStoryboard, type WorkflowRunResult } from "@/lib/workflows"
 import { cn } from "@/lib/utils"
@@ -42,6 +43,7 @@ export default function DirectorPage() {
   const [videoModel, setVideoModel] = useState("seedance-2.0-pro")
   const [storyboard, setStoryboard] = useState<DirectorStoryboard | null>(null)
   const [status, setStatus] = useState<DirectorStatus | null>(null)
+  const [modelPrices, setModelPrices] = useState<Record<string, number>>({})
   const [characters, setCharacters] = useState<CharacterRecord[]>([])
   const [selectedCharacterIDs, setSelectedCharacterIDs] = useState<string[]>([])
   const [workflowID, setWorkflowID] = useState<string | null>(null)
@@ -57,6 +59,18 @@ export default function DirectorPage() {
     listCharacters()
       .then(setCharacters)
       .catch(() => setCharacters([]))
+    apiFetch("/v1/models")
+      .then((res) => {
+        const items: Array<{ id?: string; price_cents_per_second?: Record<string, number> }> = Array.isArray(res?.data) ? res.data : []
+        const prices: Record<string, number> = {}
+        for (const item of items) {
+          if (item.id && item.price_cents_per_second?.["1080p"]) {
+            prices[item.id] = item.price_cents_per_second["1080p"]
+          }
+        }
+        setModelPrices(prices)
+      })
+      .catch(() => setModelPrices({}))
   }, [])
 
   function directorCharacters(): DirectorCharacterInput[] {
@@ -207,10 +221,10 @@ export default function DirectorPage() {
     setWorkflowID(null)
   }
 
-  const blocked = status != null && !status.available
+  const blocked = !status?.available
   const imageBlocked = status != null && !status.image_provider_configured
   const totalDuration = storyboard?.shots.reduce((sum, shot) => sum + Number(shot.duration || 0), 0) ?? shotCount * duration
-  const estimatedCostCents = estimateDirectorVideoCostCents(videoModel, shotCount, duration)
+  const estimatedCostCents = estimateDirectorVideoCostCents(videoModel, shotCount, duration, modelPrices)
   const estimatedBudget = formatUSD(estimatedCostCents)
   const activePipelineStep = workflowID ? "canvas" :
     busyStage === "director" || busyStage === "workflow" ? "workflow" :
@@ -923,10 +937,10 @@ function clampNumber(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, Number.isFinite(value) ? value : min))
 }
 
-function estimateDirectorVideoCostCents(model: string, shotCount: number, duration: number) {
+function estimateDirectorVideoCostCents(model: string, shotCount: number, duration: number, prices: Record<string, number>) {
   const safeShots = clampNumber(shotCount, 1, 100)
   const safeDuration = clampNumber(duration, 4, 15)
-  const centsPerSecond = model.includes("fast") ? 31 : 39
+  const centsPerSecond = prices[model] ?? (model.includes("fast") ? 10 : 15)
   return safeShots * safeDuration * centsPerSecond
 }
 

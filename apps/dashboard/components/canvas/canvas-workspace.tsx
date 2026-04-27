@@ -81,7 +81,6 @@ const initialNodes: CanvasNode[] = [
 ]
 
 const initialEdges: CanvasEdge[] = [
-  { id: "edge_image_video", source: "node_image_1", target: "node_seedance_1" },
   { id: "edge_prompt_video", source: "node_prompt_1", target: "node_seedance_1" },
   { id: "edge_params_video", source: "node_params_1", target: "node_seedance_1" },
   { id: "edge_video_output", source: "node_seedance_1", target: "node_output_1" },
@@ -256,6 +255,10 @@ export function CanvasWorkspace() {
       if (!json.nodes.some((n) => upstream.includes(n.id) && n.type === "prompt.input" && String(n.data.prompt || "").trim())) {
         return labels.errorPromptRequired
       }
+      const connectedImages = json.nodes.filter((n) => upstream.includes(n.id) && n.type === "image.input")
+      if (connectedImages.some((n) => !String(n.data.image_url || "").trim())) {
+        return labels.errorImageRequired
+      }
     }
     return null
   }
@@ -413,7 +416,6 @@ export function CanvasWorkspace() {
           <NodeButton label={labels.promptNode} onClick={() => addNode("prompt.input")} />
           <NodeButton label={labels.paramsNode} onClick={() => addNode("video.params")} />
           <NodeButton label={labels.videoNode} onClick={() => addNode("seedance.video")} />
-          <NodeButton label={labels.mergeNode} onClick={() => addNode("video.merge")} />
           <NodeButton label={labels.outputNode} onClick={() => addNode("output.preview")} />
         </aside>
         <main className="relative min-h-0 bg-background/18">

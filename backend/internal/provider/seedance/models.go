@@ -59,13 +59,6 @@ func getenvDefault(key, def string) string {
 	return def
 }
 
-// hasVisualInput is true when the customer supplied reference image URL
-// for image-to-video. This selects the *-video-in Dreamina endpoint
-// (cheaper per official pricing) vs *-non-video-in (text-only).
-func hasVisualInput(req provider.GenerationRequest) bool {
-	return req.ImageURL != nil && strings.TrimSpace(*req.ImageURL) != ""
-}
-
 // ResolveArkModel returns the Ark `model` field for POST .../contents/generations/tasks.
 //
 //   - seedance-2.0 / seedance-2.0-fast: four-way split by hasVisualInput (Dreamina names).
@@ -77,17 +70,17 @@ func hasVisualInput(req provider.GenerationRequest) bool {
 func ResolveArkModel(req provider.GenerationRequest, fallback string) string {
 	publicID := strings.TrimSpace(req.Model)
 	if publicID == "" {
-		return fallback
+		publicID = strings.TrimSpace(fallback)
 	}
 
 	switch publicID {
 	case "seedance-2.0", "seedance-2.0-pro":
-		if hasVisualInput(req) {
+		if provider.HasVisualInput(req) {
 			return getenvDefault("SEEDANCE_20_VIDEO_IN_MODEL", dreamina20InferenceVideoIn)
 		}
 		return getenvDefault("SEEDANCE_20_NON_VIDEO_IN_MODEL", dreamina20InferenceNonVideoIn)
 	case "seedance-2.0-fast":
-		if hasVisualInput(req) {
+		if provider.HasVisualInput(req) {
 			return getenvDefault("SEEDANCE_20_FAST_VIDEO_IN_MODEL", dreamina20FastInferenceVideoIn)
 		}
 		return getenvDefault("SEEDANCE_20_FAST_NON_VIDEO_IN_MODEL", dreamina20FastNonVideoIn)

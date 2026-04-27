@@ -199,7 +199,7 @@ func (h *DirectorHandlers) RunDirectorMode(c *gin.Context) {
 			}
 		}
 	}
-	req.Options.EnableMerge = true
+	req.Options.EnableMerge = h.WorkflowSvc.MergeEnabled()
 	def, err := director.BuildWorkflowFromShots(*storyboard, req.Options)
 	if err != nil {
 		handleDirectorError(c, err)
@@ -315,6 +315,10 @@ func (h *DirectorHandlers) requireDirectorAccess(c *gin.Context, needImage bool)
 		c.JSON(http.StatusServiceUnavailable, gin.H{"error": gin.H{"code": "ai_director_not_configured", "message": "AI Director is not configured yet"}})
 		return false
 	}
+	if !status.Available {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": gin.H{"code": "ai_director_runtime_unavailable", "message": "AI Director runtime is not available yet", "reason": status.BlockingReason}})
+		return false
+	}
 	if needImage && !status.ImageProviderConfigured {
 		c.JSON(http.StatusServiceUnavailable, gin.H{"error": gin.H{"code": "ai_director_image_not_configured", "message": "AI Director image generation is not configured yet"}})
 		return false
@@ -351,12 +355,15 @@ func (h *DirectorHandlers) directorStatus(ctx context.Context, orgID string) (*d
 	out.SidecarConfigured = out.Runtime.SidecarConfigured
 	out.SidecarHealthy = out.Runtime.SidecarHealthy
 	out.Reason = out.Runtime.Reason
-	out.Available = out.Entitled && out.TextProviderConfigured
+	runtimeReady := out.Runtime.SidecarHealthy || out.Runtime.FallbackEnabled
+	out.Available = out.Entitled && out.TextProviderConfigured && runtimeReady
 	switch {
 	case !out.Entitled:
 		out.BlockingReason = "vip_required"
 	case !out.TextProviderConfigured:
 		out.BlockingReason = "text_provider_not_configured"
+	case !runtimeReady:
+		out.BlockingReason = out.Runtime.Reason
 	}
 	return out, nil
 }

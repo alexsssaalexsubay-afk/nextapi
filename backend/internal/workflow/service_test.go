@@ -18,6 +18,11 @@ func TestMergeEnabledReflectsServiceWiring(t *testing.T) {
 		t.Fatal("merge should be disabled before merge service is wired")
 	}
 	svc.SetMergeService(videomerge.NewService(nil))
+	t.Setenv("VIDEO_MERGE_ENABLED", "false")
+	if svc.MergeEnabled() {
+		t.Fatal("merge should stay disabled while VIDEO_MERGE_ENABLED is false")
+	}
+	t.Setenv("VIDEO_MERGE_ENABLED", "true")
 	if !svc.MergeEnabled() {
 		t.Fatal("merge should be enabled after merge service is wired")
 	}

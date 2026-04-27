@@ -29,6 +29,14 @@ func TestResolveArkModel_EmptyUsesFallback(t *testing.T) {
 	}
 }
 
+func TestResolveArkModel_EmptyPublicFallbackIsMapped(t *testing.T) {
+	got := ResolveArkModel(provider.GenerationRequest{}, "seedance-2.0-pro")
+	want := "Dreamina-Seedance-2.0-inference-non-video-in"
+	if got != want {
+		t.Fatalf("empty model should map public fallback, got %q, want %q", got, want)
+	}
+}
+
 func TestResolveArkModel_Seedance20_DreaminaFourWay(t *testing.T) {
 	img := "https://cdn.example.com/a.jpg"
 	cases := []struct {
@@ -49,6 +57,16 @@ func TestResolveArkModel_Seedance20_DreaminaFourWay(t *testing.T) {
 		{
 			"2.0 image",
 			provider.GenerationRequest{Model: "seedance-2.0", Prompt: "hi", ImageURL: &img},
+			"Dreamina-Seedance-2.0-inference-video-in",
+		},
+		{
+			"2.0 multi image",
+			provider.GenerationRequest{Model: "seedance-2.0", Prompt: "hi", ImageURLs: []string{img}},
+			"Dreamina-Seedance-2.0-inference-video-in",
+		},
+		{
+			"2.0 first frame",
+			provider.GenerationRequest{Model: "seedance-2.0", Prompt: "hi", FirstFrameURL: &img},
 			"Dreamina-Seedance-2.0-inference-video-in",
 		},
 		{

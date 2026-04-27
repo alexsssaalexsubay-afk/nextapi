@@ -18,18 +18,12 @@ type CurrentVideo = {
 }
 
 const ACTIVE_STATUSES = new Set(["queued", "submitting", "running", "retrying"])
-const FALLBACK_SLUGS = [
-  "short-drama-production-v1",
-  "ecommerce-product-production-v1",
-  "talking-creator-production-v1",
-]
-
 export function TemplateGallery() {
   const t = useTranslations()
   const labels = t.templates
   const [templates, setTemplates] = useState<TemplateRecord[]>([])
   const [characters, setCharacters] = useState<CharacterRecord[]>([])
-  const [selectedSlug, setSelectedSlug] = useState(FALLBACK_SLUGS[0])
+  const [selectedSlug, setSelectedSlug] = useState("")
   const [inputs, setInputs] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(true)
   const [running, setRunning] = useState(false)
@@ -42,7 +36,10 @@ export function TemplateGallery() {
 
   useEffect(() => {
     listTemplates()
-      .then((rows) => setTemplates(rows))
+      .then((rows) => {
+        setTemplates(rows)
+        setSelectedSlug((current) => current || rows[0]?.slug || "")
+      })
       .catch(() => toast.error(labels.loadFailed))
       .finally(() => setLoading(false))
     listCharacters()
@@ -50,15 +47,13 @@ export function TemplateGallery() {
       .catch(() => setCharacters([]))
   }, [labels.loadFailed])
 
-  const cards = useMemo(() => templates.length > 0 ? templates : FALLBACK_SLUGS.map((slug) => {
-    const template = templates.find((item) => item.slug === slug)
-    return template ?? fallbackTemplate(slug, labels)
-  }), [labels, templates])
+  const cards = useMemo(() => templates, [templates])
 
   const selected = cards.find((item) => item.slug === selectedSlug) ?? cards[0]
-  const kind = templateKind(selected.slug)
+  const kind = templateKind(selected?.slug ?? "")
   const videoURL = currentVideo?.output?.url || currentVideo?.output?.video_url
-  const selectedMeta = templateMeta(selected.slug, labels)
+  const selectedMeta = selected ? templateMeta(selected.slug, labels) : { runtime: "—", inputs: "—", bestFor: "—" }
+  const selectedRunnable = Boolean(selected?.workflow_json)
 
   const refreshVideo = useCallback(async (id: string) => {
     const video = await apiFetch(`/v1/videos/${id}`) as CurrentVideo
@@ -96,6 +91,10 @@ export function TemplateGallery() {
 
   const submit = async () => {
     if (running) return
+    if (!selected || !selectedRunnable) {
+      toast.error(labels.templateNotRunnable)
+      return
+    }
     setRunning(true)
     try {
       const payload = buildInputs(inputs, selected)
@@ -112,6 +111,10 @@ export function TemplateGallery() {
 
   const submitBatch = async () => {
     if (batchRunning) return
+    if (!selected || !selectedRunnable) {
+      toast.error(labels.templateNotRunnable)
+      return
+    }
     setBatchRunning(true)
     try {
       const variables = parseBatchVariables(batchVariables)
@@ -164,8 +167,9 @@ export function TemplateGallery() {
         </div>
       </section>
 
-      <div className="grid gap-4 lg:grid-cols-3">
-        {cards.map((template) => (
+      {cards.length > 0 ? (
+        <div className="grid gap-4 lg:grid-cols-3">
+          {cards.map((template) => (
           <TemplateCard
             key={template.slug}
             template={template}
@@ -176,10 +180,13 @@ export function TemplateGallery() {
               setCurrentVideo(null)
             }}
           />
-        ))}
-      </div>
+          ))}
+        </div>
+      ) : (
+        <NoTemplates labels={labels} loading={loading} />
+      )}
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_380px]">
+      {selected ? <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_380px]">
         <section className="premium-surface rounded-[28px] p-5">
           <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
             <div>
@@ -227,7 +234,7 @@ export function TemplateGallery() {
             <button
               type="button"
               onClick={submit}
-              disabled={running || loading}
+              disabled={running || loading || !selectedRunnable}
               className="premium-button inline-flex h-10 items-center gap-2 rounded-full border border-white/20 px-5 text-[13px] font-semibold text-white disabled:opacity-60"
             >
               {running ? <Loader2 className="size-4 animate-spin" /> : <Play className="size-4" />}
@@ -236,7 +243,7 @@ export function TemplateGallery() {
             <button
               type="button"
               onClick={submitBatch}
-              disabled={batchRunning || loading}
+              disabled={batchRunning || loading || !selectedRunnable}
               className="inline-flex h-10 items-center gap-2 rounded-full border border-white/12 bg-card/55 px-5 text-[13px] font-medium shadow-sm backdrop-blur-md disabled:opacity-60"
             >
               {batchRunning ? <Loader2 className="size-4 animate-spin" /> : <Play className="size-4" />}
@@ -256,8 +263,22 @@ export function TemplateGallery() {
             <p className="mt-2 text-[12.5px] leading-relaxed text-muted-foreground">{labels.reusableCanvasBody}</p>
           </section>
         </aside>
-      </div>
+      </div> : null}
     </div>
+  )
+}
+
+function NoTemplates({ labels, loading }: { labels: ReturnType<typeof useTranslations>["templates"]; loading: boolean }) {
+  return (
+    <section className="premium-surface rounded-[28px] p-8 text-center">
+      <div className="mx-auto flex size-12 items-center justify-center rounded-3xl border border-white/12 bg-background/60 text-signal shadow-sm backdrop-blur-md">
+        {loading ? <Loader2 className="size-5 animate-spin" /> : <Workflow className="size-5" />}
+      </div>
+      <h2 className="mt-4 text-lg font-medium">{loading ? labels.loadingTemplates : labels.noTemplatesTitle}</h2>
+      <p className="mx-auto mt-2 max-w-xl text-[13px] leading-relaxed text-muted-foreground">
+        {loading ? labels.loadingTemplatesHint : labels.noTemplatesBody}
+      </p>
+    </section>
   )
 }
 
@@ -649,18 +670,4 @@ function templateKind(slug: string): TemplateKind {
   if (slug.includes("ecommerce")) return "ecommerce"
   if (slug.includes("talking")) return "talking_creator"
   return "short_drama"
-}
-
-function fallbackTemplate(slug: string, labels: ReturnType<typeof useTranslations>["templates"]): TemplateRecord {
-  const kind = templateKind(slug)
-  const copy = kind === "short_drama" ? labels.shortDrama : kind === "ecommerce" ? labels.ecommerce : labels.talking
-  return {
-    id: slug,
-    slug,
-    name: copy.title,
-    description: copy.description,
-    category: kind,
-    visibility: "system",
-    estimated_cost_cents: 500,
-  }
 }

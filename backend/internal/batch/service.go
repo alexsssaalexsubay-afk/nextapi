@@ -51,9 +51,10 @@ func NewService(db *gorm.DB, jobSvc *job.Service) *Service {
 
 func (s *Service) SetThroughput(tp *throughput.Service) { s.throughput = tp }
 
-// Create creates a batch run and enqueues all shots as individual jobs.
-// Uses AcquireBatch for a single bulk concurrency check — all accepted
-// shots are submitted in parallel to maximize throughput.
+// Create creates a batch run and submits each accepted shot through the normal
+// job pipeline. That keeps billing, moderation, queue routing, and throughput
+// guards identical to single-video submissions instead of letting batch runs
+// bypass concurrency limits.
 func (s *Service) Create(ctx context.Context, in CreateInput) (*CreateResult, error) {
 	totalShots := len(in.Shots)
 	if totalShots == 0 {
@@ -73,12 +74,9 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*CreateResult, er
 		return nil, fmt.Errorf("create batch_run: %w", err)
 	}
 
-	// Create all jobs with throughput bypassed — we handle concurrency
-	// at the batch level via AcquireBatch below.
 	jobIDs := make([]string, 0, totalShots)
 	for _, shot := range in.Shots {
 		shot.BatchRunID = &br.ID
-		shot.SkipThroughput = true
 		res, err := s.jobSvc.Create(ctx, shot)
 		if err != nil {
 			s.db.WithContext(ctx).Model(&domain.BatchRun{}).
@@ -90,21 +88,6 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*CreateResult, er
 	}
 
 	queued := len(jobIDs)
-
-	// Bulk acquire concurrency slots for all accepted jobs.
-	if s.throughput != nil && queued > 0 {
-		toAcquire := jobIDs
-		if in.MaxParallel != nil && *in.MaxParallel > 0 && *in.MaxParallel < queued {
-			toAcquire = jobIDs[:*in.MaxParallel]
-		}
-		accepted, acqErr := s.throughput.AcquireBatch(ctx, in.OrgID, toAcquire)
-		if acqErr != nil && accepted == 0 {
-			// All slots rejected — jobs are already created and will be
-			// picked up when slots free. Log but don't fail the batch.
-			_ = acqErr
-		}
-		_ = accepted
-	}
 
 	s.db.WithContext(ctx).Model(&domain.BatchRun{}).
 		Where("id = ?", br.ID).

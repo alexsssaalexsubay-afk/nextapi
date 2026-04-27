@@ -96,3 +96,14 @@ func TestRunnerMarksFallbackWhenSidecarMissing(t *testing.T) {
 		t.Fatalf("fallback engine status not exposed: used=%q status=%+v", out.EngineUsed, out.EngineStatus)
 	}
 }
+
+func TestRuntimeStatusFailClosedWhenFallbackDisabled(t *testing.T) {
+	runner := NewRunner(RunnerConfig{AllowFallback: false})
+	status := runner.RuntimeStatus(context.Background())
+	if status.FallbackUsed || status.FallbackEnabled {
+		t.Fatalf("fallback should be disabled: %+v", status)
+	}
+	if status.EngineUsed != director.EngineAdvancedRequested || status.Reason != "sidecar_not_configured" {
+		t.Fatalf("runtime should expose missing sidecar without pretending fallback ran: %+v", status)
+	}
+}

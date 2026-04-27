@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"errors"
+	"strings"
 )
 
 // ErrUpstreamUnavailable is returned by providers when they are
@@ -63,6 +64,29 @@ type GenerationRequest struct {
 	FirstFrameURL *string  // first frame image (mutually exclusive with ImageURLs)
 	LastFrameURL  *string  // last frame image (requires FirstFrameURL)
 	TempMediaKeys []string // internal R2 keys to delete after the task reaches terminal state
+}
+
+func HasVisualInput(req GenerationRequest) bool {
+	if req.ImageURL != nil && strings.TrimSpace(*req.ImageURL) != "" {
+		return true
+	}
+	if req.FirstFrameURL != nil && strings.TrimSpace(*req.FirstFrameURL) != "" {
+		return true
+	}
+	if req.LastFrameURL != nil && strings.TrimSpace(*req.LastFrameURL) != "" {
+		return true
+	}
+	for _, url := range req.ImageURLs {
+		if strings.TrimSpace(url) != "" {
+			return true
+		}
+	}
+	for _, url := range req.VideoURLs {
+		if strings.TrimSpace(url) != "" {
+			return true
+		}
+	}
+	return false
 }
 
 type JobStatus struct {

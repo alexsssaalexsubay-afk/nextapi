@@ -25,7 +25,7 @@ func NewService(db *gorm.DB) *Service {
 }
 
 func (s *Service) Enabled() bool {
-	return os.Getenv("VIDEO_MERGE_ENABLED") == "true"
+	return s != nil && os.Getenv("VIDEO_MERGE_ENABLED") == "true"
 }
 
 func (s *Service) Create(ctx context.Context, in CreateInput) (*domain.VideoMergeJob, error) {

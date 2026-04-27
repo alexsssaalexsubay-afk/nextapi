@@ -953,6 +953,11 @@ export const en = {
     resolution: "Resolution",
     characterLibrary: "Character library",
     useCharacter: "Use character",
+    loadingTemplates: "Loading templates",
+    loadingTemplatesHint: "Checking the live template catalogue before enabling any production actions.",
+    noTemplatesTitle: "No runnable templates yet",
+    noTemplatesBody: "Templates are disabled until the backend returns real workflow-backed records. This avoids fake demo cards that fail after you click generate.",
+    templateNotRunnable: "This template has no workflow attached yet.",
     shortDrama: {
       title: "Short drama generator",
       description: "Generate emotional short-drama test clips from character images and a conflict hook.",

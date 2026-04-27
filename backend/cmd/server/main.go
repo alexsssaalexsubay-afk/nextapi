@@ -102,7 +102,7 @@ func main() {
 		RuntimeToken:    os.Getenv("DIRECTOR_SIDECAR_TOKEN"),
 		CallbackBaseURL: envOr("DIRECTOR_RUNTIME_CALLBACK_URL", "http://127.0.0.1:8080/v1/internal/director-runtime"),
 		CallbackToken:   os.Getenv("DIRECTOR_RUNTIME_TOKEN"),
-		AllowFallback:   os.Getenv("VIMAX_RUNTIME_DISABLE_FALLBACK") != "true",
+		AllowFallback:   os.Getenv("VIMAX_RUNTIME_ALLOW_FALLBACK") == "true",
 	}))
 
 	notifier := notify.New()

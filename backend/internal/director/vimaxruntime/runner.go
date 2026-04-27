@@ -67,11 +67,15 @@ func (r *Runner) GenerateStoryboard(ctx context.Context, in director.GenerateSho
 func (r *Runner) RuntimeStatus(ctx context.Context) director.EngineStatus {
 	status := director.EngineStatus{
 		RequestedEngine:   director.EngineAdvancedRequested,
-		EngineUsed:        director.EngineAdvancedFallback,
-		FallbackUsed:      true,
+		EngineUsed:        director.EngineAdvancedRequested,
+		FallbackUsed:      false,
 		FallbackEnabled:   r.allowFallback,
 		SidecarConfigured: r.endpointURL != "",
 		SidecarHealthy:    false,
+	}
+	if r.allowFallback {
+		status.EngineUsed = director.EngineAdvancedFallback
+		status.FallbackUsed = true
 	}
 	if r.endpointURL == "" {
 		status.Reason = "sidecar_not_configured"

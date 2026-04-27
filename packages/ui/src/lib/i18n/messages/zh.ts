@@ -943,6 +943,11 @@ export const zh: Messages = {
     resolution: "分辨率",
     characterLibrary: "人物素材库",
     useCharacter: "使用人物",
+    loadingTemplates: "正在加载模板",
+    loadingTemplatesHint: "先检查后端真实模板目录，再开启生产操作。",
+    noTemplatesTitle: "暂无可运行模板",
+    noTemplatesBody: "只有后端返回带 workflow 的真实模板后才允许生成，避免展示点了才失败的假演示卡片。",
+    templateNotRunnable: "这个模板还没有绑定工作流，暂时不能运行。",
     shortDrama: {
       title: "短剧爆款模板",
       description: "上传角色图和冲突钩子，生成短剧情绪测试素材。",
