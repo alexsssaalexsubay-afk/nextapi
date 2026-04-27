@@ -13,6 +13,7 @@ import (
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/auth"
 	batchsvc "github.com/alexsssaalexsubay-afk/nextapi/backend/internal/batch"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/billing"
+	charsvc "github.com/alexsssaalexsubay-afk/nextapi/backend/internal/character"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/director"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/director/vimaxruntime"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/gateway"
@@ -330,6 +331,13 @@ func main() {
 	// Self-service key management (sk_* keys can manage their own org's keys)
 	api.POST("/me/uploads/image", uploadH.PostImage)
 	api.POST("/me/uploads/media", uploadH.PostMedia)
+
+	charH := &gateway.CharacterHandlers{Svc: charsvc.NewService(gormDB)}
+	api.GET("/characters", charH.List)
+	api.POST("/characters", charH.Create)
+	api.GET("/characters/:id", charH.Get)
+	api.PATCH("/characters/:id", charH.Update)
+	api.DELETE("/characters/:id", charH.Delete)
 
 	mktH := &gateway.MarketingSiteHandlers{DB: gormDB, R2: uploadH.R2}
 	v1.GET("/public/marketing/slots", ratelimit.Middleware(rl, 120, time.Minute), mktH.PublicListSlots)
