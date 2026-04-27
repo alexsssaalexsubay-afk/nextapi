@@ -80,6 +80,8 @@ func setupProcessorDB(t *testing.T) *gorm.DB {
 		request TEXT NOT NULL DEFAULT '{}',
 		status TEXT NOT NULL DEFAULT 'queued', video_url TEXT, tokens_used BIGINT,
 		cost_credits BIGINT, reserved_credits BIGINT NOT NULL DEFAULT 0,
+		upstream_estimate_cents BIGINT, upstream_actual_cents BIGINT,
+		margin_cents BIGINT, pricing_markup_bps INT, pricing_source TEXT,
 		error_code TEXT, error_message TEXT, retry_count INT DEFAULT 0,
 		last_error_code TEXT, last_error_msg TEXT, exec_metadata TEXT,
 		submitting_at DATETIME, running_at DATETIME, retrying_at DATETIME,
@@ -102,6 +104,8 @@ func setupProcessorDB(t *testing.T) *gorm.DB {
 	db.Exec(`CREATE TABLE IF NOT EXISTS videos (
 		id TEXT PRIMARY KEY, org_id TEXT, upstream_job_id TEXT, status TEXT,
 		output TEXT, actual_cost_cents BIGINT, upstream_tokens BIGINT,
+		upstream_estimate_cents BIGINT, upstream_actual_cents BIGINT,
+		margin_cents BIGINT, pricing_markup_bps INT, pricing_source TEXT,
 		video_seconds REAL, error_code TEXT, error_message TEXT, started_at DATETIME, finished_at DATETIME,
 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP)`)
 	db.Exec(`CREATE TABLE IF NOT EXISTS workflow_runs (

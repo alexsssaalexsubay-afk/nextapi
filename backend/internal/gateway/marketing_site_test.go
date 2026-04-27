@@ -27,3 +27,28 @@ func TestValidateHTTPS(t *testing.T) {
 		t.Fatal("expected error for http")
 	}
 }
+
+func TestMarketingSiteAllowedObjectKey(t *testing.T) {
+	yes := []string{
+		"marketing/site-slots/landing_hero_main/u.mp4",
+		"/marketing/site-slots/x/y.png",
+		`marketing\site-slots\z\w.jpg`,
+	}
+	for _, k := range yes {
+		if !marketingSiteAllowedObjectKey(k) {
+			t.Fatalf("expected allowed %q", k)
+		}
+	}
+	no := []string{
+		"",
+		"videos/org/job/out.mp4",
+		"marketing/other/x.mp4",
+		"marketing/site-slots/../videos/x.mp4",
+		"../marketing/site-slots/x",
+	}
+	for _, k := range no {
+		if marketingSiteAllowedObjectKey(k) {
+			t.Fatalf("expected disallowed %q", k)
+		}
+	}
+}

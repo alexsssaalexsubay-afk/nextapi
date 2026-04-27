@@ -5,14 +5,14 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/alicebob/miniredis/v2"
-	"github.com/hibiken/asynq"
-	"github.com/redis/go-redis/v9"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/billing"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/domain"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/provider"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/provider/seedance"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/throughput"
+	"github.com/alicebob/miniredis/v2"
+	"github.com/hibiken/asynq"
+	"github.com/redis/go-redis/v9"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
@@ -48,6 +48,8 @@ func setupDB(t *testing.T) *gorm.DB {
 		provider TEXT NOT NULL, provider_job_id TEXT, request TEXT NOT NULL,
 		status TEXT NOT NULL DEFAULT 'queued', video_url TEXT, tokens_used BIGINT,
 		cost_credits BIGINT, reserved_credits BIGINT NOT NULL DEFAULT 0,
+		upstream_estimate_cents BIGINT, upstream_actual_cents BIGINT,
+		margin_cents BIGINT, pricing_markup_bps INT, pricing_source TEXT,
 		error_code TEXT, error_message TEXT,
 		retry_count INTEGER NOT NULL DEFAULT 0,
 		last_error_code TEXT, last_error_msg TEXT, exec_metadata TEXT,

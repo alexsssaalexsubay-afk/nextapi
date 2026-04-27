@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/domain"
+	pricingsvc "github.com/alexsssaalexsubay-afk/nextapi/backend/internal/pricing"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/provider"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/provider/seedance"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/spend"
@@ -30,6 +31,7 @@ type UpTokenWebhookHandlers struct {
 	DB         *gorm.DB
 	Spend      *spend.Service
 	Throughput *throughput.Service
+	Pricing    *pricingsvc.Service
 	Secret     string
 }
 
@@ -159,7 +161,10 @@ func (h *UpTokenWebhookHandlers) apply(ctx context.Context, ev uptokenWebhookPay
 
 		switch ev.Status {
 		case "succeeded":
-			actualCost := jobRow.ReservedCredits
+			upstreamActual := jobRow.ReservedCredits
+			if jobRow.UpstreamEstimateCents != nil {
+				upstreamActual = *jobRow.UpstreamEstimateCents
+			}
 			var tokens *int64
 			if ev.Usage != nil && ev.Usage.TotalTokens > 0 {
 				t := ev.Usage.TotalTokens
@@ -167,17 +172,27 @@ func (h *UpTokenWebhookHandlers) apply(ctx context.Context, ev uptokenWebhookPay
 				var req provider.GenerationRequest
 				if err := json.Unmarshal(jobRow.Request, &req); err == nil {
 					if cents := seedance.USDCentsFromTokens(req, t); cents > 0 {
-						actualCost = cents
+						upstreamActual = cents
 					}
 				}
 			}
-			if err := tx.Model(&jobRow).Updates(map[string]any{
+			actualQuote, err := h.finalQuote(ctx, &jobRow, upstreamActual)
+			if err != nil {
+				return err
+			}
+			actualCost := actualQuote.CustomerChargeCents
+			jobUpdates := map[string]any{
 				"status":       domain.JobSucceeded,
 				"video_url":    stringPtr(ev.VideoURL),
 				"tokens_used":  tokens,
 				"cost_credits": actualCost,
 				"completed_at": now,
-			}).Error; err != nil {
+			}
+			if h.Pricing != nil {
+				jobUpdates["upstream_actual_cents"] = actualQuote.UpstreamCostCents
+				jobUpdates["margin_cents"] = actualQuote.MarginCents
+			}
+			if err := tx.Model(&jobRow).Updates(jobUpdates).Error; err != nil {
 				return err
 			}
 			delta := jobRow.ReservedCredits - actualCost
@@ -195,13 +210,18 @@ func (h *UpTokenWebhookHandlers) apply(ctx context.Context, ev uptokenWebhookPay
 				}
 			}
 			outputJSON, _ := json.Marshal(map[string]any{"video_url": ev.VideoURL, "url": ev.VideoURL})
-			if err := tx.Model(&domain.Video{}).Where("upstream_job_id = ?", jobRow.ID).Updates(map[string]any{
+			videoUpdates := map[string]any{
 				"status":            "succeeded",
 				"output":            outputJSON,
 				"actual_cost_cents": actualCost,
 				"upstream_tokens":   tokens,
 				"finished_at":       now,
-			}).Error; err != nil {
+			}
+			if h.Pricing != nil {
+				videoUpdates["upstream_actual_cents"] = actualQuote.UpstreamCostCents
+				videoUpdates["margin_cents"] = actualQuote.MarginCents
+			}
+			if err := tx.Model(&domain.Video{}).Where("upstream_job_id = ?", jobRow.ID).Updates(videoUpdates).Error; err != nil {
 				return err
 			}
 			updateWorkflowRunStatus(ctx, tx, jobRow.ID, "succeeded", outputJSON)
@@ -271,6 +291,27 @@ func stringPtr(v string) *string {
 		return nil
 	}
 	return &v
+}
+
+func (h *UpTokenWebhookHandlers) finalQuote(ctx context.Context, j *domain.Job, upstreamCents int64) (pricingsvc.Quote, error) {
+	markup := 0
+	source := domain.PricingSourceGlobal
+	if j.PricingMarkupBPS != nil {
+		markup = *j.PricingMarkupBPS
+	}
+	if j.PricingSource != nil && *j.PricingSource != "" {
+		source = *j.PricingSource
+	}
+	if h.Pricing == nil {
+		return pricingsvc.Quote{
+			UpstreamCostCents:   upstreamCents,
+			CustomerChargeCents: upstreamCents,
+			MarkupBPS:           markup,
+			Source:              source,
+			MarginCents:         0,
+		}, nil
+	}
+	return h.Pricing.QuoteWithMarkup(ctx, upstreamCents, markup, source)
 }
 
 // updateWorkflowRunStatus mirrors job/processor.updateWorkflowRun so webhook-

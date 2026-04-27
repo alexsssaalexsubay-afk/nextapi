@@ -359,23 +359,29 @@ function SlotRow({
           {hint ? <div className="mt-1 max-w-[320px] text-[11.5px] leading-snug text-muted-foreground">{hint}</div> : null}
         </td>
         <td className="hidden px-4 py-3 align-top sm:table-cell">{row?.media_kind ?? "—"}</td>
-        <td className="hidden px-4 py-3 align-top md:table-cell">{row?.source ?? "—"}</td>
+        <td className="hidden max-w-[200px] px-4 py-3 align-top text-[12px] md:table-cell">
+          {row?.source === "r2_non_cms" ? labels.sourceNonCms : (row?.source ?? "—")}
+        </td>
         <td className="px-4 py-3 align-top">
           {row ? (
-            <div className="flex flex-col gap-2">
-              {row.media_kind === "video" ? (
-                <video
-                  src={row.url}
-                  poster={row.poster_url ?? undefined}
-                  className="h-14 w-24 rounded border border-border/80 object-cover"
-                  muted
-                  playsInline
-                  preload="metadata"
-                />
-              ) : (
-                <img src={row.url} alt="" className="h-14 w-24 rounded border border-border/80 object-cover" />
-              )}
-            </div>
+            row.url ? (
+              <div className="flex flex-col gap-2">
+                {row.media_kind === "video" ? (
+                  <video
+                    src={row.url}
+                    poster={row.poster_url ?? undefined}
+                    className="h-14 w-24 rounded border border-border/80 object-cover"
+                    muted
+                    playsInline
+                    preload="metadata"
+                  />
+                ) : (
+                  <img src={row.url} alt="" className="h-14 w-24 rounded border border-border/80 object-cover" />
+                )}
+              </div>
+            ) : (
+              <span className="max-w-[220px] text-[11px] leading-snug text-status-running">{labels.sourceNonCms}</span>
+            )
           ) : (
             <span className="text-muted-foreground">{labels.notSet}</span>
           )}

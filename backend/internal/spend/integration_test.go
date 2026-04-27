@@ -38,6 +38,8 @@ func setupIntegDB(t *testing.T) *gorm.DB {
 		provider TEXT NOT NULL, provider_job_id TEXT, request TEXT NOT NULL,
 		status TEXT NOT NULL DEFAULT 'queued', video_url TEXT, tokens_used BIGINT,
 		cost_credits BIGINT, reserved_credits BIGINT NOT NULL DEFAULT 0,
+		upstream_estimate_cents BIGINT, upstream_actual_cents BIGINT,
+		margin_cents BIGINT, pricing_markup_bps INT, pricing_source TEXT,
 		error_code TEXT, error_message TEXT,
 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP, completed_at DATETIME)`)
 	return db

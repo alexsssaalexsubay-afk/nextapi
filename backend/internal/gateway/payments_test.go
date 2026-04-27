@@ -6,6 +6,7 @@ import (
 
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/domain"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/payment"
+	pricingsvc "github.com/alexsssaalexsubay-afk/nextapi/backend/internal/pricing"
 	"github.com/gin-gonic/gin"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -97,6 +98,68 @@ func TestEasypayWebhookRejectsAmountMismatch(t *testing.T) {
 	}
 	if count != 0 {
 		t.Fatalf("expected no ledger row, got %d", count)
+	}
+}
+
+func TestEasypayWebhookAppliesMembershipUpgrade(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	if err := db.AutoMigrate(
+		&domain.TopupOrder{},
+		&domain.CreditsLedger{},
+		&domain.MembershipTier{},
+		&domain.OrgPricingOverride{},
+		&domain.OrgPricingState{},
+	); err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+	tierID := "11111111-1111-1111-1111-111111111111"
+	orgID := "22222222-2222-2222-2222-222222222222"
+	if err := db.Create(&domain.MembershipTier{
+		ID:                    tierID,
+		Name:                  "Gold",
+		MinLifetimeTopupCents: 1000,
+		MarkupBPS:             2000,
+		Enabled:               true,
+	}).Error; err != nil {
+		t.Fatalf("create tier: %v", err)
+	}
+	order := domain.TopupOrder{
+		ID:          "33333333-3333-3333-3333-333333333333",
+		OrgID:       orgID,
+		Provider:    "easypay",
+		PaymentType: "alipay",
+		AmountCents: 1000,
+		Credits:     1000,
+		Status:      domain.TopupOrderPending,
+	}
+	if err := db.Create(&order).Error; err != nil {
+		t.Fatalf("create order: %v", err)
+	}
+
+	h := &PaymentHandlers{DB: db, Pricing: pricingsvc.NewService(db)}
+	h.handleEasypayWebhook(testGinContext(), &payment.Event{
+		Type:        "topup.succeeded",
+		ExternalID:  order.ID,
+		AmountCents: 1000,
+		Credits:     1000,
+	})
+
+	var state domain.OrgPricingState
+	if err := db.First(&state, "org_id = ?", orgID).Error; err != nil {
+		t.Fatalf("load pricing state: %v", err)
+	}
+	if state.LifetimeTopupCents != 1000 {
+		t.Fatalf("expected lifetime topup 1000, got %d", state.LifetimeTopupCents)
+	}
+	if state.AutoMembershipTierID == nil || *state.AutoMembershipTierID != tierID {
+		t.Fatalf("expected gold auto tier, got %v", state.AutoMembershipTierID)
+	}
+	if state.EffectiveMembershipTierID == nil || *state.EffectiveMembershipTierID != tierID {
+		t.Fatalf("expected gold effective tier, got %v", state.EffectiveMembershipTierID)
 	}
 }
 

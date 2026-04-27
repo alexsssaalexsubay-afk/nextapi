@@ -16,6 +16,7 @@ import (
 	rdc "github.com/alexsssaalexsubay-afk/nextapi/backend/internal/infra/redis"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/job"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/notify"
+	pricingsvc "github.com/alexsssaalexsubay-afk/nextapi/backend/internal/pricing"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/providerfactory"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/spend"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/storage/r2"
@@ -40,12 +41,13 @@ func main() {
 	defer queue.Close()
 
 	billSvc := billing.NewService(gormDB)
+	pricingSvc := pricingsvc.NewService(gormDB)
 	whSvc := webhook.NewService(gormDB)
 	rClient := rdc.New(cfg.RedisAddr)
 	spendSvc := spend.NewService(gormDB)
 	spendSvc.SetRedis(rClient)
 	throughputSvc := throughput.NewService(gormDB, rClient)
-	proc := &job.Processor{DB: gormDB, Billing: billSvc, Spend: spendSvc, Prov: prov, Queue: queue, Webhooks: whSvc, Throughput: throughputSvc}
+	proc := &job.Processor{DB: gormDB, Billing: billSvc, Spend: spendSvc, Prov: prov, Queue: queue, Webhooks: whSvc, Throughput: throughputSvc, Pricing: pricingSvc}
 	if r2c, r2err := r2.New(); r2err == nil {
 		proc.TempStorage = r2c
 	} else {

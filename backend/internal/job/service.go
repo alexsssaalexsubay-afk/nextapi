@@ -9,6 +9,7 @@ import (
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/billing"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/domain"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/moderation"
+	pricingsvc "github.com/alexsssaalexsubay-afk/nextapi/backend/internal/pricing"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/provider"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/spend"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/throughput"
@@ -34,6 +35,7 @@ type Service struct {
 	spend      *spend.Service
 	throughput *throughput.Service
 	moderation *moderation.Service
+	pricing    *pricingsvc.Service
 	prov       provider.Provider
 	queue      Enqueuer
 }
@@ -45,6 +47,7 @@ func NewService(db *gorm.DB, b *billing.Service, p provider.Provider, q Enqueuer
 func (s *Service) SetSpend(sp *spend.Service)           { s.spend = sp }
 func (s *Service) SetThroughput(tp *throughput.Service) { s.throughput = tp }
 func (s *Service) SetModeration(ms *moderation.Service) { s.moderation = ms }
+func (s *Service) SetPricing(ps *pricingsvc.Service)    { s.pricing = ps }
 
 type CreateInput struct {
 	OrgID          string
@@ -55,17 +58,27 @@ type CreateInput struct {
 }
 
 type CreateResult struct {
-	JobID            string
-	Status           string
-	EstimatedCredits int64
+	JobID                 string
+	Status                string
+	EstimatedCredits      int64
+	UpstreamEstimateCents int64
+	PricingMarkupBPS      int
+	PricingSource         string
+	MarginCents           int64
+	PricingApplied        bool
 }
 
 func (s *Service) Create(ctx context.Context, in CreateInput) (*CreateResult, error) {
-	tokens, credits, err := s.prov.EstimateCost(in.Request)
+	tokens, upstreamCredits, err := s.prov.EstimateCost(in.Request)
 	if err != nil {
 		return nil, err
 	}
 	_ = tokens
+	quote, err := s.quoteEstimate(ctx, in.OrgID, upstreamCredits)
+	if err != nil {
+		return nil, err
+	}
+	credits := quote.CustomerChargeCents
 
 	// Moderation check before any billing.
 	if s.moderation != nil {
@@ -125,7 +138,17 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*CreateResult, er
 			Status:          domain.JobQueued,
 			ReservedCredits: credits,
 		}
-		if err := tx.Create(&job).Error; err != nil {
+		if s.pricing != nil {
+			job.UpstreamEstimateCents = &quote.UpstreamCostCents
+			job.MarginCents = &quote.MarginCents
+			job.PricingMarkupBPS = &quote.MarkupBPS
+			job.PricingSource = &quote.Source
+		}
+		createDB := tx
+		if s.pricing == nil {
+			createDB = createDB.Omit("UpstreamEstimateCents", "UpstreamActualCents", "MarginCents", "PricingMarkupBPS", "PricingSource")
+		}
+		if err := createDB.Create(&job).Error; err != nil {
 			return err
 		}
 		return tx.Create(&domain.CreditsLedger{
@@ -208,7 +231,29 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*CreateResult, er
 		return nil, enqErr
 	}
 
-	return &CreateResult{JobID: job.ID, Status: string(job.Status), EstimatedCredits: credits}, nil
+	return &CreateResult{
+		JobID:                 job.ID,
+		Status:                string(job.Status),
+		EstimatedCredits:      credits,
+		UpstreamEstimateCents: quote.UpstreamCostCents,
+		PricingMarkupBPS:      quote.MarkupBPS,
+		PricingSource:         quote.Source,
+		MarginCents:           quote.MarginCents,
+		PricingApplied:        s.pricing != nil,
+	}, nil
+}
+
+func (s *Service) quoteEstimate(ctx context.Context, orgID string, upstreamCents int64) (pricingsvc.Quote, error) {
+	if s.pricing == nil {
+		return pricingsvc.Quote{
+			UpstreamCostCents:   upstreamCents,
+			CustomerChargeCents: upstreamCents,
+			MarkupBPS:           0,
+			Source:              domain.PricingSourceGlobal,
+			MarginCents:         0,
+		}, nil
+	}
+	return s.pricing.QuoteEstimate(ctx, orgID, upstreamCents)
 }
 
 func (s *Service) failQueuedJobAndRefund(ctx context.Context, j domain.Job, code, msg, note string) error {

@@ -18,6 +18,7 @@ import (
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/payment/easypay"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/payment/stripe"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/payment/wechat"
+	pricingsvc "github.com/alexsssaalexsubay-afk/nextapi/backend/internal/pricing"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -33,6 +34,7 @@ type PaymentHandlers struct {
 	Billing   *billing.Service
 	DB        *gorm.DB
 	Providers map[string]payment.Provider
+	Pricing   *pricingsvc.Service
 }
 
 func NewPaymentHandlers(b *billing.Service, db *gorm.DB) *PaymentHandlers {
@@ -212,11 +214,25 @@ func (h *PaymentHandlers) Webhook(c *gin.Context) {
 			return
 		}
 
-		if err := h.Billing.AddCredits(ctx, billing.Entry{
-			OrgID:  ev.OrgID,
-			Delta:  ev.Credits,
-			Reason: domain.ReasonTopup,
-			Note:   note,
+		amountCents := ev.AmountCents
+		if amountCents == 0 {
+			amountCents = ev.Credits
+		}
+		if err := h.Billing.DB().WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+			delta := ev.Credits
+			if err := tx.Create(&domain.CreditsLedger{
+				OrgID:        ev.OrgID,
+				DeltaCredits: delta,
+				DeltaCents:   &delta,
+				Reason:       domain.ReasonTopup,
+				Note:         note,
+			}).Error; err != nil {
+				return err
+			}
+			if h.Pricing == nil {
+				return nil
+			}
+			return h.Pricing.ApplyTopup(ctx, tx, ev.OrgID, amountCents)
 		}); err != nil {
 			// Roll back the dedup row so a retry can succeed; otherwise we
 			// would silently lose this top-up forever.
@@ -273,13 +289,19 @@ func (h *PaymentHandlers) handleEasypayWebhook(c *gin.Context, ev *payment.Event
 			return err
 		}
 		delta := order.Credits
-		return tx.Create(&domain.CreditsLedger{
+		if err := tx.Create(&domain.CreditsLedger{
 			OrgID:        order.OrgID,
 			DeltaCredits: delta,
 			DeltaCents:   &delta,
 			Reason:       domain.ReasonTopup,
 			Note:         "easypay:" + order.ID,
-		}).Error
+		}).Error; err != nil {
+			return err
+		}
+		if h.Pricing == nil {
+			return nil
+		}
+		return h.Pricing.ApplyTopup(c.Request.Context(), tx, order.OrgID, order.AmountCents)
 	})
 	if err != nil {
 		c.String(http.StatusBadRequest, "fail")

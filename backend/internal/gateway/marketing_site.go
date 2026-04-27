@@ -20,7 +20,23 @@ import (
 
 const marketingPresignTTL = 24 * time.Hour
 
+// marketingSiteSlotsR2Prefix is the only R2 key prefix the public marketing
+// endpoint will presign. This prevents accidental exposure of customer job
+// objects if a non-CMS key is written to marketing_site_slots.
+const marketingSiteSlotsR2Prefix = "marketing/site-slots/"
+
 var marketingSlotKeyRe = regexp.MustCompile(`^[a-z][a-z0-9_]{1,48}$`)
+
+func marketingSiteAllowedObjectKey(key string) bool {
+	k := strings.TrimSpace(strings.ReplaceAll(key, "\\", "/"))
+	for strings.HasPrefix(k, "/") {
+		k = strings.TrimPrefix(k, "/")
+	}
+	if k == "" || strings.Contains(k, "..") {
+		return false
+	}
+	return strings.HasPrefix(k, marketingSiteSlotsR2Prefix)
+}
 
 // MarketingSiteHandlers serves public read models for nextapi.top and
 // operator-only writes for homepage media slots.
@@ -30,11 +46,11 @@ type MarketingSiteHandlers struct {
 }
 
 type marketingSlotPublic struct {
-	SlotKey    string  `json:"slot_key"`
-	MediaKind  string  `json:"media_kind"`
-	URL        string  `json:"url"`
-	PosterURL  *string `json:"poster_url,omitempty"`
-	UpdatedAt  string  `json:"updated_at"`
+	SlotKey   string  `json:"slot_key"`
+	MediaKind string  `json:"media_kind"`
+	URL       string  `json:"url"`
+	PosterURL *string `json:"poster_url,omitempty"`
+	UpdatedAt string  `json:"updated_at"`
 }
 
 func (h *MarketingSiteHandlers) readyDB(c *gin.Context) bool {
@@ -73,12 +89,23 @@ func (h *MarketingSiteHandlers) PublicListSlots(c *gin.Context) {
 	}
 	out := make([]marketingSlotPublic, 0, len(rows))
 	for _, row := range rows {
+		if row.URLR2Key != nil && strings.TrimSpace(*row.URLR2Key) != "" {
+			if !marketingSiteAllowedObjectKey(*row.URLR2Key) {
+				continue
+			}
+		}
 		u, err := h.resolveURL(c, row.URLR2Key, row.URLExternal)
 		if err != nil || u == "" {
 			continue
 		}
 		var poster *string
-		if p, err := h.resolveURL(c, row.PosterR2Key, row.PosterExternal); err == nil && p != "" {
+		if row.PosterR2Key != nil && strings.TrimSpace(*row.PosterR2Key) != "" {
+			if !marketingSiteAllowedObjectKey(*row.PosterR2Key) {
+				poster = nil
+			} else if p, err := h.resolveURL(c, row.PosterR2Key, row.PosterExternal); err == nil && p != "" {
+				poster = &p
+			}
+		} else if p, err := h.resolveURL(c, row.PosterR2Key, row.PosterExternal); err == nil && p != "" {
 			poster = &p
 		}
 		out = append(out, marketingSlotPublic{
@@ -95,10 +122,10 @@ func (h *MarketingSiteHandlers) PublicListSlots(c *gin.Context) {
 // --- Internal admin ---
 
 type marketingPutBody struct {
-	MediaKind          string  `json:"media_kind"`
-	URLExternal          *string `json:"url"`
-	PosterExternal       *string `json:"poster_url"`
-	ClearPoster          bool    `json:"clear_poster"`
+	MediaKind      string  `json:"media_kind"`
+	URLExternal    *string `json:"url"`
+	PosterExternal *string `json:"poster_url"`
+	ClearPoster    bool    `json:"clear_poster"`
 }
 
 func (h *MarketingSiteHandlers) AdminListSlots(c *gin.Context) {
@@ -120,17 +147,38 @@ func (h *MarketingSiteHandlers) AdminListSlots(c *gin.Context) {
 	}
 	out := make([]rowOut, 0, len(rows))
 	for _, row := range rows {
-		u, err := h.resolveURL(c, row.URLR2Key, row.URLExternal)
+		var u string
+		var err error
+		src := "external"
+		if row.URLR2Key != nil && strings.TrimSpace(*row.URLR2Key) != "" {
+			if !marketingSiteAllowedObjectKey(*row.URLR2Key) {
+				out = append(out, rowOut{
+					SlotKey:   row.SlotKey,
+					MediaKind: row.MediaKind,
+					URL:       "",
+					PosterURL: nil,
+					Source:    "r2_non_cms",
+					UpdatedAt: row.UpdatedAt.UTC().Format(time.RFC3339),
+				})
+				continue
+			}
+			src = "r2"
+		}
+		u, err = h.resolveURL(c, row.URLR2Key, row.URLExternal)
 		if err != nil || u == "" {
 			continue
 		}
-		src := "external"
-		if row.URLR2Key != nil && strings.TrimSpace(*row.URLR2Key) != "" {
-			src = "r2"
-		}
 		var poster *string
-		if p, err := h.resolveURL(c, row.PosterR2Key, row.PosterExternal); err == nil && p != "" {
-			poster = &p
+		if row.PosterR2Key != nil && strings.TrimSpace(*row.PosterR2Key) != "" {
+			if marketingSiteAllowedObjectKey(*row.PosterR2Key) {
+				if p, err := h.resolveURL(c, row.PosterR2Key, row.PosterExternal); err == nil && p != "" {
+					poster = &p
+				}
+			}
+		} else {
+			if p, err := h.resolveURL(c, row.PosterR2Key, row.PosterExternal); err == nil && p != "" {
+				poster = &p
+			}
 		}
 		out = append(out, rowOut{
 			SlotKey:   row.SlotKey,

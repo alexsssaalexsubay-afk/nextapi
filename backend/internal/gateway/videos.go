@@ -220,7 +220,17 @@ func (h *VideosHandlers) Create(c *gin.Context) {
 		WebhookURL:         req.WebhookURL,
 		IdempotencyKey:     req.IdempotencyKey,
 	}
-	if err := h.DB.WithContext(c.Request.Context()).Create(&vid).Error; err != nil {
+	if res.PricingApplied {
+		vid.UpstreamEstimateCents = &res.UpstreamEstimateCents
+		vid.MarginCents = &res.MarginCents
+		vid.PricingMarkupBPS = &res.PricingMarkupBPS
+		vid.PricingSource = &res.PricingSource
+	}
+	createDB := h.DB.WithContext(c.Request.Context())
+	if !res.PricingApplied {
+		createDB = createDB.Omit("UpstreamEstimateCents", "UpstreamActualCents", "MarginCents", "PricingMarkupBPS", "PricingSource")
+	}
+	if err := createDB.Create(&vid).Error; err != nil {
 		// Catastrophic: the job was already queued + reservation taken,
 		// but we can't write the video row that the customer-facing API
 		// hangs off. The reconciliation worker will refund the reservation
@@ -335,7 +345,17 @@ func (h *VideosHandlers) Retry(c *gin.Context) {
 		ReservedCents:      res.EstimatedCredits,
 		WebhookURL:         original.WebhookURL,
 	}
-	if err := h.DB.WithContext(c.Request.Context()).Create(&vid).Error; err != nil {
+	if res.PricingApplied {
+		vid.UpstreamEstimateCents = &res.UpstreamEstimateCents
+		vid.MarginCents = &res.MarginCents
+		vid.PricingMarkupBPS = &res.PricingMarkupBPS
+		vid.PricingSource = &res.PricingSource
+	}
+	createDB := h.DB.WithContext(c.Request.Context())
+	if !res.PricingApplied {
+		createDB = createDB.Omit("UpstreamEstimateCents", "UpstreamActualCents", "MarginCents", "PricingMarkupBPS", "PricingSource")
+	}
+	if err := createDB.Create(&vid).Error; err != nil {
 		bgCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		_ = h.DB.WithContext(bgCtx).Model(&domain.Job{}).

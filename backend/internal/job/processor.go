@@ -9,6 +9,7 @@ import (
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/billing"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/domain"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/infra/metrics"
+	pricingsvc "github.com/alexsssaalexsubay-afk/nextapi/backend/internal/pricing"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/provider"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/provider/seedance"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/spend"
@@ -26,6 +27,7 @@ type Processor struct {
 	Queue       *asynq.Client
 	Webhooks    *webhook.Service
 	Throughput  *throughput.Service
+	Pricing     *pricingsvc.Service
 	RetryPolicy RetryPolicy
 	TempStorage interface {
 		Delete(ctx context.Context, key string) error
@@ -208,10 +210,9 @@ func (p *Processor) HandlePoll(ctx context.Context, t *asynq.Task) error {
 func (p *Processor) succeed(ctx context.Context, j *domain.Job, st *provider.JobStatus) error {
 	now := time.Now()
 
-	// Reconcile cost in USD cents using upstream-reported tokens when available,
-	// falling back to the original reservation. We never charge MORE than the
-	// reservation (any positive delta becomes a refund) so a runaway upstream
-	// token count cannot retroactively overdraft the customer.
+	// Reconcile final customer charge from actual upstream tokens when the
+	// provider reports them. Stored markup/source keep in-flight jobs stable if
+	// an operator changes global pricing while a generation is running.
 	var req provider.GenerationRequest
 	var videoSeconds *float64
 	if len(j.Request) > 0 {
@@ -220,25 +221,33 @@ func (p *Processor) succeed(ctx context.Context, j *domain.Job, st *provider.Job
 			videoSeconds = &vs
 		}
 	}
-	// Customer is invoiced exactly what the upstream charged us, in USD cents.
-	// Pre-check reserved an estimate; the worker now reconciles against the
-	// real upstream token count so the dashboard total matches the upstream
-	// portal line-for-line. If the reservation was higher than the actual,
-	// the delta is refunded; if lower, the customer is debited the shortfall.
-	actualCredits := j.ReservedCredits
+	upstreamActual := j.ReservedCredits
+	if j.UpstreamEstimateCents != nil {
+		upstreamActual = *j.UpstreamEstimateCents
+	}
 	if st.ActualTokensUsed != nil && *st.ActualTokensUsed > 0 {
 		if usdCents := seedance.USDCentsFromTokens(req, *st.ActualTokensUsed); usdCents > 0 {
-			actualCredits = usdCents
+			upstreamActual = usdCents
 		}
 	}
-	err := p.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Model(j).Updates(map[string]any{
+	actualQuote, err := p.finalQuote(ctx, j, upstreamActual)
+	if err != nil {
+		return err
+	}
+	actualCredits := actualQuote.CustomerChargeCents
+	err = p.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		jobUpdates := map[string]any{
 			"status":       domain.JobSucceeded,
 			"video_url":    st.VideoURL,
 			"tokens_used":  st.ActualTokensUsed,
 			"cost_credits": actualCredits,
 			"completed_at": now,
-		}).Error; err != nil {
+		}
+		if p.Pricing != nil {
+			jobUpdates["upstream_actual_cents"] = actualQuote.UpstreamCostCents
+			jobUpdates["margin_cents"] = actualQuote.MarginCents
+		}
+		if err := tx.Model(j).Updates(jobUpdates).Error; err != nil {
 			return err
 		}
 		delta := j.ReservedCredits - actualCredits
@@ -256,14 +265,19 @@ func (p *Processor) succeed(ctx context.Context, j *domain.Job, st *provider.Job
 			}
 		}
 		outputJSON, _ := json.Marshal(map[string]any{"video_url": st.VideoURL})
-		tx.Model(&domain.Video{}).Where("upstream_job_id = ?", j.ID).Updates(map[string]any{
+		videoUpdates := map[string]any{
 			"status":            "succeeded",
 			"output":            outputJSON,
 			"actual_cost_cents": actualCredits,
 			"upstream_tokens":   st.ActualTokensUsed,
 			"video_seconds":     videoSeconds,
 			"finished_at":       now,
-		})
+		}
+		if p.Pricing != nil {
+			videoUpdates["upstream_actual_cents"] = actualQuote.UpstreamCostCents
+			videoUpdates["margin_cents"] = actualQuote.MarginCents
+		}
+		tx.Model(&domain.Video{}).Where("upstream_job_id = ?", j.ID).Updates(videoUpdates)
 		updateWorkflowRun(ctx, tx, j.ID, "succeeded", outputJSON)
 		// Update batch counters if this job belongs to a batch.
 		if j.BatchRunID != nil {
@@ -299,6 +313,27 @@ func (p *Processor) succeed(ctx context.Context, j *domain.Job, st *provider.Job
 		}
 	}
 	return err
+}
+
+func (p *Processor) finalQuote(ctx context.Context, j *domain.Job, upstreamCents int64) (pricingsvc.Quote, error) {
+	markup := 0
+	source := domain.PricingSourceGlobal
+	if j.PricingMarkupBPS != nil {
+		markup = *j.PricingMarkupBPS
+	}
+	if j.PricingSource != nil && *j.PricingSource != "" {
+		source = *j.PricingSource
+	}
+	if p.Pricing == nil {
+		return pricingsvc.Quote{
+			UpstreamCostCents:   upstreamCents,
+			CustomerChargeCents: upstreamCents,
+			MarkupBPS:           markup,
+			Source:              source,
+			MarginCents:         0,
+		}, nil
+	}
+	return p.Pricing.QuoteWithMarkup(ctx, upstreamCents, markup, source)
 }
 
 // lookupVideoID returns the UUID of the videos row whose upstream_job_id

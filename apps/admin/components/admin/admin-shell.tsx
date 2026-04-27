@@ -13,6 +13,7 @@ import {
   LifeBuoy,
   LogOut,
   Megaphone,
+  Percent,
   ScrollText,
   ShieldCheck,
   Terminal,
@@ -91,6 +92,7 @@ export function AdminShell({
       heading: t.nav.admin.ledger,
       items: [
         { label: t.nav.admin.credits, href: "/credits", icon: Banknote },
+        { label: t.nav.admin.pricing, href: "/pricing", icon: Percent },
         { label: t.nav.admin.platformBudget, href: "/budget", icon: Wallet },
         { label: t.nav.admin.audit, href: "/audit", icon: ScrollText },
       ],

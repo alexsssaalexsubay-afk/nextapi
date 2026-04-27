@@ -48,25 +48,30 @@ func (s JobStatus) CanTransitionTo(next JobStatus) bool {
 }
 
 type Job struct {
-	ID              string          `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
-	OrgID           string          `gorm:"type:uuid;not null;index"`
-	APIKeyID        *string         `gorm:"type:uuid"`
-	BatchRunID      *string         `gorm:"type:uuid;column:batch_run_id"`
-	Provider        string          `gorm:"not null"`
-	ProviderJobID   *string
-	Request         json.RawMessage `gorm:"type:jsonb;not null"`
-	Status          JobStatus       `gorm:"type:job_status;not null;default:'queued'"`
-	VideoURL        *string
-	TokensUsed      *int64
-	CostCredits     *int64
-	ReservedCredits int64           `gorm:"not null;default:0"`
-	ErrorCode       *string
-	ErrorMessage    *string
+	ID                    string  `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
+	OrgID                 string  `gorm:"type:uuid;not null;index"`
+	APIKeyID              *string `gorm:"type:uuid"`
+	BatchRunID            *string `gorm:"type:uuid;column:batch_run_id"`
+	Provider              string  `gorm:"not null"`
+	ProviderJobID         *string
+	Request               json.RawMessage `gorm:"type:jsonb;not null"`
+	Status                JobStatus       `gorm:"type:job_status;not null;default:'queued'"`
+	VideoURL              *string
+	TokensUsed            *int64
+	CostCredits           *int64
+	ReservedCredits       int64   `gorm:"not null;default:0"`
+	UpstreamEstimateCents *int64  `gorm:"column:upstream_estimate_cents"`
+	UpstreamActualCents   *int64  `gorm:"column:upstream_actual_cents"`
+	MarginCents           *int64  `gorm:"column:margin_cents"`
+	PricingMarkupBPS      *int    `gorm:"column:pricing_markup_bps"`
+	PricingSource         *string `gorm:"column:pricing_source"`
+	ErrorCode             *string
+	ErrorMessage          *string
 
 	// Retry and execution metadata
-	RetryCount    int     `gorm:"not null;default:0"`
-	LastErrorCode *string `gorm:"column:last_error_code"`
-	LastErrorMsg  *string `gorm:"column:last_error_msg"`
+	RetryCount    int             `gorm:"not null;default:0"`
+	LastErrorCode *string         `gorm:"column:last_error_code"`
+	LastErrorMsg  *string         `gorm:"column:last_error_msg"`
 	ExecMetadata  json.RawMessage `gorm:"type:jsonb;column:exec_metadata"`
 
 	// Lifecycle timestamps

@@ -22,6 +22,7 @@ import (
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/job"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/moderation"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/notify"
+	pricingsvc "github.com/alexsssaalexsubay-afk/nextapi/backend/internal/pricing"
 	projsvc "github.com/alexsssaalexsubay-afk/nextapi/backend/internal/project"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/provider/uptoken"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/providerfactory"
@@ -72,6 +73,7 @@ func main() {
 
 	authSvc := auth.NewService(gormDB)
 	billSvc := billing.NewService(gormDB)
+	pricingSvc := pricingsvc.NewService(gormDB)
 	whSvc := webhook.NewService(gormDB)
 	jobSvc := job.NewService(gormDB, billSvc, prov, queue)
 	spendSvc := spend.NewService(gormDB)
@@ -82,6 +84,7 @@ func main() {
 	jobSvc.SetSpend(spendSvc)
 	jobSvc.SetThroughput(throughputSvc)
 	jobSvc.SetModeration(modSvc)
+	jobSvc.SetPricing(pricingSvc)
 	workflowSvc := workflowsvc.NewService(gormDB, jobSvc)
 	workflowSvc.SetThroughput(throughputSvc)
 
@@ -93,7 +96,8 @@ func main() {
 	wdh := &gateway.WebhookDeliveryHandlers{DB: gormDB, Webhooks: whSvc}
 	ah := &gateway.AdminHandlers{DB: gormDB, Billing: billSvc, Spend: spendSvc, Throughput: throughputSvc, Notify: notifier}
 	ph := gateway.NewPaymentHandlers(billSvc, gormDB)
-	seedanceWebhook := &gateway.UpTokenWebhookHandlers{DB: gormDB, Spend: spendSvc, Throughput: throughputSvc}
+	ph.Pricing = pricingSvc
+	seedanceWebhook := &gateway.UpTokenWebhookHandlers{DB: gormDB, Spend: spendSvc, Throughput: throughputSvc, Pricing: pricingSvc}
 	hook := &gateway.ClerkWebhook{DB: gormDB, Billing: billSvc}
 	models := gateway.ModelsHandlers{}
 	sh := &gateway.SpendHandlers{Svc: spendSvc, DB: gormDB}
@@ -375,12 +379,21 @@ func main() {
 	internal.GET("/billing/ledger", ah.AllLedger)
 	internal.GET("/operator-budget", ah.GetOperatorBudget)
 	internal.PUT("/operator-budget", ah.PutOperatorBudget)
+	internal.GET("/pricing/settings", ah.GetPricingSettings)
+	internal.PUT("/pricing/settings", ah.PutPricingSettings)
+	internal.GET("/pricing/tiers", ah.ListPricingTiers)
+	internal.POST("/pricing/tiers", ah.CreatePricingTier)
+	internal.PATCH("/pricing/tiers/:id", ah.PatchPricingTier)
+	internal.DELETE("/pricing/tiers/:id", ah.DeletePricingTier)
+	internal.GET("/pricing/margins", ah.PricingMargins)
 	internal.GET("/leads", ah.Leads)
 	internal.PATCH("/leads/:id/contacted", ah.MarkLeadContacted)
 	internal.POST("/credits/adjust", ah.AdjustCredits)
 	internal.POST("/orgs/:id/unpause", sh.Unpause)
 	internal.PUT("/orgs/:id/throughput", th.AdminUpsertThroughput)
 	internal.PUT("/orgs/:id/moderation", mh.AdminUpsertProfile)
+	internal.GET("/orgs/:id/pricing", ah.GetOrgPricing)
+	internal.PATCH("/orgs/:id/pricing", ah.PatchOrgPricing)
 	internal.GET("/moderation/events", mh.AdminListEvents)
 	internal.PATCH("/moderation/events/:id", mh.AdminAddNote)
 	internal.PATCH("/orgs/:id", ob.AdminUpdateOrg)

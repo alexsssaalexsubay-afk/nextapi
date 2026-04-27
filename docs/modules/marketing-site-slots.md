@@ -13,6 +13,10 @@ Operator write: `X-Op-Session` on `/v1/internal/admin/marketing/slots/*` — lis
 
 Keys must match `^[a-z][a-z0-9_]{1,48}$`.
 
+## R2 safety (public API)
+
+`GET /v1/public/marketing/slots` presigns **only** object keys whose normalized path starts with `marketing/site-slots/`. Keys outside that prefix are omitted from the response so customer job objects cannot be exposed by misconfiguration. Operator uploads already write under this prefix.
+
 ## Site build
 
 Marketing pages call `NEXT_PUBLIC_API_URL` (default `https://api.nextapi.top`) for public slots. Ensure the marketing build has the correct API base if you use a staging API.

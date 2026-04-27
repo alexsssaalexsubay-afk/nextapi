@@ -79,9 +79,13 @@ paths:
       tags: [marketing]
       summary: List homepage media slots for nextapi.top
       description: |
-        Returns resolved `https://` URLs for each configured slot (R2 objects are
-        returned as short-lived presigned URLs). Intended for the static
-        marketing site to fetch at runtime.
+        Returns resolved `https://` URLs for operator-configured marketing slots
+        only. R2-backed slots are presigned **only** when the stored object key is
+        under the `marketing/site-slots/` prefix (same prefix used by the admin
+        upload API). This avoids exposing customer job outputs if a wrong key is
+        ever stored in `marketing_site_slots`. External `https://` URLs are
+        passed through unchanged — operators must not point them at private
+        customer media. Intended for the public marketing site (nextapi.top).
       operationId: listPublicMarketingSlots
       security: []
       responses:
@@ -89,21 +93,7 @@ paths:
           description: OK
           content:
             application/json:
-              schema:
-                type: object
-                required: [slots]
-                properties:
-                  slots:
-                    type: array
-                    items:
-                      type: object
-                      required: [slot_key, media_kind, url, updated_at]
-                      properties:
-                        slot_key: { type: string }
-                        media_kind: { type: string, enum: [image, video] }
-                        url: { type: string, format: uri }
-                        poster_url: { type: string, format: uri }
-                        updated_at: { type: string, format: date-time }
+              schema: { $ref: '#/components/schemas/MarketingSlotsPublicResponse' }
 
   /auth/login:
     post:
@@ -1489,6 +1479,118 @@ paths:
               schema: { $ref: '#/components/schemas/WebhookDelivery' }
         '404': { $ref: '#/components/responses/NotFound' }
 
+  /internal/admin/marketing/slots:
+    get:
+      tags: [internal]
+      summary: List marketing site slots (operator)
+      operationId: adminListMarketingSlots
+      security: [ { adminToken: [] } ]
+      description: >-
+        Browser admin uses `X-Op-Session` with the same paths; OpenAPI lists
+        `X-Admin-Token` as the shared internal security scheme for codegen.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MarketingSlotsAdminResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '503':
+          description: Database unavailable.
+
+  /internal/admin/marketing/slots/{slot}:
+    parameters:
+      - name: slot
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: '^[a-z][a-z0-9_]{1,48}$'
+        description: Slot identifier (e.g. landing_hero_main, gallery_strip_1).
+    put:
+      tags: [internal]
+      summary: Set marketing slot from HTTPS URLs
+      operationId: adminPutMarketingSlotExternal
+      security: [ { adminToken: [] } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MarketingSlotPutBody' }
+      responses:
+        '200':
+          description: Saved.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok]
+                properties:
+                  ok: { type: boolean, const: true }
+        '400': { $ref: '#/components/responses/InvalidRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    delete:
+      tags: [internal]
+      summary: Delete marketing slot (and best-effort R2 delete)
+      operationId: adminDeleteMarketingSlot
+      security: [ { adminToken: [] } ]
+      responses:
+        '204':
+          description: Removed or was already absent.
+        '400': { $ref: '#/components/responses/InvalidRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /internal/admin/marketing/slots/{slot}/upload:
+    parameters:
+      - name: slot
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: '^[a-z][a-z0-9_]{1,48}$'
+    post:
+      tags: [internal]
+      summary: Upload marketing slot media to R2
+      operationId: adminUploadMarketingSlot
+      security: [ { adminToken: [] } ]
+      description: >-
+        Multipart body: `media_kind` (image|video), `file` (main asset). For video,
+        optional `poster` image. Objects are stored under `marketing/site-slots/`.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [media_kind, file]
+              properties:
+                media_kind:
+                  type: string
+                  enum: [image, video]
+                file:
+                  type: string
+                  format: binary
+                  description: Main image or video bytes.
+                poster:
+                  type: string
+                  format: binary
+                  description: Optional JPEG/PNG/WebP poster when media_kind is video.
+      responses:
+        '201':
+          description: Uploaded and slot saved.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, storage_key]
+                properties:
+                  ok: { type: boolean, const: true }
+                  storage_key: { type: string }
+        '400': { $ref: '#/components/responses/InvalidRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '503':
+          description: R2 not configured or upload failed.
+
 components:
   securitySchemes:
     bearerBusiness:
@@ -1602,6 +1704,58 @@ components:
         status: { type: string, enum: [ok, degraded] }
         version: { type: string }
         region: { type: string }
+
+    MarketingSlotPublic:
+      type: object
+      required: [slot_key, media_kind, url, updated_at]
+      properties:
+        slot_key: { type: string }
+        media_kind: { type: string, enum: [image, video] }
+        url: { type: string, description: HTTPS URL or presigned GET URL. }
+        poster_url: { type: string, description: Optional poster/preview URL. }
+        updated_at: { type: string, format: date-time }
+
+    MarketingSlotsPublicResponse:
+      type: object
+      required: [slots]
+      properties:
+        slots:
+          type: array
+          items: { $ref: '#/components/schemas/MarketingSlotPublic' }
+
+    MarketingSlotAdminRow:
+      type: object
+      required: [slot_key, media_kind, url, source, updated_at]
+      properties:
+        slot_key: { type: string }
+        media_kind: { type: string, enum: [image, video] }
+        url:
+          type: string
+          description: >-
+            Resolved URL, or empty when `source` is `r2_non_cms` (R2 key outside
+            the marketing CMS prefix — fix or delete the row).
+        poster_url: { type: string }
+        source:
+          type: string
+          enum: [external, r2, r2_non_cms]
+        updated_at: { type: string, format: date-time }
+
+    MarketingSlotsAdminResponse:
+      type: object
+      required: [slots]
+      properties:
+        slots:
+          type: array
+          items: { $ref: '#/components/schemas/MarketingSlotAdminRow' }
+
+    MarketingSlotPutBody:
+      type: object
+      required: [media_kind, url]
+      properties:
+        media_kind: { type: string, enum: [image, video] }
+        url: { type: string, format: uri, description: Public HTTPS URL for the main asset. }
+        poster_url: { type: string, format: uri, description: Optional HTTPS poster for video. }
+        clear_poster: { type: boolean, default: false }
 
     ErrorCode:
       type: string
