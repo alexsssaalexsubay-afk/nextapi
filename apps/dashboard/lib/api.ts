@@ -181,6 +181,18 @@ export async function createTopup(amountCents: number, paymentType: "alipay" | "
   }) as Promise<{ order_id: string; payment_url: string; provider: string }>
 }
 
+export type PaymentStatus = {
+  topup_enabled: boolean
+  provider: string
+  payment_types?: Array<"alipay" | "wxpay">
+  disabled_code?: string
+  disabled_hint?: string
+}
+
+export async function getPaymentStatus() {
+  return apiFetch("/v1/pay/status") as Promise<PaymentStatus>
+}
+
 export async function logoutAccount(): Promise<void> {
   const token = getAccountSessionToken()
   if (token) {

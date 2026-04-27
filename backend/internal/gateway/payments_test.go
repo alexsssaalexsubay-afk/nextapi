@@ -1,6 +1,8 @@
 package gateway
 
 import (
+	"encoding/json"
+	"net/http"
 	"net/http/httptest"
 	"testing"
 
@@ -11,6 +13,37 @@ import (
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
+
+func TestPaymentStatusReportsEasypayDisabledWhenMerchantMissing(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	t.Setenv("EPAY_PID", "")
+	t.Setenv("EASYPAY_PID", "")
+	t.Setenv("EPAY_KEY", "")
+	t.Setenv("EASYPAY_KEY", "")
+	t.Setenv("EPAY_GATEWAY", "")
+	t.Setenv("EASYPAY_GATEWAY_URL", "")
+
+	h := NewPaymentHandlers(nil, nil)
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodGet, "/v1/pay/status", nil)
+
+	h.Status(c)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+	var body paymentStatusResp
+	if err := json.NewDecoder(w.Body).Decode(&body); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if body.TopupEnabled {
+		t.Fatal("expected top-up to be disabled without merchant credentials")
+	}
+	if body.DisabledCode != "merchant_not_configured" {
+		t.Fatalf("unexpected disabled code: %q", body.DisabledCode)
+	}
+}
 
 func TestEasypayWebhookCreditsOrderOnlyOnce(t *testing.T) {
 	gin.SetMode(gin.TestMode)

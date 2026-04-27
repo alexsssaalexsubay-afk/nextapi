@@ -12,17 +12,17 @@ const COPY = {
     heroTitleBefore: "Scale your video pipeline with",
     heroTitleAccent: "Enterprise SLAs",
     heroSubtitle:
-      "Dedicated capacity, guaranteed throughput, custom moderation profiles, and a solutions architect to design your integration.",
+      "Dedicated capacity planning, contracted throughput targets, custom moderation profiles, and a solutions architect to design your integration.",
     features: [
       {
         icon: Zap,
         title: "Dedicated Capacity",
-        desc: "Guaranteed throughput with isolated queue lanes — no noisy neighbors.",
+        desc: "Contracted throughput targets with isolated queue lanes — no noisy neighbors.",
       },
       {
         icon: Shield,
         title: "Enterprise SLAs",
-        desc: "99.95% uptime, P95 latency guarantees, and 24/7 incident response.",
+        desc: "Contracted availability targets, P95 latency objectives, and incident response.",
       },
       {
         icon: Building2,
@@ -66,17 +66,17 @@ const COPY = {
     heroTitleBefore: "规模化你的视频管线，依托",
     heroTitleAccent: "企业级 SLA",
     heroSubtitle:
-      "独享容量、稳定吞吐、可定制的内容安全策略，并由解决方案架构师协助你完成接入与容量规划。",
+      "独享容量规划、合同化吞吐目标、可定制的内容安全策略，并由解决方案架构师协助你完成接入与容量规划。",
     features: [
       {
         icon: Zap,
         title: "独享容量",
-        desc: "隔离队列通道，保障吞吐，避免公共资源上的邻居干扰。",
+        desc: "隔离队列通道与合同化吞吐目标，避免公共资源上的邻居干扰。",
       },
       {
         icon: Shield,
         title: "企业 SLA",
-        desc: "99.95% 可用性、P95 时延承诺与 7×24 事件响应。",
+        desc: "合同化可用性目标、P95 时延目标与事件响应。",
       },
       {
         icon: Building2,

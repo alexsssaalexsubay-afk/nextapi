@@ -119,16 +119,16 @@ export const en = {
     ctaSecondary: "Read docs",
     panelLabel: "Live request",
     videoCaption: "Generated via NextAPI",
-    videoMetaTime: "38s",
-    videoMetaCost: "Zero queue time",
+    videoMetaTime: "Model-dependent",
+    videoMetaCost: "Managed queue",
     videoMetaModel: "seedance-2.0-pro",
     trust: {
-      partner: "production: stable",
-      uptime: "99.95% uptime · 30d",
+      partner: "production-ready controls",
+      uptime: "operator SLO target",
       refund: "failed-job refund, automatic",
-      uptimeKw: "99.95%",
-      uptimeTail: " uptime · 30d",
-      partnerKw: "production: stable",
+      uptimeKw: "SLO",
+      uptimeTail: " target",
+      partnerKw: "production-ready",
       refundKw: "failed-job refunds",
       refundTail: ", automatic",
     },
@@ -142,17 +142,17 @@ export const en = {
       ttfc: "Time to first call",
       ttfcValue: "< 5 min",
       uptime: "API uptime",
-      uptimeValue: "99.95%",
+      uptimeValue: "Live monitored",
       latency: "p99 latency",
-      latencyValue: "412 ms",
+      latencyValue: "Model-dependent",
     },
   },
 
   samples: {
-    eyebrow: "/ live samples",
-    title: "Real outputs, zero cherry-picking.",
+    eyebrow: "/ creative samples",
+    title: "Curated launch examples with transparent prompts.",
     subtitle:
-      "Eight clips sampled at random from this week's production traffic. Raw Seedance model output, cached for this demo — hover to see the prompt.",
+      "Operator-curated launch examples that demonstrate visual direction and composition — hover to see the prompt.",
     tags: {
       shortDrama: "Short Drama",
       adCreative: "Ad Creative",
@@ -213,8 +213,8 @@ export const en = {
     },
     values: {
       nextapi: {
-        queue: "Zero",
-        latency: "18s",
+        queue: "Managed queue",
+        latency: "Model-dependent",
         concurrency: "Dedicated lanes",
         policy: "Configurable per-org",
         migration: "1-line URL swap",
@@ -228,7 +228,7 @@ export const en = {
       },
     },
     footnote:
-      "Figures reflect our 30-day rolling p95 on production traffic. Sign in to view live numbers for your account.",
+      "This section describes product goals and operating boundaries. Sign in to view live job, billing, and error metrics for your account.",
   },
 
   useCases: {
@@ -239,7 +239,7 @@ export const en = {
     cards: {
       shortDrama: {
         category: "Short-drama production",
-        tagline: "Zero queue times for high-volume batch rendering.",
+        tagline: "Managed queues for high-volume batch rendering.",
       },
       ad: {
         category: "Ad creative agencies",
@@ -1603,6 +1603,10 @@ export const en = {
       alipay: "Alipay",
       wxpay: "WeChat Pay",
       payNow: "Pay now",
+      checking: "Checking payment channel…",
+      unavailableAction: "Payment not configured",
+      unavailableTitle: "Payment channel is not configured",
+      unavailableBody: "NextAPI will not create fake checkout orders while merchant credentials are missing. Ask an admin to configure Easypay PID, key, and gateway before enabling recharge.",
       creating: "Creating order…",
       failed: "Could not create the payment order. Please try again.",
       secureHint: "The merchant key stays on the backend. You will be redirected to Easypay.",

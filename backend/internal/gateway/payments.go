@@ -94,6 +94,46 @@ type createTopupReq struct {
 	PaymentType string  `json:"payment_type"`
 }
 
+type paymentStatusResp struct {
+	TopupEnabled bool     `json:"topup_enabled"`
+	Provider     string   `json:"provider"`
+	PaymentTypes []string `json:"payment_types"`
+	DisabledCode string   `json:"disabled_code,omitempty"`
+	DisabledHint string   `json:"disabled_hint,omitempty"`
+}
+
+type configuredPaymentProvider interface {
+	Configured() bool
+}
+
+func (h *PaymentHandlers) Status(c *gin.Context) {
+	p, ok := h.Providers["easypay"]
+	if !ok {
+		c.JSON(http.StatusOK, paymentStatusResp{
+			TopupEnabled: false,
+			Provider:     "easypay",
+			DisabledCode: "provider_missing",
+			DisabledHint: "payment provider is not registered",
+		})
+		return
+	}
+	configured := false
+	if cp, ok := p.(configuredPaymentProvider); ok {
+		configured = cp.Configured()
+	}
+	resp := paymentStatusResp{
+		TopupEnabled: configured,
+		Provider:     "easypay",
+		PaymentTypes: []string{"alipay", "wxpay"},
+	}
+	if !configured {
+		resp.DisabledCode = "merchant_not_configured"
+		resp.DisabledHint = "payment merchant credentials are not configured"
+		resp.PaymentTypes = nil
+	}
+	c.JSON(http.StatusOK, resp)
+}
+
 func (h *PaymentHandlers) CreateTopup(c *gin.Context) {
 	org := auth.OrgFrom(c)
 	if h.DB == nil {

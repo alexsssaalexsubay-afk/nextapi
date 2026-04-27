@@ -310,6 +310,7 @@ func main() {
 	// share the same v1 base. Handlers scope by auth.OrgFrom either way.
 	api.GET("/me/billing/ledger", h.Ledger)
 	api.GET("/me/billing/usage", h.Usage)
+	api.GET("/pay/status", ph.Status)
 	api.POST("/pay/create", ph.CreateTopup)
 
 	apiPayCompat := apiCompat.Group("")

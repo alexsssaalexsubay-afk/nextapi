@@ -49,9 +49,13 @@ func New() *Provider {
 
 func (p *Provider) Name() string { return "easypay" }
 
+func (p *Provider) Configured() bool {
+	return p.pid != "" && p.key != "" && p.gatewayURL != ""
+}
+
 func (p *Provider) CreateCheckout(ctx context.Context, r payment.CheckoutRequest) (*payment.Checkout, error) {
 	_ = ctx
-	if p.pid == "" || p.key == "" || p.gatewayURL == "" {
+	if !p.Configured() {
 		return nil, payment.ErrNotImplemented
 	}
 	if r.OrderID == "" || r.AmountCents <= 0 {

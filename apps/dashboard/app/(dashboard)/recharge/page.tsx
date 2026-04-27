@@ -4,7 +4,7 @@ import * as React from "react"
 import { CreditCard, Loader2, ShieldCheck } from "lucide-react"
 import { DashboardShell } from "@/components/dashboard/dashboard-shell"
 import { Button } from "@/components/ui/button"
-import { createTopup } from "@/lib/api"
+import { createTopup, getPaymentStatus, type PaymentStatus } from "@/lib/api"
 import { useTranslations } from "@/lib/i18n/context"
 import { cn } from "@/lib/utils"
 
@@ -20,9 +20,29 @@ export default function RechargePage() {
   const [paymentType, setPaymentType] = React.useState<"alipay" | "wxpay">("alipay")
   const [loading, setLoading] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
+  const [status, setStatus] = React.useState<PaymentStatus | null>(null)
+  const [statusLoading, setStatusLoading] = React.useState(true)
+
+  React.useEffect(() => {
+    let cancelled = false
+    setStatusLoading(true)
+    getPaymentStatus()
+      .then((next) => {
+        if (!cancelled) setStatus(next)
+      })
+      .catch(() => {
+        if (!cancelled) setStatus({ topup_enabled: false, provider: "easypay", disabled_code: "status_failed" })
+      })
+      .finally(() => {
+        if (!cancelled) setStatusLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const submit = async () => {
-    if (loading) return
+    if (loading || !status?.topup_enabled) return
     setLoading(true)
     setError(null)
     try {
@@ -102,18 +122,29 @@ export default function RechargePage() {
             </div>
           </div>
 
+          {!statusLoading && !status?.topup_enabled && (
+            <div role="status" className="mt-5 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-800 dark:text-amber-200">
+              <div className="font-medium">{t.billing.recharge.unavailableTitle}</div>
+              <p className="mt-1 text-xs opacity-80">{t.billing.recharge.unavailableBody}</p>
+            </div>
+          )}
+
           {error && (
             <div role="alert" className="mt-5 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
               {error}
             </div>
           )}
 
-          <Button onClick={submit} disabled={loading} className="mt-6 h-11 w-full rounded-full">
+          <Button onClick={submit} disabled={loading || statusLoading || !status?.topup_enabled} className="mt-6 h-11 w-full rounded-full">
             {loading ? (
               <>
                 <Loader2 className="size-4 animate-spin" />
                 {t.billing.recharge.creating}
               </>
+            ) : statusLoading ? (
+              t.billing.recharge.checking
+            ) : !status?.topup_enabled ? (
+              t.billing.recharge.unavailableAction
             ) : (
               t.billing.recharge.payNow
             )}

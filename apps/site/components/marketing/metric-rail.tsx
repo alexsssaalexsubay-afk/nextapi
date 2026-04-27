@@ -5,10 +5,10 @@ import { useTranslations } from "@/lib/i18n/context"
 export function MetricRail() {
   const t = useTranslations()
   const items = [
-    { v: "180ms", l: t.metricRail.items.latency },
-    { v: "99.95%", l: t.metricRail.items.sla },
-    { v: "38s", l: t.metricRail.items.runtime },
-    { v: "0", l: t.metricRail.items.retries },
+    { v: "Live", l: t.metricRail.items.latency },
+    { v: "SLO", l: t.metricRail.items.sla },
+    { v: "Model", l: t.metricRail.items.runtime },
+    { v: "Auto", l: t.metricRail.items.retries },
   ]
   return (
     <section className="border-b border-border/60 bg-card/30">

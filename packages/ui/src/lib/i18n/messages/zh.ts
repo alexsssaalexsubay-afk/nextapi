@@ -121,16 +121,16 @@ export const zh: Messages = {
     ctaSecondary: "查看文档",
     panelLabel: "实时请求",
     videoCaption: "由 NextAPI 生成",
-    videoMetaTime: "38s",
-    videoMetaCost: "零排队",
+    videoMetaTime: "随模型而定",
+    videoMetaCost: "托管队列",
     videoMetaModel: "seedance-2.0-pro",
     trust: {
-      partner: "生产级：稳定",
-      uptime: "99.95% 可用性 · 30 天",
+      partner: "生产级控制面",
+      uptime: "运营 SLO 目标",
       refund: "失败任务自动退款",
-      uptimeKw: "99.95%",
-      uptimeTail: " 可用性 · 30 天",
-      partnerKw: "生产级：稳定",
+      uptimeKw: "SLO",
+      uptimeTail: " 目标",
+      partnerKw: "生产级",
       refundKw: "失败自动退款",
       refundTail: "",
     },
@@ -144,16 +144,16 @@ export const zh: Messages = {
       ttfc: "首次成功调用",
       ttfcValue: "< 5 分钟",
       uptime: "API 可用性",
-      uptimeValue: "99.95%",
+      uptimeValue: "实时监控中",
       latency: "p99 时延",
-      latencyValue: "412 毫秒",
+      latencyValue: "随模型而定",
     },
   },
 
   samples: {
-    eyebrow: "/ 生产样本",
-    title: "真实生成样例，绝不精挑细选。",
-    subtitle: "本周生产流量里随机抽取的 8 段原始产出 —— 鼠标悬停查看提示词。",
+    eyebrow: "/ 创作样本",
+    title: "精选展示样例，透明标注提示词。",
+    subtitle: "运营策展的启动样例，用来展示风格与构图方向 —— 鼠标悬停查看提示词。",
     tags: {
       shortDrama: "短剧",
       adCreative: "广告创意",
@@ -214,8 +214,8 @@ export const zh: Messages = {
     },
     values: {
       nextapi: {
-        queue: "零排队",
-        latency: "18s",
+        queue: "托管队列",
+        latency: "随模型而定",
         concurrency: "独享通道",
         policy: "按组织可配置",
         migration: "改 1 行 URL",
@@ -229,7 +229,7 @@ export const zh: Messages = {
       },
     },
     footnote:
-      "数据为 30 天滚动 P95，基于生产流量池。登录控制台查看你自己账号的实时指标。",
+      "此处展示产品目标与能力边界；登录控制台查看你自己账号的实时任务、账单和错误指标。",
   },
 
   useCases: {
@@ -240,7 +240,7 @@ export const zh: Messages = {
     cards: {
       shortDrama: {
         category: "短剧制作",
-        tagline: "大批量渲染任务，零排队。",
+        tagline: "大批量渲染任务使用托管队列。",
       },
       ad: {
         category: "广告创意代理",
@@ -1586,6 +1586,10 @@ export const zh: Messages = {
       alipay: "支付宝",
       wxpay: "微信支付",
       payNow: "立即支付",
+      checking: "正在检查支付通道…",
+      unavailableAction: "支付通道未配置",
+      unavailableTitle: "支付通道暂未配置",
+      unavailableBody: "商户参数缺失时不会创建假订单。请联系管理员配置易支付商户号、密钥和网关后再开放充值。",
       creating: "正在创建订单…",
       failed: "无法创建支付订单，请重试。",
       secureHint: "商户密钥只保存在后端。点击后将跳转到易支付。",
