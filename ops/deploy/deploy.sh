@@ -13,12 +13,17 @@ fi
 echo "$TAG" > .last-tag
 
 export IMAGE_TAG="$TAG"
-docker compose -f docker-compose.prod.yml pull backend worker
-docker compose -f docker-compose.prod.yml up -d --remove-orphans
+COMPOSE_ARGS=(-f docker-compose.prod.yml)
+if [[ -f docker-compose.override.yml ]]; then
+  COMPOSE_ARGS+=(-f docker-compose.override.yml)
+fi
+
+docker compose "${COMPOSE_ARGS[@]}" pull backend worker
+docker compose "${COMPOSE_ARGS[@]}" up -d --remove-orphans
 
 # Run migrations inside the fresh image.
 echo "==> Running migrations..."
-if ! docker compose -f docker-compose.prod.yml run --rm \
+if ! docker compose "${COMPOSE_ARGS[@]}" run --rm \
   -e DATABASE_URL \
   backend /app/server --migrate; then
   echo "!! Migration failed, rolling back."

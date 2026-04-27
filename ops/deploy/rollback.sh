@@ -10,6 +10,11 @@ fi
 PREV="$(cat .last-prev-tag)"
 echo "==> Rolling back to $PREV"
 export IMAGE_TAG="$PREV"
-docker compose -f docker-compose.prod.yml pull backend worker
-docker compose -f docker-compose.prod.yml up -d --remove-orphans
+COMPOSE_ARGS=(-f docker-compose.prod.yml)
+if [[ -f docker-compose.override.yml ]]; then
+  COMPOSE_ARGS+=(-f docker-compose.override.yml)
+fi
+
+docker compose "${COMPOSE_ARGS[@]}" pull backend worker
+docker compose "${COMPOSE_ARGS[@]}" up -d --remove-orphans
 echo "$PREV" > .last-tag
