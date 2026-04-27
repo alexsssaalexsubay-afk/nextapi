@@ -283,7 +283,7 @@ export default function BatchStudioPage() {
 
   const prepared = validateResult?.prepared ?? []
   const hasErrors = (validateResult?.errors.length ?? 0) > 0
-  const canRun = prepared.length > 0 && !hasErrors && !running
+  const canRun = prepared.length > 0 && !hasErrors && !running && modelCatalogState === "ready" && model.trim() !== ""
   const selectedCapability = modelCapabilities[model]
   const resolutionOptions = useMemo(
     () => orderedResolutions(selectedCapability?.supportedResolutions),
@@ -388,10 +388,14 @@ export default function BatchStudioPage() {
           setModel((m) => (ids.includes(m) ? m : ids[0]))
           setModelCatalogState("ready")
         } else {
+          setModels([])
           setModelCatalogState("fallback")
         }
       })
-      .catch(() => setModelCatalogState("fallback"))
+      .catch(() => {
+        setModels([])
+        setModelCatalogState("fallback")
+      })
   }, [])
 
   useEffect(() => {

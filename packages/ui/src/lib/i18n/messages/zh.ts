@@ -645,7 +645,7 @@ export const zh: Messages = {
     model: "模型",
     modelCatalogLoading: "正在从 /v1/models 同步真实模型能力...",
     modelCatalogHint: "已从 /v1/models 同步；这里只允许选择后端返回的视频模型。",
-    modelCatalogFallback: "暂时无法同步 /v1/models。先显示安全的 Seedance 默认项，提交时仍由后端校验。",
+    modelCatalogFallback: "暂时无法同步 /v1/models。实时模型目录可用前，批量提交会被禁用。",
     modelStatusLive: "可用",
     modelStatusCompat: "兼容",
     modelStatusConfigured: "已配置",

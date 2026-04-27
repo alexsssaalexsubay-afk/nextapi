@@ -656,7 +656,7 @@ export const en = {
     modelCatalogLoading: "Syncing live model capabilities from /v1/models...",
     modelCatalogHint: "Synced from /v1/models; only backend-listed video models are selectable.",
     modelCatalogFallback:
-      "Could not sync /v1/models. Showing safe Seedance defaults; the backend will still validate the run.",
+      "Could not sync /v1/models. Batch submission is disabled until the live model catalog is available.",
     modelStatusLive: "Live",
     modelStatusCompat: "Compatible",
     modelStatusConfigured: "Configured",
