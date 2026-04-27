@@ -1,7 +1,7 @@
 import type { WorkflowJSON } from "@/lib/workflows"
 import type { DirectorPlan, DirectorRuntimeOptions } from "./types"
 
-export function convertDirectorPlanToWorkflow(plan: DirectorPlan, options: DirectorRuntimeOptions = {}): WorkflowJSON {
+export function convertDirectorPlanToWorkflow(plan: DirectorPlan, options: Partial<DirectorRuntimeOptions> = {}): WorkflowJSON {
   const model = options.model || "seedance-2.0-pro"
   const ratio = options.ratio || "9:16"
   const resolution = options.resolution || "1080p"
@@ -72,7 +72,7 @@ export function convertDirectorPlanToWorkflow(plan: DirectorPlan, options: Direc
         id: mergeId,
         type: "video.merge",
         position: { x: plan.shots.length * 360 + 260, y: 180 },
-        data: { label: "Video merge", status: "disabled" },
+        data: { label: "Video merge", mode: "auto" },
       },
       {
         id: outputId,
