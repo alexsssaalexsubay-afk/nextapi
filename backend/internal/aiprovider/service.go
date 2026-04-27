@@ -14,9 +14,10 @@ import (
 )
 
 var (
-	ErrProviderNotFound = errors.New("ai_provider_not_found")
-	ErrInvalidProvider  = errors.New("invalid_ai_provider")
-	ErrProviderDisabled = errors.New("ai_provider_disabled")
+	ErrProviderNotFound    = errors.New("ai_provider_not_found")
+	ErrInvalidProvider     = errors.New("invalid_ai_provider")
+	ErrProviderDisabled    = errors.New("ai_provider_disabled")
+	ErrProviderKeyRequired = errors.New("ai_provider_key_required")
 )
 
 type Service struct {
@@ -104,6 +105,12 @@ func (s *Service) Upsert(ctx context.Context, id string, in ProviderInput) (*dom
 		row.IsDefault = in.IsDefault
 		row.ConfigJSON = cfg
 		row.UpdatedAt = now
+		if row.IsDefault && !row.Enabled {
+			return ErrProviderDisabled
+		}
+		if providerNeedsStoredKey(row.Type) && (row.Enabled || row.IsDefault) && strings.TrimSpace(row.APIKeyEncrypted) == "" {
+			return ErrProviderKeyRequired
+		}
 		if row.IsDefault {
 			if err := tx.Model(&domain.AIProvider{}).
 				Where("type = ? AND id <> ?", row.Type, row.ID).
@@ -114,6 +121,14 @@ func (s *Service) Upsert(ctx context.Context, id string, in ProviderInput) (*dom
 		if row.ID == "" {
 			if err := tx.Create(&row).Error; err != nil {
 				return err
+			}
+			// GORM omits false values on fields with DB defaults during Create.
+			// Persist explicit disabled placeholders so operators can stage presets safely.
+			if !in.Enabled {
+				if err := tx.Model(&domain.AIProvider{}).Where("id = ?", row.ID).UpdateColumn("enabled", false).Error; err != nil {
+					return err
+				}
+				row.Enabled = false
 			}
 		} else if err := tx.Save(&row).Error; err != nil {
 			return err
@@ -150,6 +165,9 @@ func (s *Service) SetDefault(ctx context.Context, id string) (*domain.AIProvider
 		if !out.Enabled {
 			return ErrProviderDisabled
 		}
+		if providerNeedsStoredKey(out.Type) && strings.TrimSpace(out.APIKeyEncrypted) == "" {
+			return ErrProviderKeyRequired
+		}
 		if err := tx.Model(&domain.AIProvider{}).Where("type = ?", out.Type).Update("is_default", false).Error; err != nil {
 			return err
 		}
@@ -185,6 +203,10 @@ func validateInput(in ProviderInput) error {
 		return ErrInvalidProvider
 	}
 	return nil
+}
+
+func providerNeedsStoredKey(typ string) bool {
+	return typ == domain.AIProviderTypeText || typ == domain.AIProviderTypeImage
 }
 
 func normalizeJSON(raw json.RawMessage) json.RawMessage {

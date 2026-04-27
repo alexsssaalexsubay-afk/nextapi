@@ -143,6 +143,8 @@ func handleAIProviderError(c *gin.Context, err error) {
 		c.JSON(http.StatusNotFound, gin.H{"error": gin.H{"code": "not_found"}})
 	case errors.Is(err, aiprovider.ErrInvalidProvider):
 		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "invalid_provider"}})
+	case errors.Is(err, aiprovider.ErrProviderKeyRequired):
+		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "provider_key_required"}})
 	case errors.Is(err, aiprovider.ErrEncryptionKeyMissing):
 		c.JSON(http.StatusServiceUnavailable, gin.H{"error": gin.H{"code": "provider_encryption_unavailable"}})
 	default:

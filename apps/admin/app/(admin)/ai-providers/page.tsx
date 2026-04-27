@@ -75,7 +75,7 @@ export default function AIProvidersPage() {
     baseUrl: "",
     apiKey: "",
     model: "deepseek-chat",
-    enabled: true,
+    enabled: false,
     isDefault: false,
     configJSON: "{}",
   })
@@ -122,7 +122,7 @@ export default function AIProvidersPage() {
 
   function reset() {
     setSelected(null)
-    setForm({ name: "", type: "text", provider: "deepseek", baseUrl: "", apiKey: "", model: "deepseek-chat", enabled: true, isDefault: false, configJSON: "{}" })
+    setForm({ name: "", type: "text", provider: "deepseek", baseUrl: "", apiKey: "", model: "deepseek-chat", enabled: false, isDefault: false, configJSON: "{}" })
   }
 
   function applyPreset(id: string) {
@@ -135,7 +135,10 @@ export default function AIProvidersPage() {
       type: preset.type,
       provider: preset.provider,
       baseUrl: preset.baseURL,
+      apiKey: "",
       model: preset.model,
+      enabled: false,
+      isDefault: false,
       configJSON: JSON.stringify({
         api_style: preset.apiStyle,
         capability: preset.capability,
@@ -164,11 +167,21 @@ export default function AIProvidersPage() {
 
   function save(e: FormEvent) {
     e.preventDefault()
+    setError(null)
+    setOk(null)
     let config: Record<string, unknown>
     try {
       config = JSON.parse(form.configJSON) as Record<string, unknown>
     } catch {
       setError("Invalid config JSON")
+      return
+    }
+    if (form.isDefault && !form.enabled) {
+      setError(p.defaultRequiresEnabled)
+      return
+    }
+    if (providerRequiresManagedKey(form.type) && (form.enabled || form.isDefault) && !form.apiKey.trim() && !selected?.key_hint) {
+      setError(p.keyRequiredWhenEnabled)
       return
     }
     const body = {
@@ -272,7 +285,7 @@ export default function AIProvidersPage() {
           <Field label={p.model} value={form.model} onChange={(v) => setForm((s) => ({ ...s, model: v }))} />
           <Field label={p.apiKey} value={form.apiKey} type="password" onChange={(v) => setForm((s) => ({ ...s, apiKey: v }))} />
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.enabled} onChange={(e) => setForm((s) => ({ ...s, enabled: e.target.checked }))} />{p.enabled}</label>
-          <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.isDefault} onChange={(e) => setForm((s) => ({ ...s, isDefault: e.target.checked }))} />{p.defaultProvider}</label>
+          <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.isDefault} onChange={(e) => setForm((s) => ({ ...s, isDefault: e.target.checked, enabled: e.target.checked ? true : s.enabled }))} />{p.defaultProvider}</label>
           <label className="flex flex-col gap-1 text-xs text-muted-foreground">
             {p.configJSON}
             <textarea className="min-h-24 rounded-2xl border border-white/12 bg-background/55 px-3 py-2 font-mono text-xs text-foreground shadow-inner backdrop-blur-md focus:border-signal/45 focus:outline-none" value={form.configJSON} onChange={(e) => setForm((s) => ({ ...s, configJSON: e.target.value }))} />
@@ -324,11 +337,11 @@ export default function AIProvidersPage() {
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
-                  <thead className="text-left text-xs uppercase text-muted-foreground"><tr><th className="py-2">{p.name}</th><th>{p.type}</th><th>{p.provider}</th><th>{p.apiKeyHint}</th><th>{p.defaultProvider}</th><th className="text-right">Actions</th></tr></thead>
+                  <thead className="text-left text-xs uppercase text-muted-foreground"><tr><th className="py-2">{p.name}</th><th>{p.type}</th><th>{p.provider}</th><th>{p.apiKeyHint}</th><th>{p.enabled}</th><th>{p.defaultProvider}</th><th className="text-right">Actions</th></tr></thead>
                   <tbody>{providers.map((row) => (
                     <tr key={row.id} className="border-t border-border">
-                      <td className="py-2">{row.name}</td><td>{row.type}</td><td>{row.provider}</td><td className="font-mono text-xs">{row.key_hint || "-"}</td><td>{row.is_default ? t.common.enabled : "-"}</td>
-                      <td className="space-x-3 text-right text-xs"><button onClick={() => edit(row)}>{t.common.edit}</button><button onClick={() => test(row)}>{p.test}</button><button onClick={() => setDefault(row)}>{p.setDefault}</button><button className="text-destructive" onClick={() => remove(row)}>{p.delete}</button></td>
+                      <td className="py-2">{row.name}</td><td>{row.type}</td><td>{row.provider}</td><td className="font-mono text-xs">{row.key_hint || "-"}</td><td>{row.enabled ? p.enabled : p.disabled}</td><td>{row.is_default ? t.common.enabled : "-"}</td>
+                      <td className="space-x-3 text-right text-xs"><button onClick={() => edit(row)}>{t.common.edit}</button><button onClick={() => test(row)}>{p.test}</button><button disabled={!providerHasRunnableConfig(row)} className="disabled:cursor-not-allowed disabled:opacity-40" onClick={() => setDefault(row)}>{p.setDefault}</button><button className="text-destructive" onClick={() => remove(row)}>{p.delete}</button></td>
                     </tr>
                   ))}</tbody>
                 </table>
@@ -374,10 +387,11 @@ function CapabilityMatrix({
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         {CAPABILITIES.map((capability) => {
           const configuredProviders = providers.filter((provider) => providerSupportsCapability(provider, capability))
-          const enabledProviders = configuredProviders.filter((provider) => provider.enabled)
+          const runnableProviders = configuredProviders.filter(providerHasRunnableConfig)
+          const enabledProviders = runnableProviders.filter((provider) => provider.enabled)
           const presets = AI_PROVIDER_PRESETS.filter((preset) => presetSupportsCapability(preset, capability))
-          const status = capabilityStatus(capability, enabledProviders, configuredProviders, directorStatus)
-          const defaultModel = capabilityDefaultModel(capability, configuredProviders, directorStatus)
+          const status = capabilityStatus(capability, enabledProviders, runnableProviders, directorStatus)
+          const defaultModel = capabilityDefaultModel(capability, runnableProviders, directorStatus)
           const toneClass = status === "live"
             ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600"
             : status === "configured"
@@ -462,6 +476,16 @@ function providerSupportsCapability(provider: AIProvider, capability: Capability
   if (capability === "avatar") return isAvatarModel(provider.model, provider.name, provider.config_json)
   if (capability === "video") return provider.type === "video" && !isAvatarModel(provider.model, provider.name, provider.config_json)
   return provider.type === capability
+}
+
+function providerHasRunnableConfig(provider: AIProvider) {
+  if (!provider.model.trim()) return false
+  if (providerRequiresManagedKey(provider.type) && !provider.key_hint) return false
+  return true
+}
+
+function providerRequiresManagedKey(type: string) {
+  return type === "text" || type === "image"
 }
 
 function presetSupportsCapability(preset: AIProviderPreset, capability: CapabilityKind) {
