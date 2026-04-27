@@ -71,7 +71,10 @@ export function FeaturesGrid() {
   const copy = COPY[locale]
 
   return (
-    <section id="features" className="relative py-24 sm:py-32">
+    <section id="features" className="relative overflow-hidden py-24 sm:py-32">
+      <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-signal/35 to-transparent" />
+      <div aria-hidden className="pointer-events-none absolute -left-40 top-20 h-72 w-72 rounded-full bg-signal/10 blur-3xl" />
+      <div aria-hidden className="pointer-events-none absolute right-[-12%] bottom-10 h-96 w-96 rounded-full bg-fuchsia-500/10 blur-3xl" />
       <div className="mx-auto max-w-7xl px-6">
         <div className="flex flex-col items-start justify-between gap-6 md:flex-row md:items-end">
           <div className="max-w-2xl">
@@ -109,7 +112,7 @@ function FeatureCard({
   copy: FeatureCopy
 }) {
   return (
-    <div className="group relative overflow-hidden rounded-2xl border border-border bg-card p-6 transition-all hover:border-indigo-400/50 hover:shadow-[0_0_40px_-15px] hover:shadow-indigo-500/50 dark:hover:bg-muted/40">
+    <div className="premium-surface group relative overflow-hidden rounded-3xl p-6 transition-all hover:-translate-y-1 hover:border-signal/40 hover:shadow-[0_28px_80px_-48px] hover:shadow-signal">
       {/* Hover glow */}
       <div
         aria-hidden
@@ -118,7 +121,7 @@ function FeatureCard({
 
       <div className="relative">
         {/* Icon */}
-        <div className="inline-flex size-10 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500/10 to-purple-500/10 ring-1 ring-inset ring-indigo-500/20 dark:from-indigo-500/15 dark:to-purple-500/15 dark:ring-indigo-400/25">
+        <div className="inline-flex size-11 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500/16 via-violet-500/14 to-fuchsia-500/16 ring-1 ring-inset ring-signal/25">
           <Icon className="size-5 text-indigo-600 dark:text-indigo-400" />
         </div>
 

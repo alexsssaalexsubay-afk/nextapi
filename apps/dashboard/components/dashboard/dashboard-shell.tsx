@@ -134,9 +134,13 @@ export function DashboardShell({
   ]
 
   return (
-    <div className="flex min-h-screen bg-background">
-      <aside className={cn("hidden shrink-0 flex-col border-r border-sidebar-border bg-sidebar transition-[width] duration-200 md:flex", sidebarCollapsed ? "w-[72px]" : "w-[240px]")}>
-        <div className={cn("flex h-14 items-center border-b border-sidebar-border px-4", sidebarCollapsed ? "justify-center" : "justify-between")}>
+    <div className="brand-aurora relative isolate flex min-h-screen overflow-hidden bg-background">
+      <div aria-hidden className="soft-noise pointer-events-none absolute inset-0 opacity-[0.16]" />
+      <div aria-hidden className="pointer-events-none absolute right-[-10%] top-[-12%] h-[440px] w-[520px] rounded-full bg-fuchsia-500/12 blur-3xl" />
+      <div aria-hidden className="pointer-events-none absolute bottom-[-18%] left-[28%] h-[380px] w-[520px] rounded-full bg-cyan-400/10 blur-3xl" />
+
+      <aside className={cn("relative z-10 hidden shrink-0 flex-col border-r border-white/10 bg-sidebar/82 shadow-[24px_0_80px_-68px] shadow-signal backdrop-blur-2xl transition-[width] duration-200 md:flex", sidebarCollapsed ? "w-[72px]" : "w-[240px]")}>
+        <div className={cn("flex h-14 items-center border-b border-white/10 px-4", sidebarCollapsed ? "justify-center" : "justify-between")}>
           <Link href="/" className="flex min-w-0 items-center gap-2">
             <Logo />
           </Link>
@@ -150,8 +154,8 @@ export function DashboardShell({
           </button>
         </div>
 
-        <div className="flex items-center gap-2 border-b border-sidebar-border px-3 py-2.5">
-          <div className="flex flex-1 items-center justify-between rounded-md border border-sidebar-border bg-background/60 px-2 py-1.5">
+        <div className="flex items-center gap-2 border-b border-white/10 px-3 py-2.5">
+          <div className="flex flex-1 items-center justify-between rounded-xl border border-white/10 bg-background/52 px-2 py-1.5 shadow-sm backdrop-blur-md">
             <div className="flex items-center gap-2">
               <div className="flex size-5 items-center justify-center rounded-sm bg-signal/10 font-mono text-[10px] font-medium text-signal">
                 {initials[0] ?? "–"}
@@ -185,7 +189,7 @@ export function DashboardShell({
                           "flex items-center gap-2.5 rounded-md px-2 py-1.5 text-[13px] transition-colors",
                           sidebarCollapsed && "justify-center px-0",
                           active
-                            ? "bg-sidebar-accent text-foreground"
+                            ? "bg-gradient-to-r from-signal/18 via-fuchsia-500/12 to-transparent text-foreground shadow-[inset_2px_0_0] shadow-signal"
                             : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-foreground",
                         )}
                       >
@@ -219,7 +223,7 @@ export function DashboardShell({
             <LifeBuoy className="size-4" />
             <span className={cn(sidebarCollapsed && "sr-only")}>{t.common.support}</span>
           </a>
-          <div className={cn("mt-2 rounded-md border border-sidebar-border bg-background/60 p-2.5", sidebarCollapsed && "hidden")}>
+          <div className={cn("mt-2 rounded-xl border border-white/10 bg-background/55 p-2.5 shadow-sm backdrop-blur-md", sidebarCollapsed && "hidden")}>
             <div className="flex items-center gap-2">
               <span className="relative inline-flex h-1.5 w-1.5">
                 <span className="absolute inset-0 rounded-full bg-status-success op-pulse" />
@@ -240,9 +244,9 @@ export function DashboardShell({
         </div>
       </aside>
 
-      <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b border-border/60 bg-background/80 px-6 backdrop-blur-xl">
-          <button className="flex h-8 flex-1 items-center gap-2 rounded-md border border-border/80 bg-card/50 px-3 text-left text-[12.5px] text-muted-foreground transition-colors hover:border-border hover:bg-card">
+      <div className="relative z-10 flex min-w-0 flex-1 flex-col">
+        <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b border-white/10 bg-background/64 px-6 shadow-[0_18px_70px_-58px] shadow-signal backdrop-blur-2xl">
+          <button className="flex h-8 flex-1 items-center gap-2 rounded-full border border-white/12 bg-card/55 px-3 text-left text-[12.5px] text-muted-foreground shadow-sm backdrop-blur-md transition-colors hover:border-signal/30 hover:bg-card">
             <Search className="size-3.5" />
             <span className="flex-1">{t.common.typeToSearch}</span>
             <Kbd>⌘K</Kbd>
@@ -255,7 +259,7 @@ export function DashboardShell({
             </span>
             <Link
               href="/billing"
-              className="rounded-md border border-border/80 bg-card/50 px-2.5 py-1 text-[12px] text-foreground transition-colors hover:bg-card"
+              className="premium-button rounded-full border border-white/20 bg-[radial-gradient(circle_at_20%_0%,rgba(255,255,255,0.42),transparent_30%),linear-gradient(110deg,#2563eb_0%,#7c3aed_42%,#db2777_100%)] px-3 py-1.5 text-[12px] font-medium text-white transition-all"
             >
               {t.common.topUp}
             </Link>
@@ -265,21 +269,21 @@ export function DashboardShell({
                 void onSignOut()
               }}
               disabled={signingOut}
-              className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border/80 bg-card/50 px-2.5 text-[12px] text-muted-foreground transition-colors hover:border-border hover:bg-card hover:text-foreground disabled:opacity-50"
+              className="inline-flex h-8 items-center gap-1.5 rounded-full border border-white/12 bg-card/55 px-2.5 text-[12px] text-muted-foreground shadow-sm backdrop-blur-md transition-colors hover:border-border hover:bg-card hover:text-foreground disabled:opacity-50"
             >
               <LogOut className="size-3.5" />
               {signingOut ? t.common.loading : t.common.signOut}
             </button>
             <LocaleToggle />
             <ThemeToggle />
-            <div className="flex size-7 items-center justify-center rounded-full border border-border/80 bg-card font-mono text-[11px] text-foreground">
+            <div className="flex size-7 items-center justify-center rounded-full border border-white/14 bg-card/70 font-mono text-[11px] text-foreground shadow-sm backdrop-blur-md">
               {initials.slice(0, 2) || "–"}
             </div>
           </div>
         </header>
 
         {(title || description || actions) && (
-          <div className="border-b border-border/60 px-6 py-6">
+          <div className="border-b border-white/10 bg-background/30 px-6 py-6 backdrop-blur-sm">
             <div className="flex flex-wrap items-end justify-between gap-4">
               <div>
                 {title && <h1 className="text-[22px] font-medium tracking-tight">{title}</h1>}

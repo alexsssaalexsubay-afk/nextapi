@@ -36,8 +36,8 @@ export function BrandButton({
 
   const variantClass =
     variant === "primary"
-      ? "bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-[0_0_30px_-8px] shadow-indigo-500/50 hover:shadow-indigo-500/70 hover:brightness-110"
-      : "border border-border bg-card text-foreground hover:border-foreground/20 hover:bg-muted"
+      ? "premium-button border border-white/20 bg-[radial-gradient(circle_at_20%_0%,rgba(255,255,255,0.42),transparent_30%),linear-gradient(110deg,#2563eb_0%,#7c3aed_42%,#db2777_100%)] text-white shadow-[0_18px_48px_-18px] shadow-fuchsia-500/70"
+      : "border border-border/80 bg-card/70 text-foreground shadow-sm backdrop-blur-md hover:border-signal/30 hover:bg-card hover:shadow-[0_12px_30px_-22px] hover:shadow-signal"
 
   const content = (
     <>

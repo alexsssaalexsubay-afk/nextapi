@@ -7,11 +7,12 @@ export function CtaBanner() {
   return (
     <section className="relative px-6 py-20 sm:py-28">
       <div className="mx-auto max-w-7xl">
-        <div className="relative overflow-hidden rounded-3xl border border-border bg-gradient-to-br from-indigo-50 via-background to-purple-50 p-10 text-center shadow-xl sm:p-16 dark:from-indigo-950/40 dark:to-purple-950/40">
+        <div className="premium-surface brand-aurora relative overflow-hidden rounded-[34px] p-10 text-center sm:p-16">
+          <div aria-hidden className="soft-noise pointer-events-none absolute inset-0 opacity-20" />
           {/* Decorative glow */}
           <div
             aria-hidden
-            className="pointer-events-none absolute -top-32 left-1/2 h-[500px] w-[700px] -translate-x-1/2 rounded-full bg-[radial-gradient(ellipse_at_center,rgba(129,140,248,0.25),transparent_65%)]"
+            className="pointer-events-none absolute -top-32 left-1/2 h-[500px] w-[700px] -translate-x-1/2 rounded-full bg-[radial-gradient(ellipse_at_center,rgba(255,255,255,0.34),transparent_65%)] dark:bg-[radial-gradient(ellipse_at_center,rgba(129,140,248,0.26),transparent_65%)]"
           />
           <div
             aria-hidden
@@ -32,14 +33,14 @@ export function CtaBanner() {
             <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
               <Link
                 href="https://app.nextapi.top/sign-up"
-                className="group inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-indigo-500 to-purple-600 px-6 py-3 text-[14px] font-medium text-white shadow-[0_0_30px_-8px] shadow-indigo-500/60 transition-all hover:shadow-indigo-500/80 hover:brightness-110"
+                className="premium-button group inline-flex items-center gap-2 rounded-full border border-white/20 bg-[radial-gradient(circle_at_20%_0%,rgba(255,255,255,0.42),transparent_30%),linear-gradient(110deg,#2563eb_0%,#7c3aed_42%,#db2777_100%)] px-6 py-3 text-[14px] font-semibold text-white shadow-[0_18px_48px_-18px] shadow-fuchsia-500/70 transition-all"
               >
                 Get a free API key
                 <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
               </Link>
               <Link
                 href="/enterprise"
-                className="inline-flex items-center gap-2 rounded-full border border-border bg-card/60 px-5 py-3 text-[14px] font-medium text-foreground backdrop-blur-sm transition-colors hover:border-foreground/20 hover:bg-muted"
+                className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/55 px-5 py-3 text-[14px] font-semibold text-foreground shadow-sm backdrop-blur-md transition-colors hover:border-signal/35 hover:bg-white/75 dark:border-white/10 dark:bg-white/8 dark:hover:bg-white/12"
               >
                 Talk to sales
               </Link>

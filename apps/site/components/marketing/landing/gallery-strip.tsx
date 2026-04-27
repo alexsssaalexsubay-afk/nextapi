@@ -78,7 +78,8 @@ export function GalleryStrip() {
   }, [remoteSlots])
 
   return (
-    <section id="gallery" className="relative py-24 sm:py-32">
+    <section id="gallery" className="brand-aurora relative overflow-hidden py-24 sm:py-32">
+      <div aria-hidden className="soft-noise pointer-events-none absolute inset-0 opacity-[0.18]" />
       {/* Ambient gradient wash */}
       <div
         aria-hidden
@@ -116,7 +117,7 @@ function GalleryCard({ item }: { item: Item }) {
   const remote = item.src.startsWith("https://")
   return (
     <figure
-      className={`group relative flex-none snap-start overflow-hidden rounded-2xl border border-border bg-muted shadow-sm transition-all hover:-translate-y-1 hover:shadow-xl hover:shadow-indigo-500/10 dark:hover:shadow-indigo-500/20 ${item.offsetY ?? ""}`}
+      className={`group relative flex-none snap-start overflow-hidden rounded-[28px] border border-white/15 bg-muted shadow-[0_24px_80px_-54px] shadow-signal transition-all hover:-translate-y-1 hover:shadow-[0_34px_90px_-50px] hover:shadow-signal ${item.offsetY ?? ""}`}
     >
       <div className={`${item.aspect} relative w-[72vw] sm:w-[46vw] md:w-auto`}>
         {remote ? (

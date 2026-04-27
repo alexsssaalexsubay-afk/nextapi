@@ -5,9 +5,15 @@ import { useEffect, useState } from "react"
 import {
   ArrowRight,
   CheckCircle2,
+  Clapperboard,
   Circle,
   Copy,
+  Film,
+  Gauge,
+  Layers3,
+  Route,
   Sparkles,
+  WandSparkles,
 } from "lucide-react"
 import { track } from "@/lib/analytics"
 import { useI18n } from "@/lib/i18n/context"
@@ -15,10 +21,10 @@ import { fetchMarketingSlots, type MarketingSlot } from "@/lib/marketing-slots"
 
 const COPY = {
   en: {
-    badge: "The Next Generation AI Video API Platform",
-    titleTop: "Build. Scale. Innovate.",
-    titleAccent: "AI Video",
-    titleTail: ", Simplified.",
+    badge: "AI director system for production video teams",
+    titleTop: "Turn ideas into",
+    titleAccent: "cinematic video",
+    titleTail: " workflows.",
     subtitle:
       "Power your products with state-of-the-art video generation. Zero queue times, enterprise SLAs, and configurable trust & safety.",
     primaryCta: "Get Your API Key",
@@ -29,10 +35,10 @@ const COPY = {
     prompt: "drone orbiting a lighthouse",
   },
   zh: {
-    badge: "新一代 AI 视频 API 平台",
-    titleTop: "构建。扩展。创新。",
-    titleAccent: "AI 视频",
-    titleTail: "，更简单。",
+    badge: "面向生产团队的 AI 导演系统",
+    titleTop: "把一句想法变成",
+    titleAccent: "电影级视频",
+    titleTail: "工作流。",
     subtitle:
       "用稳定的视频生成基础设施驱动你的产品：零排队、企业级 SLA、可配置的内容安全策略。",
     primaryCta: "获取 API Key",
@@ -63,34 +69,31 @@ export function LandingHero() {
   }, [])
 
   return (
-    <section className="relative isolate overflow-hidden">
-      {/* Ambient background: soft radial gradient blobs */}
+    <section className="brand-aurora relative isolate overflow-hidden">
+      <div aria-hidden className="soft-noise pointer-events-none absolute inset-0 opacity-[0.28]" />
+      <div aria-hidden className="bg-grid bg-grid-fade pointer-events-none absolute inset-0 opacity-[0.16]" />
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-x-0 -top-40 h-[640px] bg-[radial-gradient(ellipse_60%_50%_at_50%_0%,rgba(99,102,241,0.18),transparent_70%)] dark:bg-[radial-gradient(ellipse_60%_50%_at_50%_0%,rgba(129,140,248,0.22),transparent_70%)]"
-      />
-      <div
-        aria-hidden
-        className="pointer-events-none absolute right-[-10%] top-40 h-[400px] w-[400px] rounded-full bg-purple-500/10 blur-3xl dark:bg-purple-500/20"
+        className="pointer-events-none absolute left-1/2 top-8 h-64 w-[86vw] -translate-x-1/2 rounded-full bg-white/20 blur-3xl dark:bg-white/5"
       />
 
       <div className="mx-auto grid max-w-7xl grid-cols-1 items-center gap-14 px-6 pt-20 pb-24 lg:grid-cols-[1.05fr_1fr] lg:pt-28 lg:pb-32">
         {/* LEFT — copy */}
         <div>
           {/* Badge */}
-          <div className="inline-flex items-center gap-2 rounded-full border border-border bg-muted/50 px-3 py-1.5 text-[12px] font-medium text-foreground/80 backdrop-blur-sm">
+          <div className="inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/45 px-3 py-1.5 text-[12px] font-semibold text-foreground/85 shadow-sm backdrop-blur-md dark:border-white/10 dark:bg-white/8">
             <span className="relative inline-flex size-1.5">
-              <span className="absolute inset-0 animate-ping rounded-full bg-indigo-500 opacity-75" />
-              <span className="relative inline-block size-1.5 rounded-full bg-indigo-500" />
+              <span className="absolute inset-0 animate-ping rounded-full bg-fuchsia-500 opacity-75" />
+              <span className="relative inline-block size-1.5 rounded-full bg-fuchsia-500" />
             </span>
             {copy.badge}
           </div>
 
           {/* Headline */}
-          <h1 className="mt-6 text-balance font-sans text-5xl font-semibold leading-[1.05] tracking-[-0.03em] text-foreground sm:text-6xl lg:text-[72px]">
+          <h1 className="mt-6 max-w-3xl text-balance font-sans text-5xl font-semibold leading-[1.02] tracking-[-0.055em] text-foreground sm:text-7xl lg:text-[78px]">
             {copy.titleTop}
             <br />
-            <span className="bg-gradient-to-r from-indigo-500 via-purple-500 to-purple-600 bg-clip-text text-transparent">
+            <span className="bg-gradient-to-r from-blue-500 via-violet-500 to-fuchsia-500 bg-clip-text text-transparent drop-shadow-sm">
               {copy.titleAccent}
             </span>
             {copy.titleTail}
@@ -106,14 +109,14 @@ export function LandingHero() {
             <Link
               href="https://app.nextapi.top"
               onClick={() => track("hero_signup_clicked")}
-              className="group inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-indigo-500 to-purple-600 px-5 py-3 text-[14px] font-medium text-white shadow-[0_0_30px_-8px] shadow-indigo-500/50 transition-all hover:shadow-indigo-500/70 hover:brightness-110"
+              className="premium-button group inline-flex items-center gap-2 rounded-full border border-white/20 bg-[radial-gradient(circle_at_20%_0%,rgba(255,255,255,0.42),transparent_30%),linear-gradient(110deg,#2563eb_0%,#7c3aed_42%,#db2777_100%)] px-5 py-3 text-[14px] font-semibold text-white shadow-[0_18px_48px_-18px] shadow-fuchsia-500/70 transition-all"
             >
               {copy.primaryCta}
               <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
             </Link>
             <Link
               href="/docs"
-              className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-5 py-3 text-[14px] font-medium text-foreground transition-colors hover:border-foreground/20 hover:bg-muted"
+              className="inline-flex items-center gap-2 rounded-full border border-white/35 bg-white/55 px-5 py-3 text-[14px] font-semibold text-foreground shadow-sm backdrop-blur-md transition-all hover:border-signal/35 hover:bg-white/75 dark:border-white/10 dark:bg-white/8 dark:hover:bg-white/12"
             >
               {copy.secondaryCta}
             </Link>
@@ -160,26 +163,25 @@ function HeroPlayerCard({
 }) {
   return (
     <div className="relative mx-auto w-full max-w-xl">
-      {/* Glow frame */}
-      <div
-        aria-hidden
-        className="absolute -inset-[1px] rounded-[28px] bg-gradient-to-br from-indigo-500/60 via-purple-500/40 to-transparent opacity-70 blur-md"
-      />
-      <div className="relative overflow-hidden rounded-[24px] border border-border bg-card/90 shadow-[0_40px_80px_-30px] shadow-indigo-500/20 backdrop-blur-xl dark:shadow-indigo-500/40">
+      <div aria-hidden className="absolute -left-10 top-16 size-40 rounded-full bg-cyan-400/25 blur-3xl" />
+      <div aria-hidden className="absolute -right-10 bottom-8 size-52 rounded-full bg-fuchsia-500/25 blur-3xl" />
+
+      <div className="premium-surface relative overflow-hidden rounded-[30px]">
         {/* Window chrome */}
-        <div className="flex items-center justify-between border-b border-border/70 px-4 py-3">
+        <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
           <div className="flex items-center gap-1.5">
-            <span className="size-2.5 rounded-full bg-muted-foreground/30" />
-            <span className="size-2.5 rounded-full bg-muted-foreground/30" />
-            <span className="size-2.5 rounded-full bg-muted-foreground/30" />
+            <span className="size-2.5 rounded-full bg-rose-400" />
+            <span className="size-2.5 rounded-full bg-amber-300" />
+            <span className="size-2.5 rounded-full bg-emerald-400" />
           </div>
           <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-            <Sparkles className="size-3 text-indigo-500 dark:text-indigo-400" />
-            <span className="font-mono">seedance-2.0-pro</span>
+            <WandSparkles className="size-3.5 text-fuchsia-500" />
+            <span className="font-mono">director.workflow.live</span>
           </div>
         </div>
 
-        <div className="relative aspect-[16/10] overflow-hidden bg-muted">
+        <div className="grid gap-3 p-3 sm:grid-cols-[1.18fr_0.82fr]">
+          <div className="relative aspect-[16/11] overflow-hidden rounded-2xl bg-muted shadow-inner">
           {heroMain?.url && heroMain.media_kind === "video" ? (
             <video
               className="absolute inset-0 h-full w-full object-cover"
@@ -215,7 +217,7 @@ function HeroPlayerCard({
           {/* Soft top-to-bottom gradient for code readability */}
           <div
             aria-hidden
-            className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/40"
+            className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/55"
           />
 
           {/* Floating status pill */}
@@ -227,9 +229,56 @@ function HeroPlayerCard({
             {status}
           </div>
 
-          {/* Floating code snippet overlay — bottom */}
-          <div className="absolute inset-x-4 bottom-4">
-            <div className="overflow-hidden rounded-xl border border-white/10 bg-zinc-950/85 shadow-xl backdrop-blur-xl">
+          <div className="absolute bottom-4 right-4 flex items-center gap-2 rounded-full border border-white/20 bg-white/12 px-3 py-1.5 text-[11px] font-medium text-white backdrop-blur-md">
+            <Film className="size-3.5" />
+            4 shots · 9:16 · 1080p
+          </div>
+          </div>
+
+          <div className="flex min-h-[260px] flex-col gap-3">
+            <div className="rounded-2xl border border-white/10 bg-zinc-950/88 p-3 text-white shadow-2xl">
+              <div className="mb-3 flex items-center justify-between">
+                <div className="flex items-center gap-2 text-[12px] font-semibold">
+                  <Clapperboard className="size-4 text-fuchsia-300" />
+                  AI Director
+                </div>
+                <span className="rounded-full bg-emerald-400/14 px-2 py-0.5 font-mono text-[10px] text-emerald-300">
+                  live
+                </span>
+              </div>
+              <div className="space-y-2">
+                {[
+                  ["Script", "GPT / Claude / Kimi"],
+                  ["Storyboard", "Seedream / Nano Banana"],
+                  ["Video", "Seedance / Kling"],
+                ].map(([label, value]) => (
+                  <div key={label} className="rounded-xl border border-white/10 bg-white/[0.045] p-2">
+                    <div className="text-[10px] uppercase tracking-[0.18em] text-zinc-500">{label}</div>
+                    <div className="mt-0.5 text-[12px] text-zinc-200">{value}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                { icon: Route, label: "Route", value: "auto" },
+                { icon: Gauge, label: "Queue", value: "p95" },
+                { icon: Layers3, label: "Merge", value: "ready" },
+              ].map((item) => (
+                <div key={item.label} className="rounded-2xl border border-border/70 bg-background/55 p-2.5 shadow-sm backdrop-blur">
+                  <item.icon className="size-4 text-signal" />
+                  <div className="mt-2 text-[10px] uppercase tracking-[0.16em] text-muted-foreground">{item.label}</div>
+                  <div className="font-mono text-[12px] text-foreground">{item.value}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Floating code snippet overlay — bottom */}
+        <div className="px-3 pb-3">
+          <div className="overflow-hidden rounded-2xl border border-white/10 bg-zinc-950/92 shadow-xl backdrop-blur-xl">
               <div className="flex items-center justify-between border-b border-white/5 px-3 py-2">
                 <div className="flex items-center gap-2 text-[11px] font-mono text-zinc-400">
                   <Circle className="size-2 fill-indigo-400 text-indigo-400" />
@@ -280,7 +329,6 @@ function HeroPlayerCard({
                 </code>
               </pre>
             </div>
-          </div>
         </div>
       </div>
     </div>

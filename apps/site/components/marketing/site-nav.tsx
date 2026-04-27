@@ -70,7 +70,7 @@ export function SiteNav() {
       className={cn(
         "sticky top-0 z-50 w-full transition-all duration-300",
         scrolled
-          ? "border-b border-border/70 bg-background/80 backdrop-blur-xl"
+          ? "border-b border-border/70 bg-background/72 shadow-[0_16px_50px_-34px] shadow-signal backdrop-blur-2xl"
           : "border-b border-transparent bg-transparent",
       )}
     >
@@ -113,7 +113,7 @@ export function SiteNav() {
           <a
             href={process.env.NEXT_PUBLIC_DASHBOARD_URL ?? "https://app.nextapi.top"}
             onClick={() => track("cta_get_started_clicked")}
-            className="group relative hidden items-center gap-1.5 overflow-hidden rounded-full bg-gradient-to-r from-indigo-500 to-purple-600 px-4 py-2 text-[13px] font-medium text-white shadow-[0_0_20px_-5px] shadow-indigo-500/40 transition-all hover:shadow-indigo-500/60 hover:brightness-110 md:inline-flex"
+            className="premium-button group relative hidden items-center gap-1.5 rounded-full border border-white/20 bg-[radial-gradient(circle_at_20%_0%,rgba(255,255,255,0.42),transparent_30%),linear-gradient(110deg,#2563eb_0%,#7c3aed_42%,#db2777_100%)] px-4 py-2 text-[13px] font-medium text-white transition-all md:inline-flex"
           >
             {sn.getStarted}
             <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" />
@@ -152,7 +152,7 @@ export function SiteNav() {
               </div>
               <a
                 href={process.env.NEXT_PUBLIC_DASHBOARD_URL ?? "https://app.nextapi.top"}
-                className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-indigo-500 to-purple-600 px-4 py-2 text-[13px] font-medium text-white"
+                className="premium-button inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-[radial-gradient(circle_at_20%_0%,rgba(255,255,255,0.42),transparent_30%),linear-gradient(110deg,#2563eb_0%,#7c3aed_42%,#db2777_100%)] px-4 py-2 text-[13px] font-medium text-white"
               >
                 {sn.getStarted}
                 <ArrowRight className="size-3.5" />

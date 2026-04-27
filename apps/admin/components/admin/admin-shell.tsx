@@ -111,11 +111,14 @@ export function AdminShell({
   ]
 
   return (
-    <div className="flex min-h-screen flex-col bg-background">
+    <div className="brand-aurora relative isolate flex min-h-screen flex-col overflow-hidden bg-background">
+      <div aria-hidden className="soft-noise pointer-events-none absolute inset-0 opacity-[0.14]" />
+      <div aria-hidden className="pointer-events-none absolute -right-40 top-[-10%] h-[420px] w-[560px] rounded-full bg-rose-500/12 blur-3xl" />
+      <div aria-hidden className="pointer-events-none absolute bottom-[-18%] left-[18%] h-[380px] w-[520px] rounded-full bg-signal/12 blur-3xl" />
       <MfaBanner />
-      <div className="flex flex-1">
-      <aside className="hidden w-[236px] shrink-0 flex-col border-r border-sidebar-border bg-sidebar md:flex">
-        <div className="flex h-12 items-center justify-between border-b border-sidebar-border px-4">
+      <div className="relative z-10 flex flex-1">
+      <aside className="hidden w-[236px] shrink-0 flex-col border-r border-white/10 bg-sidebar/84 shadow-[24px_0_80px_-68px] shadow-status-failed backdrop-blur-2xl md:flex">
+        <div className="flex h-12 items-center justify-between border-b border-white/10 px-4">
           <Link href="https://nextapi.top" className="flex items-center gap-2">
             <Logo />
           </Link>
@@ -124,8 +127,8 @@ export function AdminShell({
           </span>
         </div>
 
-        <div className="border-b border-sidebar-border px-3 py-2.5">
-          <div className="flex items-center justify-between rounded-md border border-sidebar-border bg-background/60 px-2 py-1.5">
+        <div className="border-b border-white/10 px-3 py-2.5">
+          <div className="flex items-center justify-between rounded-xl border border-white/10 bg-background/55 px-2 py-1.5 shadow-sm backdrop-blur-md">
             <div className="flex items-center gap-2">
               <Terminal className="size-3.5 text-signal" />
               <span className="font-mono text-[11.5px] text-foreground">ops.nextapi.top</span>
@@ -153,7 +156,7 @@ export function AdminShell({
                         className={cn(
                           "flex items-center gap-2.5 rounded-md px-2 py-1.5 text-[12.5px] transition-colors",
                           active
-                            ? "bg-sidebar-accent text-foreground"
+                            ? "bg-gradient-to-r from-status-failed/16 via-signal/10 to-transparent text-foreground shadow-[inset_2px_0_0] shadow-status-failed"
                             : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-foreground",
                         )}
                       >
@@ -193,7 +196,7 @@ export function AdminShell({
             <LifeBuoy className="size-4" />
             {t.nav.admin.runbooks}
           </a>
-          <div className="rounded-md border border-sidebar-border bg-background/60 p-2.5">
+          <div className="rounded-xl border border-white/10 bg-background/55 p-2.5 shadow-sm backdrop-blur-md">
             <div className="flex items-center justify-between">
               <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
                 {t.admin.shell.onCall}
@@ -211,7 +214,7 @@ export function AdminShell({
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 flex h-12 items-center gap-4 border-b border-border/60 bg-background/80 px-6 backdrop-blur-xl">
+        <header className="sticky top-0 z-30 flex h-12 items-center gap-4 border-b border-white/10 bg-background/64 px-6 shadow-[0_18px_70px_-58px] shadow-status-failed backdrop-blur-2xl">
           <div className="flex items-center gap-2 font-mono text-[11.5px] text-muted-foreground">
             <Link href="/" className="hover:text-foreground">
               admin
@@ -222,11 +225,11 @@ export function AdminShell({
             </span>
           </div>
           <div className="ml-auto flex items-center gap-3">
-            <button className="flex h-7 items-center gap-2 rounded-md border border-border/80 bg-card/40 px-2.5 text-[11.5px] text-muted-foreground hover:text-foreground">
+            <button className="flex h-7 items-center gap-2 rounded-full border border-white/12 bg-card/55 px-2.5 text-[11.5px] text-muted-foreground shadow-sm backdrop-blur-md hover:text-foreground">
               <span>{t.admin.shell.jumpTo}</span>
               <Kbd>⌘K</Kbd>
             </button>
-            <div className="hidden items-center gap-1.5 rounded-md border border-border/80 bg-card/40 px-2 py-1 font-mono text-[11px] text-muted-foreground md:flex">
+            <div className="hidden items-center gap-1.5 rounded-full border border-white/12 bg-card/55 px-2 py-1 font-mono text-[11px] text-muted-foreground shadow-sm backdrop-blur-md md:flex">
               <span className="relative inline-flex h-1.5 w-1.5">
                 <span className="absolute inset-0 rounded-full bg-status-success op-pulse" />
                 <span className="relative inline-block h-1.5 w-1.5 rounded-full bg-status-success" />
@@ -245,7 +248,7 @@ export function AdminShell({
                 void onSignOut()
               }}
               disabled={signingOut}
-              className="inline-flex h-7 items-center gap-1.5 rounded-md border border-border/80 bg-card/40 px-2.5 text-[11.5px] text-muted-foreground transition-colors hover:border-border hover:bg-card hover:text-foreground disabled:opacity-50"
+              className="inline-flex h-7 items-center gap-1.5 rounded-full border border-white/12 bg-card/55 px-2.5 text-[11.5px] text-muted-foreground shadow-sm backdrop-blur-md transition-colors hover:border-border hover:bg-card hover:text-foreground disabled:opacity-50"
             >
               <LogOut className="size-3.5" />
               {signingOut ? t.common.loading : t.common.signOut}
@@ -256,7 +259,7 @@ export function AdminShell({
         </header>
 
         {(title || description || actions || meta) && (
-          <div className="border-b border-border/60 px-6 py-5">
+          <div className="border-b border-white/10 bg-background/30 px-6 py-5 backdrop-blur-sm">
             <div className="flex flex-wrap items-end justify-between gap-4">
               <div>
                 {title && (
