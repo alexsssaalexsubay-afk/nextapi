@@ -7,6 +7,7 @@ const (
 	NodePromptInput   = "prompt.input"
 	NodeVideoParams   = "video.params"
 	NodeSeedanceVideo = "seedance.video"
+	NodeVideoMerge    = "video.merge"
 	NodeOutputPreview = "output.preview"
 )
 

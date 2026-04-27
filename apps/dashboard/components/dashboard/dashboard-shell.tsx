@@ -5,6 +5,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import {
   Activity,
+  Bot,
   BookOpen,
   Clapperboard,
   CreditCard,
@@ -99,6 +100,7 @@ export function DashboardShell({
         { label: t.nav.dashboard.keys, href: "/keys", icon: Key },
         { label: t.nav.dashboard.library, href: "/library", icon: FolderOpen },
         { label: t.nav.dashboard.templates, href: "/templates", icon: Clapperboard },
+        { label: t.nav.dashboard.director, href: "/director", icon: Bot },
         { label: t.nav.dashboard.canvas, href: "/canvas", icon: Workflow },
         {
           label: t.nav.dashboard.batchStudio,
@@ -112,6 +114,7 @@ export function DashboardShell({
     {
       heading: t.nav.dashboard.account,
       items: [
+        { label: t.nav.dashboard.vip, href: "/vip", icon: CreditCard },
         { label: t.nav.dashboard.billing, href: "/billing", icon: CreditCard },
         { label: t.nav.dashboard.recharge, href: "/recharge", icon: CreditCard },
       ],

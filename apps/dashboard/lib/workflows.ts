@@ -1,10 +1,12 @@
 import { apiFetch } from "@/lib/api"
+import type { VimaxPlan } from "@/lib/vimax-runtime/types"
 
 export type CanvasNodeType =
   | "image.input"
   | "prompt.input"
   | "video.params"
   | "seedance.video"
+  | "video.merge"
   | "output.preview"
 
 export type WorkflowNode = {
@@ -43,6 +45,50 @@ export type WorkflowRunResult = {
   video_id: string
   status: string
   estimated_cost_cents?: number
+  batch_run_id?: string
+  job_ids?: string[]
+  merge_job_id?: string
+}
+
+export type DirectorShot = {
+  shotIndex: number
+  title: string
+  duration: number
+  scene: string
+  camera: string
+  emotion: string
+  action: string
+  videoPrompt: string
+  imagePrompt: string
+  negativePrompt: string
+  referenceAssets: string[]
+  referenceImageAssetId?: string
+  referenceImageUrl?: string
+}
+
+export type DirectorStoryboard = {
+  title: string
+  summary: string
+  shots: DirectorShot[]
+}
+
+export type DirectorStatus = {
+  available: boolean
+  requires_vip: boolean
+  entitled: boolean
+  text_provider_configured: boolean
+  image_provider_configured: boolean
+  merge_enabled: boolean
+  blocking_reason?: "vip_required" | "text_provider_not_configured"
+  usage_notice: string
+}
+
+export type LibraryAsset = {
+  id: string
+  kind: "image" | "video" | "audio"
+  filename?: string
+  url: string
+  generation_url?: string
 }
 
 export type TemplateBatchRunResult = {
@@ -104,6 +150,10 @@ export async function createWorkflow(input: {
   }) as Promise<WorkflowRecord>
 }
 
+export async function getWorkflow(id: string): Promise<WorkflowRecord> {
+  return apiFetch(`/v1/workflows/${id}`) as Promise<WorkflowRecord>
+}
+
 export async function updateWorkflow(
   id: string,
   input: {
@@ -134,6 +184,78 @@ export async function saveWorkflowAsTemplate(
 
 export async function exportWorkflowAPI(id: string): Promise<ExportAPIResult> {
   return apiFetch(`/v1/workflows/${id}/export-api`, { method: "POST" }) as Promise<ExportAPIResult>
+}
+
+export async function generateDirectorShots(input: {
+  story: string
+  genre?: string
+  style?: string
+  shot_count?: number
+  duration_per_shot?: number
+  scene?: string
+  text_provider_id?: string
+}): Promise<DirectorStoryboard> {
+  return apiFetch("/v1/director/generate-shots", {
+    method: "POST",
+    body: JSON.stringify(input),
+  }) as Promise<DirectorStoryboard>
+}
+
+export async function getDirectorStatus(): Promise<DirectorStatus> {
+  return apiFetch("/v1/director/status") as Promise<DirectorStatus>
+}
+
+export async function createDirectorWorkflow(input: {
+  storyboard: DirectorStoryboard
+  options: { name?: string; ratio?: string; resolution?: string; generate_audio?: boolean; model?: string; enable_merge?: boolean }
+}): Promise<{ workflow: WorkflowRecord }> {
+  return apiFetch("/v1/director/workflows", {
+    method: "POST",
+    body: JSON.stringify(input),
+  }) as Promise<{ workflow: WorkflowRecord }>
+}
+
+export async function generateDirectorShotImages(input: {
+  shots: DirectorShot[]
+  imageProviderId?: string
+  style?: string
+  resolution?: string
+}): Promise<{ shots: DirectorShot[] }> {
+  return apiFetch("/v1/director/generate-shot-images", {
+    method: "POST",
+    body: JSON.stringify(input),
+  }) as Promise<{ shots: DirectorShot[] }>
+}
+
+export async function runBackendVimaxPipeline(input: {
+  story: string
+  genre?: string
+  style?: string
+  shot_count?: number
+  duration_per_shot?: number
+  generate_images?: boolean
+  options?: { name?: string; ratio?: string; resolution?: string; generate_audio?: boolean; model?: string; enable_merge?: boolean }
+}): Promise<{ plan: VimaxPlan; workflow: WorkflowJSON }> {
+  return apiFetch("/v1/director/vimax/run", {
+    method: "POST",
+    body: JSON.stringify(input),
+  }) as Promise<{ plan: VimaxPlan; workflow: WorkflowJSON }>
+}
+
+export async function listLibraryAssets(kind = "image"): Promise<LibraryAsset[]> {
+  const res = await apiFetch(`/v1/me/library/assets?kind=${encodeURIComponent(kind)}`) as { assets?: LibraryAsset[] }
+  return Array.isArray(res.assets) ? res.assets : []
+}
+
+export async function uploadLibraryImage(file: File): Promise<LibraryAsset> {
+  const body = new FormData()
+  body.append("file", file)
+  const res = await apiFetch("/v1/me/library/assets", {
+    method: "POST",
+    body,
+  }) as { asset?: LibraryAsset } & LibraryAsset
+  if (res.asset) return res.asset
+  return res
 }
 
 export async function useTemplate(id: string, name?: string): Promise<WorkflowRecord> {

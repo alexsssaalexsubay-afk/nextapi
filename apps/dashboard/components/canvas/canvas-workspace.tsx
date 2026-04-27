@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useSearchParams } from "next/navigation"
 import {
   addEdge,
   Background,
@@ -19,14 +20,19 @@ import {
 import { Code2, ImageIcon, Loader2, Play, Save, Settings2, Sparkles, Type, Video } from "lucide-react"
 import { toast } from "sonner"
 import { apiFetch, ApiError } from "@/lib/api"
+import { AI_MODEL_CATALOG } from "@/lib/ai-model-catalog"
 import {
   createWorkflow,
   exportWorkflowAPI,
+  getWorkflow,
+  listLibraryAssets,
   runWorkflow,
   saveWorkflowAsTemplate,
   updateWorkflow,
+  uploadLibraryImage,
   type ExportAPIResult,
   type CanvasNodeType,
+  type LibraryAsset,
   type WorkflowJSON,
   type WorkflowRecord,
 } from "@/lib/workflows"
@@ -52,14 +58,6 @@ type CanvasNodeData = Record<string, unknown> & {
 
 type CanvasNode = Node<CanvasNodeData, "canvas">
 type CanvasEdge = Edge
-
-type LibraryAsset = {
-  id: string
-  kind: "image" | "video" | "audio"
-  url: string
-  generation_url?: string
-  filename?: string
-}
 
 type CurrentVideo = {
   id: string
@@ -146,6 +144,7 @@ const nodeTypes = { canvas: FlowNode }
 export function CanvasWorkspace() {
   const t = useTranslations()
   const labels = t.canvas
+  const searchParams = useSearchParams()
   const [nodes, setNodes, onNodesChange] = useNodesState<CanvasNode>(initialNodes)
   const [edges, setEdges, onEdgesChange] = useEdgesState<CanvasEdge>(initialEdges)
   const [selectedId, setSelectedId] = useState<string>("node_prompt_1")
@@ -158,18 +157,27 @@ export function CanvasWorkspace() {
   const [exportResult, setExportResult] = useState<ExportAPIResult | null>(null)
   const [currentVideo, setCurrentVideo] = useState<CurrentVideo | null>(null)
   const [assets, setAssets] = useState<LibraryAsset[]>([])
+  const [uploadingImage, setUploadingImage] = useState(false)
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const selectedNode = useMemo(() => nodes.find((n) => n.id === selectedId) ?? null, [nodes, selectedId])
 
   useEffect(() => {
-    apiFetch("/v1/me/library/assets?kind=image")
-      .then((res) => {
-        const body = res as { assets?: LibraryAsset[] }
-        setAssets(Array.isArray(body.assets) ? body.assets : [])
-      })
+    listLibraryAssets("image")
+      .then(setAssets)
       .catch(() => setAssets([]))
   }, [])
+
+  useEffect(() => {
+    const id = searchParams.get("workflow")
+    if (!id) return
+    getWorkflow(id).then((row) => {
+      setWorkflow(row)
+      setName(row.name)
+      setNodes(row.workflow_json.nodes.map((n) => ({ id: n.id, type: "canvas", position: n.position ?? { x: 0, y: 0 }, data: { ...n.data, node_type: n.type } })))
+      setEdges(row.workflow_json.edges.map((edge) => ({ id: edge.id ?? `edge_${edge.source}_${edge.target}`, source: edge.source, target: edge.target })))
+    }).catch(() => toast.error(labels.loadFailed))
+  }, [labels.loadFailed, searchParams, setEdges, setName, setNodes, setWorkflow])
 
   const onConnect = useCallback(
     (connection: Connection) => setEdges((eds) => addEdge({ ...connection, id: `edge_${Date.now()}` }, eds)),
@@ -181,6 +189,19 @@ export function CanvasWorkspace() {
     setNodes((items) => items.map((item) => item.id === selectedId ? { ...item, data: { ...item.data, ...patch } } : item))
   }, [selectedId, setNodes])
 
+  const uploadImageForSelectedNode = useCallback(async (file: File) => {
+    setUploadingImage(true)
+    try {
+      const asset = await uploadLibraryImage(file)
+      setAssets((items) => [asset, ...items.filter((item) => item.id !== asset.id)])
+      updateSelectedData({ image_url: asset.generation_url || asset.url, preview_url: asset.url, asset_id: asset.id })
+    } catch {
+      toast.error(labels.uploadFailed)
+    } finally {
+      setUploadingImage(false)
+    }
+  }, [labels.uploadFailed, updateSelectedData])
+
   const addNode = (type: CanvasNodeType) => {
     const id = `node_${type.replace(".", "_")}_${Date.now()}`
     const data: CanvasNodeData =
@@ -188,7 +209,8 @@ export function CanvasWorkspace() {
         type === "prompt.input" ? { label: labels.promptNode, prompt: "" } :
           type === "video.params" ? { label: labels.paramsNode, duration: 5, aspect_ratio: "9:16", resolution: "1080p", seed: null } :
             type === "seedance.video" ? { label: labels.videoNode, model: "seedance-2.0-pro" } :
-              { label: labels.outputNode }
+              type === "video.merge" ? { label: labels.mergeNode } :
+                { label: labels.outputNode }
     setNodes((items) => [...items, { id, type: "canvas", position: { x: 180 + items.length * 24, y: 120 + items.length * 16 }, data: { ...data, node_type: type } }])
     setSelectedId(id)
   }
@@ -207,14 +229,12 @@ export function CanvasWorkspace() {
 
   const validateClient = (json: WorkflowJSON): string | null => {
     const seedance = json.nodes.filter((n) => n.type === "seedance.video")
-    if (seedance.length !== 1) return labels.errorSeedanceRequired
-    const seedanceID = seedance[0].id
-    const upstream = json.edges.filter((edge) => edge.target === seedanceID).map((edge) => edge.source)
-    if (!json.nodes.some((n) => upstream.includes(n.id) && n.type === "prompt.input" && String(n.data.prompt || "").trim())) {
-      return labels.errorPromptRequired
-    }
-    if (!json.nodes.some((n) => upstream.includes(n.id) && n.type === "image.input" && String(n.data.image_url || "").trim())) {
-      return labels.errorImageRequired
+    if (seedance.length < 1) return labels.errorSeedanceRequired
+    for (const video of seedance) {
+      const upstream = json.edges.filter((edge) => edge.target === video.id).map((edge) => edge.source)
+      if (!json.nodes.some((n) => upstream.includes(n.id) && n.type === "prompt.input" && String(n.data.prompt || "").trim())) {
+        return labels.errorPromptRequired
+      }
     }
     return null
   }
@@ -359,6 +379,7 @@ export function CanvasWorkspace() {
           <NodeButton label={labels.promptNode} onClick={() => addNode("prompt.input")} />
           <NodeButton label={labels.paramsNode} onClick={() => addNode("video.params")} />
           <NodeButton label={labels.videoNode} onClick={() => addNode("seedance.video")} />
+          <NodeButton label={labels.mergeNode} onClick={() => addNode("video.merge")} />
           <NodeButton label={labels.outputNode} onClick={() => addNode("output.preview")} />
         </aside>
         <main className="min-h-0">
@@ -378,7 +399,7 @@ export function CanvasWorkspace() {
           </ReactFlow>
         </main>
         <aside className="flex min-h-0 flex-col border-l border-border/60 bg-card/20">
-          <NodeInspector node={selectedNode} assets={assets} labels={labels} onChange={updateSelectedData} />
+          <NodeInspector node={selectedNode} assets={assets} labels={labels} uploadingImage={uploadingImage} onUploadImage={uploadImageForSelectedNode} onChange={updateSelectedData} />
           <div className="border-t border-border/60 p-4">
             <div className="text-[12px] font-medium">{labels.statusTitle}</div>
             <div className="mt-2 rounded-lg border border-border/70 bg-background/70 p-3 text-[12px]">
@@ -415,11 +436,15 @@ function NodeInspector({
   node: selectedNode,
   assets,
   labels,
+  uploadingImage,
+  onUploadImage,
   onChange,
 }: {
   node: CanvasNode | null
   assets: LibraryAsset[]
   labels: ReturnType<typeof useTranslations>["canvas"]
+  uploadingImage: boolean
+  onUploadImage: (file: File) => Promise<void>
   onChange: (patch: CanvasNodeData) => void
 }) {
   if (!selectedNode) {
@@ -449,6 +474,19 @@ function NodeInspector({
           <label className="block">
             <span className="mb-1 block text-[11px] text-muted-foreground">{labels.imageUrl}</span>
             <input value={String(selectedNode.data.image_url || "")} onChange={(e) => onChange({ image_url: e.target.value })} className="h-9 w-full rounded-md border border-border/80 bg-background px-3 font-mono text-[11.5px] focus:outline-none" />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-[11px] text-muted-foreground">{labels.imagePrompt}</span>
+            <textarea value={String(selectedNode.data.prompt || "")} onChange={(e) => onChange({ prompt: e.target.value })} rows={4} className="w-full resize-none rounded-md border border-border/80 bg-background px-3 py-2 text-[12.5px] focus:outline-none" />
+          </label>
+          <label className="block rounded-md border border-dashed border-border/80 bg-card/40 px-3 py-2 text-[12px]">
+            <span className="block font-medium">{uploadingImage ? `${labels.uploadImage}...` : labels.uploadImage}</span>
+            <span className="mt-1 block text-[11px] text-muted-foreground">{labels.uploadImageHint}</span>
+            <input type="file" accept="image/*" disabled={uploadingImage} className="mt-2 block w-full text-[11px]" onChange={(event) => {
+              const file = event.target.files?.[0]
+              if (file) void onUploadImage(file)
+              event.currentTarget.value = ""
+            }} />
           </label>
           <div>
             <div className="mb-1 text-[11px] text-muted-foreground">{labels.assetLibrary}</div>
@@ -484,10 +522,21 @@ function NodeInspector({
         </div>
       ) : null}
       {type === "seedance.video" ? (
-        <label className="block">
-          <span className="mb-1 block text-[11px] text-muted-foreground">{labels.model}</span>
-          <input value={String(selectedNode.data.model || "seedance-2.0-pro")} onChange={(e) => onChange({ model: e.target.value })} className="h-9 w-full rounded-md border border-border/80 bg-background px-3 font-mono text-[12px]" />
-        </label>
+        <div className="space-y-2">
+          <span className="block text-[11px] text-muted-foreground">{labels.model}</span>
+          {AI_MODEL_CATALOG.filter((item) => item.category === "video").map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              disabled={!item.enabled}
+              onClick={() => onChange({ model: item.id })}
+              className={`w-full rounded-md border px-3 py-2 text-left text-[12px] ${String(selectedNode.data.model || "seedance-2.0-pro") === item.id ? "border-signal bg-signal/10" : "border-border/70 bg-background"} ${item.enabled ? "" : "opacity-60"}`}
+            >
+              <span className="font-medium">{item.icon} {item.name}</span>
+              <span className="ml-2 text-[10px] text-muted-foreground">{item.enabled ? item.provider : labels.comingSoon}</span>
+            </button>
+          ))}
+        </div>
       ) : null}
     </div>
   )

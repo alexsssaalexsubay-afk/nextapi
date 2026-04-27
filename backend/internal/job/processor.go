@@ -246,6 +246,8 @@ func (p *Processor) succeed(ctx context.Context, j *domain.Job, st *provider.Job
 		if p.Pricing != nil {
 			jobUpdates["upstream_actual_cents"] = actualQuote.UpstreamCostCents
 			jobUpdates["margin_cents"] = actualQuote.MarginCents
+			jobUpdates["pricing_markup_bps"] = actualQuote.MarkupBPS
+			jobUpdates["pricing_source"] = actualQuote.Source
 		}
 		if err := tx.Model(j).Updates(jobUpdates).Error; err != nil {
 			return err
@@ -276,8 +278,12 @@ func (p *Processor) succeed(ctx context.Context, j *domain.Job, st *provider.Job
 		if p.Pricing != nil {
 			videoUpdates["upstream_actual_cents"] = actualQuote.UpstreamCostCents
 			videoUpdates["margin_cents"] = actualQuote.MarginCents
+			videoUpdates["pricing_markup_bps"] = actualQuote.MarkupBPS
+			videoUpdates["pricing_source"] = actualQuote.Source
 		}
-		tx.Model(&domain.Video{}).Where("upstream_job_id = ?", j.ID).Updates(videoUpdates)
+		if err := tx.Model(&domain.Video{}).Where("upstream_job_id = ?", j.ID).Updates(videoUpdates).Error; err != nil {
+			return err
+		}
 		updateWorkflowRun(ctx, tx, j.ID, "succeeded", outputJSON)
 		// Update batch counters if this job belongs to a batch.
 		if j.BatchRunID != nil {

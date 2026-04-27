@@ -21,7 +21,39 @@ func WorkflowToExistingVideoPayload(raw json.RawMessage) (*ExistingVideoPayload,
 		return nil, provider.GenerationRequest{}, nil, fmt.Errorf("%w: invalid JSON", ErrInvalidWorkflow)
 	}
 
-	seedance, err := singleNode(def.Nodes, NodeSeedanceVideo)
+	videoNodes := nodesByType(def.Nodes, NodeSeedanceVideo)
+	if len(videoNodes) != 1 {
+		return nil, provider.GenerationRequest{}, nil, fmt.Errorf("%w: exactly one %s node is required for single run", ErrInvalidWorkflow, NodeSeedanceVideo)
+	}
+	return videoNodeToPayload(def, videoNodes[0])
+}
+
+func WorkflowToGenerationRequests(raw json.RawMessage) ([]ExistingVideoPayload, []provider.GenerationRequest, []json.RawMessage, error) {
+	var def Definition
+	if err := json.Unmarshal(raw, &def); err != nil {
+		return nil, nil, nil, fmt.Errorf("%w: invalid JSON", ErrInvalidWorkflow)
+	}
+	videoNodes := nodesByType(def.Nodes, NodeSeedanceVideo)
+	if len(videoNodes) == 0 {
+		return nil, nil, nil, fmt.Errorf("%w: %s node is required", ErrInvalidWorkflow, NodeSeedanceVideo)
+	}
+	payloads := make([]ExistingVideoPayload, 0, len(videoNodes))
+	requests := make([]provider.GenerationRequest, 0, len(videoNodes))
+	inputs := make([]json.RawMessage, 0, len(videoNodes))
+	for _, node := range videoNodes {
+		payload, req, inputJSON, err := videoNodeToPayload(def, node)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		payloads = append(payloads, *payload)
+		requests = append(requests, req)
+		inputs = append(inputs, inputJSON)
+	}
+	return payloads, requests, inputs, nil
+}
+
+func videoNodeToPayload(def Definition, seedance Node) (*ExistingVideoPayload, provider.GenerationRequest, json.RawMessage, error) {
+	seedance, err := getNode(def.Nodes, seedance.ID)
 	if err != nil {
 		return nil, provider.GenerationRequest{}, nil, err
 	}
@@ -59,10 +91,6 @@ func WorkflowToExistingVideoPayload(raw json.RawMessage) (*ExistingVideoPayload,
 	}
 
 	imageNodes := connectedNodes(def, seedance.ID, NodeImageInput)
-	if len(imageNodes) == 0 {
-		return nil, provider.GenerationRequest{}, nil, fmt.Errorf("%w: at least one image.input must connect to seedance.video", ErrInvalidWorkflow)
-	}
-
 	input := ExistingVideoInputData{
 		Prompt:          prompt,
 		DurationSeconds: paramsData.Duration,
@@ -151,6 +179,25 @@ func singleNode(nodes []Node, typ string) (Node, error) {
 		return Node{}, fmt.Errorf("%w: %s node is required", ErrInvalidWorkflow, typ)
 	}
 	return *out, nil
+}
+
+func nodesByType(nodes []Node, typ string) []Node {
+	out := make([]Node, 0)
+	for _, node := range nodes {
+		if node.Type == typ {
+			out = append(out, node)
+		}
+	}
+	return out
+}
+
+func getNode(nodes []Node, id string) (Node, error) {
+	for _, node := range nodes {
+		if node.ID == id {
+			return node, nil
+		}
+	}
+	return Node{}, fmt.Errorf("%w: node not found", ErrInvalidWorkflow)
 }
 
 func firstConnectedNode(def Definition, targetID string, typ string) (Node, error) {

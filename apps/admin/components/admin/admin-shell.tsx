@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { useState } from "react"
 import {
   AlertOctagon,
+  Bot,
   Banknote,
   Building2,
   Gauge,
@@ -93,6 +94,7 @@ export function AdminShell({
       items: [
         { label: t.nav.admin.credits, href: "/credits", icon: Banknote },
         { label: t.nav.admin.pricing, href: "/pricing", icon: Percent },
+        { label: t.nav.admin.aiProviders, href: "/ai-providers", icon: Bot },
         { label: t.nav.admin.platformBudget, href: "/budget", icon: Wallet },
         { label: t.nav.admin.audit, href: "/audit", icon: ScrollText },
       ],

@@ -99,16 +99,6 @@ func TestWorkflowToExistingVideoPayload_Validation(t *testing.T) {
 			},
 		},
 		{
-			name: "missing image connection",
-			def: Definition{
-				Nodes: []Node{
-					node(t, "prompt", NodePromptInput, PromptInputData{Prompt: "x"}),
-					node(t, "video", NodeSeedanceVideo, SeedanceVideoData{}),
-				},
-				Edges: []Edge{{Source: "prompt", Target: "video"}},
-			},
-		},
-		{
 			name: "blank prompt",
 			def: Definition{
 				Nodes: []Node{
@@ -156,6 +146,48 @@ func TestWorkflowToExistingVideoPayload_SingleCharacterUsesFirstFrame(t *testing
 	}
 	if len(payload.Input.ImageURLs) != 0 {
 		t.Fatalf("image_urls = %#v; want none", payload.Input.ImageURLs)
+	}
+}
+
+func TestWorkflowToExistingVideoPayload_AllowsPromptOnly(t *testing.T) {
+	raw := mustJSON(t, Definition{
+		Nodes: []Node{
+			node(t, "prompt", NodePromptInput, PromptInputData{Prompt: "A cinematic city shot"}),
+			node(t, "video", NodeSeedanceVideo, SeedanceVideoData{}),
+		},
+		Edges: []Edge{{Source: "prompt", Target: "video"}},
+	})
+	payload, req, _, err := WorkflowToExistingVideoPayload(raw)
+	if err != nil {
+		t.Fatalf("WorkflowToExistingVideoPayload: %v", err)
+	}
+	if payload.Input.FirstFrameURL != nil || len(payload.Input.ImageURLs) != 0 || len(req.ImageURLs) != 0 {
+		t.Fatalf("expected prompt-only payload, got payload=%+v req=%+v", payload.Input, req)
+	}
+}
+
+func TestWorkflowToGenerationRequests_MultipleVideos(t *testing.T) {
+	raw := mustJSON(t, Definition{
+		Nodes: []Node{
+			node(t, "prompt-1", NodePromptInput, PromptInputData{Prompt: "shot one"}),
+			node(t, "video-1", NodeSeedanceVideo, SeedanceVideoData{}),
+			node(t, "prompt-2", NodePromptInput, PromptInputData{Prompt: "shot two"}),
+			node(t, "video-2", NodeSeedanceVideo, SeedanceVideoData{}),
+			node(t, "merge", NodeVideoMerge, map[string]string{"label": "merge"}),
+		},
+		Edges: []Edge{
+			{Source: "prompt-1", Target: "video-1"},
+			{Source: "prompt-2", Target: "video-2"},
+			{Source: "video-1", Target: "merge"},
+			{Source: "video-2", Target: "merge"},
+		},
+	})
+	payloads, requests, _, err := WorkflowToGenerationRequests(raw)
+	if err != nil {
+		t.Fatalf("WorkflowToGenerationRequests: %v", err)
+	}
+	if len(payloads) != 2 || len(requests) != 2 {
+		t.Fatalf("got payloads=%d requests=%d, want 2 each", len(payloads), len(requests))
 	}
 }
 

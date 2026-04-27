@@ -28,7 +28,8 @@ type WorkflowRun struct {
 	ID             string          `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
 	WorkflowID     string          `gorm:"type:uuid;not null;index" json:"workflow_id"`
 	OrgID          string          `gorm:"type:uuid;not null;index" json:"-"`
-	JobID          string          `gorm:"type:uuid;not null;index" json:"job_id"`
+	JobID          *string         `gorm:"type:uuid;index" json:"job_id,omitempty"`
+	BatchRunID     *string         `gorm:"type:uuid;index;column:batch_run_id" json:"batch_run_id,omitempty"`
 	VideoID        *string         `gorm:"type:uuid" json:"video_id,omitempty"`
 	Status         string          `gorm:"not null;default:'queued'" json:"status"`
 	InputSnapshot  json.RawMessage `gorm:"type:jsonb;not null" json:"input_snapshot"`

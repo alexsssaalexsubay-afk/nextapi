@@ -71,23 +71,22 @@ func (s *Service) ApplyTopup(ctx context.Context, tx *gorm.DB, orgID string, amo
 		db = s.db
 	}
 	now := time.Now()
+	initial := domain.OrgPricingState{
+		OrgID:              orgID,
+		LifetimeTopupCents: 0,
+		CreatedAt:          now,
+		UpdatedAt:          now,
+	}
+	if err := db.WithContext(ctx).
+		Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "org_id"}}, DoNothing: true}).
+		Create(&initial).Error; err != nil {
+		return err
+	}
 	var state domain.OrgPricingState
-	err := db.WithContext(ctx).
+	if err := db.WithContext(ctx).
 		Clauses(clause.Locking{Strength: "UPDATE"}).
-		First(&state, "org_id = ?", orgID).Error
-	if err != nil {
-		if !errors.Is(err, gorm.ErrRecordNotFound) {
-			return err
-		}
-		state = domain.OrgPricingState{
-			OrgID:              orgID,
-			LifetimeTopupCents: 0,
-			CreatedAt:          now,
-			UpdatedAt:          now,
-		}
-		if err := db.WithContext(ctx).Create(&state).Error; err != nil {
-			return err
-		}
+		First(&state, "org_id = ?", orgID).Error; err != nil {
+		return err
 	}
 	state.LifetimeTopupCents += amountCents
 	autoTierID, err := s.bestTierID(ctx, db, state.LifetimeTopupCents)

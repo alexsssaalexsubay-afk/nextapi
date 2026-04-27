@@ -220,10 +220,11 @@ func (h *PaymentHandlers) Webhook(c *gin.Context) {
 		}
 		if err := h.Billing.DB().WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 			delta := ev.Credits
+			deltaCents := amountCents
 			if err := tx.Create(&domain.CreditsLedger{
 				OrgID:        ev.OrgID,
 				DeltaCredits: delta,
-				DeltaCents:   &delta,
+				DeltaCents:   &deltaCents,
 				Reason:       domain.ReasonTopup,
 				Note:         note,
 			}).Error; err != nil {

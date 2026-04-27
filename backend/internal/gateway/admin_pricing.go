@@ -14,6 +14,8 @@ import (
 	"gorm.io/gorm/clause"
 )
 
+const maxMarkupBPS = 50000
+
 type pricingSettingsReq struct {
 	Enabled                *bool  `json:"enabled"`
 	DefaultMarkupBPS       *int   `json:"default_markup_bps"`
@@ -65,7 +67,7 @@ func (h *AdminHandlers) PutPricingSettings(c *gin.Context) {
 		settings.Enabled = *req.Enabled
 	}
 	if req.DefaultMarkupBPS != nil {
-		if *req.DefaultMarkupBPS < 0 {
+		if *req.DefaultMarkupBPS < 0 || *req.DefaultMarkupBPS > maxMarkupBPS {
 			c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "invalid_markup"}})
 			return
 		}
@@ -204,7 +206,7 @@ func (h *AdminHandlers) PatchOrgPricing(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "bad_request"}})
 		return
 	}
-	if req.MarkupBPS != nil && *req.MarkupBPS < 0 {
+	if req.MarkupBPS != nil && (*req.MarkupBPS < 0 || *req.MarkupBPS > maxMarkupBPS) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "invalid_markup"}})
 		return
 	}
@@ -280,14 +282,16 @@ func (h *AdminHandlers) PricingMargins(c *gin.Context) {
 	since := time.Now().AddDate(0, 0, -days)
 	db := h.DB.WithContext(c.Request.Context()).Model(&domain.Video{}).
 		Where("created_at >= ?", since)
-	if orgID := strings.TrimSpace(c.Query("org_id")); orgID != "" {
+	orgID := strings.TrimSpace(c.Query("org_id"))
+	if orgID != "" {
 		db = db.Where("org_id = ?", orgID)
 	}
 	var out struct {
-		CustomerRevenueCents int64 `json:"customer_revenue_cents"`
-		UpstreamCostCents    int64 `json:"upstream_cost_cents"`
-		MarginCents          int64 `json:"margin_cents"`
-		Jobs                 int64 `json:"jobs"`
+		CustomerRevenueCents int64      `json:"customer_revenue_cents"`
+		UpstreamCostCents    int64      `json:"upstream_cost_cents"`
+		MarginCents          int64      `json:"margin_cents"`
+		Jobs                 int64      `json:"jobs"`
+		DataSince            *time.Time `json:"data_since,omitempty"`
 	}
 	if err := db.Select(
 		"COALESCE(SUM(actual_cost_cents), 0) AS customer_revenue_cents, " +
@@ -297,6 +301,16 @@ func (h *AdminHandlers) PricingMargins(c *gin.Context) {
 	).Scan(&out).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "internal_error"}})
 		return
+	}
+	var dataSince time.Time
+	dataSinceDB := h.DB.WithContext(c.Request.Context()).Model(&domain.Video{}).
+		Where("created_at >= ? AND upstream_actual_cents IS NOT NULL", since).
+		Select("MIN(finished_at)")
+	if orgID != "" {
+		dataSinceDB = dataSinceDB.Where("org_id = ?", orgID)
+	}
+	if err := dataSinceDB.Scan(&dataSince).Error; err == nil && !dataSince.IsZero() {
+		out.DataSince = &dataSince
 	}
 	c.JSON(http.StatusOK, out)
 }
@@ -334,7 +348,7 @@ func tierFromReq(req tierReq, existing *domain.MembershipTier) (domain.Membershi
 	if existing == nil {
 		tier.CreatedAt = tier.UpdatedAt
 	}
-	return tier, tier.Name != "" && tier.MinLifetimeTopupCents >= 0 && tier.MarkupBPS >= 0
+	return tier, tier.Name != "" && tier.MinLifetimeTopupCents >= 0 && tier.MarkupBPS >= 0 && tier.MarkupBPS <= maxMarkupBPS && (existing != nil || req.MarkupBPS != nil)
 }
 
 func (h *AdminHandlers) orgPricingPayload(ctx context.Context, orgID string) (gin.H, error) {
@@ -372,32 +386,40 @@ func (h *AdminHandlers) orgPricingPayload(ctx context.Context, orgID string) (gi
 }
 
 func (h *AdminHandlers) recomputePricingStates(ctx context.Context) error {
-	var states []domain.OrgPricingState
-	if err := h.DB.WithContext(ctx).Find(&states).Error; err != nil {
-		return err
-	}
-	for _, state := range states {
-		autoID, err := h.bestMembershipTierID(ctx, state.LifetimeTopupCents)
-		if err != nil {
+	return h.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var states []domain.OrgPricingState
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Find(&states).Error; err != nil {
 			return err
 		}
-		state.AutoMembershipTierID = autoID
-		state.EffectiveMembershipTierID = autoID
-		var override domain.OrgPricingOverride
-		if err := h.DB.WithContext(ctx).First(&override, "org_id = ?", state.OrgID).Error; err == nil && override.ManualMembershipTierID != nil {
-			state.EffectiveMembershipTierID = override.ManualMembershipTierID
+		for _, state := range states {
+			autoID, err := membershipTierID(ctx, tx, state.LifetimeTopupCents)
+			if err != nil {
+				return err
+			}
+			state.AutoMembershipTierID = autoID
+			state.EffectiveMembershipTierID = autoID
+			var override domain.OrgPricingOverride
+			if err := tx.First(&override, "org_id = ?", state.OrgID).Error; err == nil && override.ManualMembershipTierID != nil {
+				state.EffectiveMembershipTierID = override.ManualMembershipTierID
+			} else if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+				return err
+			}
+			state.UpdatedAt = time.Now()
+			if err := tx.Save(&state).Error; err != nil {
+				return err
+			}
 		}
-		state.UpdatedAt = time.Now()
-		if err := h.DB.WithContext(ctx).Save(&state).Error; err != nil {
-			return err
-		}
-	}
-	return nil
+		return nil
+	})
 }
 
 func (h *AdminHandlers) bestMembershipTierID(ctx context.Context, lifetimeTopupCents int64) (*string, error) {
+	return membershipTierID(ctx, h.DB, lifetimeTopupCents)
+}
+
+func membershipTierID(ctx context.Context, db *gorm.DB, lifetimeTopupCents int64) (*string, error) {
 	var tier domain.MembershipTier
-	err := h.DB.WithContext(ctx).
+	err := db.WithContext(ctx).
 		Where("enabled = ? AND min_lifetime_topup_cents <= ?", true, lifetimeTopupCents).
 		Order("min_lifetime_topup_cents DESC").
 		First(&tier).Error

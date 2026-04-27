@@ -1,0 +1,7 @@
+export { generateImageWithProvider } from "./adapters/image-adapter"
+export { listReusableReferenceImages, storeReferenceImage } from "./adapters/storage-adapter"
+export { generateTextWithProvider } from "./adapters/text-adapter"
+export { shotToCreateVideoTaskPayload } from "./adapters/video-adapter"
+export { convertVimaxPlanToWorkflow } from "./provider-bridge"
+export { runVimaxPipeline } from "./run-vimax-pipeline"
+export type { VimaxCharacter, VimaxPipelineResult, VimaxPlan, VimaxRuntimeOptions, VimaxScene, VimaxShot } from "./types"

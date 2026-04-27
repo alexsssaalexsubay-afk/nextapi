@@ -8,9 +8,11 @@ import (
 	"time"
 
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/abuse"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/aiprovider"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/auth"
 	batchsvc "github.com/alexsssaalexsubay-afk/nextapi/backend/internal/batch"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/billing"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/director"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/gateway"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/idempotency"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/infra/config"
@@ -31,6 +33,7 @@ import (
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/storage/r2"
 	tmplsvc "github.com/alexsssaalexsubay-afk/nextapi/backend/internal/template"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/throughput"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/videomerge"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/webhook"
 	workflowsvc "github.com/alexsssaalexsubay-afk/nextapi/backend/internal/workflow"
 	"github.com/gin-gonic/gin"
@@ -87,6 +90,11 @@ func main() {
 	jobSvc.SetPricing(pricingSvc)
 	workflowSvc := workflowsvc.NewService(gormDB, jobSvc)
 	workflowSvc.SetThroughput(throughputSvc)
+	workflowSvc.SetMergeService(videomerge.NewService(gormDB))
+	aiProviderSvc := aiprovider.NewService(gormDB)
+	aiRuntime := aiprovider.NewRuntime(aiProviderSvc)
+	directorSvc := director.NewService(aiRuntime)
+	directorSvc.SetImageGenerator(aiRuntime)
 
 	notifier := notify.New()
 
@@ -244,6 +252,13 @@ func main() {
 	api.POST("/projects/:id/assets", projH.CreateAsset)
 	api.DELETE("/projects/:id/assets/:assetId", projH.DeleteAsset)
 
+	uploadH := &gateway.MediaUploadHandlers{}
+	if r2c, r2err := r2.New(); r2err == nil {
+		uploadH.R2 = r2c
+	} else {
+		log.Printf("r2: %v (dashboard image upload disabled; configure R2 env)", r2err)
+	}
+
 	workflowH := &gateway.WorkflowHandlers{Svc: workflowSvc}
 	api.GET("/workflows", workflowH.List)
 	api.POST("/workflows", workflowH.Create)
@@ -256,6 +271,14 @@ func main() {
 	api.POST("/workflows/:id/versions/:versionId/restore", workflowH.RestoreVersion)
 	api.POST("/workflows/:id/save-as-template", workflowH.SaveAsTemplate)
 	api.POST("/workflows/:id/export-api", workflowH.ExportAPI)
+	directorH := &gateway.DirectorHandlers{Service: directorSvc, WorkflowSvc: workflowSvc, DB: gormDB, R2: uploadH.R2}
+	directorGroup := api.Group("/director")
+	directorGroup.Use(ratelimit.Middleware(rl, 30, time.Minute))
+	directorGroup.GET("/status", directorH.Status)
+	directorGroup.POST("/vimax/run", directorH.RunVimaxPipeline)
+	directorGroup.POST("/generate-shots", directorH.GenerateShots)
+	directorGroup.POST("/generate-shot-images", directorH.GenerateShotImages)
+	directorGroup.POST("/workflows", directorH.BuildWorkflow)
 
 	api.GET("/videos", vids.List)
 	api.GET("/videos/:id", vids.Get)
@@ -290,12 +313,6 @@ func main() {
 	api.POST("/webhooks/:id/rotate", wdh.RotateSecret)
 
 	// Self-service key management (sk_* keys can manage their own org's keys)
-	uploadH := &gateway.MediaUploadHandlers{}
-	if r2c, r2err := r2.New(); r2err == nil {
-		uploadH.R2 = r2c
-	} else {
-		log.Printf("r2: %v (dashboard image upload disabled; configure R2 env)", r2err)
-	}
 	api.POST("/me/uploads/image", uploadH.PostImage)
 	api.POST("/me/uploads/media", uploadH.PostMedia)
 
@@ -403,6 +420,16 @@ func main() {
 	internal.PUT("/marketing/slots/:slot", mktH.AdminPutExternal)
 	internal.POST("/marketing/slots/:slot/upload", mktH.AdminUploadSlot)
 	internal.DELETE("/marketing/slots/:slot", mktH.AdminDeleteSlot)
+	internal.GET("/ai-providers", ah.ListAIProviders)
+	internal.POST("/ai-providers", ah.CreateAIProvider)
+	internal.PATCH("/ai-providers/:id", ah.PatchAIProvider)
+	internal.DELETE("/ai-providers/:id", ah.DeleteAIProvider)
+	internal.POST("/ai-providers/:id/default", ah.SetDefaultAIProvider)
+	internal.POST("/ai-providers/:id/test", ah.TestAIProvider)
+	internal.GET("/ai-provider-logs", ah.ListAIProviderLogs)
+	internal.GET("/ai-director/status", ah.AdminAIDirectorStatus)
+	internal.GET("/orgs/:id/ai-director", ah.GetAIDirectorEntitlement)
+	internal.PUT("/orgs/:id/ai-director", ah.PutAIDirectorEntitlement)
 
 	// Enhanced admin job tools.
 	ajh := &gateway.AdminJobHandlers{DB: gormDB, JobSvc: jobSvc, Billing: billSvc, Spend: spendSvc, Throughput: throughputSvc}

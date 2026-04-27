@@ -5,13 +5,16 @@ import "time"
 type CreditReason string
 
 const (
-	ReasonSignupBonus   CreditReason = "signup_bonus"
-	ReasonTopup         CreditReason = "topup"
-	ReasonConsumption   CreditReason = "consumption"
-	ReasonReservation   CreditReason = "reservation"
-	ReasonReconciliation CreditReason = "reconciliation"
-	ReasonRefund        CreditReason = "refund"
-	ReasonAdjustment    CreditReason = "adjustment"
+	ReasonSignupBonus     CreditReason = "signup_bonus"
+	ReasonTopup           CreditReason = "topup"
+	ReasonConsumption     CreditReason = "consumption"
+	ReasonReservation     CreditReason = "reservation"
+	ReasonReconciliation  CreditReason = "reconciliation"
+	ReasonRefund          CreditReason = "refund"
+	ReasonAdjustment      CreditReason = "adjustment"
+	ReasonTextGeneration  CreditReason = "text_generation"
+	ReasonImageGeneration CreditReason = "image_generation"
+	ReasonVideoGeneration CreditReason = "video_generation"
 )
 
 type CreditsLedger struct {

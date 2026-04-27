@@ -191,6 +191,8 @@ func (h *UpTokenWebhookHandlers) apply(ctx context.Context, ev uptokenWebhookPay
 			if h.Pricing != nil {
 				jobUpdates["upstream_actual_cents"] = actualQuote.UpstreamCostCents
 				jobUpdates["margin_cents"] = actualQuote.MarginCents
+				jobUpdates["pricing_markup_bps"] = actualQuote.MarkupBPS
+				jobUpdates["pricing_source"] = actualQuote.Source
 			}
 			if err := tx.Model(&jobRow).Updates(jobUpdates).Error; err != nil {
 				return err
@@ -220,6 +222,8 @@ func (h *UpTokenWebhookHandlers) apply(ctx context.Context, ev uptokenWebhookPay
 			if h.Pricing != nil {
 				videoUpdates["upstream_actual_cents"] = actualQuote.UpstreamCostCents
 				videoUpdates["margin_cents"] = actualQuote.MarginCents
+				videoUpdates["pricing_markup_bps"] = actualQuote.MarkupBPS
+				videoUpdates["pricing_source"] = actualQuote.Source
 			}
 			if err := tx.Model(&domain.Video{}).Where("upstream_job_id = ?", jobRow.ID).Updates(videoUpdates).Error; err != nil {
 				return err

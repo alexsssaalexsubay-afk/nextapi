@@ -12,7 +12,9 @@ import (
 	batchsvc "github.com/alexsssaalexsubay-afk/nextapi/backend/internal/batch"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/domain"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/job"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/provider"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/throughput"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/videomerge"
 	"gorm.io/gorm"
 )
 
@@ -21,6 +23,7 @@ type Service struct {
 	jobs       *job.Service
 	batches    *batchsvc.Service
 	throughput *throughput.Service
+	merges     *videomerge.Service
 }
 
 func NewService(db *gorm.DB, jobs *job.Service) *Service {
@@ -30,6 +33,8 @@ func NewService(db *gorm.DB, jobs *job.Service) *Service {
 func (s *Service) SetThroughput(tp *throughput.Service) { s.throughput = tp }
 
 func (s *Service) SetBatchService(batches *batchsvc.Service) { s.batches = batches }
+
+func (s *Service) SetMergeService(merges *videomerge.Service) { s.merges = merges }
 
 type CreateInput struct {
 	OrgID        string
@@ -52,11 +57,14 @@ type RunInput struct {
 }
 
 type RunResult struct {
-	RunID              string `json:"run_id"`
-	TaskID             string `json:"task_id"`
-	VideoID            string `json:"video_id"`
-	Status             string `json:"status"`
-	EstimatedCostCents int64  `json:"estimated_cost_cents"`
+	RunID              string   `json:"run_id"`
+	TaskID             string   `json:"task_id"`
+	VideoID            string   `json:"video_id"`
+	Status             string   `json:"status"`
+	EstimatedCostCents int64    `json:"estimated_cost_cents"`
+	BatchRunID         string   `json:"batch_run_id,omitempty"`
+	JobIDs             []string `json:"job_ids,omitempty"`
+	MergeJobID         string   `json:"merge_job_id,omitempty"`
 }
 
 type SaveAsTemplateInput struct {
@@ -197,6 +205,10 @@ func (s *Service) Run(ctx context.Context, workflowID string, in RunInput) (*Run
 	if err != nil {
 		return nil, err
 	}
+	payloads, requests, inputs, multiErr := WorkflowToGenerationRequests(row.WorkflowJSON)
+	if multiErr == nil && len(requests) > 1 {
+		return s.runBatch(ctx, row, in, payloads, requests, inputs)
+	}
 	payload, req, inputJSON, err := WorkflowToExistingVideoPayload(row.WorkflowJSON)
 	if err != nil {
 		return nil, err
@@ -235,7 +247,7 @@ func (s *Service) Run(ctx context.Context, workflowID string, in RunInput) (*Run
 	run := domain.WorkflowRun{
 		WorkflowID:    row.ID,
 		OrgID:         in.OrgID,
-		JobID:         res.JobID,
+		JobID:         &res.JobID,
 		VideoID:       &video.ID,
 		Status:        res.Status,
 		InputSnapshot: snapshot,
@@ -251,6 +263,84 @@ func (s *Service) Run(ctx context.Context, workflowID string, in RunInput) (*Run
 		Status:             video.Status,
 		EstimatedCostCents: res.EstimatedCredits,
 	}, nil
+}
+
+func (s *Service) runBatch(ctx context.Context, row *domain.Workflow, in RunInput, payloads []ExistingVideoPayload, requests []provider.GenerationRequest, inputs []json.RawMessage) (*RunResult, error) {
+	if s.batches == nil {
+		return nil, fmt.Errorf("%w: batch service is required", ErrInvalidWorkflow)
+	}
+	shots := make([]job.CreateInput, 0, len(requests))
+	for _, req := range requests {
+		shots = append(shots, job.CreateInput{OrgID: in.OrgID, APIKeyID: in.APIKeyID, Request: req})
+	}
+	snapshot, _ := json.Marshal(map[string]any{"workflow": row.WorkflowJSON, "payloads": payloads, "inputs": inputs})
+	run := domain.WorkflowRun{
+		WorkflowID:    row.ID,
+		OrgID:         in.OrgID,
+		Status:        "queued",
+		InputSnapshot: snapshot,
+	}
+	if err := s.db.WithContext(ctx).Create(&run).Error; err != nil {
+		return nil, err
+	}
+	manifest, _ := json.Marshal(map[string]any{"workflow_id": row.ID, "workflow_run_id": run.ID, "payloads": payloads})
+	name := row.Name
+	res, err := s.batches.Create(ctx, batchsvc.CreateInput{
+		OrgID:    in.OrgID,
+		APIKeyID: in.APIKeyID,
+		Name:     &name,
+		Shots:    shots,
+		Manifest: manifest,
+	})
+	if err != nil {
+		_ = s.db.WithContext(ctx).Model(&domain.WorkflowRun{}).Where("id = ?", run.ID).Update("status", "failed").Error
+		return nil, err
+	}
+	run.Status = "running"
+	run.BatchRunID = &res.BatchRunID
+	if len(res.JobIDs) > 0 {
+		run.JobID = &res.JobIDs[0]
+	}
+	if err := s.db.WithContext(ctx).Model(&domain.WorkflowRun{}).Where("id = ?", run.ID).Updates(map[string]any{
+		"status":       run.Status,
+		"batch_run_id": run.BatchRunID,
+		"job_id":       run.JobID,
+	}).Error; err != nil {
+		return nil, err
+	}
+	mergeJobID := ""
+	if s.merges != nil && workflowHasNode(row.WorkflowJSON, NodeVideoMerge) {
+		merge, err := s.merges.Create(ctx, videomerge.CreateInput{
+			OrgID:         in.OrgID,
+			WorkflowRunID: &run.ID,
+			BatchRunID:    &res.BatchRunID,
+			Snapshot:      snapshot,
+		})
+		if err != nil {
+			return nil, err
+		}
+		mergeJobID = merge.ID
+	}
+	return &RunResult{
+		RunID:      run.ID,
+		BatchRunID: res.BatchRunID,
+		JobIDs:     res.JobIDs,
+		Status:     "running",
+		MergeJobID: mergeJobID,
+	}, nil
+}
+
+func workflowHasNode(raw json.RawMessage, typ string) bool {
+	var def Definition
+	if err := json.Unmarshal(raw, &def); err != nil {
+		return false
+	}
+	for _, node := range def.Nodes {
+		if node.Type == typ {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *Service) ListVersions(ctx context.Context, orgID, workflowID string) ([]domain.WorkflowVersion, error) {
