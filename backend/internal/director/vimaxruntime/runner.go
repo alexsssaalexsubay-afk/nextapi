@@ -114,6 +114,7 @@ func (r *Runner) runSidecar(ctx context.Context, in director.GenerateShotsInput)
 		Genre:           in.Genre,
 		Style:           in.Style,
 		Scene:           in.Scene,
+		OrgID:           in.OrgID,
 		ShotCount:       in.ShotCount,
 		DurationPerShot: in.DurationPerShot,
 		Characters:      in.Characters,

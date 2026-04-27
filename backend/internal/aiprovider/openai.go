@@ -359,6 +359,8 @@ func (r *Runtime) log(ctx context.Context, prov *domain.AIProvider, request stri
 	}
 	r.service.Log(ctx, domain.AIProviderLog{
 		ProviderID:      &prov.ID,
+		UserID:          userIDFromContext(ctx),
+		OrgID:           orgIDFromContext(ctx),
 		Type:            prov.Type,
 		RequestSummary:  truncate(request, 500),
 		ResponseSummary: successSummary(err),

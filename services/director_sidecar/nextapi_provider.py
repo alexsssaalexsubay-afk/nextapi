@@ -24,11 +24,13 @@ class NextAPIChatModel:
         callback_base_url: str,
         callback_token: str,
         provider_id: str | None = None,
+        org_id: str | None = None,
         timeout_seconds: float = 90.0,
     ) -> None:
         self.callback_base_url = callback_base_url.rstrip("/")
         self.callback_token = callback_token
         self.provider_id = provider_id or ""
+        self.org_id = org_id or ""
         self.timeout_seconds = timeout_seconds
 
     def __or__(self, parser: Any) -> "_ProviderParserChain":
@@ -39,6 +41,7 @@ class NextAPIChatModel:
             raise NextAPIProviderError("director runtime callback is not configured")
         payload = {
             "provider_id": self.provider_id,
+            "org_id": self.org_id,
             "messages": _normalize_messages(messages),
             "options": {
                 "json_mode": _looks_like_json_task(messages),

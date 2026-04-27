@@ -16,6 +16,7 @@ import {
   Upload,
   Zap,
 } from "lucide-react"
+import { ModelSelect } from "@/components/ai/model-select"
 import { DashboardShell } from "@/components/dashboard/dashboard-shell"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -42,6 +43,8 @@ import {
 import { toast } from "sonner"
 
 const FALLBACK_MODELS = ["seedance-2.0-pro", "seedance-2.0-fast"]
+const FALLBACK_RESOLUTIONS = ["1080p", "720p", "480p"]
+const RESOLUTION_PRIORITY = ["1080p", "720p", "480p"]
 const POLL_MS = 4000
 const MAX_BATCH_JOBS = 500
 
@@ -94,6 +97,12 @@ type BatchJobRecord = {
 type BatchManifest = {
   rows?: Record<string, string>[]
   options?: Record<string, unknown>
+}
+
+type BackendModelCapability = {
+  id: string
+  status?: string
+  supportedResolutions: string[]
 }
 
 function relTime(iso?: string | null): string {
@@ -217,11 +226,37 @@ function buildOutcomesFromRun(jobs: BatchJobRecord[], manifest: BatchManifest | 
   }))
 }
 
+function normalizeModelCapability(raw: Record<string, unknown>): BackendModelCapability | null {
+  const id = typeof raw.id === "string" ? raw.id : ""
+  if (!id) return null
+  return {
+    id,
+    status: typeof raw.status === "string" ? raw.status : undefined,
+    supportedResolutions: Array.isArray(raw.supported_resolutions)
+      ? raw.supported_resolutions.filter((item): item is string => typeof item === "string" && item.length > 0)
+      : [],
+  }
+}
+
+function orderedResolutions(values: string[] | undefined): string[] {
+  const unique = Array.from(new Set(values?.length ? values : FALLBACK_RESOLUTIONS))
+  return unique.sort((a, b) => {
+    const left = RESOLUTION_PRIORITY.indexOf(a)
+    const right = RESOLUTION_PRIORITY.indexOf(b)
+    if (left === -1 && right === -1) return a.localeCompare(b)
+    if (left === -1) return 1
+    if (right === -1) return -1
+    return left - right
+  })
+}
+
 export default function BatchStudioPage() {
   const t = useTranslations()
   const tb = t.batchStudio
 
   const [models, setModels] = useState<string[]>(FALLBACK_MODELS)
+  const [modelCapabilities, setModelCapabilities] = useState<Record<string, BackendModelCapability>>({})
+  const [modelCatalogState, setModelCatalogState] = useState<"loading" | "ready" | "fallback">("loading")
   const [model, setModel] = useState(FALLBACK_MODELS[0])
   const [resolution, setResolution] = useState("1080p")
   const [parallel, setParallel] = useState(5)
@@ -249,6 +284,21 @@ export default function BatchStudioPage() {
   const prepared = validateResult?.prepared ?? []
   const hasErrors = (validateResult?.errors.length ?? 0) > 0
   const canRun = prepared.length > 0 && !hasErrors && !running
+  const selectedCapability = modelCapabilities[model]
+  const resolutionOptions = useMemo(
+    () => orderedResolutions(selectedCapability?.supportedResolutions),
+    [selectedCapability],
+  )
+  const modelHelper =
+    modelCatalogState === "loading"
+      ? tb.modelCatalogLoading
+      : modelCatalogState === "ready"
+        ? tb.modelCatalogHint
+        : tb.modelCatalogFallback
+  const resolutionHelper =
+    selectedCapability
+      ? tb.resolutionCapabilityHint.replace("{status}", selectedCapability.status ?? tb.unknownStatus)
+      : tb.resolutionFallbackHint
   const parallelHintValue =
     typeof activeRunManifest?.options?.parallel === "string" ||
     typeof activeRunManifest?.options?.parallel === "number"
@@ -327,15 +377,26 @@ export default function BatchStudioPage() {
   useEffect(() => {
     apiFetch("/v1/models")
       .then((res) => {
-        const items: { id: string }[] = res?.data ?? res ?? []
-        const ids = items.map((m) => m.id).filter(Boolean)
+        const items = (Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : []) as Record<string, unknown>[]
+        const capabilities = items
+          .map(normalizeModelCapability)
+          .filter((item): item is BackendModelCapability => item !== null)
+        const ids = capabilities.map((item) => item.id)
         if (ids.length) {
+          setModelCapabilities(Object.fromEntries(capabilities.map((item) => [item.id, item])))
           setModels(ids)
           setModel((m) => (ids.includes(m) ? m : ids[0]))
+          setModelCatalogState("ready")
+        } else {
+          setModelCatalogState("fallback")
         }
       })
-      .catch(() => {})
+      .catch(() => setModelCatalogState("fallback"))
   }, [])
+
+  useEffect(() => {
+    setResolution((current) => resolutionOptions.includes(current) ? current : resolutionOptions[0] ?? FALLBACK_RESOLUTIONS[0])
+  }, [resolutionOptions])
 
   useEffect(() => {
     void loadRecentRuns()
@@ -550,7 +611,7 @@ export default function BatchStudioPage() {
                   <ul className="max-h-40 overflow-y-auto scroll-thin text-[12px] text-destructive">
                     {validateResult.errors.slice(0, 50).map((error) => (
                       <li key={`${error.index}-${error.shot_id}`}>
-                        Row {error.index + 1} ({error.shot_id || "—"}): {error.message}
+                        {tb.rowLabel.replace("{row}", String(error.index + 1))} ({error.shot_id || "—"}): {error.message}
                       </li>
                     ))}
                     {validateResult.errors.length > 50 && <li>… {tb.moreErrors}</li>}
@@ -562,7 +623,7 @@ export default function BatchStudioPage() {
             {/* Shot editor — editable table after CSV upload */}
             {prepared.length > 0 && !activeRunId && (
               <div className="space-y-3">
-                <Label className="text-[12px]">Edit Shots</Label>
+                <Label className="text-[12px]">{tb.editShots}</Label>
                 <ShotEditor
                   shots={prepared}
                   onChange={(next) => {
@@ -578,11 +639,11 @@ export default function BatchStudioPage() {
             {/* Batch name input */}
             {prepared.length > 0 && !activeRunId && (
               <div className="space-y-1.5">
-                <Label className="text-[12px]">Batch Name (optional)</Label>
+                <Label className="text-[12px]">{tb.batchName}</Label>
                 <Input
                   value={batchName}
                   onChange={(e) => setBatchName(e.target.value)}
-                  placeholder="e.g. EP01 Scene 1-10"
+                  placeholder={tb.batchNamePlaceholder}
                   className="h-8 max-w-sm text-xs"
                   disabled={running}
                 />
@@ -646,21 +707,27 @@ export default function BatchStudioPage() {
           </div>
 
           <div className="space-y-4 rounded-lg border border-border/60 bg-card/30 p-4">
-            <div>
-              <Label className="text-[12px]">{tb.model}</Label>
-              <Select value={model} onValueChange={setModel}>
-                <SelectTrigger className="mt-1.5">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {models.map((item) => (
-                    <SelectItem key={item} value={item}>
-                      {item}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            <ModelSelect
+              label={tb.model}
+              value={model}
+              onChange={setModel}
+              category="video"
+              helper={modelHelper}
+              availableModelIds={models}
+              statusLabels={{
+                live: tb.modelStatusLive,
+                compat: tb.modelStatusCompat,
+                configured: tb.modelStatusConfigured,
+                comingSoon: tb.modelStatusUnavailable,
+                recommended: tb.recommendedModels,
+                bestForFlow: tb.bestForBatch,
+                tierAdvanced: tb.tierAdvanced,
+                tierPrimary: tb.tierPrimary,
+                tierEconomy: tb.tierEconomy,
+                tierExperimental: tb.tierExperimental,
+                tierCompat: tb.tierCompat,
+              }}
+            />
             <div>
               <Label className="text-[12px]">{tb.resolution}</Label>
               <Select value={resolution} onValueChange={setResolution}>
@@ -668,13 +735,14 @@ export default function BatchStudioPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {["1080p", "720p", "480p"].map((item) => (
+                  {resolutionOptions.map((item) => (
                     <SelectItem key={item} value={item}>
                       {item}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">{resolutionHelper}</p>
             </div>
             <div>
               <Label className="text-[12px]">{tb.parallel}</Label>

@@ -27,6 +27,7 @@ class ManagedDirectorBridge:
             callback_base_url=request.callback.base_url,
             callback_token=request.callback.token,
             provider_id=request.text_provider_id,
+            org_id=request.org_id,
         )
         user_requirement = _build_user_requirement(request)
         screenwriter = components["Screenwriter"](chat_model)

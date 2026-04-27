@@ -79,7 +79,8 @@ func (h *DirectorHandlers) GenerateShots(c *gin.Context) {
 		return
 	}
 	req.OrgID = org.ID
-	out, err := h.Service.GenerateShots(c.Request.Context(), req)
+	ctx := aiprovider.WithOrgID(c.Request.Context(), org.ID)
+	out, err := h.Service.GenerateShots(ctx, req)
 	if err != nil {
 		handleDirectorError(c, err)
 		return
@@ -163,7 +164,8 @@ func (h *DirectorHandlers) RunDirectorMode(c *gin.Context) {
 		Characters:      req.Characters,
 		TextProviderID:  req.TextProviderID,
 	}
-	storyboard, err := h.Service.GenerateShots(c.Request.Context(), shotsReq)
+	ctx := aiprovider.WithOrgID(c.Request.Context(), org.ID)
+	storyboard, err := h.Service.GenerateShots(ctx, shotsReq)
 	if err != nil {
 		handleDirectorError(c, err)
 		return
@@ -172,7 +174,7 @@ func (h *DirectorHandlers) RunDirectorMode(c *gin.Context) {
 		if !h.requireDirectorAccess(c, true) {
 			return
 		}
-		generated, imgErr := h.Service.GenerateShotImages(c.Request.Context(), director.GenerateShotImagesInput{
+		generated, imgErr := h.Service.GenerateShotImages(ctx, director.GenerateShotImagesInput{
 			OrgID:           org.ID,
 			ImageProviderID: req.ImageProviderID,
 			Style:           req.Style,
@@ -189,7 +191,7 @@ func (h *DirectorHandlers) RunDirectorMode(c *gin.Context) {
 				if storyboard.Shots[i].ReferenceImageURL == "" {
 					continue
 				}
-				id, url, saveErr := h.persistGeneratedImage(c.Request.Context(), org.ID, storyboard.Shots[i].ReferenceImageURL)
+				id, url, saveErr := h.persistGeneratedImage(ctx, org.ID, storyboard.Shots[i].ReferenceImageURL)
 				if saveErr != nil {
 					handleDirectorError(c, director.ErrImageGenerationFailed)
 					return
@@ -212,7 +214,7 @@ func (h *DirectorHandlers) RunDirectorMode(c *gin.Context) {
 	if name == "" {
 		name = "NextAPI Director workflow"
 	}
-	row, err := h.WorkflowSvc.Create(c.Request.Context(), workflow.CreateInput{
+	row, err := h.WorkflowSvc.Create(ctx, workflow.CreateInput{
 		OrgID:        org.ID,
 		Name:         name,
 		WorkflowJSON: json.RawMessage(def),
@@ -228,7 +230,7 @@ func (h *DirectorHandlers) RunDirectorMode(c *gin.Context) {
 		if ak := auth.APIKeyFrom(c); ak != nil {
 			apiKeyID = &ak.ID
 		}
-		runResult, err = h.WorkflowSvc.Run(c.Request.Context(), row.ID, workflow.RunInput{
+		runResult, err = h.WorkflowSvc.Run(ctx, row.ID, workflow.RunInput{
 			OrgID:    org.ID,
 			APIKeyID: apiKeyID,
 		})
@@ -275,7 +277,8 @@ func (h *DirectorHandlers) GenerateShotImages(c *gin.Context) {
 		req.Shots[i].ReferenceImageURL = ""
 		req.Shots[i].ReferenceImageAssetID = ""
 	}
-	shots, err := h.Service.GenerateShotImages(c.Request.Context(), req)
+	ctx := aiprovider.WithOrgID(c.Request.Context(), org.ID)
+	shots, err := h.Service.GenerateShotImages(ctx, req)
 	if err != nil {
 		handleDirectorError(c, err)
 		return
@@ -285,7 +288,7 @@ func (h *DirectorHandlers) GenerateShotImages(c *gin.Context) {
 			if shots[i].ReferenceImageURL == "" {
 				continue
 			}
-			id, url, saveErr := h.persistGeneratedImage(c.Request.Context(), org.ID, shots[i].ReferenceImageURL)
+			id, url, saveErr := h.persistGeneratedImage(ctx, org.ID, shots[i].ReferenceImageURL)
 			if saveErr != nil {
 				continue
 			}

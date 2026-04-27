@@ -22,6 +22,7 @@ type RunRequest struct {
 	Genre           string                    `json:"genre,omitempty"`
 	Style           string                    `json:"style,omitempty"`
 	Scene           string                    `json:"scene,omitempty"`
+	OrgID           string                    `json:"org_id,omitempty"`
 	ShotCount       int                       `json:"shot_count"`
 	DurationPerShot int                       `json:"duration_per_shot"`
 	Characters      []director.CharacterInput `json:"characters,omitempty"`

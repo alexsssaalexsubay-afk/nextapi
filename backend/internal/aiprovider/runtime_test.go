@@ -77,6 +77,41 @@ func TestTestProviderVideoRejectsUnsupportedProvider(t *testing.T) {
 	}
 }
 
+func TestRuntimeLogUsesContextAttribution(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	migrateAIProviderTestTables(t, db)
+	prov := domain.AIProvider{
+		ID:         "provider_text",
+		Name:       "Text Provider",
+		Type:       domain.AIProviderTypeText,
+		Provider:   "openai",
+		Model:      "gpt-test",
+		Enabled:    true,
+		ConfigJSON: json.RawMessage(`{}`),
+	}
+	if err := db.Create(&prov).Error; err != nil {
+		t.Fatalf("create provider: %v", err)
+	}
+
+	runtime := NewRuntime(NewService(db))
+	ctx := WithUserID(WithOrgID(context.Background(), "org1"), "user1")
+	runtime.log(ctx, &prov, "test request", json.RawMessage(`{"total_tokens":3}`), nil)
+
+	var row domain.AIProviderLog
+	if err := db.First(&row).Error; err != nil {
+		t.Fatalf("load log: %v", err)
+	}
+	if row.OrgID == nil || *row.OrgID != "org1" {
+		t.Fatalf("org attribution = %#v; want org1", row.OrgID)
+	}
+	if row.UserID != "user1" {
+		t.Fatalf("user attribution = %q; want user1", row.UserID)
+	}
+}
+
 func migrateAIProviderTestTables(t *testing.T, db *gorm.DB) {
 	t.Helper()
 	err := db.Exec(`CREATE TABLE ai_providers (
@@ -96,5 +131,20 @@ func migrateAIProviderTestTables(t *testing.T, db *gorm.DB) {
 	)`).Error
 	if err != nil {
 		t.Fatalf("migrate ai_providers: %v", err)
+	}
+	err = db.Exec(`CREATE TABLE ai_provider_logs (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		provider_id TEXT,
+		user_id TEXT NOT NULL DEFAULT '',
+		org_id TEXT,
+		type TEXT NOT NULL,
+		request_summary TEXT NOT NULL DEFAULT '',
+		response_summary TEXT NOT NULL DEFAULT '',
+		usage_json TEXT NOT NULL DEFAULT '{}',
+		error TEXT NOT NULL DEFAULT '',
+		created_at DATETIME
+	)`).Error
+	if err != nil {
+		t.Fatalf("migrate ai_provider_logs: %v", err)
 	}
 }

@@ -40,6 +40,7 @@ class StoryboardRequest(BaseModel):
     genre: str = ""
     style: str = ""
     scene: str = ""
+    org_id: str = ""
     shot_count: int = 3
     duration_per_shot: int = 4
     characters: list[CharacterInput] = Field(default_factory=list)

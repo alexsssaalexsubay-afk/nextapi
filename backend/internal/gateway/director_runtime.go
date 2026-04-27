@@ -22,12 +22,16 @@ type DirectorRuntimeHandlers struct {
 
 type directorRuntimeTextRequest struct {
 	ProviderID string                 `json:"provider_id"`
+	OrgID      string                 `json:"org_id"`
+	UserID     string                 `json:"user_id"`
 	Messages   []aiprovider.Message   `json:"messages" binding:"required"`
 	Options    aiprovider.TextOptions `json:"options"`
 }
 
 type directorRuntimeImageRequest struct {
 	ProviderID string                  `json:"provider_id"`
+	OrgID      string                  `json:"org_id"`
+	UserID     string                  `json:"user_id"`
 	Prompt     string                  `json:"prompt" binding:"required"`
 	Options    aiprovider.ImageOptions `json:"options"`
 }
@@ -45,7 +49,8 @@ func (h *DirectorRuntimeHandlers) TextCompletion(c *gin.Context) {
 		httpx.BadRequest(c, "invalid_request", "invalid request body")
 		return
 	}
-	out, err := h.Text.GenerateTextWithProvider(c.Request.Context(), req.ProviderID, req.Messages, req.Options)
+	ctx := aiprovider.WithUserID(aiprovider.WithOrgID(c.Request.Context(), strings.TrimSpace(req.OrgID)), strings.TrimSpace(req.UserID))
+	out, err := h.Text.GenerateTextWithProvider(ctx, req.ProviderID, req.Messages, req.Options)
 	if err != nil {
 		httpx.WriteError(c, http.StatusServiceUnavailable, "text_provider_unavailable", "text provider is unavailable")
 		return
@@ -66,7 +71,8 @@ func (h *DirectorRuntimeHandlers) ImageGeneration(c *gin.Context) {
 		httpx.BadRequest(c, "invalid_request", "invalid request body")
 		return
 	}
-	out, err := h.Image.GenerateImageWithProvider(c.Request.Context(), req.ProviderID, req.Prompt, req.Options)
+	ctx := aiprovider.WithUserID(aiprovider.WithOrgID(c.Request.Context(), strings.TrimSpace(req.OrgID)), strings.TrimSpace(req.UserID))
+	out, err := h.Image.GenerateImageWithProvider(ctx, req.ProviderID, req.Prompt, req.Options)
 	if err != nil {
 		httpx.WriteError(c, http.StatusServiceUnavailable, "image_provider_unavailable", "image provider is unavailable")
 		return

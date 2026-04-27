@@ -50,6 +50,7 @@ export function ModelSelect({
   category,
   helper,
   includeDisabled = false,
+  availableModelIds,
   statusLabels,
 }: {
   label?: string
@@ -58,11 +59,17 @@ export function ModelSelect({
   category: AIModelCategory
   helper?: string
   includeDisabled?: boolean
+  availableModelIds?: string[]
   statusLabels?: ModelSelectStatusLabels
 }) {
   const [open, setOpen] = useState(false)
   const rootRef = useRef<HTMLDivElement | null>(null)
-  const items = AI_MODEL_CATALOG.filter((item) => item.category === category && (includeDisabled || item.enabled))
+  const availableModelSet = availableModelIds ? new Set(availableModelIds) : null
+  const items = AI_MODEL_CATALOG.filter((item) =>
+    item.category === category &&
+    (!availableModelSet || availableModelSet.has(item.id)) &&
+    (includeDisabled || item.enabled),
+  )
   const selected = items.find((item) => item.id === value) ?? AI_MODEL_CATALOG.find((item) => item.id === value) ?? items[0]
   const recommendedItems = items
     .filter((item) => item.enabled && (item.tier === "primary" || item.tier === "advanced" || item.status === "live"))
