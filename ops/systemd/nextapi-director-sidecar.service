@@ -5,7 +5,7 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-User=deploy
+User=root
 WorkingDirectory=/opt/nextapi
 EnvironmentFile=/opt/nextapi/.env
 Environment=NEXTAPI_REPO_ROOT=/opt/nextapi
