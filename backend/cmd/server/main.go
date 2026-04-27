@@ -275,7 +275,7 @@ func main() {
 	directorGroup := api.Group("/director")
 	directorGroup.Use(ratelimit.Middleware(rl, 30, time.Minute))
 	directorGroup.GET("/status", directorH.Status)
-	directorGroup.POST("/vimax/run", directorH.RunVimaxPipeline)
+	directorGroup.POST("/mode/run", directorH.RunDirectorMode)
 	directorGroup.POST("/generate-shots", directorH.GenerateShots)
 	directorGroup.POST("/generate-shot-images", directorH.GenerateShotImages)
 	directorGroup.POST("/workflows", directorH.BuildWorkflow)

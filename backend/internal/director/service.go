@@ -137,16 +137,16 @@ func BuildWorkflowFromShots(storyboard Storyboard, options WorkflowOptions) (jso
 	return json.Marshal(def)
 }
 
-func StoryboardToVimaxPlan(storyboard Storyboard, characters []CharacterInput) VimaxPlan {
-	scenes := make([]VimaxScene, 0, len(storyboard.Shots))
+func StoryboardToDirectorPlan(storyboard Storyboard, characters []CharacterInput) DirectorPlan {
+	scenes := make([]DirectorScene, 0, len(storyboard.Shots))
 	for _, shot := range storyboard.Shots {
-		scenes = append(scenes, VimaxScene{
+		scenes = append(scenes, DirectorScene{
 			ID:          fmt.Sprintf("scene_%d", shot.ShotIndex),
 			Title:       shot.Scene,
 			Description: shot.Action,
 		})
 	}
-	return VimaxPlan{
+	return DirectorPlan{
 		Title:      storyboard.Title,
 		Summary:    storyboard.Summary,
 		Characters: characters,
@@ -155,7 +155,7 @@ func StoryboardToVimaxPlan(storyboard Storyboard, characters []CharacterInput) V
 	}
 }
 
-func VimaxPlanToStoryboard(plan VimaxPlan) Storyboard {
+func DirectorPlanToStoryboard(plan DirectorPlan) Storyboard {
 	return Storyboard{
 		Title:   plan.Title,
 		Summary: plan.Summary,

@@ -735,8 +735,8 @@ export const zh: Messages = {
   },
 
   directorPage: {
-    title: "AI Director",
-    description: "把故事拆成可编辑分镜，然后打开到 Canvas。",
+    title: "AI 导演工作台",
+    description: "导演模式把一句剧情变成可编辑分镜、工作流节点，并交给 Canvas。",
     stepStory: "1. 故事",
     storyHint: "先闭环文字分镜。分镜图和合并可在镜头计划稳定后再增强。",
     story: "故事",
@@ -746,8 +746,8 @@ export const zh: Messages = {
     secondsPerShot: "每镜头秒数",
     working: "处理中...",
     generateShots: "生成分镜",
-    generateVimaxWorkflow: "生成 ViMax 工作流",
-    vimaxWorkflowName: "ViMax 导演工作流",
+    generateDirectorWorkflow: "生成导演模式工作流",
+    directorWorkflowName: "NextAPI Director 工作流",
     editShots: "2. 编辑分镜",
     generatedPlaceholder: "生成后的分镜会显示在这里。",
     generateImages: "生成分镜图",

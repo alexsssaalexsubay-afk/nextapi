@@ -1,7 +1,7 @@
 import { generateDirectorShots } from "@/lib/workflows"
-import type { VimaxPlan, VimaxRuntimeOptions } from "../types"
+import type { DirectorPlan, DirectorRuntimeOptions } from "../types"
 
-export async function generateTextWithProvider(options: VimaxRuntimeOptions): Promise<VimaxPlan> {
+export async function generateTextWithProvider(options: DirectorRuntimeOptions): Promise<DirectorPlan> {
   const storyboard = await generateDirectorShots({
     story: options.story,
     genre: options.genre,

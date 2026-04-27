@@ -1,6 +1,6 @@
-import type { VimaxShot } from "../types"
+import type { DirectorShot } from "../types"
 
-export type VimaxVideoTaskPayload = {
+export type DirectorVideoTaskPayload = {
   model: string
   prompt: string
   image_urls?: string[]
@@ -11,9 +11,9 @@ export type VimaxVideoTaskPayload = {
 }
 
 export function shotToCreateVideoTaskPayload(
-  shot: VimaxShot,
+  shot: DirectorShot,
   options: { model?: string; resolution?: string; ratio?: string; generateAudio?: boolean },
-): VimaxVideoTaskPayload {
+): DirectorVideoTaskPayload {
   const imageUrls = [shot.referenceImageUrl].filter((url): url is string => typeof url === "string" && url.trim() !== "")
   return {
     model: options.model || "seedance-2.0-pro",

@@ -1,7 +1,7 @@
 import { generateDirectorShotImages } from "@/lib/workflows"
-import type { VimaxPlan, VimaxRuntimeOptions } from "../types"
+import type { DirectorPlan, DirectorRuntimeOptions } from "../types"
 
-export async function generateImageWithProvider(plan: VimaxPlan, options: VimaxRuntimeOptions): Promise<VimaxPlan> {
+export async function generateImageWithProvider(plan: DirectorPlan, options: DirectorRuntimeOptions): Promise<DirectorPlan> {
   const result = await generateDirectorShotImages({
     imageProviderId: options.imageProviderId,
     resolution: options.resolution === "1080p" ? "1024x1024" : options.resolution,

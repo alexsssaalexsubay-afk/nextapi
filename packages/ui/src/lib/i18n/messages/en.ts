@@ -745,8 +745,8 @@ export const en = {
   },
 
   directorPage: {
-    title: "AI Director",
-    description: "Turn a story into editable shots, then open it in Canvas.",
+    title: "NextAPI Director",
+    description: "Director Mode turns a story into editable shots, workflow nodes, and Canvas handoff.",
     stepStory: "1. Story",
     storyHint: "Start with text storyboard generation. Images and merge can be added after the shot plan is stable.",
     story: "Story",
@@ -756,8 +756,8 @@ export const en = {
     secondsPerShot: "Seconds / shot",
     working: "Working...",
     generateShots: "Generate shots",
-    generateVimaxWorkflow: "Generate ViMax workflow",
-    vimaxWorkflowName: "ViMax director workflow",
+    generateDirectorWorkflow: "Generate Director workflow",
+    directorWorkflowName: "NextAPI Director workflow",
     editShots: "2. Edit shots",
     generatedPlaceholder: "Generated shots appear here.",
     generateImages: "Generate images",

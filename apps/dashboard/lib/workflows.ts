@@ -1,5 +1,5 @@
 import { apiFetch } from "@/lib/api"
-import type { VimaxPlan } from "@/lib/vimax-runtime/types"
+import type { DirectorPlan } from "@/lib/director-runtime/types"
 
 export type CanvasNodeType =
   | "image.input"
@@ -227,7 +227,7 @@ export async function generateDirectorShotImages(input: {
   }) as Promise<{ shots: DirectorShot[] }>
 }
 
-export async function runBackendVimaxPipeline(input: {
+export async function runBackendDirectorPipeline(input: {
   story: string
   genre?: string
   style?: string
@@ -235,11 +235,11 @@ export async function runBackendVimaxPipeline(input: {
   duration_per_shot?: number
   generate_images?: boolean
   options?: { name?: string; ratio?: string; resolution?: string; generate_audio?: boolean; model?: string; enable_merge?: boolean }
-}): Promise<{ plan: VimaxPlan; workflow: WorkflowJSON }> {
-  return apiFetch("/v1/director/vimax/run", {
+}): Promise<{ plan: DirectorPlan; workflow: WorkflowJSON; record?: WorkflowRecord }> {
+  return apiFetch("/v1/director/mode/run", {
     method: "POST",
     body: JSON.stringify(input),
-  }) as Promise<{ plan: VimaxPlan; workflow: WorkflowJSON }>
+  }) as Promise<{ plan: DirectorPlan; workflow: WorkflowJSON; record?: WorkflowRecord }>
 }
 
 export async function listLibraryAssets(kind = "image"): Promise<LibraryAsset[]> {

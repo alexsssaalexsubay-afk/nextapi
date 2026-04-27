@@ -5,7 +5,7 @@ import { useEffect, useState } from "react"
 import { DashboardShell } from "@/components/dashboard/dashboard-shell"
 import { AI_MODEL_CATALOG, type AIModelCategory } from "@/lib/ai-model-catalog"
 import { useTranslations } from "@/lib/i18n/context"
-import { createWorkflow, createDirectorWorkflow, generateDirectorShotImages, generateDirectorShots, getDirectorStatus, runBackendVimaxPipeline, type DirectorShot, type DirectorStatus, type DirectorStoryboard } from "@/lib/workflows"
+import { createDirectorWorkflow, generateDirectorShotImages, generateDirectorShots, getDirectorStatus, runBackendDirectorPipeline, type DirectorShot, type DirectorStatus, type DirectorStoryboard } from "@/lib/workflows"
 
 export default function DirectorPage() {
   const t = useTranslations()
@@ -85,12 +85,12 @@ export default function DirectorPage() {
     }
   }
 
-  async function generateVimaxWorkflow() {
+  async function generateDirectorWorkflow() {
     setLoading(true)
     setError(null)
     setWorkflowID(null)
     try {
-      const res = await runBackendVimaxPipeline({
+      const res = await runBackendDirectorPipeline({
         story,
         genre,
         style,
@@ -98,7 +98,7 @@ export default function DirectorPage() {
         duration_per_shot: duration,
         generate_images: status?.image_provider_configured ?? false,
         options: {
-          name: labels.vimaxWorkflowName,
+          name: labels.directorWorkflowName,
           ratio: "9:16",
           resolution: "1080p",
           generate_audio: false,
@@ -106,8 +106,7 @@ export default function DirectorPage() {
           enable_merge: true,
         },
       })
-      const saved = await createWorkflow({ name: res.workflow.name, workflow_json: res.workflow })
-      setWorkflowID(saved.id)
+      setWorkflowID(res.record?.id ?? null)
       setStoryboard({
         title: res.plan.title,
         summary: res.plan.summary,
@@ -164,7 +163,7 @@ export default function DirectorPage() {
           <ModelCatalog selectedVideoModel={videoModel} onVideoModelChange={setVideoModel} labels={labels} />
           <div className="flex flex-wrap gap-2">
             <button disabled={loading || blocked || story.trim() === ""} onClick={() => void generate()} className="h-10 rounded-md border border-border px-4 text-sm disabled:opacity-50">{loading ? labels.working : labels.generateShots}</button>
-            <button disabled={loading || blocked || story.trim() === ""} onClick={() => void generateVimaxWorkflow()} className="h-10 rounded-md bg-foreground px-4 text-sm text-background disabled:opacity-50">{loading ? labels.working : labels.generateVimaxWorkflow}</button>
+            <button disabled={loading || blocked || story.trim() === ""} onClick={() => void generateDirectorWorkflow()} className="h-10 rounded-md bg-foreground px-4 text-sm text-background disabled:opacity-50">{loading ? labels.working : labels.generateDirectorWorkflow}</button>
           </div>
         </section>
 

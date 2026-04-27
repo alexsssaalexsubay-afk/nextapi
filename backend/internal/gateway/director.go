@@ -119,7 +119,7 @@ func (h *DirectorHandlers) BuildWorkflow(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{"workflow": row})
 }
 
-func (h *DirectorHandlers) RunVimaxPipeline(c *gin.Context) {
+func (h *DirectorHandlers) RunDirectorMode(c *gin.Context) {
 	org := auth.OrgFrom(c)
 	if org == nil {
 		c.AbortWithStatus(http.StatusUnauthorized)
@@ -187,9 +187,26 @@ func (h *DirectorHandlers) RunVimaxPipeline(c *gin.Context) {
 		handleDirectorError(c, err)
 		return
 	}
+	name := strings.TrimSpace(req.Options.Name)
+	if name == "" {
+		name = storyboard.Title
+	}
+	if name == "" {
+		name = "NextAPI Director workflow"
+	}
+	row, err := h.WorkflowSvc.Create(c.Request.Context(), workflow.CreateInput{
+		OrgID:        org.ID,
+		Name:         name,
+		WorkflowJSON: json.RawMessage(def),
+	})
+	if err != nil {
+		httpx.InternalError(c, "workflow_create_failed", "failed to create workflow")
+		return
+	}
 	c.JSON(http.StatusOK, gin.H{
-		"plan":     director.StoryboardToVimaxPlan(*storyboard, shotsReq.Characters),
+		"plan":     director.StoryboardToDirectorPlan(*storyboard, shotsReq.Characters),
 		"workflow": json.RawMessage(def),
+		"record":   row,
 	})
 }
 

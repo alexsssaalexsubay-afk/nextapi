@@ -1,18 +1,18 @@
 import type { WorkflowJSON } from "@/lib/workflows"
 
-export type VimaxCharacter = {
+export type DirectorCharacter = {
   name: string
   description?: string
   referenceAssetIds?: string[]
 }
 
-export type VimaxScene = {
+export type DirectorScene = {
   id: string
   title: string
   description?: string
 }
 
-export type VimaxShot = {
+export type DirectorShot = {
   shotIndex: number
   title: string
   duration: number
@@ -26,15 +26,15 @@ export type VimaxShot = {
   referenceImageAssetId?: string
 }
 
-export type VimaxPlan = {
+export type DirectorPlan = {
   title: string
   summary: string
-  characters: VimaxCharacter[]
-  scenes: VimaxScene[]
-  shots: VimaxShot[]
+  characters: DirectorCharacter[]
+  scenes: DirectorScene[]
+  shots: DirectorShot[]
 }
 
-export type VimaxRuntimeOptions = {
+export type DirectorRuntimeOptions = {
   story: string
   genre?: string
   style?: string
@@ -50,7 +50,7 @@ export type VimaxRuntimeOptions = {
   enableMerge?: boolean
 }
 
-export type VimaxPipelineResult = {
-  plan: VimaxPlan
+export type DirectorPipelineResult = {
+  plan: DirectorPlan
   workflow: WorkflowJSON
 }

@@ -1,7 +1,7 @@
 import type { WorkflowJSON } from "@/lib/workflows"
-import type { VimaxPlan, VimaxRuntimeOptions } from "./types"
+import type { DirectorPlan, DirectorRuntimeOptions } from "./types"
 
-export function convertVimaxPlanToWorkflow(plan: VimaxPlan, options: VimaxRuntimeOptions = {}): WorkflowJSON {
+export function convertDirectorPlanToWorkflow(plan: DirectorPlan, options: DirectorRuntimeOptions = {}): WorkflowJSON {
   const model = options.model || "seedance-2.0-pro"
   const ratio = options.ratio || "9:16"
   const resolution = options.resolution || "1080p"
@@ -10,10 +10,10 @@ export function convertVimaxPlanToWorkflow(plan: VimaxPlan, options: VimaxRuntim
 
   plan.shots.forEach((shot, index) => {
     const col = index * 360
-    const promptId = `vimax_${shot.shotIndex}_prompt`
-    const imageId = `vimax_${shot.shotIndex}_image`
-    const paramsId = `vimax_${shot.shotIndex}_params`
-    const videoId = `vimax_${shot.shotIndex}_video`
+    const promptId = `director_${shot.shotIndex}_prompt`
+    const imageId = `director_${shot.shotIndex}_image`
+    const paramsId = `director_${shot.shotIndex}_params`
+    const videoId = `director_${shot.shotIndex}_video`
 
     nodes.push(
       {
@@ -64,9 +64,9 @@ export function convertVimaxPlanToWorkflow(plan: VimaxPlan, options: VimaxRuntim
     )
   })
 
-  const outputId = "vimax_output"
+  const outputId = "director_output"
   if (options.enableMerge) {
-    const mergeId = "vimax_merge"
+    const mergeId = "director_merge"
     nodes.push(
       {
         id: mergeId,
@@ -82,9 +82,9 @@ export function convertVimaxPlanToWorkflow(plan: VimaxPlan, options: VimaxRuntim
       },
     )
     for (const shot of plan.shots) {
-      edges.push({ id: `edge_vimax_${shot.shotIndex}_video_merge`, source: `vimax_${shot.shotIndex}_video`, target: mergeId })
+      edges.push({ id: `edge_director_${shot.shotIndex}_video_merge`, source: `director_${shot.shotIndex}_video`, target: mergeId })
     }
-    edges.push({ id: "edge_vimax_merge_output", source: mergeId, target: outputId })
+    edges.push({ id: "edge_director_merge_output", source: mergeId, target: outputId })
   } else {
     nodes.push({
       id: outputId,
@@ -93,9 +93,9 @@ export function convertVimaxPlanToWorkflow(plan: VimaxPlan, options: VimaxRuntim
       data: { label: "Output preview" },
     })
     for (const shot of plan.shots) {
-      edges.push({ id: `edge_vimax_${shot.shotIndex}_video_output`, source: `vimax_${shot.shotIndex}_video`, target: outputId })
+      edges.push({ id: `edge_director_${shot.shotIndex}_video_output`, source: `director_${shot.shotIndex}_video`, target: outputId })
     }
   }
 
-  return { name: plan.title || "ViMax workflow", model, nodes, edges }
+  return { name: plan.title || "NextAPI Director workflow", model, nodes, edges }
 }

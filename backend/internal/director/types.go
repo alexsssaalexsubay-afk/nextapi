@@ -40,15 +40,15 @@ type Storyboard struct {
 	Shots   []Shot `json:"shots"`
 }
 
-type VimaxPlan struct {
+type DirectorPlan struct {
 	Title      string           `json:"title"`
 	Summary    string           `json:"summary"`
 	Characters []CharacterInput `json:"characters"`
-	Scenes     []VimaxScene     `json:"scenes"`
+	Scenes     []DirectorScene  `json:"scenes"`
 	Shots      []Shot           `json:"shots"`
 }
 
-type VimaxScene struct {
+type DirectorScene struct {
 	ID          string `json:"id"`
 	Title       string `json:"title"`
 	Description string `json:"description"`
