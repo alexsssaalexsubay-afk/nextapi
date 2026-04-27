@@ -342,8 +342,8 @@ export function CanvasWorkspace() {
   const videoURL = currentVideo?.output?.url || currentVideo?.output?.video_url
 
   return (
-    <div className="flex h-[calc(100vh-3.5rem)] min-h-[720px] flex-col">
-      <header className="flex items-center justify-between border-b border-border/60 px-5 py-3">
+    <div className="flex h-[calc(100vh-3.5rem)] min-h-[720px] flex-col overflow-hidden rounded-t-3xl">
+      <header className="flex items-center justify-between border-b border-white/10 bg-background/42 px-5 py-3 backdrop-blur-md">
         <div>
           <h1 className="text-[18px] font-medium tracking-tight">{labels.title}</h1>
           <p className="mt-1 text-[12.5px] text-muted-foreground">{labels.subtitle}</p>
@@ -352,28 +352,28 @@ export function CanvasWorkspace() {
           <input
             value={name}
             onChange={(event) => setName(event.target.value)}
-            className="h-9 w-64 rounded-md border border-border/80 bg-card/60 px-3 text-[13px] focus:outline-none"
+            className="h-9 w-64 rounded-full border border-white/12 bg-card/55 px-3 text-[13px] shadow-sm backdrop-blur-md focus:border-signal/45 focus:outline-none"
           />
-          <button type="button" onClick={save} disabled={saving} className="inline-flex h-9 items-center gap-2 rounded-full border border-border/80 px-4 text-[12.5px] hover:bg-card disabled:opacity-60">
+          <button type="button" onClick={save} disabled={saving} className="inline-flex h-9 items-center gap-2 rounded-full border border-white/12 bg-card/55 px-4 text-[12.5px] shadow-sm backdrop-blur-md hover:border-signal/35 disabled:opacity-60">
             {saving ? <Loader2 className="size-3.5 animate-spin" /> : <Save className="size-3.5" />}
             {labels.save}
           </button>
-          <button type="button" onClick={saveTemplate} disabled={templateSaving} className="inline-flex h-9 items-center gap-2 rounded-full border border-border/80 px-4 text-[12.5px] hover:bg-card disabled:opacity-60">
+          <button type="button" onClick={saveTemplate} disabled={templateSaving} className="inline-flex h-9 items-center gap-2 rounded-full border border-white/12 bg-card/55 px-4 text-[12.5px] shadow-sm backdrop-blur-md hover:border-signal/35 disabled:opacity-60">
             {templateSaving ? <Loader2 className="size-3.5 animate-spin" /> : <Sparkles className="size-3.5" />}
             {labels.saveTemplate}
           </button>
-          <button type="button" onClick={exportAPI} disabled={exporting} className="inline-flex h-9 items-center gap-2 rounded-full border border-border/80 px-4 text-[12.5px] hover:bg-card disabled:opacity-60">
+          <button type="button" onClick={exportAPI} disabled={exporting} className="inline-flex h-9 items-center gap-2 rounded-full border border-white/12 bg-card/55 px-4 text-[12.5px] shadow-sm backdrop-blur-md hover:border-signal/35 disabled:opacity-60">
             {exporting ? <Loader2 className="size-3.5 animate-spin" /> : <Code2 className="size-3.5" />}
             {labels.exportApi}
           </button>
-          <button type="button" onClick={run} disabled={running} className="inline-flex h-9 items-center gap-2 rounded-full bg-foreground px-4 text-[12.5px] font-medium text-background disabled:opacity-60">
+          <button type="button" onClick={run} disabled={running} className="premium-button inline-flex h-9 items-center gap-2 rounded-full border border-white/20 bg-[radial-gradient(circle_at_20%_0%,rgba(255,255,255,0.42),transparent_30%),linear-gradient(110deg,#2563eb_0%,#7c3aed_42%,#db2777_100%)] px-4 text-[12.5px] font-medium text-white disabled:opacity-60">
             {running ? <Loader2 className="size-3.5 animate-spin" /> : <Play className="size-3.5" />}
             {labels.run}
           </button>
         </div>
       </header>
       <div className="grid min-h-0 flex-1 grid-cols-[220px_minmax(0,1fr)_340px]">
-        <aside className="border-r border-border/60 bg-card/20 p-3">
+        <aside className="border-r border-white/10 bg-card/30 p-3 backdrop-blur-md">
           <div className="mb-3 text-[11px] uppercase tracking-[0.16em] text-muted-foreground">{labels.nodes}</div>
           <NodeButton label={labels.imageNode} onClick={() => addNode("image.input")} />
           <NodeButton label={labels.promptNode} onClick={() => addNode("prompt.input")} />
@@ -382,7 +382,7 @@ export function CanvasWorkspace() {
           <NodeButton label={labels.mergeNode} onClick={() => addNode("video.merge")} />
           <NodeButton label={labels.outputNode} onClick={() => addNode("output.preview")} />
         </aside>
-        <main className="min-h-0">
+        <main className="min-h-0 bg-background/18">
           <ReactFlow
             nodes={nodes}
             edges={edges}
@@ -398,7 +398,7 @@ export function CanvasWorkspace() {
             <Controls />
           </ReactFlow>
         </main>
-        <aside className="flex min-h-0 flex-col border-l border-border/60 bg-card/20">
+        <aside className="flex min-h-0 flex-col border-l border-white/10 bg-card/30 backdrop-blur-md">
           <NodeInspector node={selectedNode} assets={assets} labels={labels} uploadingImage={uploadingImage} onUploadImage={uploadImageForSelectedNode} onChange={updateSelectedData} />
           <div className="border-t border-border/60 p-4">
             <div className="text-[12px] font-medium">{labels.statusTitle}</div>
@@ -425,7 +425,7 @@ export function CanvasWorkspace() {
 
 function NodeButton({ label, onClick }: { label: string; onClick: () => void }) {
   return (
-    <button type="button" onClick={onClick} className="mb-2 flex w-full items-center justify-between rounded-lg border border-border/70 bg-background/70 px-3 py-2 text-left text-[12.5px] hover:bg-card">
+    <button type="button" onClick={onClick} className="mb-2 flex w-full items-center justify-between rounded-2xl border border-white/12 bg-background/55 px-3 py-2 text-left text-[12.5px] shadow-sm backdrop-blur-md hover:border-signal/35 hover:bg-card">
       <span>{label}</span>
       <span className="text-muted-foreground">+</span>
     </button>

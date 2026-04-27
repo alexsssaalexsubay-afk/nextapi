@@ -245,14 +245,14 @@ export default function AIProvidersPage() {
   return (
     <AdminShell activeHref="/ai-providers" title={p.title} description={p.description}>
       <OTPDialog open={pending != null} action={pending?.action ?? "ai_provider"} targetId={pending?.target ?? ""} hint={pending?.hint ?? ""} onResult={handleOTP} />
-      <div className="grid gap-6 p-6 xl:grid-cols-[420px_minmax(0,1fr)]">
-        <form onSubmit={save} className="space-y-4 rounded-xl border border-border/80 bg-card/40 p-5">
+      <div className="grid gap-6 p-6 xl:grid-cols-[430px_minmax(0,1fr)]">
+        <form onSubmit={save} className="premium-surface space-y-4 rounded-3xl p-5">
           <h2 className="text-sm font-medium">{selected ? p.updateProvider : p.createProvider}</h2>
           {error && <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">{error}</div>}
           {ok && <div className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-600">{ok}</div>}
           <label className="flex flex-col gap-1 text-xs text-muted-foreground">
             {p.preset}
-            <select className="h-9 rounded-md border border-border bg-background px-2 text-sm text-foreground" value="" onChange={(e) => applyPreset(e.target.value)}>
+            <select className="h-9 rounded-2xl border border-white/12 bg-background/55 px-3 text-sm text-foreground shadow-sm backdrop-blur-md" value="" onChange={(e) => applyPreset(e.target.value)}>
               <option value="">{p.choosePreset}</option>
               {presetsForType(form.type).map((preset) => <option key={preset.id} value={preset.id}>{preset.label} · {preset.capability}</option>)}
             </select>
@@ -260,7 +260,7 @@ export default function AIProvidersPage() {
           <Field label={p.name} value={form.name} onChange={(v) => setForm((s) => ({ ...s, name: v }))} />
           <label className="flex flex-col gap-1 text-xs text-muted-foreground">
             {p.type}
-            <select className="h-9 rounded-md border border-border bg-background px-2 text-sm text-foreground" value={form.type} onChange={(e) => setForm((s) => ({ ...s, type: e.target.value }))}>
+            <select className="h-9 rounded-2xl border border-white/12 bg-background/55 px-3 text-sm text-foreground shadow-sm backdrop-blur-md" value={form.type} onChange={(e) => setForm((s) => ({ ...s, type: e.target.value }))}>
               {TYPES.map((type) => <option key={type} value={type}>{p[type]}</option>)}
             </select>
           </label>
@@ -272,33 +272,33 @@ export default function AIProvidersPage() {
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.isDefault} onChange={(e) => setForm((s) => ({ ...s, isDefault: e.target.checked }))} />{p.defaultProvider}</label>
           <label className="flex flex-col gap-1 text-xs text-muted-foreground">
             {p.configJSON}
-            <textarea className="min-h-24 rounded-md border border-border bg-background px-2 py-2 font-mono text-xs text-foreground" value={form.configJSON} onChange={(e) => setForm((s) => ({ ...s, configJSON: e.target.value }))} />
+            <textarea className="min-h-24 rounded-2xl border border-white/12 bg-background/55 px-3 py-2 font-mono text-xs text-foreground shadow-inner backdrop-blur-md focus:border-signal/45 focus:outline-none" value={form.configJSON} onChange={(e) => setForm((s) => ({ ...s, configJSON: e.target.value }))} />
           </label>
           <div className="flex gap-2">
-            <button className="h-9 rounded-md bg-foreground px-4 text-sm text-background" type="submit">{selected ? p.updateProvider : p.createProvider}</button>
-            <button className="h-9 rounded-md border border-border px-4 text-sm" type="button" onClick={reset}>{t.common.cancel}</button>
+            <button className="premium-button h-9 rounded-full border border-white/20 bg-[radial-gradient(circle_at_20%_0%,rgba(255,255,255,0.42),transparent_30%),linear-gradient(110deg,#2563eb_0%,#7c3aed_42%,#db2777_100%)] px-4 text-sm font-medium text-white" type="submit">{selected ? p.updateProvider : p.createProvider}</button>
+            <button className="h-9 rounded-full border border-white/12 bg-card/55 px-4 text-sm shadow-sm backdrop-blur-md" type="button" onClick={reset}>{t.common.cancel}</button>
           </div>
         </form>
         <div className="space-y-6">
-          <section className="rounded-xl border border-border/80 bg-card/40 p-5">
+          <section className="premium-surface rounded-3xl p-5">
             <h2 className="mb-2 text-sm font-medium">{p.directorStatus}</h2>
             <p className="mb-4 text-xs text-muted-foreground">{directorStatus?.usage_notice ?? p.directorUsage}</p>
             <div className="mb-4 grid grid-cols-2 gap-2 text-xs md:grid-cols-4">
               {(directorStatus?.providers ?? []).map((item) => (
-                <div key={item.type} className="rounded-md border border-border/70 bg-background/60 p-3">
+                <div key={item.type} className="rounded-2xl border border-white/12 bg-background/55 p-3 shadow-sm backdrop-blur-md">
                   <div className="font-medium">{item.type}</div>
                   <div className={item.configured ? "text-emerald-600" : "text-muted-foreground"}>{item.configured ? p.configured : p.notConfigured}</div>
                   {item.model && <div className="mt-1 font-mono text-[10px] text-muted-foreground">{item.model}</div>}
                 </div>
               ))}
-              <div className="rounded-md border border-border/70 bg-background/60 p-3">
+              <div className="rounded-2xl border border-white/12 bg-background/55 p-3 shadow-sm backdrop-blur-md">
                 <div className="font-medium">{p.activeVIPs}</div>
                 <div>{directorStatus?.active_vips ?? 0}</div>
               </div>
             </div>
             <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_120px]">
               <Field label={p.orgID} value={vipOrgID} onChange={setVipOrgID} />
-              <button type="button" onClick={() => void loadEntitlement()} className="self-end rounded-md border border-border px-3 py-2 text-sm">{p.loadVIP}</button>
+              <button type="button" onClick={() => void loadEntitlement()} className="self-end rounded-full border border-white/12 bg-card/55 px-3 py-2 text-sm shadow-sm backdrop-blur-md">{p.loadVIP}</button>
             </div>
             {vipForm.org_id && (
               <div className="mt-3 grid gap-3 md:grid-cols-2">
@@ -306,11 +306,11 @@ export default function AIProvidersPage() {
                 <Field label={p.tier} value={vipForm.tier} onChange={(v) => setVipForm((s) => ({ ...s, tier: v }))} />
                 <Field label={p.expiresAt} value={vipForm.expires_at ?? ""} onChange={(v) => setVipForm((s) => ({ ...s, expires_at: v }))} />
                 <Field label={p.note} value={vipForm.note ?? ""} onChange={(v) => setVipForm((s) => ({ ...s, note: v }))} />
-                <button type="button" onClick={saveEntitlement} className="rounded-md bg-foreground px-3 py-2 text-sm text-background">{p.saveVIP}</button>
+                <button type="button" onClick={saveEntitlement} className="premium-button rounded-full border border-white/20 bg-[radial-gradient(circle_at_20%_0%,rgba(255,255,255,0.42),transparent_30%),linear-gradient(110deg,#2563eb_0%,#7c3aed_42%,#db2777_100%)] px-3 py-2 text-sm font-medium text-white">{p.saveVIP}</button>
               </div>
             )}
           </section>
-          <section className="rounded-xl border border-border/80 bg-card/40 p-5">
+          <section className="premium-surface rounded-3xl p-5">
             <h2 className="mb-4 text-sm font-medium">{p.title}</h2>
             {loading ? <div className="text-sm text-muted-foreground">{t.common.loading}...</div> : (
               <div className="overflow-x-auto">
@@ -326,7 +326,7 @@ export default function AIProvidersPage() {
               </div>
             )}
           </section>
-          <section className="rounded-xl border border-border/80 bg-card/40 p-5">
+          <section className="premium-surface rounded-3xl p-5">
             <h2 className="mb-4 text-sm font-medium">{p.logs}</h2>
             {logs.length === 0 ? <div className="text-sm text-muted-foreground">{p.noLogs}</div> : (
               <div className="space-y-2">{logs.slice(0, 20).map((log) => <div key={log.id} className="rounded-md border border-border/70 p-3 text-xs"><div className="font-mono text-muted-foreground">{new Date(log.created_at).toLocaleString()} · {log.type} · {log.response_summary}</div><div className="mt-1">{log.request_summary}</div>{log.error && <div className="mt-1 text-destructive">{log.error}</div>}</div>)}</div>
@@ -339,5 +339,5 @@ export default function AIProvidersPage() {
 }
 
 function Field({ label, value, type = "text", onChange }: { label: string; value: string; type?: string; onChange: (v: string) => void }) {
-  return <label className="flex flex-col gap-1 text-xs text-muted-foreground">{label}<input type={type} className="h-9 rounded-md border border-border bg-background px-2 text-sm text-foreground" value={value} onChange={(e) => onChange(e.target.value)} /></label>
+  return <label className="flex flex-col gap-1 text-xs text-muted-foreground">{label}<input type={type} className="h-9 rounded-2xl border border-white/12 bg-background/55 px-3 text-sm text-foreground shadow-inner backdrop-blur-md focus:border-signal/45 focus:outline-none" value={value} onChange={(e) => onChange(e.target.value)} /></label>
 }

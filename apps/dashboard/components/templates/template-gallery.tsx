@@ -305,12 +305,12 @@ function TemplateCard({
       type="button"
       onClick={onClick}
       className={cn(
-        "rounded-2xl border bg-card/40 p-4 text-left transition-colors hover:bg-card/70",
-        active ? "border-signal" : "border-border/70",
+        "premium-surface rounded-3xl p-4 text-left transition-all hover:-translate-y-0.5 hover:border-signal/35",
+        active ? "border-signal/60 shadow-[0_24px_80px_-56px] shadow-signal" : "",
       )}
     >
       <div className="flex items-center gap-3">
-        <span className="flex size-10 items-center justify-center rounded-xl border border-border/70 bg-background/80">
+        <span className="flex size-10 items-center justify-center rounded-2xl border border-white/12 bg-background/65 shadow-sm backdrop-blur-md">
           <Icon className="size-4 text-signal" />
         </span>
         <div>
@@ -319,7 +319,7 @@ function TemplateCard({
         </div>
       </div>
       <p className="mt-3 min-h-10 text-[12.5px] leading-relaxed text-muted-foreground">{template.description}</p>
-      <div className="mt-3 rounded-lg border border-border/70 bg-background/70 px-3 py-2 text-[12px] text-foreground">
+      <div className="mt-3 rounded-2xl border border-white/12 bg-background/60 px-3 py-2 text-[12px] text-foreground shadow-sm backdrop-blur-md">
         {pricingCopy(template.slug, labels)}
       </div>
       <div className="mt-3 font-mono text-[11px] text-muted-foreground">
@@ -359,13 +359,13 @@ function TemplateForm({
               value={inputs[key] ?? ""}
               onChange={(event) => onChange(key, event.target.value)}
               rows={4}
-              className="w-full resize-none rounded-md border border-border/80 bg-background px-3 py-2 text-[12.5px] focus:outline-none"
+              className="w-full resize-none rounded-2xl border border-white/12 bg-background/55 px-3 py-2 text-[12.5px] shadow-inner backdrop-blur-md focus:border-signal/45 focus:outline-none"
             />
           ) : (
             <input
               value={inputs[key] ?? ""}
               onChange={(event) => onChange(key, event.target.value)}
-              className="h-9 w-full rounded-md border border-border/80 bg-background px-3 text-[12.5px] focus:outline-none"
+              className="h-9 w-full rounded-2xl border border-white/12 bg-background/55 px-3 text-[12.5px] shadow-inner backdrop-blur-md focus:border-signal/45 focus:outline-none"
             />
           )}
         </label>
@@ -380,7 +380,7 @@ function TemplateForm({
 function RangeField({ label, value, min, max, onChange }: { label: string; value: number; min: number; max: number; onChange: (value: number) => void }) {
   const safeValue = Math.min(max, Math.max(min, value))
   return (
-    <label className="rounded-xl border border-border/80 bg-background px-3 py-2">
+    <label className="rounded-2xl border border-white/12 bg-background/55 px-3 py-2 shadow-sm backdrop-blur-md">
       <span className="flex items-center justify-between text-[11px] text-muted-foreground">
         <span>{label}</span>
         <span className="font-mono text-[12px] text-foreground">{safeValue}s</span>
@@ -398,7 +398,7 @@ function SelectField({ label, value, values, onChange }: { label: string; value:
   return (
     <label>
       <span className="mb-1 block text-[11px] text-muted-foreground">{label}</span>
-      <select value={value} onChange={(event) => onChange(event.target.value)} className="h-9 w-full rounded-md border border-border/80 bg-background px-3 text-[12.5px]">
+      <select value={value} onChange={(event) => onChange(event.target.value)} className="h-9 w-full rounded-2xl border border-white/12 bg-background/55 px-3 text-[12.5px] shadow-sm backdrop-blur-md">
         {values.map((item) => <option key={item} value={item}>{item}</option>)}
       </select>
     </label>

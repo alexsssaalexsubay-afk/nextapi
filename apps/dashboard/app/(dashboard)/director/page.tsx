@@ -147,15 +147,15 @@ export default function DirectorPage() {
 
   return (
     <DashboardShell activeHref="/director" title={labels.title} description={labels.description}>
-      <div className="grid gap-6 p-6 lg:grid-cols-[420px_minmax(0,1fr)]">
-        <section className="space-y-4 rounded-xl border border-border/80 bg-card/40 p-5">
+      <div className="grid gap-6 p-6 lg:grid-cols-[430px_minmax(0,1fr)]">
+        <section className="premium-surface space-y-5 rounded-3xl p-5">
           <div>
             <h2 className="text-sm font-medium">{labels.stepStory}</h2>
             <p className="mt-1 text-xs text-muted-foreground">{labels.storyHint}</p>
           </div>
           <StatusBanner status={status} labels={labels} />
           {error && <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">{error}</div>}
-          <label className="flex flex-col gap-1 text-xs text-muted-foreground">{labels.story}<textarea className="min-h-48 rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground" value={story} onChange={(e) => setStory(e.target.value)} /></label>
+          <label className="flex flex-col gap-2 text-xs text-muted-foreground">{labels.story}<textarea className="min-h-48 rounded-2xl border border-white/12 bg-background/55 px-3 py-2 text-sm text-foreground shadow-inner backdrop-blur-md focus:border-signal/45 focus:outline-none" value={story} onChange={(e) => setStory(e.target.value)} /></label>
           <div className="grid grid-cols-2 gap-3">
             <Field label={labels.genre} value={genre} onChange={setGenre} />
             <Field label={labels.style} value={style} onChange={setStyle} />
@@ -164,26 +164,26 @@ export default function DirectorPage() {
           </div>
           <ModelSelect label={labels.modelCatalog} value={videoModel} onChange={setVideoModel} category="video" helper={labels.modelCatalogHint} />
           <div className="flex flex-wrap gap-2">
-            <button disabled={loading || blocked || story.trim() === ""} onClick={() => void generate()} className="h-10 rounded-md border border-border px-4 text-sm disabled:opacity-50">{loading ? labels.working : labels.generateShots}</button>
-            <button disabled={loading || blocked || story.trim() === ""} onClick={() => void generateDirectorWorkflow()} className="h-10 rounded-md bg-foreground px-4 text-sm text-background disabled:opacity-50">{loading ? labels.working : labels.generateDirectorWorkflow}</button>
+            <button disabled={loading || blocked || story.trim() === ""} onClick={() => void generate()} className="h-10 rounded-full border border-white/12 bg-card/55 px-4 text-sm shadow-sm backdrop-blur-md hover:border-signal/35 disabled:opacity-50">{loading ? labels.working : labels.generateShots}</button>
+            <button disabled={loading || blocked || story.trim() === ""} onClick={() => void generateDirectorWorkflow()} className="premium-button h-10 rounded-full border border-white/20 bg-[radial-gradient(circle_at_20%_0%,rgba(255,255,255,0.42),transparent_30%),linear-gradient(110deg,#2563eb_0%,#7c3aed_42%,#db2777_100%)] px-4 text-sm font-semibold text-white disabled:opacity-50">{loading ? labels.working : labels.generateDirectorWorkflow}</button>
           </div>
         </section>
 
-        <section className="space-y-4 rounded-xl border border-border/80 bg-card/40 p-5">
+        <section className="premium-surface space-y-4 rounded-3xl p-5">
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-sm font-medium">{labels.editShots}</h2>
               <p className="mt-1 text-xs text-muted-foreground">{storyboard?.summary ?? labels.generatedPlaceholder}</p>
             </div>
-            {storyboard && <div className="flex gap-2"><button disabled={loading || imageBlocked} onClick={() => void generateImages()} className="h-9 rounded-md border border-border px-3 text-sm disabled:opacity-50">{labels.generateImages}</button><button disabled={loading || blocked} onClick={() => void createWorkflow()} className="h-9 rounded-md border border-border px-3 text-sm disabled:opacity-50">{labels.createWorkflow}</button></div>}
+            {storyboard && <div className="flex gap-2"><button disabled={loading || imageBlocked} onClick={() => void generateImages()} className="h-9 rounded-full border border-white/12 bg-card/55 px-3 text-sm shadow-sm backdrop-blur-md disabled:opacity-50">{labels.generateImages}</button><button disabled={loading || blocked} onClick={() => void createWorkflow()} className="h-9 rounded-full border border-signal/30 bg-signal/10 px-3 text-sm text-signal disabled:opacity-50">{labels.createWorkflow}</button></div>}
           </div>
           {workflowID && <div className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-600">{labels.workflowCreated} <Link className="underline" href={`/canvas?workflow=${workflowID}`}>{labels.openCanvas}</Link></div>}
           <div className="space-y-3">
             {storyboard?.shots.map((shot, index) => (
-              <div key={`${shot.shotIndex}-${index}`} className="rounded-lg border border-border/70 p-4">
+              <div key={`${shot.shotIndex}-${index}`} className="rounded-3xl border border-white/10 bg-background/42 p-4 shadow-sm backdrop-blur-md">
                 <div className="mb-3 flex items-center justify-between"><input className="bg-transparent text-sm font-medium outline-none" value={shot.title} onChange={(e) => updateShot(index, { title: e.target.value })} /><span className="text-xs text-muted-foreground">{shot.duration}s</span></div>
-                <label className="flex flex-col gap-1 text-xs text-muted-foreground">{labels.videoPrompt}<textarea className="min-h-24 rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground" value={shot.videoPrompt} onChange={(e) => updateShot(index, { videoPrompt: e.target.value })} /></label>
-                <label className="mt-3 flex flex-col gap-1 text-xs text-muted-foreground">{labels.imagePrompt}<textarea className="min-h-20 rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground" value={shot.imagePrompt} onChange={(e) => updateShot(index, { imagePrompt: e.target.value })} /></label>
+                <label className="flex flex-col gap-1 text-xs text-muted-foreground">{labels.videoPrompt}<textarea className="min-h-24 rounded-2xl border border-white/12 bg-background/60 px-3 py-2 text-sm text-foreground focus:border-signal/45 focus:outline-none" value={shot.videoPrompt} onChange={(e) => updateShot(index, { videoPrompt: e.target.value })} /></label>
+                <label className="mt-3 flex flex-col gap-1 text-xs text-muted-foreground">{labels.imagePrompt}<textarea className="min-h-20 rounded-2xl border border-white/12 bg-background/60 px-3 py-2 text-sm text-foreground focus:border-signal/45 focus:outline-none" value={shot.imagePrompt} onChange={(e) => updateShot(index, { imagePrompt: e.target.value })} /></label>
                 {shot.referenceImageUrl && <img src={shot.referenceImageUrl} alt={shot.title} className="mt-3 aspect-video w-full rounded-md border border-border object-cover" />}
               </div>
             ))}
@@ -196,23 +196,23 @@ export default function DirectorPage() {
 
 function StatusBanner({ status, labels }: { status: DirectorStatus | null; labels: ReturnType<typeof useTranslations>["directorPage"] }) {
   if (!status) {
-    return <div className="rounded-md border border-border bg-background/60 px-3 py-2 text-xs text-muted-foreground">{labels.statusLoading}</div>
+    return <div className="rounded-2xl border border-white/12 bg-background/55 px-3 py-2 text-xs text-muted-foreground shadow-sm backdrop-blur-md">{labels.statusLoading}</div>
   }
   if (status.available) {
-    return <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700">{labels.usageNotice}</div>
+    return <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-200">{labels.usageNotice}</div>
   }
   const text = status.blocking_reason === "vip_required" ? labels.vipRequired : labels.providerMissing
   return <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">{text}</div>
 }
 
 function Field({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
-  return <label className="flex flex-col gap-1 text-xs text-muted-foreground">{label}<input className="h-9 rounded-md border border-border bg-background px-2 text-sm text-foreground" value={value} onChange={(e) => onChange(e.target.value)} /></label>
+  return <label className="flex flex-col gap-1 text-xs text-muted-foreground">{label}<input className="h-9 rounded-2xl border border-white/12 bg-background/55 px-3 text-sm text-foreground shadow-inner backdrop-blur-md focus:border-signal/45 focus:outline-none" value={value} onChange={(e) => onChange(e.target.value)} /></label>
 }
 
 function RangeField({ label, value, min, max, onChange }: { label: string; value: number; min: number; max: number; onChange: (value: number) => void }) {
   const safeValue = Math.min(max, Math.max(min, value))
   return (
-    <label className="flex flex-col gap-2 rounded-lg border border-border/70 bg-background/60 px-3 py-2">
+    <label className="flex flex-col gap-2 rounded-2xl border border-white/12 bg-background/55 px-3 py-2 shadow-sm backdrop-blur-md">
       <span className="flex items-center justify-between text-xs text-muted-foreground">
         <span>{label}</span>
         <span className="font-mono text-sm text-foreground">{safeValue}s</span>

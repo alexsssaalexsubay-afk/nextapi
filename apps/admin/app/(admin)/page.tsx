@@ -85,10 +85,10 @@ export default function AdminOverviewPage() {
       }
       actions={
         <>
-          <button className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border/80 bg-card/40 px-3 text-[12px] text-foreground hover:bg-card">
+          <button className="inline-flex h-8 items-center gap-1.5 rounded-full border border-white/12 bg-card/55 px-3 text-[12px] text-foreground shadow-sm backdrop-blur-md hover:bg-card">
             {t.common.export}
           </button>
-          <button className="inline-flex h-8 items-center gap-1.5 rounded-md bg-foreground px-3 text-[12px] font-medium text-background hover:bg-foreground/90">
+          <button className="premium-button inline-flex h-8 items-center gap-1.5 rounded-full border border-white/20 bg-[radial-gradient(circle_at_20%_0%,rgba(255,255,255,0.42),transparent_30%),linear-gradient(110deg,#2563eb_0%,#7c3aed_42%,#db2777_100%)] px-3 text-[12px] font-medium text-white">
             {t.nav.admin.runbooks}
           </button>
         </>
@@ -101,7 +101,7 @@ export default function AdminOverviewPage() {
           </div>
         )}
         {/* System pulse strip */}
-        <section className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-border/80 bg-border/80 md:grid-cols-5">
+        <section className="grid grid-cols-2 gap-px overflow-hidden rounded-3xl border border-white/12 bg-border/60 shadow-[0_24px_80px_-60px] shadow-status-failed md:grid-cols-5">
           <Pulse
             label={t.admin.pulse.upstream}
             value={t.admin.pulse.healthy}
@@ -136,7 +136,7 @@ export default function AdminOverviewPage() {
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_380px]">
           {/* Jobs requiring attention */}
-          <section className="overflow-hidden rounded-xl border border-border/80 bg-card/40">
+          <section className="premium-surface overflow-hidden rounded-3xl">
             <header className="flex items-center justify-between border-b border-border/60 px-5 py-3">
               <div className="flex items-center gap-2">
                 <AlertOctagon className="size-4 text-status-failed" />

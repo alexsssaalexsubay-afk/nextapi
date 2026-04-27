@@ -484,9 +484,11 @@ export default function BatchStudioPage() {
       }
     >
       <div className="space-y-8 p-6">
-        <section className="rounded-lg border border-border/80 bg-card/40 p-5">
+        <section className="premium-surface rounded-3xl p-5">
           <div className="flex flex-wrap items-start gap-3">
-            <Clapperboard className="mt-0.5 size-5 text-signal" />
+            <span className="flex size-11 items-center justify-center rounded-2xl border border-white/12 bg-signal/10 shadow-sm backdrop-blur-md">
+              <Clapperboard className="size-5 text-signal" />
+            </span>
             <div className="min-w-0 flex-1 space-y-2">
               <p className="text-[13px] leading-relaxed text-muted-foreground">{tb.intro}</p>
               <p className="text-[12px] text-muted-foreground">
@@ -501,22 +503,25 @@ export default function BatchStudioPage() {
           <div className="space-y-4">
             <div>
               <Label className="text-[12px]">{tb.uploadCsv}</Label>
-              <div className="relative mt-2 min-h-[9rem] rounded-lg border border-dashed border-border/80 bg-muted/20 transition-colors hover:bg-muted/35">
+              <div className="relative mt-2 min-h-[11rem] overflow-hidden rounded-3xl border border-dashed border-signal/30 bg-[radial-gradient(circle_at_50%_0%,rgba(124,58,237,0.18),transparent_42%),color-mix(in_oklch,var(--background)_72%,transparent)] shadow-sm backdrop-blur-md transition-colors hover:border-signal/55 hover:bg-muted/35">
+                <div aria-hidden className="soft-noise pointer-events-none absolute inset-0 opacity-20" />
                 <input
                   type="file"
                   accept=".csv,text/csv"
                   className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
                   onChange={(e) => void onFile(e.target.files?.[0] ?? null)}
                 />
-                <div className="pointer-events-none flex min-h-[9rem] flex-col items-center justify-center px-4 py-8 text-center">
-                  <Upload className="mb-2 size-8 text-muted-foreground" />
+                <div className="pointer-events-none relative flex min-h-[11rem] flex-col items-center justify-center px-4 py-8 text-center">
+                  <span className="mb-3 flex size-12 items-center justify-center rounded-2xl border border-white/12 bg-card/60 shadow-sm backdrop-blur-md">
+                    <Upload className="size-6 text-signal" />
+                  </span>
                   <span className="text-[13px] text-foreground">{csvName ?? tb.dropHint}</span>
                 </div>
               </div>
             </div>
 
             {validateResult && (
-              <div className="space-y-3 rounded-lg border border-border/60 bg-background/50 p-4">
+              <div className="space-y-3 rounded-3xl border border-white/12 bg-background/50 p-4 shadow-sm backdrop-blur-md">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-mono text-[11px] text-muted-foreground">
                     {tb.rowCount}: {prepared.length}

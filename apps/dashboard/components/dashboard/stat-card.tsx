@@ -18,7 +18,7 @@ export function StatCard({
   className?: string
 }) {
   return (
-    <div className={cn("flex flex-col gap-3 rounded-xl border border-border/80 bg-card/50 p-5", className)}>
+    <div className={cn("premium-surface flex flex-col gap-3 overflow-hidden rounded-3xl p-5", className)}>
       <div className="flex items-center justify-between">
         <span className="font-mono text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
           {label}
@@ -35,7 +35,7 @@ export function StatCard({
         )}
       </div>
       <div className="flex items-baseline gap-1.5">
-        <span className="font-mono text-[28px] font-medium tracking-tight text-foreground">
+        <span className="font-mono text-[30px] font-semibold tracking-tight text-foreground">
           {value}
         </span>
         {unit && <span className="text-[12.5px] text-muted-foreground">{unit}</span>}

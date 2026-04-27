@@ -100,13 +100,13 @@ export default function DashboardHome() {
           <Button
             asChild
             variant="outline"
-            className="h-8 border-border/80 bg-card/40 px-3 text-[12.5px]"
+            className="h-8 rounded-full border-white/12 bg-card/55 px-3 text-[12.5px] shadow-sm backdrop-blur-md"
           >
             <Link href="https://nextapi.top/docs">{t.common.readDocs}</Link>
           </Button>
           <Button
             asChild
-            className="h-8 gap-1.5 bg-foreground px-3 text-[12.5px] font-medium text-background hover:bg-foreground/90"
+            className="premium-button h-8 gap-1.5 rounded-full border border-white/20 bg-[radial-gradient(circle_at_20%_0%,rgba(255,255,255,0.42),transparent_30%),linear-gradient(110deg,#2563eb_0%,#7c3aed_42%,#db2777_100%)] px-3 text-[12.5px] font-medium text-white"
           >
             <Link href="/jobs/new">
               <Play className="size-3.5" />
@@ -167,11 +167,11 @@ export default function DashboardHome() {
             </Link>
           </div>
           {jobs === null ? (
-            <div className="rounded-xl border border-border/80 bg-card/40 px-4 py-8 text-center text-[13px] text-muted-foreground">
+            <div className="premium-surface rounded-3xl px-4 py-8 text-center text-[13px] text-muted-foreground">
               {t.common.loading}
             </div>
           ) : jobs.length === 0 ? (
-            <div className="rounded-xl border border-border/80 bg-card/40 px-4 py-8 text-center text-[13px] text-muted-foreground">
+            <div className="premium-surface rounded-3xl px-4 py-8 text-center text-[13px] text-muted-foreground">
               {t.jobs.empty.title}
             </div>
           ) : (
