@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useState } from "react"
+import { useSearchParams } from "next/navigation"
 import { AlertTriangle, RefreshCcw, RotateCcw, Search, Square, Terminal } from "lucide-react"
 import { AdminShell } from "@/components/admin/admin-shell"
 import { StatusPill, type JobStatus } from "@/components/nextapi/status-pill"
@@ -38,6 +39,8 @@ function fmtDate(value: string): string {
 }
 
 export default function AdminJobsPage() {
+  const searchParams = useSearchParams()
+  const initialJobID = searchParams.get("job") ?? ""
   const [jobs, setJobs] = useState<ApiJob[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [detail, setDetail] = useState<ApiJob | null>(null)
@@ -45,7 +48,7 @@ export default function AdminJobsPage() {
   const [deadLetters, setDeadLetters] = useState<DeadLetterRow[]>([])
   const [status, setStatus] = useState("failed")
   const [orgId, setOrgId] = useState("")
-  const [queryId, setQueryId] = useState("")
+  const [queryId, setQueryId] = useState(initialJobID)
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
