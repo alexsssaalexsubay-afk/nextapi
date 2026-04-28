@@ -24,6 +24,7 @@ import (
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/spend"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/throughput"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -162,6 +163,7 @@ func (h *UpTokenWebhookHandlers) apply(ctx context.Context, ev uptokenWebhookPay
 		releaseJobID = jobRow.ID
 		releaseReserved = jobRow.ReservedCredits
 		batchToDispatch = jobRow.BatchRunID
+		previousStatus := jobRow.Status
 
 		switch ev.Status {
 		case "succeeded":
@@ -201,6 +203,10 @@ func (h *UpTokenWebhookHandlers) apply(ctx context.Context, ev uptokenWebhookPay
 			if err := tx.Model(&jobRow).Updates(jobUpdates).Error; err != nil {
 				return err
 			}
+			jobRow.Status = domain.JobSucceeded
+			jobRow.VideoURL = stringPtr(ev.VideoURL)
+			jobRow.TokensUsed = tokens
+			jobRow.CostCredits = &actualCost
 			delta := jobRow.ReservedCredits - actualCost
 			if delta != 0 {
 				deltaCents := delta
@@ -234,8 +240,17 @@ func (h *UpTokenWebhookHandlers) apply(ctx context.Context, ev uptokenWebhookPay
 			}
 			updateWorkflowRunStatus(ctx, tx, jobRow.ID, "succeeded", outputJSON)
 			if jobRow.BatchRunID != nil {
-				updateWebhookBatchProgress(ctx, tx, *jobRow.BatchRunID, jobRow.Status, true, now)
+				updateWebhookBatchProgress(ctx, tx, *jobRow.BatchRunID, previousStatus, true, now)
 			}
+			updateDirectorVideoMetering(ctx, tx, jobRow, "billed", actualCost, -actualCost, map[string]any{
+				"job_status":     string(domain.JobSucceeded),
+				"provider":       jobRow.Provider,
+				"video_url":      ev.VideoURL,
+				"tokens_used":    tokens,
+				"reserved_cents": jobRow.ReservedCredits,
+				"actual_cents":   actualCost,
+			})
+			updateDirectorVideoProgress(ctx, tx, jobRow, domain.JobSucceeded, now)
 			processed = true
 		case "failed":
 			code := "provider_failed"
@@ -256,6 +271,9 @@ func (h *UpTokenWebhookHandlers) apply(ctx context.Context, ev uptokenWebhookPay
 			}).Error; err != nil {
 				return err
 			}
+			jobRow.Status = domain.JobFailed
+			jobRow.ErrorCode = &code
+			jobRow.ErrorMessage = &message
 			if jobRow.ReservedCredits > 0 {
 				refundCents := jobRow.ReservedCredits
 				if err := tx.Create(&domain.CreditsLedger{
@@ -280,8 +298,17 @@ func (h *UpTokenWebhookHandlers) apply(ctx context.Context, ev uptokenWebhookPay
 			failJSON, _ := json.Marshal(map[string]any{"error_code": code, "error_message": message})
 			updateWorkflowRunStatus(ctx, tx, jobRow.ID, "failed", failJSON)
 			if jobRow.BatchRunID != nil {
-				updateWebhookBatchProgress(ctx, tx, *jobRow.BatchRunID, jobRow.Status, false, now)
+				updateWebhookBatchProgress(ctx, tx, *jobRow.BatchRunID, previousStatus, false, now)
 			}
+			updateDirectorVideoMetering(ctx, tx, jobRow, "refunded", 0, 0, map[string]any{
+				"job_status":     string(domain.JobFailed),
+				"provider":       jobRow.Provider,
+				"reserved_cents": jobRow.ReservedCredits,
+				"refund_cents":   jobRow.ReservedCredits,
+				"error_code":     code,
+				"error_message":  message,
+			})
+			updateDirectorVideoProgress(ctx, tx, jobRow, domain.JobFailed, now)
 			processed = true
 		default:
 			return nil
@@ -475,4 +502,135 @@ func updateBatchWorkflowRunStatus(ctx context.Context, tx *gorm.DB, batchID stri
 	_ = tx.WithContext(ctx).Model(&domain.WorkflowRun{}).
 		Where("batch_run_id = ?", batchID).
 		Updates(updates).Error
+}
+
+func updateDirectorVideoMetering(ctx context.Context, tx *gorm.DB, jobRow domain.Job, status string, actualCents int64, creditsDelta int64, usage map[string]any) {
+	if tx == nil || !tx.Migrator().HasTable(&domain.DirectorMetering{}) {
+		return
+	}
+	if usage == nil {
+		usage = map[string]any{}
+	}
+	usageJSON, _ := json.Marshal(usage)
+	_ = tx.WithContext(ctx).Model(&domain.DirectorMetering{}).
+		Where("job_id = ? AND meter_type = ?", jobRow.ID, string(domain.ReasonVideoGeneration)).
+		Updates(map[string]any{
+			"actual_cents":  actualCents,
+			"credits_delta": creditsDelta,
+			"status":        status,
+			"usage_json":    usageJSON,
+		}).Error
+}
+
+func updateDirectorVideoProgress(ctx context.Context, tx *gorm.DB, jobRow domain.Job, terminalStatus domain.JobStatus, now time.Time) {
+	if tx == nil || !tx.Migrator().HasTable(&domain.DirectorMetering{}) || !tx.Migrator().HasTable(&domain.DirectorJob{}) {
+		return
+	}
+	var link domain.DirectorMetering
+	if err := tx.WithContext(ctx).
+		Where("job_id = ? AND director_job_id IS NOT NULL", jobRow.ID).
+		Order("id ASC").
+		First(&link).Error; err != nil || link.DirectorJobID == nil {
+		return
+	}
+
+	nextStatus := "video_complete"
+	stepStatus := "succeeded"
+	if terminalStatus != domain.JobSucceeded {
+		nextStatus = "failed"
+		stepStatus = "failed"
+	}
+	if jobRow.BatchRunID != nil && tx.Migrator().HasTable(&domain.BatchRun{}) {
+		var batch domain.BatchRun
+		if err := tx.WithContext(ctx).First(&batch, "id = ?", *jobRow.BatchRunID).Error; err == nil {
+			nextStatus = directorStatusFromBatch(batch, terminalStatus)
+			if nextStatus == "failed" {
+				stepStatus = "failed"
+			}
+		}
+	}
+
+	_ = tx.WithContext(ctx).Model(&domain.DirectorJob{}).
+		Where("id = ?", *link.DirectorJobID).
+		Updates(map[string]any{
+			"status":     nextStatus,
+			"updated_at": now,
+		}).Error
+	recordDirectorVideoCompleteStep(ctx, tx, *link.DirectorJobID, jobRow, stepStatus, terminalStatus, now)
+}
+
+func directorStatusFromBatch(batch domain.BatchRun, terminalStatus domain.JobStatus) string {
+	if batch.QueuedCount > 0 || batch.RunningCount > 0 {
+		return "running"
+	}
+	if batch.FailedCount > 0 && batch.SucceededCount == 0 {
+		return "failed"
+	}
+	if batch.FailedCount > 0 || terminalStatus != domain.JobSucceeded {
+		return "partial_failure"
+	}
+	return "video_complete"
+}
+
+func recordDirectorVideoCompleteStep(ctx context.Context, tx *gorm.DB, directorJobID string, jobRow domain.Job, stepStatus string, terminalStatus domain.JobStatus, now time.Time) {
+	if !tx.Migrator().HasTable(&domain.DirectorStep{}) {
+		return
+	}
+	output := map[string]any{
+		"batch_run_id":    jobRow.BatchRunID,
+		"cost_cents":      jobRow.CostCredits,
+		"error_code":      jobRow.ErrorCode,
+		"error_message":   jobRow.ErrorMessage,
+		"job_id":          jobRow.ID,
+		"job_status":      string(terminalStatus),
+		"provider":        jobRow.Provider,
+		"provider_job_id": jobRow.ProviderJobID,
+		"reserved_cents":  jobRow.ReservedCredits,
+		"video_url":       jobRow.VideoURL,
+	}
+	outputJSON, _ := json.Marshal(output)
+	var existing domain.DirectorStep
+	err := tx.WithContext(ctx).
+		Where("director_job_id = ? AND job_id = ? AND step_key = ?", directorJobID, jobRow.ID, "video_complete").
+		First(&existing).Error
+	if err == nil {
+		_ = tx.WithContext(ctx).Model(&domain.DirectorStep{}).
+			Where("id = ?", existing.ID).
+			Updates(map[string]any{
+				"completed_at":    now,
+				"error_code":      directorStepErrorCode(stepStatus, jobRow),
+				"output_snapshot": outputJSON,
+				"status":          stepStatus,
+				"updated_at":      now,
+			}).Error
+		return
+	}
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return
+	}
+	step := domain.DirectorStep{
+		ID:             uuid.NewString(),
+		DirectorJobID:  directorJobID,
+		OrgID:          jobRow.OrgID,
+		StepKey:        "video_complete",
+		Status:         stepStatus,
+		JobID:          &jobRow.ID,
+		InputSnapshot:  json.RawMessage(`{}`),
+		OutputSnapshot: outputJSON,
+		ErrorCode:      directorStepErrorCode(stepStatus, jobRow),
+		Attempts:       1,
+		StartedAt:      &now,
+		CompletedAt:    &now,
+	}
+	_ = tx.WithContext(ctx).Create(&step).Error
+}
+
+func directorStepErrorCode(stepStatus string, jobRow domain.Job) string {
+	if stepStatus != "failed" {
+		return ""
+	}
+	if jobRow.ErrorCode != nil && strings.TrimSpace(*jobRow.ErrorCode) != "" {
+		return strings.TrimSpace(*jobRow.ErrorCode)
+	}
+	return "video_failed"
 }

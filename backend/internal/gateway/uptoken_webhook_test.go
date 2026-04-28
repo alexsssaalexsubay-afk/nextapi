@@ -14,6 +14,7 @@ func TestUpTokenWebhookApplyFailedIsIdempotent(t *testing.T) {
 	providerID := "ut-task-failed"
 	jobID := "11111111-1111-1111-1111-111111111111"
 	orgID := "22222222-2222-2222-2222-222222222222"
+	directorJobID := "77777777-7777-7777-7777-777777777777"
 	if err := db.Create(&domain.Job{
 		ID:              jobID,
 		OrgID:           orgID,
@@ -38,6 +39,7 @@ func TestUpTokenWebhookApplyFailedIsIdempotent(t *testing.T) {
 	}).Error; err != nil {
 		t.Fatalf("create video: %v", err)
 	}
+	insertDirectorRunAudit(t, db, orgID, directorJobID, jobID, 123)
 	h := &UpTokenWebhookHandlers{DB: db}
 	ev := uptokenWebhookPayload{
 		TaskID: "ut-task-failed",
@@ -70,6 +72,27 @@ func TestUpTokenWebhookApplyFailedIsIdempotent(t *testing.T) {
 	if job.Status != domain.JobFailed || job.ErrorCode == nil || *job.ErrorCode != "error-301" {
 		t.Fatalf("unexpected job state: %#v", job)
 	}
+	var meter domain.DirectorMetering
+	if err := db.First(&meter, "job_id = ?", jobID).Error; err != nil {
+		t.Fatalf("reload director metering: %v", err)
+	}
+	if meter.Status != "refunded" || meter.ActualCents != 0 || meter.CreditsDelta != 0 {
+		t.Fatalf("unexpected director metering: %#v", meter)
+	}
+	var directorJob domain.DirectorJob
+	if err := db.First(&directorJob, "id = ?", directorJobID).Error; err != nil {
+		t.Fatalf("reload director job: %v", err)
+	}
+	if directorJob.Status != "failed" {
+		t.Fatalf("director job should fail, got %s", directorJob.Status)
+	}
+	var step domain.DirectorStep
+	if err := db.First(&step, "director_job_id = ? AND job_id = ? AND step_key = ?", directorJobID, jobID, "video_complete").Error; err != nil {
+		t.Fatalf("reload director completion step: %v", err)
+	}
+	if step.Status != "failed" || step.ErrorCode != "error-301" {
+		t.Fatalf("unexpected director completion step: %#v", step)
+	}
 }
 
 func TestUpTokenWebhookApplySucceededStoresVideoURL(t *testing.T) {
@@ -77,6 +100,7 @@ func TestUpTokenWebhookApplySucceededStoresVideoURL(t *testing.T) {
 	providerID := "ut-task-ok"
 	jobID := "44444444-4444-4444-4444-444444444444"
 	orgID := "55555555-5555-5555-5555-555555555555"
+	directorJobID := "88888888-8888-8888-8888-888888888888"
 	if err := db.Create(&domain.Job{
 		ID:              jobID,
 		OrgID:           orgID,
@@ -101,6 +125,7 @@ func TestUpTokenWebhookApplySucceededStoresVideoURL(t *testing.T) {
 	}).Error; err != nil {
 		t.Fatalf("create video: %v", err)
 	}
+	insertDirectorRunAudit(t, db, orgID, directorJobID, jobID, 200)
 	h := &UpTokenWebhookHandlers{DB: db}
 	tokens := int64(1000)
 	processed, err := h.apply(context.Background(), uptokenWebhookPayload{
@@ -126,6 +151,73 @@ func TestUpTokenWebhookApplySucceededStoresVideoURL(t *testing.T) {
 	}
 	if job.TokensUsed == nil || *job.TokensUsed != tokens {
 		t.Fatalf("tokens not stored: %#v", job.TokensUsed)
+	}
+	if job.CostCredits == nil {
+		t.Fatalf("cost credits not stored")
+	}
+	var meter domain.DirectorMetering
+	if err := db.First(&meter, "job_id = ?", jobID).Error; err != nil {
+		t.Fatalf("reload director metering: %v", err)
+	}
+	if meter.Status != "billed" || meter.ActualCents != *job.CostCredits || meter.CreditsDelta != -*job.CostCredits {
+		t.Fatalf("unexpected director metering: %#v", meter)
+	}
+	var directorJob domain.DirectorJob
+	if err := db.First(&directorJob, "id = ?", directorJobID).Error; err != nil {
+		t.Fatalf("reload director job: %v", err)
+	}
+	if directorJob.Status != "video_complete" {
+		t.Fatalf("director job should complete video, got %s", directorJob.Status)
+	}
+	var step domain.DirectorStep
+	if err := db.First(&step, "director_job_id = ? AND job_id = ? AND step_key = ?", directorJobID, jobID, "video_complete").Error; err != nil {
+		t.Fatalf("reload director completion step: %v", err)
+	}
+	if step.Status != "succeeded" || step.ErrorCode != "" {
+		t.Fatalf("unexpected director completion step: %#v", step)
+	}
+}
+
+func insertDirectorRunAudit(t *testing.T, db *gorm.DB, orgID string, directorJobID string, jobID string, reserved int64) {
+	t.Helper()
+	if err := db.Create(&domain.DirectorJob{
+		ID:                   directorJobID,
+		OrgID:                orgID,
+		Story:                "test story",
+		Status:               "running",
+		SelectedCharacterIDs: []byte(`[]`),
+		BudgetSnapshot:       []byte(`{}`),
+		PlanSnapshot:         []byte(`{}`),
+	}).Error; err != nil {
+		t.Fatalf("create director job: %v", err)
+	}
+	stepID := directorJobID[:24] + "999999999999"
+	if err := db.Create(&domain.DirectorStep{
+		ID:             stepID,
+		DirectorJobID:  directorJobID,
+		OrgID:          orgID,
+		StepKey:        "video_submit",
+		Status:         "succeeded",
+		JobID:          &jobID,
+		InputSnapshot:  []byte(`{}`),
+		OutputSnapshot: []byte(`{}`),
+	}).Error; err != nil {
+		t.Fatalf("create director step: %v", err)
+	}
+	if err := db.Create(&domain.DirectorMetering{
+		OrgID:          orgID,
+		DirectorJobID:  &directorJobID,
+		StepID:         &stepID,
+		JobID:          &jobID,
+		MeterType:      string(domain.ReasonVideoGeneration),
+		Units:          1,
+		EstimatedCents: reserved,
+		ActualCents:    reserved,
+		CreditsDelta:   -reserved,
+		Status:         "reserved",
+		UsageJSON:      []byte(`{}`),
+	}).Error; err != nil {
+		t.Fatalf("create director metering: %v", err)
 	}
 }
 
@@ -205,6 +297,57 @@ func setupUpTokenWebhookDB(t *testing.T) *gorm.DB {
 			reason TEXT NOT NULL,
 			job_id TEXT,
 			note TEXT NOT NULL DEFAULT '',
+			created_at DATETIME
+		)`,
+		`CREATE TABLE director_jobs (
+			id TEXT PRIMARY KEY,
+			org_id TEXT NOT NULL,
+			workflow_id TEXT,
+			workflow_run_id TEXT,
+			batch_run_id TEXT,
+			title TEXT NOT NULL DEFAULT '',
+			story TEXT NOT NULL DEFAULT '',
+			status TEXT NOT NULL DEFAULT 'draft',
+			engine_used TEXT NOT NULL DEFAULT '',
+			fallback_used BOOL NOT NULL DEFAULT FALSE,
+			selected_character_ids BLOB NOT NULL DEFAULT '[]',
+			budget_snapshot BLOB NOT NULL DEFAULT '{}',
+			plan_snapshot BLOB NOT NULL DEFAULT '{}',
+			created_by TEXT NOT NULL DEFAULT '',
+			created_at DATETIME,
+			updated_at DATETIME
+		)`,
+		`CREATE TABLE director_steps (
+			id TEXT PRIMARY KEY,
+			director_job_id TEXT NOT NULL,
+			org_id TEXT NOT NULL,
+			step_key TEXT NOT NULL,
+			status TEXT NOT NULL DEFAULT 'pending',
+			provider_id TEXT,
+			job_id TEXT,
+			input_snapshot BLOB NOT NULL DEFAULT '{}',
+			output_snapshot BLOB NOT NULL DEFAULT '{}',
+			error_code TEXT NOT NULL DEFAULT '',
+			attempts INT NOT NULL DEFAULT 0,
+			started_at DATETIME,
+			completed_at DATETIME,
+			created_at DATETIME,
+			updated_at DATETIME
+		)`,
+		`CREATE TABLE director_metering (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			org_id TEXT NOT NULL,
+			director_job_id TEXT,
+			step_id TEXT,
+			job_id TEXT,
+			provider_id TEXT,
+			meter_type TEXT NOT NULL,
+			units REAL NOT NULL DEFAULT 0,
+			estimated_cents BIGINT NOT NULL DEFAULT 0,
+			actual_cents BIGINT NOT NULL DEFAULT 0,
+			credits_delta BIGINT NOT NULL DEFAULT 0,
+			status TEXT NOT NULL DEFAULT 'recorded',
+			usage_json BLOB NOT NULL DEFAULT '{}',
 			created_at DATETIME
 		)`,
 	}
