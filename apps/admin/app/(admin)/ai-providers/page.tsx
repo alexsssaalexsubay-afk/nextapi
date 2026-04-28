@@ -34,6 +34,9 @@ type ProviderLog = {
 type DirectorMeteringEvent = {
   id: number
   org_id: string
+  director_job_id?: string
+  step_id?: string
+  job_id?: string
   provider_id?: string
   meter_type: string
   units: number
@@ -51,10 +54,50 @@ type DirectorMeteringSummary = {
   recent: DirectorMeteringEvent[]
 }
 
+type DirectorStepEvent = {
+  id: string
+  step_key: string
+  status: string
+  error_code?: string
+  job_id?: string
+  created_at: string
+}
+
+type DirectorJobEvent = {
+  id: string
+  org_id: string
+  workflow_id?: string
+  workflow_run_id?: string
+  batch_run_id?: string
+  title: string
+  status: string
+  engine_used: string
+  fallback_used: boolean
+  created_by: string
+  updated_at: string
+  step_summary: Record<string, number>
+  recent_steps: DirectorStepEvent[]
+  metering_cents: number
+  metering_calls: number
+  selected_asset_count: number
+}
+
+type DirectorJobsSummary = {
+  available: boolean
+  total: number
+  running: number
+  failed: number
+  fallback_runs: number
+  advanced_runs: number
+  recent: DirectorJobEvent[]
+  unavailable_why?: string
+}
+
 type AIDirectorAdminStatus = {
   providers: Array<{ type: string; configured: boolean; default_id?: string; model?: string }>
   active_vips: number
   metering?: DirectorMeteringSummary
+  jobs?: DirectorJobsSummary
   usage_notice: string
 }
 
@@ -334,6 +377,7 @@ export default function AIProvidersPage() {
               </div>
             </div>
             <CapabilityMatrix providers={providers} directorStatus={directorStatus} copy={p} />
+            <DirectorJobsPanel jobs={directorStatus?.jobs} copy={p} />
             <DirectorMeteringPanel metering={directorStatus?.metering} copy={p} />
             <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_120px]">
               <Field label={p.orgID} value={vipOrgID} onChange={setVipOrgID} />
@@ -413,6 +457,8 @@ function DirectorMeteringPanel({
                 <div className="font-medium">{event.meter_type} · {event.status}</div>
                 <div className="mt-1 font-mono text-[10px] text-muted-foreground">
                   {new Date(event.created_at).toLocaleString()} · org {event.org_id.slice(0, 8)}
+                  {event.director_job_id ? ` · director ${event.director_job_id.slice(0, 8)}` : ""}
+                  {event.step_id ? ` · step ${event.step_id.slice(0, 8)}` : ""}
                 </div>
               </div>
               <div className="flex gap-2 text-muted-foreground">
@@ -429,6 +475,81 @@ function DirectorMeteringPanel({
       )}
     </div>
   )
+}
+
+function DirectorJobsPanel({
+  jobs,
+  copy,
+}: {
+  jobs?: DirectorJobsSummary
+  copy: ReturnType<typeof useTranslations>["admin"]["aiProvidersPage"]
+}) {
+  const unavailable = !jobs || !jobs.available
+  const fallbackRate = jobs && jobs.total > 0 ? Math.round((jobs.fallback_runs / jobs.total) * 100) : 0
+  return (
+    <div className="mb-5 rounded-3xl border border-white/12 bg-background/35 p-4 shadow-inner backdrop-blur-md">
+      <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h3 className="text-sm font-medium">{copy.directorJobsTitle}</h3>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {unavailable ? copy.directorJobsUnavailable : copy.directorJobsHint}
+          </p>
+        </div>
+      </div>
+      <div className="mb-4 grid gap-2 text-xs md:grid-cols-5">
+        <MetricCard label={copy.directorJobsTotal} value={String(jobs?.total ?? 0)} />
+        <MetricCard label={copy.directorJobsRunning} value={String(jobs?.running ?? 0)} />
+        <MetricCard label={copy.directorJobsFailed} value={String(jobs?.failed ?? 0)} />
+        <MetricCard label={copy.directorJobsAdvanced} value={String(jobs?.advanced_runs ?? 0)} />
+        <MetricCard label={copy.directorJobsFallbackRate} value={`${fallbackRate}%`} />
+      </div>
+      {jobs?.recent?.length ? (
+        <div className="space-y-2">
+          {jobs.recent.slice(0, 5).map((job) => (
+            <div key={job.id} className="rounded-2xl border border-white/12 bg-card/45 p-3 text-xs shadow-sm backdrop-blur-md">
+              <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="truncate text-sm font-medium">{job.title || copy.untitledDirectorJob}</span>
+                    <StatusPill status={job.status} />
+                    {job.fallback_used && <StatusPill status="fallback" />}
+                  </div>
+                  <div className="mt-1 font-mono text-[10px] text-muted-foreground">
+                    {job.id.slice(0, 8)} · {job.engine_used || copy.noDefault} · {new Date(job.updated_at).toLocaleString()}
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-2 text-right text-muted-foreground">
+                  <div><div>{copy.directorJobSteps}</div><div className="font-mono text-foreground">{job.recent_steps.length}</div></div>
+                  <div><div>{copy.directorJobCalls}</div><div className="font-mono text-foreground">{job.metering_calls}</div></div>
+                  <div><div>{copy.directorJobCost}</div><div className="font-mono text-foreground">{formatMoney(job.metering_cents)}</div></div>
+                </div>
+              </div>
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                {job.recent_steps.slice(0, 6).map((step) => (
+                  <span key={step.id} className="rounded-full border border-white/12 bg-background/55 px-2.5 py-1 font-mono text-[10px] text-muted-foreground">
+                    {step.step_key}:{step.status}{step.error_code ? `/${step.error_code}` : ""}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="rounded-2xl border border-dashed border-white/12 bg-card/35 p-4 text-xs text-muted-foreground">
+          {copy.noDirectorJobs}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function StatusPill({ status }: { status: string }) {
+  const color =
+    status === "failed" ? "border-rose-400/30 bg-rose-500/10 text-rose-500" :
+    status === "running" || status === "queued" || status === "planning" ? "border-sky-400/30 bg-sky-500/10 text-sky-600" :
+    status === "fallback" ? "border-amber-400/30 bg-amber-500/10 text-amber-600" :
+    "border-emerald-400/30 bg-emerald-500/10 text-emerald-600"
+  return <span className={`rounded-full border px-2 py-0.5 text-[10px] font-medium ${color}`}>{status}</span>
 }
 
 function MetricCard({ label, value }: { label: string; value: string }) {

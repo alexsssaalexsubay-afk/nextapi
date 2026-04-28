@@ -2,9 +2,11 @@ package gateway
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -24,6 +26,9 @@ type aiDirectorEntitlementReq struct {
 type aiDirectorMeteringEvent struct {
 	ID             int64   `json:"id"`
 	OrgID          string  `json:"org_id"`
+	DirectorJobID  *string `json:"director_job_id,omitempty"`
+	StepID         *string `json:"step_id,omitempty"`
+	JobID          *string `json:"job_id,omitempty"`
 	ProviderID     *string `json:"provider_id,omitempty"`
 	MeterType      string  `json:"meter_type"`
 	Units          float64 `json:"units"`
@@ -39,6 +44,48 @@ type aiDirectorMeteringSummary struct {
 	Units24h      float64                   `json:"units_24h"`
 	RatedCents24h int64                     `json:"rated_cents_24h"`
 	Recent        []aiDirectorMeteringEvent `json:"recent"`
+}
+
+type aiDirectorStepEvent struct {
+	ID          string  `json:"id"`
+	StepKey     string  `json:"step_key"`
+	Status      string  `json:"status"`
+	ErrorCode   string  `json:"error_code,omitempty"`
+	JobID       *string `json:"job_id,omitempty"`
+	StartedAt   *string `json:"started_at,omitempty"`
+	CompletedAt *string `json:"completed_at,omitempty"`
+	CreatedAt   string  `json:"created_at"`
+}
+
+type aiDirectorJobEvent struct {
+	ID              string                `json:"id"`
+	OrgID           string                `json:"org_id"`
+	WorkflowID      *string               `json:"workflow_id,omitempty"`
+	WorkflowRunID   *string               `json:"workflow_run_id,omitempty"`
+	BatchRunID      *string               `json:"batch_run_id,omitempty"`
+	Title           string                `json:"title"`
+	Status          string                `json:"status"`
+	EngineUsed      string                `json:"engine_used"`
+	FallbackUsed    bool                  `json:"fallback_used"`
+	CreatedBy       string                `json:"created_by"`
+	CreatedAt       string                `json:"created_at"`
+	UpdatedAt       string                `json:"updated_at"`
+	StepSummary     map[string]int        `json:"step_summary"`
+	RecentSteps     []aiDirectorStepEvent `json:"recent_steps"`
+	MeteringCents   int64                 `json:"metering_cents"`
+	MeteringCalls   int64                 `json:"metering_calls"`
+	SelectedAssetCt int                   `json:"selected_asset_count"`
+}
+
+type aiDirectorJobsSummary struct {
+	Available      bool                 `json:"available"`
+	Total          int64                `json:"total"`
+	Running        int64                `json:"running"`
+	Failed         int64                `json:"failed"`
+	FallbackRuns   int64                `json:"fallback_runs"`
+	AdvancedRuns   int64                `json:"advanced_runs"`
+	Recent         []aiDirectorJobEvent `json:"recent"`
+	UnavailableWhy string               `json:"unavailable_why,omitempty"`
 }
 
 func (h *AdminHandlers) AdminAIDirectorStatus(c *gin.Context) {
@@ -79,10 +126,12 @@ func (h *AdminHandlers) AdminAIDirectorStatus(c *gin.Context) {
 		return
 	}
 	metering := h.directorMeteringSummary(c.Request.Context())
+	jobs := h.directorJobsSummary(c.Request.Context(), adminDirectorLimit(c, 12))
 	c.JSON(http.StatusOK, gin.H{
 		"providers":    providers,
 		"active_vips":  activeVIPs,
 		"metering":     metering,
+		"jobs":         jobs,
 		"usage_notice": "VIP access unlocks AI Director, but every live generation still consumes credits.",
 	})
 }
@@ -114,6 +163,9 @@ func (h *AdminHandlers) directorMeteringSummary(ctx context.Context) aiDirectorM
 		out.Recent = append(out.Recent, aiDirectorMeteringEvent{
 			ID:             row.ID,
 			OrgID:          row.OrgID,
+			DirectorJobID:  row.DirectorJobID,
+			StepID:         row.StepID,
+			JobID:          row.JobID,
 			ProviderID:     row.ProviderID,
 			MeterType:      row.MeterType,
 			Units:          row.Units,
@@ -124,6 +176,108 @@ func (h *AdminHandlers) directorMeteringSummary(ctx context.Context) aiDirectorM
 		})
 	}
 	return out
+}
+
+func (h *AdminHandlers) directorJobsSummary(ctx context.Context, limit int) aiDirectorJobsSummary {
+	out := aiDirectorJobsSummary{Available: true, Recent: []aiDirectorJobEvent{}}
+	db := h.DB.WithContext(ctx)
+	if err := db.Model(&domain.DirectorJob{}).Count(&out.Total).Error; err != nil {
+		return aiDirectorJobsSummary{Available: false, Recent: []aiDirectorJobEvent{}, UnavailableWhy: "director_jobs_unavailable"}
+	}
+	_ = db.Model(&domain.DirectorJob{}).Where("status IN ?", []string{"planning", "queued", "running"}).Count(&out.Running).Error
+	_ = db.Model(&domain.DirectorJob{}).Where("status = ?", "failed").Count(&out.Failed).Error
+	_ = db.Model(&domain.DirectorJob{}).Where("fallback_used = ?", true).Count(&out.FallbackRuns).Error
+	_ = db.Model(&domain.DirectorJob{}).Where("engine_used = ?", "advanced_sidecar").Count(&out.AdvancedRuns).Error
+
+	var rows []domain.DirectorJob
+	if err := db.Order("updated_at DESC").Limit(limit).Find(&rows).Error; err != nil {
+		return aiDirectorJobsSummary{Available: false, Recent: []aiDirectorJobEvent{}, UnavailableWhy: "director_jobs_unavailable"}
+	}
+	for _, row := range rows {
+		out.Recent = append(out.Recent, h.directorJobEvent(ctx, row))
+	}
+	return out
+}
+
+func (h *AdminHandlers) directorJobEvent(ctx context.Context, row domain.DirectorJob) aiDirectorJobEvent {
+	var steps []domain.DirectorStep
+	_ = h.DB.WithContext(ctx).
+		Where("director_job_id = ?", row.ID).
+		Order("created_at ASC").
+		Find(&steps).Error
+	stepSummary := map[string]int{}
+	recentSteps := make([]aiDirectorStepEvent, 0, len(steps))
+	for _, step := range steps {
+		stepSummary[step.Status]++
+		recentSteps = append(recentSteps, aiDirectorStepEvent{
+			ID:          step.ID,
+			StepKey:     step.StepKey,
+			Status:      step.Status,
+			ErrorCode:   step.ErrorCode,
+			JobID:       step.JobID,
+			StartedAt:   formatOptionalTime(step.StartedAt),
+			CompletedAt: formatOptionalTime(step.CompletedAt),
+			CreatedAt:   step.CreatedAt.Format(time.RFC3339),
+		})
+	}
+	var meter struct {
+		Calls int64
+		Cents int64
+	}
+	_ = h.DB.WithContext(ctx).Raw(`
+		SELECT COUNT(*) AS calls,
+		       COALESCE(SUM(actual_cents), 0) AS cents
+		FROM director_metering
+		WHERE director_job_id = ?`, row.ID).Scan(&meter).Error
+	return aiDirectorJobEvent{
+		ID:              row.ID,
+		OrgID:           row.OrgID,
+		WorkflowID:      row.WorkflowID,
+		WorkflowRunID:   row.WorkflowRunID,
+		BatchRunID:      row.BatchRunID,
+		Title:           row.Title,
+		Status:          row.Status,
+		EngineUsed:      row.EngineUsed,
+		FallbackUsed:    row.FallbackUsed,
+		CreatedBy:       row.CreatedBy,
+		CreatedAt:       row.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:       row.UpdatedAt.Format(time.RFC3339),
+		StepSummary:     stepSummary,
+		RecentSteps:     recentSteps,
+		MeteringCents:   meter.Cents,
+		MeteringCalls:   meter.Calls,
+		SelectedAssetCt: jsonArrayLen(row.SelectedCharacterIDs),
+	}
+}
+
+func adminDirectorLimit(c *gin.Context, fallback int) int {
+	limit, err := strconv.Atoi(c.DefaultQuery("limit", strconv.Itoa(fallback)))
+	if err != nil || limit <= 0 {
+		return fallback
+	}
+	if limit > 50 {
+		return 50
+	}
+	return limit
+}
+
+func formatOptionalTime(value *time.Time) *string {
+	if value == nil {
+		return nil
+	}
+	formatted := value.Format(time.RFC3339)
+	return &formatted
+}
+
+func jsonArrayLen(raw []byte) int {
+	if len(raw) == 0 {
+		return 0
+	}
+	var values []any
+	if err := json.Unmarshal(raw, &values); err != nil {
+		return 0
+	}
+	return len(values)
 }
 
 func (h *AdminHandlers) GetAIDirectorEntitlement(c *gin.Context) {
