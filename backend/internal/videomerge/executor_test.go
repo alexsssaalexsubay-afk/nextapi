@@ -99,6 +99,54 @@ func TestUpdateDirectorFinalAssetMarksJobAndStep(t *testing.T) {
 	}
 }
 
+func TestUpdateDirectorFinalAssetIsIdempotent(t *testing.T) {
+	db := setupMergeDirectorDB(t)
+	orgID := "12121212-1212-1212-1212-121212121212"
+	directorJobID := "23232323-2323-2323-2323-232323232323"
+	workflowRunID := "34343434-3434-3434-3434-343434343434"
+	if err := db.Create(&domain.DirectorJob{
+		ID:                   directorJobID,
+		OrgID:                orgID,
+		WorkflowRunID:        &workflowRunID,
+		Story:                "make a trailer",
+		Status:               "video_complete",
+		SelectedCharacterIDs: []byte(`[]`),
+		BudgetSnapshot:       []byte(`{}`),
+		PlanSnapshot:         []byte(`{}`),
+	}).Error; err != nil {
+		t.Fatalf("create director job: %v", err)
+	}
+
+	exec := &Executor{db: db}
+	exec.updateDirectorFinalAsset(context.Background(), domain.VideoMergeJob{
+		ID:            "45454545-4545-4545-4545-454545454545",
+		OrgID:         orgID,
+		WorkflowRunID: &workflowRunID,
+	}, "failed", json.RawMessage(`{"error_code":"merge_timeout"}`), "merge_timeout")
+	exec.updateDirectorFinalAsset(context.Background(), domain.VideoMergeJob{
+		ID:            "56565656-5656-5656-5656-565656565656",
+		OrgID:         orgID,
+		WorkflowRunID: &workflowRunID,
+	}, "succeeded", json.RawMessage(`{"asset_id":"asset_2","video_url":"https://cdn.example/final-2.mp4"}`), "")
+
+	var count int64
+	if err := db.Model(&domain.DirectorStep{}).
+		Where("director_job_id = ? AND step_key = ?", directorJobID, "final_asset").
+		Count(&count).Error; err != nil {
+		t.Fatalf("count final asset steps: %v", err)
+	}
+	if count != 1 {
+		t.Fatalf("final asset step count = %d; want 1", count)
+	}
+	var step domain.DirectorStep
+	if err := db.First(&step, "director_job_id = ? AND step_key = ?", directorJobID, "final_asset").Error; err != nil {
+		t.Fatalf("reload final asset step: %v", err)
+	}
+	if step.Status != "succeeded" || step.ErrorCode != "" || !strings.Contains(string(step.OutputSnapshot), "final-2.mp4") {
+		t.Fatalf("unexpected final asset step after repeat completion: %#v output=%s", step, string(step.OutputSnapshot))
+	}
+}
+
 func TestUpdateDirectorFinalAssetRecordsMergeFailureByBatch(t *testing.T) {
 	db := setupMergeDirectorDB(t)
 	orgID := "55555555-5555-5555-5555-555555555555"
@@ -183,6 +231,9 @@ func setupMergeDirectorDB(t *testing.T) *gorm.DB {
 			created_at DATETIME,
 			updated_at DATETIME
 		)`,
+		`CREATE UNIQUE INDEX idx_director_steps_final_asset_unique
+			ON director_steps (director_job_id)
+			WHERE step_key = 'final_asset'`,
 	}
 	for _, stmt := range statements {
 		if err := db.Exec(stmt).Error; err != nil {

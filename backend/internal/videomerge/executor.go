@@ -19,6 +19,7 @@ import (
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/storage/r2"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 const (
@@ -346,25 +347,6 @@ func (e *Executor) updateDirectorFinalAsset(ctx context.Context, merge domain.Vi
 			"updated_at": now,
 		}).Error
 
-	var existing domain.DirectorStep
-	err := e.db.WithContext(ctx).
-		Where("director_job_id = ? AND step_key = ?", directorJob.ID, "final_asset").
-		First(&existing).Error
-	if err == nil {
-		_ = e.db.WithContext(ctx).Model(&domain.DirectorStep{}).
-			Where("id = ?", existing.ID).
-			Updates(map[string]any{
-				"completed_at":    now,
-				"error_code":      errorCode,
-				"output_snapshot": outputJSON,
-				"status":          stepStatus,
-				"updated_at":      now,
-			}).Error
-		return
-	}
-	if !errors.Is(err, gorm.ErrRecordNotFound) {
-		return
-	}
 	step := domain.DirectorStep{
 		ID:             uuid.NewString(),
 		DirectorJobID:  directorJob.ID,
@@ -378,7 +360,22 @@ func (e *Executor) updateDirectorFinalAsset(ctx context.Context, merge domain.Vi
 		StartedAt:      &now,
 		CompletedAt:    &now,
 	}
-	_ = e.db.WithContext(ctx).Create(&step).Error
+	_ = e.db.WithContext(ctx).
+		Clauses(clause.OnConflict{
+			Columns: []clause.Column{{Name: "director_job_id"}},
+			TargetWhere: clause.Where{Exprs: []clause.Expression{
+				clause.Expr{SQL: "step_key = 'final_asset'"},
+			}},
+			DoUpdates: clause.Assignments(map[string]any{
+				"completed_at":    now,
+				"error_code":      errorCode,
+				"input_snapshot":  step.InputSnapshot,
+				"output_snapshot": outputJSON,
+				"status":          stepStatus,
+				"updated_at":      now,
+			}),
+		}).
+		Create(&step).Error
 }
 
 func snapshotMergeJob(merge domain.VideoMergeJob) json.RawMessage {
