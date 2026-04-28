@@ -17,6 +17,7 @@ import (
 
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/domain"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/storage/r2"
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
@@ -218,6 +219,7 @@ func (e *Executor) runOne(ctx context.Context, id string) error {
 				"updated_at":      time.Now(),
 			}).Error
 	}
+	e.updateDirectorFinalAsset(ctx, row, "succeeded", outputJSON, "")
 	return nil
 }
 
@@ -312,7 +314,83 @@ func (e *Executor) markFailed(ctx context.Context, id string, code string) error
 				"updated_at":      time.Now(),
 			}).Error
 	}
+	e.updateDirectorFinalAsset(ctx, row, "failed", outputJSON, code)
 	return nil
+}
+
+func (e *Executor) updateDirectorFinalAsset(ctx context.Context, merge domain.VideoMergeJob, stepStatus string, outputJSON json.RawMessage, errorCode string) {
+	if e == nil || e.db == nil || !e.db.Migrator().HasTable(&domain.DirectorJob{}) || !e.db.Migrator().HasTable(&domain.DirectorStep{}) {
+		return
+	}
+	query := e.db.WithContext(ctx).Model(&domain.DirectorJob{})
+	if merge.WorkflowRunID != nil && strings.TrimSpace(*merge.WorkflowRunID) != "" {
+		query = query.Where("workflow_run_id = ?", *merge.WorkflowRunID)
+	} else if merge.BatchRunID != nil && strings.TrimSpace(*merge.BatchRunID) != "" {
+		query = query.Where("batch_run_id = ?", *merge.BatchRunID)
+	} else {
+		return
+	}
+	var directorJob domain.DirectorJob
+	if err := query.First(&directorJob).Error; err != nil {
+		return
+	}
+	now := time.Now().UTC()
+	nextStatus := "final_asset"
+	if stepStatus != "succeeded" {
+		nextStatus = "failed"
+	}
+	_ = e.db.WithContext(ctx).Model(&domain.DirectorJob{}).
+		Where("id = ?", directorJob.ID).
+		Updates(map[string]any{
+			"status":     nextStatus,
+			"updated_at": now,
+		}).Error
+
+	var existing domain.DirectorStep
+	err := e.db.WithContext(ctx).
+		Where("director_job_id = ? AND step_key = ?", directorJob.ID, "final_asset").
+		First(&existing).Error
+	if err == nil {
+		_ = e.db.WithContext(ctx).Model(&domain.DirectorStep{}).
+			Where("id = ?", existing.ID).
+			Updates(map[string]any{
+				"completed_at":    now,
+				"error_code":      errorCode,
+				"output_snapshot": outputJSON,
+				"status":          stepStatus,
+				"updated_at":      now,
+			}).Error
+		return
+	}
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return
+	}
+	step := domain.DirectorStep{
+		ID:             uuid.NewString(),
+		DirectorJobID:  directorJob.ID,
+		OrgID:          directorJob.OrgID,
+		StepKey:        "final_asset",
+		Status:         stepStatus,
+		InputSnapshot:  snapshotMergeJob(merge),
+		OutputSnapshot: outputJSON,
+		ErrorCode:      errorCode,
+		Attempts:       1,
+		StartedAt:      &now,
+		CompletedAt:    &now,
+	}
+	_ = e.db.WithContext(ctx).Create(&step).Error
+}
+
+func snapshotMergeJob(merge domain.VideoMergeJob) json.RawMessage {
+	raw, err := json.Marshal(map[string]any{
+		"batch_run_id":    merge.BatchRunID,
+		"merge_job_id":    merge.ID,
+		"workflow_run_id": merge.WorkflowRunID,
+	})
+	if err != nil {
+		return json.RawMessage(`{}`)
+	}
+	return raw
 }
 
 func succeededClips(clips []mergeClip) []mergeClip {
