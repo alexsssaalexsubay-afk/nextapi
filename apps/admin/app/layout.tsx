@@ -9,9 +9,9 @@ export const metadata: Metadata = {
   title: "Admin — NextAPI Operations",
   description: "NextAPI internal operations console",
   icons: {
-    icon: [{ url: "/icon.svg", type: "image/svg+xml" }],
-    shortcut: [{ url: "/icon.svg", type: "image/svg+xml" }],
-    apple: [{ url: "/icon.svg", type: "image/svg+xml" }],
+    icon: [{ url: "/nextapi-logo.png", type: "image/png", sizes: "400x400" }],
+    shortcut: [{ url: "/nextapi-logo.png", type: "image/png", sizes: "400x400" }],
+    apple: [{ url: "/nextapi-logo.png", type: "image/png", sizes: "400x400" }],
   },
 }
 

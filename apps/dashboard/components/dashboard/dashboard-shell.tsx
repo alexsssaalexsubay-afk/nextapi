@@ -55,6 +55,7 @@ export function DashboardShell({
   const [initials, setInitials] = useState<string>("—")
   const [signingOut, setSigningOut] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(compactChrome)
+  const [navigationOpen, setNavigationOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
   const searchInputRef = useRef<HTMLInputElement | null>(null)
@@ -168,6 +169,7 @@ export function DashboardShell({
   function openCommand(item: { href: string }) {
     setSearchOpen(false)
     setSearchTerm("")
+    setNavigationOpen(false)
     if (item.href.startsWith("http")) {
       window.location.assign(item.href)
       return
@@ -291,6 +293,47 @@ export function DashboardShell({
               <Link href="/" className="grid size-8 shrink-0 place-items-center rounded-lg border border-border bg-card" aria-label="NextAPI dashboard">
                 <Logo withWordmark={false} />
               </Link>
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setNavigationOpen((value) => !value)}
+                  className="grid size-8 place-items-center rounded-lg border border-border bg-card text-muted-foreground transition hover:bg-accent hover:text-foreground"
+                  aria-label={t.common.expandSidebar}
+                  aria-expanded={navigationOpen}
+                >
+                  <PanelLeftOpen className="size-4" />
+                </button>
+                {navigationOpen ? (
+                  <div className="absolute left-0 top-[calc(100%+8px)] z-50 w-72 overflow-hidden rounded-lg border border-border bg-popover p-2 shadow-lg">
+                    {sections.map((section) => (
+                      <div key={section.heading} className="mb-2 last:mb-0">
+                        <div className="px-2 py-1 font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">{section.heading}</div>
+                        <div className="grid gap-1">
+                          {section.items.map((item) => {
+                            const Icon = item.icon
+                            const active = item.href === activeHref
+                            return (
+                              <button
+                                key={`${section.heading}-${item.href}`}
+                                type="button"
+                                onClick={() => openCommand(item)}
+                                className={cn(
+                                  "flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-xs transition",
+                                  active ? "bg-accent text-foreground" : "text-muted-foreground hover:bg-accent hover:text-foreground",
+                                )}
+                              >
+                                <Icon className={cn("size-3.5", active && "text-signal")} />
+                                <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                                <span className="font-mono text-[10px] text-muted-foreground/70">{item.href.startsWith("http") ? "docs" : item.href}</span>
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
               <div className="min-w-0">
                 <div className="truncate text-[13px] font-medium tracking-tight text-foreground">{title ?? "NextAPI"}</div>
                 {description ? <div className="hidden max-w-[420px] truncate text-[11px] text-muted-foreground md:block">{description}</div> : null}
