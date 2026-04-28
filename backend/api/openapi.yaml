@@ -237,6 +237,32 @@ paths:
               schema: { $ref: '#/components/schemas/Model' }
         '404': { $ref: '#/components/responses/NotFound' }
 
+  /director/runs:
+    get:
+      tags: [director]
+      summary: List Director runs
+      operationId: listDirectorRuns
+      description: >-
+        Lists recent org-scoped Director run envelopes with step counts and
+        aggregate metering totals. Results are ordered by updated_at desc and
+        use a stable cursor so Dashboard/Admin can recover recent run history
+        without a second task or billing system.
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+        - name: status
+          in: query
+          required: false
+          schema: { type: string }
+      responses:
+        '200':
+          description: Director run page.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DirectorRunPage' }
+        '400': { $ref: '#/components/responses/InvalidRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
   /director/runs/{id}:
     get:
       tags: [director]
@@ -2088,6 +2114,24 @@ components:
         estimated_cents: { type: integer, format: int64 }
         actual_cents: { type: integer, format: int64 }
         credits_delta: { type: integer, format: int64 }
+
+    DirectorRunSummary:
+      type: object
+      required: [director_job, step_count, totals]
+      properties:
+        director_job: { $ref: '#/components/schemas/DirectorJob' }
+        step_count: { type: integer, format: int64 }
+        totals: { $ref: '#/components/schemas/DirectorRunTotals' }
+
+    DirectorRunPage:
+      type: object
+      required: [data, has_more]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/DirectorRunSummary' }
+        has_more: { type: boolean }
+        next_cursor: { type: [string, 'null'] }
 
     DirectorRunResponse:
       type: object

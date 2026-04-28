@@ -172,6 +172,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/director/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Director runs
+         * @description Lists recent org-scoped Director run envelopes with step counts and aggregate metering totals. Results are ordered by updated_at desc and use a stable cursor so Dashboard/Admin can recover recent run history without a second task or billing system.
+         */
+        get: operations["listDirectorRuns"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/director/runs/{id}": {
         parameters: {
             query?: never;
@@ -1497,6 +1517,17 @@ export interface components {
             /** Format: int64 */
             credits_delta: number;
         };
+        DirectorRunSummary: {
+            director_job: components["schemas"]["DirectorJob"];
+            /** Format: int64 */
+            step_count: number;
+            totals: components["schemas"]["DirectorRunTotals"];
+        };
+        DirectorRunPage: {
+            data: components["schemas"]["DirectorRunSummary"][];
+            has_more: boolean;
+            next_cursor?: string | null;
+        };
         DirectorRunResponse: {
             director_job: components["schemas"]["DirectorJob"];
             steps: components["schemas"]["DirectorStep"][];
@@ -2091,6 +2122,32 @@ export interface operations {
                 };
             };
             404: components["responses"]["NotFound"];
+        };
+    };
+    listDirectorRuns: {
+        parameters: {
+            query?: {
+                limit?: components["parameters"]["Limit"];
+                cursor?: components["parameters"]["Cursor"];
+                status?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Director run page. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DirectorRunPage"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthorized"];
         };
     };
     getDirectorRun: {

@@ -185,6 +185,11 @@ State requirements:
 
 ## Director Run Recovery API
 
+`GET /v1/director/runs` lists recent org-scoped Director runs with stable cursor
+pagination. Each row includes the durable job envelope, step count, and aggregate
+metering totals so Dashboard/Admin can render a history panel without scanning
+local component state.
+
 `GET /v1/director/runs/:id` returns one org-scoped Director run from the existing
 NextAPI-owned audit tables:
 
@@ -195,9 +200,9 @@ NextAPI-owned audit tables:
 - `director_metering`: per-step usage/cost records created by the existing
   provider, workflow, job, and billing paths.
 
-The endpoint is intentionally read-only and additive. It must not create a
+These endpoints are intentionally read-only and additive. They must not create a
 second task system, a second billing path, or a direct ViMax/Seedance credential
-surface. It exists so Dashboard/Canvas/Admin can recover a run after refresh and
+surface. They exist so Dashboard/Canvas/Admin can recover runs after refresh and
 show evidence from platform records instead of local component state.
 
 The response includes aggregate metering totals so UI and support tools can

@@ -5,10 +5,12 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -57,11 +59,36 @@ type directorRunResponse struct {
 	Totals      directorRunTotals         `json:"totals"`
 }
 
+type directorRunSummary struct {
+	DirectorJob domain.DirectorJob `json:"director_job"`
+	StepCount   int64              `json:"step_count"`
+	Totals      directorRunTotals  `json:"totals"`
+}
+
+type directorRunPage struct {
+	Data       []directorRunSummary `json:"data"`
+	HasMore    bool                 `json:"has_more"`
+	NextCursor *string              `json:"next_cursor,omitempty"`
+}
+
 type directorRunTotals struct {
 	MeteringEvents int   `json:"metering_events"`
 	EstimatedCents int64 `json:"estimated_cents"`
 	ActualCents    int64 `json:"actual_cents"`
 	CreditsDelta   int64 `json:"credits_delta"`
+}
+
+type directorRunStepAggregate struct {
+	DirectorJobID string `gorm:"column:director_job_id"`
+	StepCount     int64  `gorm:"column:step_count"`
+}
+
+type directorRunMeteringAggregate struct {
+	DirectorJobID  string `gorm:"column:director_job_id"`
+	MeteringEvents int64  `gorm:"column:metering_events"`
+	EstimatedCents int64  `gorm:"column:estimated_cents"`
+	ActualCents    int64  `gorm:"column:actual_cents"`
+	CreditsDelta   int64  `gorm:"column:credits_delta"`
 }
 
 func (h *DirectorHandlers) Status(c *gin.Context) {
@@ -76,6 +103,55 @@ func (h *DirectorHandlers) Status(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, status)
+}
+
+func (h *DirectorHandlers) ListRuns(c *gin.Context) {
+	org := auth.OrgFrom(c)
+	if org == nil {
+		c.AbortWithStatus(http.StatusUnauthorized)
+		return
+	}
+	if h.DB == nil {
+		httpx.InternalError(c, "director_runs_unavailable", "failed to list director runs")
+		return
+	}
+	limit := parseDirectorRunLimit(c.DefaultQuery("limit", "20"))
+	cursorTime, cursorID, ok := parseDirectorRunCursor(c.Query("cursor"))
+	if !ok {
+		httpx.BadRequest(c, "invalid_request", "invalid cursor")
+		return
+	}
+	q := h.DB.WithContext(c.Request.Context()).Where("org_id = ?", org.ID)
+	if status := strings.TrimSpace(c.Query("status")); status != "" {
+		q = q.Where("status = ?", status)
+	}
+	if cursorTime != nil {
+		q = q.Where("(updated_at < ?) OR (updated_at = ? AND id < ?)", *cursorTime, *cursorTime, cursorID)
+	}
+	var jobs []domain.DirectorJob
+	if err := q.Order("updated_at DESC, id DESC").Limit(limit + 1).Find(&jobs).Error; err != nil {
+		httpx.InternalError(c, "director_runs_unavailable", "failed to list director runs")
+		return
+	}
+	hasMore := len(jobs) > limit
+	if hasMore {
+		jobs = jobs[:limit]
+	}
+	summaries, err := h.directorRunSummaries(c.Request.Context(), org.ID, jobs)
+	if err != nil {
+		httpx.InternalError(c, "director_runs_unavailable", "failed to list director runs")
+		return
+	}
+	var nextCursor *string
+	if hasMore && len(jobs) > 0 {
+		cursor := directorRunCursor(jobs[len(jobs)-1])
+		nextCursor = &cursor
+	}
+	c.JSON(http.StatusOK, directorRunPage{
+		Data:       summaries,
+		HasMore:    hasMore,
+		NextCursor: nextCursor,
+	})
 }
 
 func (h *DirectorHandlers) GetRun(c *gin.Context) {
@@ -130,6 +206,88 @@ func (h *DirectorHandlers) GetRun(c *gin.Context) {
 		Metering:    metering,
 		Totals:      totals,
 	})
+}
+
+func (h *DirectorHandlers) directorRunSummaries(ctx context.Context, orgID string, jobs []domain.DirectorJob) ([]directorRunSummary, error) {
+	summaries := make([]directorRunSummary, 0, len(jobs))
+	if len(jobs) == 0 {
+		return summaries, nil
+	}
+	ids := make([]string, 0, len(jobs))
+	for _, job := range jobs {
+		ids = append(ids, job.ID)
+	}
+	stepCounts := map[string]int64{}
+	var stepRows []directorRunStepAggregate
+	if err := h.DB.WithContext(ctx).
+		Model(&domain.DirectorStep{}).
+		Select("director_job_id, COUNT(*) AS step_count").
+		Where("org_id = ? AND director_job_id IN ?", orgID, ids).
+		Group("director_job_id").
+		Scan(&stepRows).Error; err != nil {
+		return nil, err
+	}
+	for _, row := range stepRows {
+		stepCounts[row.DirectorJobID] = row.StepCount
+	}
+	totalsByJob := map[string]directorRunTotals{}
+	var meteringRows []directorRunMeteringAggregate
+	if err := h.DB.WithContext(ctx).
+		Model(&domain.DirectorMetering{}).
+		Select("director_job_id, COUNT(*) AS metering_events, COALESCE(SUM(estimated_cents), 0) AS estimated_cents, COALESCE(SUM(actual_cents), 0) AS actual_cents, COALESCE(SUM(credits_delta), 0) AS credits_delta").
+		Where("org_id = ? AND director_job_id IN ?", orgID, ids).
+		Group("director_job_id").
+		Scan(&meteringRows).Error; err != nil {
+		return nil, err
+	}
+	for _, row := range meteringRows {
+		totalsByJob[row.DirectorJobID] = directorRunTotals{
+			MeteringEvents: int(row.MeteringEvents),
+			EstimatedCents: row.EstimatedCents,
+			ActualCents:    row.ActualCents,
+			CreditsDelta:   row.CreditsDelta,
+		}
+	}
+	for _, job := range jobs {
+		summaries = append(summaries, directorRunSummary{
+			DirectorJob: job,
+			StepCount:   stepCounts[job.ID],
+			Totals:      totalsByJob[job.ID],
+		})
+	}
+	return summaries, nil
+}
+
+func parseDirectorRunLimit(raw string) int {
+	limit, err := strconv.Atoi(raw)
+	if err != nil || limit <= 0 || limit > 100 {
+		return 20
+	}
+	return limit
+}
+
+func parseDirectorRunCursor(raw string) (*time.Time, string, bool) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return nil, "", true
+	}
+	parts := strings.SplitN(raw, ".", 2)
+	if len(parts) != 2 {
+		return nil, "", false
+	}
+	nanos, err := strconv.ParseInt(parts[0], 10, 64)
+	if err != nil || nanos <= 0 {
+		return nil, "", false
+	}
+	if _, err := uuid.Parse(parts[1]); err != nil {
+		return nil, "", false
+	}
+	tm := time.Unix(0, nanos).UTC()
+	return &tm, parts[1], true
+}
+
+func directorRunCursor(job domain.DirectorJob) string {
+	return fmt.Sprintf("%d.%s", job.UpdatedAt.UTC().UnixNano(), job.ID)
 }
 
 func (h *DirectorHandlers) GenerateShots(c *gin.Context) {

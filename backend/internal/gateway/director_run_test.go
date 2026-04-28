@@ -14,6 +14,173 @@ import (
 	"gorm.io/gorm"
 )
 
+func TestDirectorListRunsReturnsPagedOrgScopedSummaries(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	db := setupDirectorRunDB(t)
+	orgID := "10101010-1010-1010-1010-101010101010"
+	now := time.Date(2026, 4, 29, 9, 0, 0, 0, time.UTC)
+	newestID := "11111111-1111-1111-1111-111111111111"
+	middleID := "22222222-2222-2222-2222-222222222222"
+	oldestID := "33333333-3333-3333-3333-333333333333"
+	otherOrgID := "40404040-4040-4040-4040-404040404040"
+	if err := db.Create(&[]domain.DirectorJob{
+		{
+			ID:                   newestID,
+			OrgID:                orgID,
+			Title:                "Newest",
+			Status:               "running",
+			EngineUsed:           "advanced_sidecar",
+			SelectedCharacterIDs: json.RawMessage(`[]`),
+			BudgetSnapshot:       json.RawMessage(`{"shot_count":2}`),
+			PlanSnapshot:         json.RawMessage(`{}`),
+			CreatedAt:            now.Add(-10 * time.Minute),
+			UpdatedAt:            now,
+		},
+		{
+			ID:                   middleID,
+			OrgID:                orgID,
+			Title:                "Middle",
+			Status:               "workflow_ready",
+			EngineUsed:           "advanced_fallback",
+			SelectedCharacterIDs: json.RawMessage(`[]`),
+			BudgetSnapshot:       json.RawMessage(`{"shot_count":1}`),
+			PlanSnapshot:         json.RawMessage(`{}`),
+			CreatedAt:            now.Add(-20 * time.Minute),
+			UpdatedAt:            now.Add(-1 * time.Minute),
+		},
+		{
+			ID:                   oldestID,
+			OrgID:                orgID,
+			Title:                "Oldest",
+			Status:               "failed",
+			EngineUsed:           "nextapi",
+			SelectedCharacterIDs: json.RawMessage(`[]`),
+			BudgetSnapshot:       json.RawMessage(`{}`),
+			PlanSnapshot:         json.RawMessage(`{}`),
+			CreatedAt:            now.Add(-30 * time.Minute),
+			UpdatedAt:            now.Add(-2 * time.Minute),
+		},
+		{
+			ID:                   otherOrgID,
+			OrgID:                "50505050-5050-5050-5050-505050505050",
+			Title:                "Other org",
+			Status:               "running",
+			EngineUsed:           "advanced_sidecar",
+			SelectedCharacterIDs: json.RawMessage(`[]`),
+			BudgetSnapshot:       json.RawMessage(`{}`),
+			PlanSnapshot:         json.RawMessage(`{}`),
+			CreatedAt:            now,
+			UpdatedAt:            now.Add(time.Minute),
+		},
+	}).Error; err != nil {
+		t.Fatalf("create director jobs: %v", err)
+	}
+	if err := db.Create(&[]domain.DirectorStep{
+		{
+			ID:             "66666666-6666-6666-6666-666666666661",
+			DirectorJobID:  newestID,
+			OrgID:          orgID,
+			StepKey:        "storyboard",
+			Status:         "succeeded",
+			InputSnapshot:  json.RawMessage(`{}`),
+			OutputSnapshot: json.RawMessage(`{}`),
+		},
+		{
+			ID:             "66666666-6666-6666-6666-666666666662",
+			DirectorJobID:  newestID,
+			OrgID:          orgID,
+			StepKey:        "video_submit",
+			Status:         "running",
+			InputSnapshot:  json.RawMessage(`{}`),
+			OutputSnapshot: json.RawMessage(`{}`),
+		},
+		{
+			ID:             "66666666-6666-6666-6666-666666666663",
+			DirectorJobID:  middleID,
+			OrgID:          orgID,
+			StepKey:        "storyboard",
+			Status:         "succeeded",
+			InputSnapshot:  json.RawMessage(`{}`),
+			OutputSnapshot: json.RawMessage(`{}`),
+		},
+	}).Error; err != nil {
+		t.Fatalf("create director steps: %v", err)
+	}
+	if err := db.Create(&[]domain.DirectorMetering{
+		{
+			OrgID:          orgID,
+			DirectorJobID:  &newestID,
+			MeterType:      "storyboard",
+			Units:          1,
+			EstimatedCents: 50,
+			ActualCents:    40,
+			CreditsDelta:   -50,
+			Status:         "recorded",
+			UsageJSON:      json.RawMessage(`{}`),
+			CreatedAt:      now,
+		},
+		{
+			OrgID:          orgID,
+			DirectorJobID:  &newestID,
+			MeterType:      "video_generation",
+			Units:          1,
+			EstimatedCents: 100,
+			ActualCents:    80,
+			CreditsDelta:   -100,
+			Status:         "reserved",
+			UsageJSON:      json.RawMessage(`{}`),
+			CreatedAt:      now,
+		},
+	}).Error; err != nil {
+		t.Fatalf("create director metering: %v", err)
+	}
+	h := &DirectorHandlers{DB: db}
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodGet, "/v1/director/runs?limit=2", nil)
+	auth.SetOrg(c, &domain.Org{ID: orgID})
+
+	h.ListRuns(c)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	var page directorRunPage
+	if err := json.NewDecoder(w.Body).Decode(&page); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if len(page.Data) != 2 || !page.HasMore || page.NextCursor == nil {
+		t.Fatalf("unexpected first page: %#v", page)
+	}
+	if page.Data[0].DirectorJob.ID != newestID || page.Data[1].DirectorJob.ID != middleID {
+		t.Fatalf("unexpected ordering: %#v", page.Data)
+	}
+	if page.Data[0].StepCount != 2 {
+		t.Fatalf("expected newest step count 2, got %d", page.Data[0].StepCount)
+	}
+	if page.Data[0].Totals.MeteringEvents != 2 || page.Data[0].Totals.EstimatedCents != 150 || page.Data[0].Totals.ActualCents != 120 || page.Data[0].Totals.CreditsDelta != -150 {
+		t.Fatalf("unexpected newest totals: %#v", page.Data[0].Totals)
+	}
+
+	w = httptest.NewRecorder()
+	c, _ = gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodGet, "/v1/director/runs?limit=2&cursor="+*page.NextCursor, nil)
+	auth.SetOrg(c, &domain.Org{ID: orgID})
+
+	h.ListRuns(c)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	var secondPage directorRunPage
+	if err := json.NewDecoder(w.Body).Decode(&secondPage); err != nil {
+		t.Fatalf("decode second response: %v", err)
+	}
+	if len(secondPage.Data) != 1 || secondPage.HasMore || secondPage.Data[0].DirectorJob.ID != oldestID {
+		t.Fatalf("unexpected second page: %#v", secondPage)
+	}
+}
+
 func TestDirectorGetRunReturnsOrgScopedAuditTrail(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	db := setupDirectorRunDB(t)
