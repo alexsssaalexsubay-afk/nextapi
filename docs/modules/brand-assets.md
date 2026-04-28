@@ -13,6 +13,9 @@ and shared asset package.
   same master PNG.
 - Dashboard and admin metadata should prefer PNG icons from public assets rather
   than an older standalone SVG mark.
+- The mark should stay simple enough for favicon use: one N-like silhouette, one
+  play/routing accent, and one node accent at most. Avoid film perforations,
+  multiple connector arms, or layered storyboard symbolism in the app icon.
 
 ## Verification
 
