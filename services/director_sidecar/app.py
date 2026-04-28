@@ -54,8 +54,12 @@ app = FastAPI(title="NextAPI Director Runtime", version="0.1.0")
 
 
 @app.get("/health")
-async def health() -> dict[str, str]:
-    return {"status": "ok"}
+async def health(x_director_sidecar_token: str | None = Header(default=None)) -> dict[str, object]:
+    _require_sidecar_token(x_director_sidecar_token)
+    try:
+        return ManagedDirectorBridge(_repo_root()).healthcheck()
+    except PipelineUnavailable as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
 
 
 @app.post("/v1/director/storyboard")

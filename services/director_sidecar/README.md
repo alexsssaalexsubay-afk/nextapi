@@ -26,5 +26,13 @@ Backend env:
 ```bash
 export VIMAX_RUNTIME_URL="http://127.0.0.1:8091"
 export DIRECTOR_RUNTIME_TOKEN="dev-runtime-token"
+export DIRECTOR_SIDECAR_TOKEN="dev-sidecar-token"
 export DIRECTOR_RUNTIME_CALLBACK_URL="http://127.0.0.1:8080/v1/internal/director-runtime"
 ```
+
+Production:
+
+- `docker-compose.prod.yml` runs `director-sidecar` from `services/director_sidecar/Dockerfile`.
+- Backend talks to it through `http://director-sidecar:8091`.
+- Sidecar calls back into backend through `http://backend:8080/v1/internal/director-runtime`.
+- `/health` loads the vendored director modules before returning healthy, so production will not silently mark the advanced engine ready when the runtime dependencies are missing.

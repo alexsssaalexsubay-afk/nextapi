@@ -19,6 +19,15 @@ class ManagedDirectorBridge:
         self.repo_root = repo_root
         self.vendor_root = repo_root / "third_party" / "vimax"
 
+    def healthcheck(self) -> dict[str, Any]:
+        components = self._load_components()
+        return {
+            "status": "ok",
+            "runtime": "advanced_sidecar",
+            "source": "vendored_director_pipeline",
+            "components": sorted(components.keys()),
+        }
+
     async def run(self, request: Any) -> dict[str, Any]:
         if not request.policy.no_external_keys:
             raise PipelineUnavailable("external keys are not allowed")

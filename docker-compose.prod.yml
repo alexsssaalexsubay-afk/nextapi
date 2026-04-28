@@ -3,12 +3,17 @@ services:
     image: ghcr.io/alexsssaalexsubay-afk/nextapi-backend:${IMAGE_TAG:-main}
     restart: unless-stopped
     env_file: .env
+    environment:
+      VIMAX_RUNTIME_URL: http://director-sidecar:8091
+      DIRECTOR_RUNTIME_CALLBACK_URL: http://backend:8080/v1/internal/director-runtime
     command: ["/app/server"]
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+      director-sidecar:
+        condition: service_started
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:8080/health"]
       interval: 10s
@@ -27,6 +32,27 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+
+  director-sidecar:
+    build:
+      context: .
+      dockerfile: services/director_sidecar/Dockerfile
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      NEXTAPI_REPO_ROOT: /app
+      DIRECTOR_RUNTIME_CALLBACK_URL: http://backend:8080/v1/internal/director-runtime
+    expose:
+      - "8091"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "python -c \"import os, urllib.request; req=urllib.request.Request('http://127.0.0.1:8091/health', headers={'X-Director-Sidecar-Token': os.environ.get('DIRECTOR_SIDECAR_TOKEN','')}); urllib.request.urlopen(req, timeout=3).read()\"",
+        ]
+      interval: 10s
+      timeout: 3s
+      retries: 10
 
   postgres:
     image: postgres:16-alpine
