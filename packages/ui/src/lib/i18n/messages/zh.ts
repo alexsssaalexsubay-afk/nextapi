@@ -801,6 +801,7 @@ export const zh: Messages = {
     pipelineReferences: "参考图",
     pipelineWorkflow: "工作流",
     pipelineCanvas: "Canvas",
+    quickPresets: "快速预设",
     presetShortDrama: "短剧预设",
     presetShortDramaStory: "一位被背叛的创始人发现隐藏 AI 实验室，必须在投资人离开前证明原型可用。",
     presetEcommerce: "电商发布预设",

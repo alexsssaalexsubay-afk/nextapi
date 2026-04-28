@@ -272,13 +272,13 @@ export default function DirectorPage() {
 
   return (
     <DashboardShell activeHref="/director">
-      <div className="space-y-4 p-4 sm:p-5">
-        <section className="premium-surface relative overflow-hidden rounded-[22px] p-3 sm:p-4">
+      <div className="space-y-3 p-3 sm:p-4">
+        <section className="premium-surface relative overflow-hidden rounded-[20px] p-2.5 sm:p-3">
           <div aria-hidden className="pointer-events-none absolute -right-20 -top-32 h-44 w-64 rounded-full bg-fuchsia-500/14 blur-3xl" />
           <div aria-hidden className="pointer-events-none absolute -bottom-28 left-1/2 h-40 w-80 rounded-full bg-cyan-400/10 blur-3xl" />
           <div className="relative flex flex-wrap items-center justify-between gap-3">
-            <div className="flex min-w-[260px] flex-1 items-center gap-3">
-              <span className="grid size-10 shrink-0 place-items-center rounded-2xl border border-signal/20 bg-signal/10 text-signal shadow-sm backdrop-blur-md">
+            <div className="flex min-w-[240px] flex-1 items-center gap-2.5">
+              <span className="grid size-9 shrink-0 place-items-center rounded-2xl border border-signal/20 bg-signal/10 text-signal shadow-sm backdrop-blur-md">
                 <Sparkles className="size-4" />
               </span>
               <div className="min-w-0">
@@ -289,15 +289,17 @@ export default function DirectorPage() {
                   {labels.eyebrow}
                 </span>
                 </div>
-                <p className="mt-1 max-w-4xl truncate text-[12.5px] text-muted-foreground">
+                <p className="mt-0.5 max-w-4xl truncate text-[12px] text-muted-foreground">
                   {labels.primaryPromise}
                 </p>
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <CompactMetric label={labels.estimatedShots} value={`${shotCount}`} compact />
-              <CompactMetric label={labels.totalRuntime} value={`${totalDuration}s`} compact />
-              <CompactMetric label={labels.estimatedBudget} value={estimatedBudget} compact />
+              <div className="hidden flex-wrap items-center gap-2 md:flex">
+                <CompactMetric label={labels.estimatedShots} value={`${shotCount}`} compact />
+                <CompactMetric label={labels.totalRuntime} value={`${totalDuration}s`} compact />
+                <CompactMetric label={labels.estimatedBudget} value={estimatedBudget} compact />
+              </div>
               <button
                 type="button"
                 onClick={() => setHeroExpanded((value) => !value)}
@@ -310,9 +312,9 @@ export default function DirectorPage() {
             </div>
           </div>
           {heroExpanded && (
-            <div className="relative mt-3 grid gap-3 rounded-2xl border border-white/12 bg-background/50 p-3 shadow-sm backdrop-blur-md lg:grid-cols-[minmax(0,0.8fr)_minmax(280px,1fr)]">
+            <div className="relative mt-2 grid gap-3 rounded-2xl border border-white/12 bg-background/50 p-3 shadow-sm backdrop-blur-md lg:grid-cols-[minmax(0,0.7fr)_minmax(280px,1fr)]">
               <div>
-                <h2 className="text-xl font-semibold tracking-tight text-foreground">{labels.primaryPromise}</h2>
+                <h2 className="text-base font-semibold tracking-tight text-foreground">{labels.primaryPromise}</h2>
                 <p className="mt-1 max-w-3xl text-[12.5px] leading-relaxed text-muted-foreground">{labels.storyHint}</p>
               </div>
               <div>
@@ -333,22 +335,28 @@ export default function DirectorPage() {
           )}
         </section>
 
-        <div className="grid gap-6 xl:grid-cols-[minmax(330px,0.82fr)_minmax(0,1.4fr)_340px]">
-          <section className="premium-surface space-y-5 rounded-[28px] p-5">
+        <div className="grid gap-4 xl:grid-cols-[minmax(320px,0.72fr)_minmax(0,1.55fr)_320px]">
+          <section className="premium-surface space-y-4 rounded-[24px] p-4">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-signal">{labels.stepStory}</p>
-                <h2 className="mt-2 text-xl font-medium tracking-tight">{labels.briefTitle}</h2>
-                <p className="mt-1 text-[12.5px] leading-relaxed text-muted-foreground">{labels.briefSubtitle}</p>
+                <h2 className="mt-1 text-lg font-medium tracking-tight">{labels.briefTitle}</h2>
+                <p className="mt-1 text-[12px] leading-relaxed text-muted-foreground">{labels.briefSubtitle}</p>
               </div>
               <Clapperboard className="size-5 text-signal" />
             </div>
 
-            <div className="grid gap-2">
-              <PresetButton label={labels.presetShortDrama} onClick={() => usePreset(labels.presetShortDramaStory, "short drama", "cinematic realistic")} />
-              <PresetButton label={labels.presetEcommerce} onClick={() => usePreset(labels.presetEcommerceStory, "ecommerce", "premium commercial")} />
-              <PresetButton label={labels.presetTalkingCreator} onClick={() => usePreset(labels.presetTalkingCreatorStory, "talking creator", "clean studio")} />
-            </div>
+            <details className="group rounded-2xl border border-white/12 bg-background/42 p-2.5 shadow-sm backdrop-blur-md">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-[12px] font-medium text-muted-foreground transition hover:text-foreground">
+                <span>{labels.quickPresets}</span>
+                <ChevronDown className="size-3.5 transition group-open:rotate-180" />
+              </summary>
+              <div className="mt-2 grid gap-2">
+                <PresetButton label={labels.presetShortDrama} onClick={() => usePreset(labels.presetShortDramaStory, "short drama", "cinematic realistic")} />
+                <PresetButton label={labels.presetEcommerce} onClick={() => usePreset(labels.presetEcommerceStory, "ecommerce", "premium commercial")} />
+                <PresetButton label={labels.presetTalkingCreator} onClick={() => usePreset(labels.presetTalkingCreatorStory, "talking creator", "clean studio")} />
+              </div>
+            </details>
 
             <CharacterMemoryPicker
               labels={labels}
@@ -371,14 +379,14 @@ export default function DirectorPage() {
             <label className="flex flex-col gap-2 text-xs text-muted-foreground">
               {labels.story}
               <textarea
-                className="min-h-52 rounded-3xl border border-white/12 bg-background/55 px-4 py-3 text-sm leading-relaxed text-foreground shadow-inner backdrop-blur-md placeholder:text-muted-foreground/55 focus:border-signal/45 focus:outline-none"
+                className="min-h-36 rounded-3xl border border-white/12 bg-background/55 px-4 py-3 text-sm leading-relaxed text-foreground shadow-inner backdrop-blur-md placeholder:text-muted-foreground/55 focus:border-signal/45 focus:outline-none"
                 value={story}
                 onChange={(e) => setStory(e.target.value)}
                 placeholder={labels.storyPlaceholder}
               />
             </label>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-2.5">
               <Field label={labels.genre} value={genre} onChange={setGenre} />
               <Field label={labels.style} value={style} onChange={setStyle} />
               <ShotCountStepper label={labels.shots} decreaseLabel={labels.decreaseShots} increaseLabel={labels.increaseShots} value={shotCount} min={1} max={12} onChange={setShotCount} />
@@ -395,6 +403,8 @@ export default function DirectorPage() {
               category="video"
               helper={modelCatalogBlocked ? labels.modelCatalogUnavailable : labels.modelCatalogHint}
               availableModelIds={videoCatalog.modelIds}
+              dropdownMode="inline"
+              dense
               statusLabels={{
                 live: labels.online,
                 configured: labels.configured,
@@ -412,11 +422,11 @@ export default function DirectorPage() {
               }}
             />
 
-            <div className="rounded-3xl border border-white/12 bg-background/50 p-3 shadow-sm backdrop-blur-md">
+            <div className="rounded-3xl border border-white/12 bg-background/50 p-2.5 shadow-sm backdrop-blur-md">
               <button
                 disabled={loading || blocked || story.trim() === ""}
                 onClick={() => void generateDirectorWorkflow()}
-                className="premium-button inline-flex h-11 w-full items-center justify-center gap-2 rounded-full border border-white/20 px-4 text-sm font-semibold text-white disabled:opacity-50"
+                className="premium-button inline-flex h-10 w-full items-center justify-center gap-2 rounded-full border border-white/20 px-4 text-sm font-semibold text-white disabled:opacity-50"
               >
                 {busyStage === "director" ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
                 {busyStage === "director" ? labels.working : `${labels.generateDirectorWorkflow} · ${estimatedBudget}`}
@@ -437,12 +447,12 @@ export default function DirectorPage() {
             </div>
           </section>
 
-          <section className="premium-surface min-h-[680px] overflow-hidden rounded-[28px]">
-            <div className="border-b border-white/10 bg-background/30 px-5 py-4 backdrop-blur-sm">
+          <section className="premium-surface min-h-[560px] overflow-hidden rounded-[24px]">
+            <div className="border-b border-white/10 bg-background/30 px-4 py-3 backdrop-blur-sm">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-signal">{labels.editShots}</p>
-                  <h2 className="mt-2 text-xl font-medium tracking-tight">{labels.shotTimeline}</h2>
+                  <h2 className="mt-1 text-lg font-medium tracking-tight">{labels.shotTimeline}</h2>
                   <p className="mt-1 max-w-2xl text-[12.5px] leading-relaxed text-muted-foreground">
                     {storyboard?.summary ?? labels.shotTimelineSubtitle}
                   </p>
@@ -470,7 +480,7 @@ export default function DirectorPage() {
               </div>
             </div>
 
-            <div className="space-y-4 p-5">
+            <div className="space-y-3 p-4">
               {workflowID && <WorkflowReadyCard workflowID={workflowID} run={workflowRun} labels={labels} />}
               {storyboard ? (
                 storyboard.shots.map((shot, index) => (
@@ -533,9 +543,9 @@ function CharacterMemoryPicker({
 }) {
   const visible = characters.slice(0, 6)
   return (
-    <section className="rounded-3xl border border-white/12 bg-background/45 p-3 shadow-sm backdrop-blur-md">
+    <section className="rounded-2xl border border-white/12 bg-background/45 p-2.5 shadow-sm backdrop-blur-md">
       <div className="flex items-start gap-3">
-        <div className="grid size-9 shrink-0 place-items-center rounded-2xl border border-signal/20 bg-signal/10 text-signal">
+        <div className="grid size-8 shrink-0 place-items-center rounded-2xl border border-signal/20 bg-signal/10 text-signal">
           <UsersRound className="size-4" />
         </div>
         <div className="min-w-0">
@@ -547,7 +557,7 @@ function CharacterMemoryPicker({
               </span>
             ) : null}
           </div>
-          <p className="mt-1 text-[11.5px] leading-relaxed text-muted-foreground">
+          <p className="mt-0.5 text-[11px] leading-relaxed text-muted-foreground">
             {characters.length > 0 ? labels.characterMemorySubtitle : labels.characterMemoryEmpty}
           </p>
         </div>
@@ -679,12 +689,12 @@ function RunSummary({ run, labels }: { run: WorkflowRunResult; labels: ReturnTyp
 function EmptyStoryboard({ labels }: { labels: ReturnType<typeof useTranslations>["directorPage"] }) {
   const steps = [labels.emptyStepBrief, labels.emptyStepGenerate, labels.emptyStepCanvas]
   return (
-    <div className="grid min-h-[500px] place-items-center rounded-[28px] border border-dashed border-white/14 bg-background/35 px-6 py-10 text-center">
+    <div className="grid min-h-[380px] place-items-center rounded-[24px] border border-dashed border-white/14 bg-background/35 px-6 py-8 text-center">
       <div className="max-w-md">
-        <div className="mx-auto flex size-14 items-center justify-center rounded-3xl border border-white/12 bg-card/65 text-signal shadow-sm backdrop-blur-md">
-          <Sparkles className="size-6" />
+        <div className="mx-auto flex size-12 items-center justify-center rounded-3xl border border-white/12 bg-card/65 text-signal shadow-sm backdrop-blur-md">
+          <Sparkles className="size-5" />
         </div>
-        <h3 className="mt-5 text-lg font-medium">{labels.emptyTitle}</h3>
+        <h3 className="mt-4 text-base font-medium">{labels.emptyTitle}</h3>
         <p className="mt-2 text-[13px] leading-relaxed text-muted-foreground">{labels.emptyBody}</p>
         <div className="mt-6 grid gap-2 text-left">
           {steps.map((step, index) => (
@@ -702,8 +712,8 @@ function EmptyStoryboard({ labels }: { labels: ReturnType<typeof useTranslations
 function ShotCard({ shot, index, labels, onChange }: { shot: DirectorShot; index: number; labels: ReturnType<typeof useTranslations>["directorPage"]; onChange: (patch: Partial<DirectorShot>) => void }) {
   const shotNumber = shot.shotIndex || index + 1
   return (
-    <article className="group rounded-[28px] border border-white/10 bg-background/42 p-4 shadow-sm backdrop-blur-md transition-all hover:border-signal/25 hover:bg-background/55">
-      <div className="grid gap-4 lg:grid-cols-[180px_minmax(0,1fr)]">
+    <article className="group rounded-[24px] border border-white/10 bg-background/42 p-3.5 shadow-sm backdrop-blur-md transition-all hover:border-signal/25 hover:bg-background/55">
+      <div className="grid gap-3 lg:grid-cols-[150px_minmax(0,1fr)]">
         <div className="overflow-hidden rounded-3xl border border-white/10 bg-card/55">
           {shot.referenceImageUrl ? (
             <img src={shot.referenceImageUrl} alt={shot.title} className="aspect-[4/5] w-full object-cover" />

@@ -812,6 +812,7 @@ export const en = {
     pipelineReferences: "References",
     pipelineWorkflow: "Workflow",
     pipelineCanvas: "Canvas",
+    quickPresets: "Quick presets",
     presetShortDrama: "Short drama preset",
     presetShortDramaStory: "A betrayed founder discovers a hidden AI lab and has one minute to prove the prototype works before investors leave.",
     presetEcommerce: "Ecommerce launch preset",

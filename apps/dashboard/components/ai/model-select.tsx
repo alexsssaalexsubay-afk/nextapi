@@ -54,6 +54,8 @@ export function ModelSelect({
   includeDisabled = false,
   availableModelIds,
   statusLabels,
+  dropdownMode = "popover",
+  dense = false,
 }: {
   label?: string
   value: string
@@ -63,6 +65,8 @@ export function ModelSelect({
   includeDisabled?: boolean
   availableModelIds?: string[]
   statusLabels?: ModelSelectStatusLabels
+  dropdownMode?: "popover" | "inline"
+  dense?: boolean
 }) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState("")
@@ -116,6 +120,13 @@ export function ModelSelect({
 
   if (!selected) return null
 
+  const dropdownClassName = cn(
+    "overflow-y-auto overscroll-contain rounded-2xl border border-white/12 bg-popover/96 p-2 text-popover-foreground shadow-[0_24px_80px_-45px_rgba(79,70,229,0.45)] backdrop-blur-2xl scroll-thin",
+    dropdownMode === "inline"
+      ? "relative mt-2 max-h-64 w-full"
+      : "absolute left-0 top-full z-[80] mt-2 max-h-[min(22rem,60vh)] w-full min-w-[18rem] max-w-[calc(100vw-2rem)] sm:min-w-[24rem]",
+  )
+
   return (
     <div ref={rootRef} className="relative min-w-0">
       {label && <div className="mb-1 text-[11px] text-muted-foreground">{label}</div>}
@@ -124,11 +135,12 @@ export function ModelSelect({
         onClick={() => setOpen((value) => !value)}
         aria-expanded={open}
         className={cn(
-          "flex h-10 w-full items-center gap-2 rounded-2xl border border-border/80 bg-background px-2.5 text-left text-[13px] shadow-sm transition hover:border-signal/40",
+          "flex w-full items-center gap-2 rounded-2xl border border-border/80 bg-background px-2.5 text-left text-[13px] shadow-sm transition hover:border-signal/40",
+          dense ? "h-9" : "h-10",
           open && "border-signal/45 ring-4 ring-signal/10",
         )}
       >
-        <ProviderLogo item={selected} className="size-8 rounded-xl" />
+        <ProviderLogo item={selected} className={cn("rounded-xl", dense ? "size-7" : "size-8")} />
         <span className="min-w-0 flex-1">
           <span className="block truncate font-medium text-foreground">{selected.name}</span>
           <span className="block truncate text-[11px] text-muted-foreground">
@@ -139,7 +151,7 @@ export function ModelSelect({
       </button>
       {helper && <div className="mt-1 text-[11px] leading-relaxed text-muted-foreground">{helper}</div>}
       {open && (
-        <div className="absolute left-0 top-full z-[80] mt-2 max-h-[min(22rem,60vh)] w-full min-w-[18rem] max-w-[calc(100vw-2rem)] overflow-y-auto overscroll-contain rounded-2xl border border-white/12 bg-popover/96 p-2 text-popover-foreground shadow-[0_24px_80px_-45px_rgba(79,70,229,0.45)] backdrop-blur-2xl sm:min-w-[24rem]">
+        <div className={dropdownClassName}>
           {items.length > 4 && (
             <label className="mb-2 flex h-9 items-center gap-2 rounded-xl border border-border/70 bg-background/70 px-2.5 text-[12px] text-muted-foreground">
               <Search className="size-3.5" />
