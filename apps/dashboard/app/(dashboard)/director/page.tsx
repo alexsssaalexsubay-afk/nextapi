@@ -338,7 +338,7 @@ export default function DirectorPage() {
   const selectedCharacters = characters.filter((character) => selectedCharacterSet.has(character.id))
 
   return (
-    <DashboardShell activeHref="/director" title={labels.title} description={labels.eyebrow} workspace>
+    <DashboardShell activeHref="/director" title={labels.title} description={labels.eyebrow} immersive>
       <div className="p-0">
         <section className="overflow-hidden bg-background">
           <div className="grid min-h-[calc(100vh-2.75rem)] gap-2 bg-background p-2 lg:grid-cols-[64px_minmax(0,1fr)]">

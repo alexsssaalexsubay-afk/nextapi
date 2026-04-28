@@ -157,7 +157,8 @@ Layout:
 The Canvas page should behave like a creation workbench. Avoid a permanent
 right inspector column or large top explanation band in the first viewport; keep
 the editable canvas as the primary surface and let parameters follow the active
-node.
+node. It uses the dashboard immersive shell, so the global navigation rail is
+hidden while the Canvas-local tool rail remains available.
 
 The page uses the existing dashboard `apiFetch`, existing asset library endpoint, and existing video polling endpoint.
 

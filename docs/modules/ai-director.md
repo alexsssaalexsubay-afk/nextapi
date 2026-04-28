@@ -36,6 +36,8 @@ billing, throughput, moderation, and webhook paths.
   shot/workflow cards get the first viewport.
 - Top chrome must stay compact: no large hero copy, no persistent explanation
   bands, and no dashboard summary blocks above the working surface.
+- Director uses the dashboard immersive shell: the global navigation rail and
+  search bar are hidden so only Director-local tools compete with the canvas.
 - Prompt, model, and generation parameters belong with the active card or the
   composer below the canvas, so users can keep context while editing.
 - Runtime readiness, engine evidence, memory bindings, and closed-loop proof are
