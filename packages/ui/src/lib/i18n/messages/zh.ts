@@ -1492,7 +1492,7 @@ export const zh: Messages = {
   library: {
     title: "素材库",
     subtitle:
-      "永久保存你常用的参考图片。视频与音频请在任务创建页使用临时上传，不会进入永久素材库。",
+      "沉淀可复用参考图，也展示 Director 生成后的最终视频/音频资产。手动永久上传仍仅支持图片。",
     uploadButton: "上传图片",
     uploading: "上传中…",
     uploadSuccess: "已上传。",
@@ -1500,7 +1500,7 @@ export const zh: Messages = {
     libraryFull: "素材库已满，请删除不再使用的项目以腾出空间。",
     unsupportedKind: "永久素材库仅支持图片；视频和音频请在任务创建页临时上传。",
     dragHint: "把图片拖到这里即可加入素材库",
-    dragSubhint: "图片 ≤ 30 MB · 视频/音频请在任务创建页临时上传",
+    dragSubhint: "图片 ≤ 30 MB · Director 合成后的最终视频会自动出现在这里",
     filters: {
       all: "全部",
       image: "图片",
@@ -1510,7 +1510,7 @@ export const zh: Messages = {
     loading: "正在载入素材库…",
     loadFailed: "无法加载素材库。",
     emptyTitle: "素材库还是空的",
-    emptyHint: "上传一张参考图，它会出现在这里。",
+    emptyHint: "上传参考图，或完成一次 Director 合成后，这里会出现资产。",
     delete: "删除",
     confirmDelete: "确认从素材库删除「{name}」吗？",
     deleted: "已删除。",

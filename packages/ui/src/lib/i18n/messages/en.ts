@@ -1509,7 +1509,7 @@ export const en = {
   library: {
     title: "Asset library",
     subtitle:
-      "Reusable reference images for your generations. Use temporary upload on the task creation page for video and audio.",
+      "Reusable reference images plus generated Director video/audio outputs. Manual permanent upload is still image-only.",
     uploadButton: "Upload image",
     uploading: "Uploading…",
     uploadSuccess: "Uploaded.",
@@ -1517,7 +1517,7 @@ export const en = {
     libraryFull: "Library is full. Delete unused items to free space.",
     unsupportedKind: "The permanent library only supports images. Use temporary upload for video and audio.",
     dragHint: "Drop an image here to add it to your library",
-    dragSubhint: "Images up to 30 MB · Upload video/audio temporarily from the task creation page",
+    dragSubhint: "Images up to 30 MB · Director final videos appear here after merge",
     filters: {
       all: "All",
       image: "Images",
@@ -1527,7 +1527,7 @@ export const en = {
     loading: "Loading library…",
     loadFailed: "Failed to load asset library.",
     emptyTitle: "No assets yet",
-    emptyHint: "Upload a reference image and it'll appear here.",
+    emptyHint: "Upload a reference image or finish a Director merge to see assets here.",
     delete: "Delete",
     confirmDelete: "Delete \"{name}\" from your asset library?",
     deleted: "Deleted.",

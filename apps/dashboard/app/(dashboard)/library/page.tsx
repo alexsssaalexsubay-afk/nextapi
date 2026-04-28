@@ -78,7 +78,7 @@ export default function AssetLibraryPage() {
     setLoading(true)
     setLoadError(null)
     try {
-      const res = (await apiFetch("/v1/me/library/assets")) as ListResponse
+      const res = (await apiFetch("/v1/me/library/assets?kind=all")) as ListResponse
       setAssets(res?.assets ?? [])
     } catch (e) {
       const msg =
