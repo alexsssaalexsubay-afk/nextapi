@@ -6,6 +6,7 @@ import { toast } from "sonner"
 import { apiFetch, ApiError } from "@/lib/api"
 import { getBatchRun, listCharacters, listTemplates, runTemplate, runTemplateBatch, type BatchRunDetail, type CharacterRecord, type TemplateInputField, type TemplateRecord } from "@/lib/workflows"
 import { useTranslations } from "@/lib/i18n/context"
+import { useVideoModelCatalog } from "@/lib/use-video-model-catalog"
 import { cn } from "@/lib/utils"
 
 type TemplateKind = "short_drama" | "ecommerce" | "talking_creator"
@@ -18,9 +19,21 @@ type CurrentVideo = {
 }
 
 const ACTIVE_STATUSES = new Set(["queued", "submitting", "running", "retrying"])
+const DEFAULT_TEMPLATE_MODEL = "seedance-2.0-pro"
+const DEFAULT_RESOLUTIONS = ["480p", "720p", "1080p"]
+const DEFAULT_RATIOS = ["9:16", "16:9", "1:1"]
+
+type TemplateRuntimeConstraints = {
+  durationMin: number
+  durationMax: number
+  resolutions: string[]
+  ratios: string[]
+}
+
 export function TemplateGallery() {
   const t = useTranslations()
   const labels = t.templates
+  const videoCatalog = useVideoModelCatalog()
   const [templates, setTemplates] = useState<TemplateRecord[]>([])
   const [characters, setCharacters] = useState<CharacterRecord[]>([])
   const [selectedSlug, setSelectedSlug] = useState("")
@@ -54,6 +67,14 @@ export function TemplateGallery() {
   const videoURL = currentVideo?.output?.url || currentVideo?.output?.video_url
   const selectedMeta = selected ? templateMeta(selected.slug, labels) : { runtime: "—", inputs: "—", bestFor: "—" }
   const selectedRunnable = Boolean(selected?.workflow_json)
+  const selectedModel = selected?.default_model || DEFAULT_TEMPLATE_MODEL
+  const selectedCapability = videoCatalog.modelById[selectedModel]
+  const runtimeConstraints: TemplateRuntimeConstraints = {
+    durationMin: selectedCapability?.minDurationSeconds ?? 4,
+    durationMax: selectedCapability?.maxDurationSeconds ?? 15,
+    resolutions: selectedCapability?.supportedResolutions?.length ? selectedCapability.supportedResolutions : DEFAULT_RESOLUTIONS,
+    ratios: selectedCapability?.supportedAspectRatios?.length ? selectedCapability.supportedAspectRatios : DEFAULT_RATIOS,
+  }
 
   const refreshVideo = useCallback(async (id: string) => {
     const video = await apiFetch(`/v1/videos/${id}`) as CurrentVideo
@@ -97,7 +118,7 @@ export function TemplateGallery() {
     }
     setRunning(true)
     try {
-      const payload = buildInputs(inputs, selected)
+      const payload = buildInputs(inputs, selected, runtimeConstraints)
       const result = await runTemplate(selected.id, payload)
       setCurrentVideo({ id: result.task_id, status: result.status })
       toast.success(labels.runCreated)
@@ -119,7 +140,7 @@ export function TemplateGallery() {
     try {
       const variables = parseBatchVariables(batchVariables)
       const result = await runTemplateBatch(selected.id, {
-        inputs: buildInputs(inputs, selected),
+        inputs: buildInputs(inputs, selected, runtimeConstraints),
         variables,
         mode: batchMode,
         name: `${selected.name} batch`,
@@ -204,7 +225,7 @@ export function TemplateGallery() {
             <ProofPoint icon={Clock3} label={labels.timeToRun} value={selectedMeta.runtime} />
             <ProofPoint icon={CheckCircle2} label={labels.readyToRun} value={selectedMeta.bestFor} />
           </div>
-          <TemplateForm template={selected} kind={kind} labels={labels} inputs={inputs} onChange={updateInput} />
+          <TemplateForm template={selected} kind={kind} labels={labels} inputs={inputs} constraints={runtimeConstraints} onChange={updateInput} />
           <CharacterPicker
             kind={kind}
             labels={labels}
@@ -541,12 +562,14 @@ function TemplateForm({
   kind,
   labels,
   inputs,
+  constraints,
   onChange,
 }: {
   template: TemplateRecord
   kind: TemplateKind
   labels: ReturnType<typeof useTranslations>["templates"]
   inputs: Record<string, string>
+  constraints: TemplateRuntimeConstraints
   onChange: (key: string, value: string) => void
 }) {
   const dynamicFields = templateFields(template)
@@ -556,6 +579,8 @@ function TemplateForm({
   const entries: Array<[string, string, TemplateInputField | null]> = dynamicFields.length > 0
     ? dynamicFields.map((field) => [field.key, field.label, field])
     : Object.entries(fallbackFields).map(([key, label]) => [key, label, null])
+  const defaultRatio = template.default_aspect_ratio ?? "9:16"
+  const defaultResolution = template.default_resolution ?? "1080p"
   return (
     <div className="grid gap-3 md:grid-cols-2">
       {entries.map(([key, label, field]) => (
@@ -579,9 +604,9 @@ function TemplateForm({
           )}
         </label>
       ))}
-      <RangeField label={labels.duration} value={Number(inputs.duration || template.default_duration || 5)} min={4} max={15} onChange={(value) => onChange("duration", String(value))} />
-      <SelectField label={labels.aspectRatio} value={inputs.aspect_ratio ?? template.default_aspect_ratio ?? "9:16"} values={["9:16", "16:9", "1:1"]} onChange={(value) => onChange("aspect_ratio", value)} />
-      <SelectField label={labels.resolution} value={inputs.resolution ?? template.default_resolution ?? "1080p"} values={["480p", "720p", "1080p"]} onChange={(value) => onChange("resolution", value)} />
+      <RangeField label={labels.duration} value={Number(inputs.duration || template.default_duration || constraints.durationMin)} min={constraints.durationMin} max={constraints.durationMax} onChange={(value) => onChange("duration", String(value))} />
+      <SelectField label={labels.aspectRatio} value={inputs.aspect_ratio ?? defaultRatio} values={withCurrent(constraints.ratios, defaultRatio)} onChange={(value) => onChange("aspect_ratio", value)} />
+      <SelectField label={labels.resolution} value={inputs.resolution ?? defaultResolution} values={withCurrent(constraints.resolutions, defaultResolution)} onChange={(value) => onChange("resolution", value)} />
     </div>
   )
 }
@@ -600,7 +625,7 @@ function isLongInput(key: string, field: TemplateInputField | null) {
 
 function RangeField({ label, value, min, max, onChange }: { label: string; value: number; min: number; max: number; onChange: (value: number) => void }) {
   const safeValue = Math.min(max, Math.max(min, value))
-  const progress = ((safeValue - min) / (max - min)) * 100
+  const progress = ((safeValue - min) / Math.max(1, max - min)) * 100
   return (
     <label className="rounded-2xl border border-white/12 bg-background/55 px-3 py-2 shadow-sm backdrop-blur-md md:col-span-2">
       <span className="flex items-center justify-between text-[11px] text-muted-foreground">
@@ -638,11 +663,14 @@ function SelectField({ label, value, values, onChange }: { label: string; value:
   )
 }
 
-function buildInputs(inputs: Record<string, string>, template: TemplateRecord) {
+function buildInputs(inputs: Record<string, string>, template: TemplateRecord, constraints: TemplateRuntimeConstraints) {
+  const requestedDuration = Number(inputs.duration || template.default_duration || constraints.durationMin)
+  const requestedRatio = inputs.aspect_ratio || template.default_aspect_ratio || "9:16"
+  const requestedResolution = inputs.resolution || template.default_resolution || "1080p"
   const base = {
-    duration: Number(inputs.duration || template.default_duration || 5),
-    aspect_ratio: inputs.aspect_ratio || template.default_aspect_ratio || "9:16",
-    resolution: inputs.resolution || template.default_resolution || "1080p",
+    duration: Math.min(constraints.durationMax, Math.max(constraints.durationMin, requestedDuration)),
+    aspect_ratio: constraints.ratios.includes(requestedRatio) ? requestedRatio : constraints.ratios[0] ?? "9:16",
+    resolution: constraints.resolutions.includes(requestedResolution) ? requestedResolution : constraints.resolutions[0] ?? "720p",
   }
   const fields = templateFields(template)
   const allowed = fields.length > 0 ? new Set(fields.map((field) => field.key)) : null
@@ -653,6 +681,11 @@ function buildInputs(inputs: Record<string, string>, template: TemplateRecord) {
     if (value !== "") out[key] = value
   }
   return out
+}
+
+function withCurrent(values: string[], current: string) {
+  if (!current || values.includes(current)) return values
+  return [current, ...values]
 }
 
 function parseBatchVariables(raw: string): Record<string, unknown[]> {
