@@ -132,9 +132,6 @@ func (h *DirectorHandlers) RunDirectorMode(c *gin.Context) {
 		c.AbortWithStatus(http.StatusUnauthorized)
 		return
 	}
-	if !h.requireDirectorAccess(c, false) {
-		return
-	}
 	var req struct {
 		Story           string                    `json:"story" binding:"required"`
 		Engine          string                    `json:"engine"`
@@ -151,6 +148,9 @@ func (h *DirectorHandlers) RunDirectorMode(c *gin.Context) {
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		httpx.BadRequest(c, "invalid_request", "invalid request body")
+		return
+	}
+	if !h.requireDirectorAccess(c, req.GenerateImages) {
 		return
 	}
 	shotsReq := director.GenerateShotsInput{
@@ -171,9 +171,6 @@ func (h *DirectorHandlers) RunDirectorMode(c *gin.Context) {
 		return
 	}
 	if req.GenerateImages {
-		if !h.requireDirectorAccess(c, true) {
-			return
-		}
 		generated, imgErr := h.Service.GenerateShotImages(ctx, director.GenerateShotImagesInput{
 			OrgID:           org.ID,
 			ImageProviderID: req.ImageProviderID,

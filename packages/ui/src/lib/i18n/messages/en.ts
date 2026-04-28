@@ -843,6 +843,8 @@ export const en = {
     workflowQueuedBody: "The storyboard is editable in Canvas and the multi-shot video tasks have entered the production queue.",
     runStatus: "Run status",
     jobsQueued: "Jobs queued",
+    batchAccepted: "Accepted shots",
+    batchRejected: "Rejected shots",
     batchRun: "Batch run",
     mergeJob: "Merge job",
     nextStepTitle: "Canvas handoff",

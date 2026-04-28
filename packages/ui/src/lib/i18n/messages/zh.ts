@@ -832,6 +832,8 @@ export const zh: Messages = {
     workflowQueuedBody: "分镜可在 Canvas 继续编辑，多镜头视频任务已经进入生产队列。",
     runStatus: "运行状态",
     jobsQueued: "入队任务数",
+    batchAccepted: "已接受镜头",
+    batchRejected: "被拒绝镜头",
     batchRun: "批次",
     mergeJob: "合并任务",
     nextStepTitle: "Canvas 交接",

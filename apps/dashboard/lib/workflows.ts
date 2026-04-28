@@ -59,6 +59,9 @@ export type WorkflowRunResult = {
   status: string
   estimated_cost_cents?: number
   batch_run_id?: string
+  total?: number
+  accepted?: number
+  rejected?: number
   job_ids?: string[]
   video_ids?: string[]
   merge_job_id?: string

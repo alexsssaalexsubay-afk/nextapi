@@ -65,6 +65,9 @@ type RunResult struct {
 	Status             string   `json:"status"`
 	EstimatedCostCents int64    `json:"estimated_cost_cents"`
 	BatchRunID         string   `json:"batch_run_id,omitempty"`
+	Total              int      `json:"total,omitempty"`
+	Accepted           int      `json:"accepted,omitempty"`
+	Rejected           int      `json:"rejected,omitempty"`
 	JobIDs             []string `json:"job_ids,omitempty"`
 	VideoIDs           []string `json:"video_ids,omitempty"`
 	MergeJobID         string   `json:"merge_job_id,omitempty"`
@@ -328,6 +331,9 @@ func (s *Service) runBatch(ctx context.Context, row *domain.Workflow, in RunInpu
 	return &RunResult{
 		RunID:      run.ID,
 		BatchRunID: res.BatchRunID,
+		Total:      res.Total,
+		Accepted:   res.Accepted,
+		Rejected:   res.Rejected,
 		JobIDs:     res.JobIDs,
 		VideoIDs:   res.VideoIDs,
 		Status:     "running",

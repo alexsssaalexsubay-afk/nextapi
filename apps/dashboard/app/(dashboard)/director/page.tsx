@@ -620,9 +620,12 @@ function WorkflowReadyCard({ workflowID, run, labels }: { workflowID: string; ru
 
 function RunSummary({ run, labels }: { run: WorkflowRunResult; labels: ReturnType<typeof useTranslations>["directorPage"] }) {
   const jobs = run.job_ids?.length ?? (run.task_id ? 1 : 0)
+  const hasBatchSummary = run.total != null || run.accepted != null || run.rejected != null
   return (
     <div className="mt-3 grid gap-2 rounded-2xl border border-white/12 bg-background/45 p-3 text-[11.5px] text-muted-foreground">
       <Meta label={labels.runStatus} value={run.status} />
+      {hasBatchSummary ? <Meta label={labels.batchAccepted} value={`${run.accepted ?? jobs}/${run.total ?? jobs}`} /> : null}
+      {run.rejected ? <Meta label={labels.batchRejected} value={String(run.rejected)} /> : null}
       {jobs > 0 ? <Meta label={labels.jobsQueued} value={String(jobs)} /> : null}
       {run.batch_run_id ? <Meta label={labels.batchRun} value={run.batch_run_id} /> : null}
       {run.merge_job_id ? <Meta label={labels.mergeJob} value={run.merge_job_id} /> : null}
@@ -723,10 +726,19 @@ function StatusBanner({ status, labels }: { status: DirectorStatus | null; label
     )
   }
   if (status.available) {
+    const runtimeStatus = getRuntimeStatus(null, status)
+    const fallbackUsed = runtimeStatus?.fallback_used ?? status.fallback_used ?? runtimeStatus?.engine_used === "advanced_fallback"
     return (
-      <div className="flex items-start gap-2 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-200">
-        <CheckCircle2 className="mt-0.5 size-3.5 shrink-0" />
-        <span>{labels.usageNotice}</span>
+      <div
+        className={cn(
+          "flex items-start gap-2 rounded-2xl px-3 py-2 text-xs",
+          fallbackUsed
+            ? "border border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-200"
+            : "border border-status-success/35 bg-status-success/10 text-status-success",
+        )}
+      >
+        {fallbackUsed ? <AlertTriangle className="mt-0.5 size-3.5 shrink-0" /> : <CheckCircle2 className="mt-0.5 size-3.5 shrink-0" />}
+        <span>{fallbackUsed ? `${labels.fallbackActive} · ${labels.usageNotice}` : labels.usageNotice}</span>
       </div>
     )
   }
