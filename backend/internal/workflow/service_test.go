@@ -32,6 +32,36 @@ func TestMergeEnabledReflectsServiceWiring(t *testing.T) {
 	}
 }
 
+func TestWorkflowBatchMaxParallelFromMetadata(t *testing.T) {
+	raw, err := json.Marshal(Definition{
+		Metadata: json.RawMessage(`{"source":"director","max_parallel":3}`),
+		Nodes:    []Node{},
+		Edges:    []Edge{},
+	})
+	if err != nil {
+		t.Fatalf("marshal workflow: %v", err)
+	}
+	got := workflowBatchMaxParallel(raw)
+	if got == nil || *got != 3 {
+		t.Fatalf("max_parallel=%v want 3", got)
+	}
+}
+
+func TestWorkflowBatchMaxParallelClampsUnsafeValues(t *testing.T) {
+	raw, err := json.Marshal(Definition{
+		Metadata: json.RawMessage(`{"source":"director","max_parallel":99}`),
+		Nodes:    []Node{},
+		Edges:    []Edge{},
+	})
+	if err != nil {
+		t.Fatalf("marshal workflow: %v", err)
+	}
+	got := workflowBatchMaxParallel(raw)
+	if got == nil || *got != 20 {
+		t.Fatalf("max_parallel=%v want 20", got)
+	}
+}
+
 func TestServiceVersioning(t *testing.T) {
 	db := setupServiceTestDB(t)
 	svc := NewService(db, nil)

@@ -797,6 +797,7 @@ export const en = {
     decreaseShots: "Decrease shot count",
     increaseShots: "Increase shot count",
     secondsPerShot: "Seconds / shot",
+    maxParallel: "Parallel shots",
     estimatedShots: "Shots",
     totalRuntime: "Runtime",
     outputRatio: "Output",

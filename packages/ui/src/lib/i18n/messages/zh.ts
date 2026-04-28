@@ -786,6 +786,7 @@ export const zh: Messages = {
     decreaseShots: "减少镜头数",
     increaseShots: "增加镜头数",
     secondsPerShot: "每镜头秒数",
+    maxParallel: "并行镜头",
     estimatedShots: "镜头",
     totalRuntime: "时长",
     outputRatio: "画幅",

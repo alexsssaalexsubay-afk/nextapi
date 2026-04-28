@@ -297,11 +297,12 @@ func (s *Service) runBatch(ctx context.Context, row *domain.Workflow, in RunInpu
 	manifest, _ := json.Marshal(map[string]any{"workflow_id": row.ID, "workflow_run_id": run.ID, "payloads": payloads})
 	name := row.Name
 	res, err := s.batches.Create(ctx, batchsvc.CreateInput{
-		OrgID:    in.OrgID,
-		APIKeyID: in.APIKeyID,
-		Name:     &name,
-		Shots:    shots,
-		Manifest: manifest,
+		OrgID:       in.OrgID,
+		APIKeyID:    in.APIKeyID,
+		Name:        &name,
+		MaxParallel: workflowBatchMaxParallel(row.WorkflowJSON),
+		Shots:       shots,
+		Manifest:    manifest,
 	})
 	if err != nil {
 		_ = s.db.WithContext(ctx).Model(&domain.WorkflowRun{}).Where("id = ?", run.ID).Update("status", "failed").Error
@@ -352,6 +353,27 @@ func workflowHasNode(raw json.RawMessage, typ string) bool {
 		}
 	}
 	return false
+}
+
+func workflowBatchMaxParallel(raw json.RawMessage) *int {
+	var def Definition
+	if err := json.Unmarshal(raw, &def); err != nil || len(def.Metadata) == 0 {
+		return nil
+	}
+	var meta struct {
+		MaxParallel *int `json:"max_parallel"`
+	}
+	if err := json.Unmarshal(def.Metadata, &meta); err != nil || meta.MaxParallel == nil {
+		return nil
+	}
+	value := *meta.MaxParallel
+	if value <= 0 {
+		return nil
+	}
+	if value > 20 {
+		value = 20
+	}
+	return &value
 }
 
 func (s *Service) ListVersions(ctx context.Context, orgID, workflowID string) ([]domain.WorkflowVersion, error) {

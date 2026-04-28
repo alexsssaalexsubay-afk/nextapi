@@ -124,6 +124,9 @@ func TestBuildWorkflowFromShots(t *testing.T) {
 		t.Fatalf("BuildWorkflowFromShots: %v", err)
 	}
 	var parsed struct {
+		Metadata struct {
+			MaxParallel int `json:"max_parallel"`
+		} `json:"metadata"`
 		Nodes []struct {
 			Type string `json:"type"`
 		} `json:"nodes"`
@@ -141,6 +144,9 @@ func TestBuildWorkflowFromShots(t *testing.T) {
 	}
 	if !foundVideo || !foundOutput || foundMerge || !foundImage || len(parsed.Edges) == 0 {
 		t.Fatalf("missing expected workflow nodes/edges: %+v", parsed)
+	}
+	if parsed.Metadata.MaxParallel != 1 {
+		t.Fatalf("max_parallel=%d want 1", parsed.Metadata.MaxParallel)
 	}
 }
 

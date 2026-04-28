@@ -265,7 +265,7 @@ export async function getDirectorStatus(): Promise<DirectorStatus> {
 
 export async function createDirectorWorkflow(input: {
   storyboard: DirectorStoryboard
-  options: { name?: string; ratio?: string; resolution?: string; generate_audio?: boolean; model?: string; enable_merge?: boolean }
+  options: { name?: string; ratio?: string; resolution?: string; generate_audio?: boolean; model?: string; enable_merge?: boolean; max_parallel?: number }
 }): Promise<{ workflow: WorkflowRecord }> {
   return apiFetch("/v1/director/workflows", {
     method: "POST",
@@ -297,7 +297,7 @@ export async function runBackendDirectorPipeline(input: {
   image_provider_id?: string
   generate_images?: boolean
   run_workflow?: boolean
-  options?: { name?: string; ratio?: string; resolution?: string; generate_audio?: boolean; model?: string; enable_merge?: boolean }
+  options?: { name?: string; ratio?: string; resolution?: string; generate_audio?: boolean; model?: string; enable_merge?: boolean; max_parallel?: number }
 }): Promise<{ plan: DirectorPlan & { engine_used?: DirectorEngineUsed | string; engine_status?: DirectorEngineStatus }; workflow: WorkflowJSON; record?: WorkflowRecord; run?: WorkflowRunResult | null; engine_used?: DirectorEngineUsed | string; engine_status?: DirectorEngineStatus }> {
   return apiFetch("/v1/director/mode/run", {
     method: "POST",

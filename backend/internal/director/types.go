@@ -92,4 +92,5 @@ type WorkflowOptions struct {
 	GenerateAudio bool   `json:"generate_audio"`
 	Model         string `json:"model"`
 	EnableMerge   bool   `json:"enable_merge"`
+	MaxParallel   int    `json:"max_parallel"`
 }

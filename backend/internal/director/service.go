@@ -133,6 +133,7 @@ func BuildWorkflowFromShots(storyboard Storyboard, options WorkflowOptions) (jso
 	if model == "" {
 		model = "seedance-2.0-pro"
 	}
+	maxParallel := normalizeWorkflowMaxParallel(options.MaxParallel, len(storyboard.Shots))
 	totalDuration := 0
 	nodes := make([]workflow.Node, 0, len(storyboard.Shots)*4+2)
 	edges := make([]workflow.Edge, 0, len(storyboard.Shots)*4)
@@ -193,11 +194,31 @@ func BuildWorkflowFromShots(storyboard Storyboard, options WorkflowOptions) (jso
 		"shot_count":           len(storyboard.Shots),
 		"total_duration":       totalDuration,
 		"merge_enabled":        options.EnableMerge,
+		"max_parallel":         maxParallel,
 		"fallback_visible":     storyboard.EngineStatus != nil && storyboard.EngineStatus.FallbackUsed,
 		"provider_video_model": model,
 	})
 	def := workflow.Definition{Name: name, Model: model, Metadata: metadata, Nodes: nodes, Edges: edges}
 	return json.Marshal(def)
+}
+
+func normalizeWorkflowMaxParallel(value int, shotCount int) int {
+	if shotCount <= 0 {
+		return 1
+	}
+	if value <= 0 {
+		value = 5
+	}
+	if value > shotCount {
+		value = shotCount
+	}
+	if value > 20 {
+		value = 20
+	}
+	if value < 1 {
+		return 1
+	}
+	return value
 }
 
 func StoryboardToDirectorPlan(storyboard Storyboard, characters []CharacterInput) DirectorPlan {

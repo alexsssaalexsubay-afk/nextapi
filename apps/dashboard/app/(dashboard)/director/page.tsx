@@ -44,6 +44,7 @@ export default function DirectorPage() {
   const [style, setStyle] = useState("cinematic realistic")
   const [shotCount, setShotCount] = useState(3)
   const [duration, setDuration] = useState(5)
+  const [maxParallel, setMaxParallel] = useState(3)
   const [ratio, setRatio] = useState("9:16")
   const [resolution, setResolution] = useState("1080p")
   const [videoModel, setVideoModel] = useState("seedance-2.0-pro")
@@ -78,6 +79,7 @@ export default function DirectorPage() {
   const durationMax = selectedVideoCapability?.maxDurationSeconds ?? 15
   const ratioOptions = selectedVideoCapability?.supportedAspectRatios?.length ? selectedVideoCapability.supportedAspectRatios : DEFAULT_RATIOS
   const resolutionOptions = selectedVideoCapability?.supportedResolutions?.length ? selectedVideoCapability.supportedResolutions : DEFAULT_RESOLUTIONS
+  const maxParallelLimit = Math.min(Math.max(shotCount, 1), 8)
 
   useEffect(() => {
     setDuration((current) => clampNumber(current, durationMin, durationMax))
@@ -90,6 +92,10 @@ export default function DirectorPage() {
   useEffect(() => {
     setResolution((current) => resolutionOptions.includes(current) ? current : resolutionOptions[0] ?? "720p")
   }, [resolutionOptions])
+
+  useEffect(() => {
+    setMaxParallel((current) => clampNumber(current, 1, maxParallelLimit))
+  }, [maxParallelLimit])
 
   function directorCharacters(): DirectorCharacterInput[] {
     const selected = new Set(selectedCharacterIDs)
@@ -141,6 +147,7 @@ export default function DirectorPage() {
           resolution,
           generate_audio: false,
           model: videoModel,
+          max_parallel: maxParallel,
         },
       })
       setWorkflowID(res.workflow.id)
@@ -193,6 +200,7 @@ export default function DirectorPage() {
           generate_audio: false,
           model: videoModel,
           enable_merge: true,
+          max_parallel: maxParallel,
         },
       })
       setWorkflowID(res.record?.id ?? null)
@@ -375,6 +383,7 @@ export default function DirectorPage() {
               <Field label={labels.style} value={style} onChange={setStyle} />
               <ShotCountStepper label={labels.shots} decreaseLabel={labels.decreaseShots} increaseLabel={labels.increaseShots} value={shotCount} min={1} max={12} onChange={setShotCount} />
               <RangeField label={labels.secondsPerShot} value={duration} min={durationMin} max={durationMax} onChange={setDuration} />
+              <RangeField label={labels.maxParallel} value={maxParallel} min={1} max={maxParallelLimit} unit="" onChange={setMaxParallel} />
               <OptionSelect label={labels.outputRatio} value={ratio} values={withCurrent(ratioOptions, ratio)} onChange={setRatio} />
               <OptionSelect label={labels.resolution} value={resolution} values={withCurrent(resolutionOptions, resolution)} onChange={setResolution} />
             </div>
@@ -414,7 +423,7 @@ export default function DirectorPage() {
               </button>
               <div className="mt-3 flex items-center justify-between gap-3">
                 <p className="text-[11.5px] leading-relaxed text-muted-foreground">
-                  {labels.runAllHint} {labels.estimateHint}: {estimatedBudget} · {shotCount} {labels.shotUnit} · {shotCount * duration}s.
+                  {labels.runAllHint} {labels.estimateHint}: {estimatedBudget} · {shotCount} {labels.shotUnit} · {shotCount * duration}s · {labels.maxParallel} {maxParallel}.
                 </p>
                 <button
                   disabled={loading || blocked || story.trim() === ""}
@@ -978,7 +987,7 @@ function ShotCountStepper({ label, decreaseLabel, increaseLabel, value, min, max
   )
 }
 
-function RangeField({ label, value, min, max, onChange }: { label: string; value: number; min: number; max: number; onChange: (value: number) => void }) {
+function RangeField({ label, value, min, max, unit = "s", onChange }: { label: string; value: number; min: number; max: number; unit?: string; onChange: (value: number) => void }) {
   const safeValue = clampNumber(value, min, max)
   const span = Math.max(1, max - min)
   const progress = ((safeValue - min) / span) * 100
@@ -986,7 +995,7 @@ function RangeField({ label, value, min, max, onChange }: { label: string; value
     <label className="flex flex-col gap-2 rounded-2xl border border-white/12 bg-background/55 px-3 py-2 shadow-sm backdrop-blur-md">
       <span className="flex items-center justify-between text-xs text-muted-foreground">
         <span>{label}</span>
-        <span className="rounded-full border border-signal/25 bg-signal/10 px-2 py-0.5 font-mono text-sm text-signal">{safeValue}s</span>
+        <span className="rounded-full border border-signal/25 bg-signal/10 px-2 py-0.5 font-mono text-sm text-signal">{safeValue}{unit}</span>
       </span>
       <input
         type="range"
@@ -998,9 +1007,9 @@ function RangeField({ label, value, min, max, onChange }: { label: string; value
         style={{ background: `linear-gradient(90deg, var(--signal) ${progress}%, transparent ${progress}%)` }}
       />
       <span className="flex justify-between font-mono text-[10px] text-muted-foreground">
-        <span>{min}s</span>
-        <span>{Math.round((min + max) / 2)}s</span>
-        <span>{max}s</span>
+        <span>{min}{unit}</span>
+        <span>{Math.round((min + max) / 2)}{unit}</span>
+        <span>{max}{unit}</span>
       </span>
     </label>
   )
