@@ -338,33 +338,10 @@ export default function DirectorPage() {
   const selectedCharacters = characters.filter((character) => selectedCharacterSet.has(character.id))
 
   return (
-    <DashboardShell activeHref="/director">
-      <div className="p-3 sm:p-4">
-        <section className="overflow-hidden rounded-xl border border-border bg-card/82 shadow-sm">
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-card px-4 py-3">
-            <div className="flex min-w-[240px] flex-1 items-center gap-2.5">
-              <span className="grid size-9 shrink-0 place-items-center rounded-lg border border-signal/20 bg-signal/10 text-signal">
-                <Sparkles className="size-4" />
-              </span>
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <h1 className="text-base font-semibold tracking-tight text-foreground sm:text-lg">{labels.title}</h1>
-                  <span className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-2 py-0.5 font-mono text-[9.5px] uppercase tracking-[0.14em] text-signal">
-                    <Sparkles className="size-3" />
-                    {labels.eyebrow}
-                  </span>
-                </div>
-                <p className="mt-0.5 max-w-4xl truncate text-[12px] text-muted-foreground">{labels.primaryPromise}</p>
-              </div>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <CompactMetric label={labels.estimatedShots} value={`${shotCount}`} compact />
-              <CompactMetric label={labels.totalRuntime} value={`${totalDuration}s`} compact />
-              <CompactMetric label={labels.estimatedBudget} value={estimatedBudget} compact />
-            </div>
-          </div>
-
-          <div className="grid min-h-[calc(100vh-9rem)] gap-3 bg-background/70 p-3 lg:grid-cols-[64px_minmax(0,1fr)] xl:grid-cols-[64px_minmax(0,1fr)_340px]">
+    <DashboardShell activeHref="/director" title={labels.title} description={labels.eyebrow} workspace>
+      <div className="p-0">
+        <section className="overflow-hidden bg-background">
+          <div className="grid min-h-[calc(100vh-2.75rem)] gap-2 bg-background p-2 lg:grid-cols-[64px_minmax(0,1fr)]">
             <DirectorToolRail
               labels={labels}
               activeId={activePipelineStep}
@@ -375,17 +352,31 @@ export default function DirectorPage() {
             />
 
             <section
-              className={cn("relative min-h-[760px] overflow-hidden rounded-xl border border-border bg-card/86 shadow-sm", gridEnabled && "bg-dots")}
+              className={cn("relative min-h-[calc(100vh-3.75rem)] overflow-hidden rounded-xl border border-border bg-card/86 shadow-sm", gridEnabled && "bg-dots")}
               data-director-grid={gridEnabled ? "on" : "off"}
             >
               <div className="absolute inset-0 bg-background/45" />
-              <div className="relative z-10 flex min-h-[760px] flex-col">
-                <div className="border-b border-border bg-card/76 px-4 py-3">
+              <div className="relative z-10 flex min-h-[calc(100vh-3.75rem)] flex-col">
+                <div className="border-b border-border bg-card/76 px-3 py-2">
                   <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                    <span className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
-                      <Route className="size-3.5 text-signal" />
-                      {labels.consoleRoute}
-                    </span>
+                    <div className="flex min-w-0 items-center gap-2">
+                      <span className="grid size-7 shrink-0 place-items-center rounded-lg border border-signal/20 bg-signal/10 text-signal">
+                        <Sparkles className="size-3.5" />
+                      </span>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <h1 className="truncate text-[14px] font-medium tracking-tight text-foreground">{labels.title}</h1>
+                          <span className="hidden rounded-md border border-border bg-background px-2 py-0.5 font-mono text-[9.5px] uppercase tracking-[0.14em] text-signal sm:inline-flex">
+                            {labels.consoleRoute}
+                          </span>
+                        </div>
+                        <div className="mt-0.5 flex flex-wrap gap-1.5">
+                          <CompactMetric label={labels.estimatedShots} value={`${shotCount}`} compact />
+                          <CompactMetric label={labels.totalRuntime} value={`${totalDuration}s`} compact />
+                          <CompactMetric label={labels.estimatedBudget} value={estimatedBudget} compact />
+                        </div>
+                      </div>
+                    </div>
                     {activeBusyLabel ? (
                       <span className="inline-flex items-center gap-1.5 rounded-md border border-signal/30 bg-signal/10 px-2 py-1 text-[11px] text-signal">
                         <Loader2 className="size-3 animate-spin" />
@@ -446,6 +437,25 @@ export default function DirectorPage() {
                   shotsActionState={shotsActionState}
                   imagesActionState={imagesActionState}
                   workflowActionState={workflowActionState}
+                  genre={genre}
+                  setGenre={setGenre}
+                  style={style}
+                  setStyle={setStyle}
+                  shotCount={shotCount}
+                  setShotCount={setShotCount}
+                  duration={duration}
+                  setDuration={setDuration}
+                  durationMin={durationMin}
+                  durationMax={durationMax}
+                  maxParallel={maxParallel}
+                  setMaxParallel={setMaxParallel}
+                  maxParallelLimit={maxParallelLimit}
+                  ratio={ratio}
+                  setRatio={setRatio}
+                  ratioOptions={ratioOptions}
+                  resolution={resolution}
+                  setResolution={setResolution}
+                  resolutionOptions={resolutionOptions}
                   busyStage={busyStage}
                   estimatedBudget={estimatedBudget}
                   onGenerateDirector={() => void generateDirectorWorkflow()}
@@ -458,45 +468,15 @@ export default function DirectorPage() {
                 />
               </div>
             </section>
+          </div>
 
-            <aside className="space-y-3 overflow-y-auto xl:max-h-[calc(100vh-9rem)]">
-              {error && (
-                <div className="flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
-                  <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
-                  <span>{error}</span>
-                </div>
-              )}
-              <DirectorSettingsPanel
-                labels={labels}
-                genre={genre}
-                setGenre={setGenre}
-                style={style}
-                setStyle={setStyle}
-                shotCount={shotCount}
-                setShotCount={setShotCount}
-                duration={duration}
-                setDuration={setDuration}
-                durationMin={durationMin}
-                durationMax={durationMax}
-                maxParallel={maxParallel}
-                setMaxParallel={setMaxParallel}
-                maxParallelLimit={maxParallelLimit}
-                ratio={ratio}
-                setRatio={setRatio}
-                ratioOptions={ratioOptions}
-                resolution={resolution}
-                setResolution={setResolution}
-                resolutionOptions={resolutionOptions}
-              />
-              <ActionStatusRail
-                labels={labels}
-                items={[
-                  { label: labels.actionDirector, state: directorActionState },
-                  { label: labels.actionShots, state: shotsActionState },
-                  { label: labels.actionImages, state: imagesActionState },
-                  { label: labels.actionWorkflow, state: workflowActionState },
-                ]}
-              />
+          <div className="grid gap-3 border-t border-border bg-card/54 p-3 md:grid-cols-2 xl:grid-cols-3">
+            {error && (
+              <div className="flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
+                <span>{error}</span>
+              </div>
+            )}
               <RuntimePanel status={status} storyboard={storyboard} labels={labels} />
               <CharacterMemoryPicker
                 labels={labels}
@@ -521,7 +501,6 @@ export default function DirectorPage() {
                 busyStage={busyStage}
                 labels={labels}
               />
-            </aside>
           </div>
         </section>
       </div>
@@ -879,6 +858,25 @@ function DirectorComposer({
   shotsActionState,
   imagesActionState,
   workflowActionState,
+  genre,
+  setGenre,
+  style,
+  setStyle,
+  shotCount,
+  setShotCount,
+  duration,
+  setDuration,
+  durationMin,
+  durationMax,
+  maxParallel,
+  setMaxParallel,
+  maxParallelLimit,
+  ratio,
+  setRatio,
+  ratioOptions,
+  resolution,
+  setResolution,
+  resolutionOptions,
   busyStage,
   estimatedBudget,
   onGenerateDirector,
@@ -909,6 +907,25 @@ function DirectorComposer({
   shotsActionState: ActionButtonState
   imagesActionState: ActionButtonState
   workflowActionState: ActionButtonState
+  genre: string
+  setGenre: (value: string) => void
+  style: string
+  setStyle: (value: string) => void
+  shotCount: number
+  setShotCount: (value: number) => void
+  duration: number
+  setDuration: (value: number) => void
+  durationMin: number
+  durationMax: number
+  maxParallel: number
+  setMaxParallel: (value: number) => void
+  maxParallelLimit: number
+  ratio: string
+  setRatio: (value: string) => void
+  ratioOptions: string[]
+  resolution: string
+  setResolution: (value: string) => void
+  resolutionOptions: string[]
   busyStage: BusyStage | null
   estimatedBudget: string
   onGenerateDirector: () => void
@@ -949,9 +966,45 @@ function DirectorComposer({
   const contextLabel = focus === "brief" ? labels.pipelineBrief : focus === "storyboard" ? labels.pipelineStoryboard : labels.pipelineWorkflow
   const contextMetric = focus === "brief" ? estimatedBudget : focus === "storyboard" ? `${storyboard?.shots.length ?? 0} ${labels.estimatedShots}` : workflowID ?? labels.pipelineWorkflow
   const selectedShot = storyboard?.shots[selectedShotIndex] ?? storyboard?.shots[0]
+  const actionRail = (
+    <ActionStatusRail
+      labels={labels}
+      items={[
+        { label: labels.actionDirector, state: directorActionState },
+        { label: labels.actionShots, state: shotsActionState },
+        { label: labels.actionImages, state: imagesActionState },
+        { label: labels.actionWorkflow, state: workflowActionState },
+      ]}
+    />
+  )
+  const settingsPanel = (
+    <DirectorSettingsPanel
+      labels={labels}
+      genre={genre}
+      setGenre={setGenre}
+      style={style}
+      setStyle={setStyle}
+      shotCount={shotCount}
+      setShotCount={setShotCount}
+      duration={duration}
+      setDuration={setDuration}
+      durationMin={durationMin}
+      durationMax={durationMax}
+      maxParallel={maxParallel}
+      setMaxParallel={setMaxParallel}
+      maxParallelLimit={maxParallelLimit}
+      ratio={ratio}
+      setRatio={setRatio}
+      ratioOptions={ratioOptions}
+      resolution={resolution}
+      setResolution={setResolution}
+      resolutionOptions={resolutionOptions}
+      compact
+    />
+  )
 
   return (
-    <div data-director-composer={focus} className="border-t border-border bg-card/94 p-3 lg:absolute lg:inset-x-4 lg:bottom-4 lg:rounded-xl lg:border lg:shadow-sm">
+    <div data-director-composer={focus} className="border-t border-border bg-card/94 p-3 lg:absolute lg:inset-x-4 lg:bottom-4 lg:max-h-[46%] lg:overflow-y-auto lg:rounded-xl lg:border lg:shadow-sm">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <span className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.16em] text-signal">
           <Route className="size-3.5" />
@@ -989,6 +1042,7 @@ function DirectorComposer({
 
           <div className="space-y-3">
             {modelPicker}
+            {settingsPanel}
             <div className="grid gap-2">
               <ActionButton
                 disabled={directorDisabled}
@@ -1013,6 +1067,7 @@ function DirectorComposer({
                 {labels.generateShots}
               </ActionButton>
             </div>
+            {actionRail}
           </div>
         </div>
       ) : null}
@@ -1036,6 +1091,7 @@ function DirectorComposer({
           <div className="space-y-3">
             {storyboard ? <ShotTimelineMap shots={storyboard.shots} labels={labels} activeIndex={selectedShotIndex} onSelectShot={onSelectShot} compact /> : null}
             {modelPicker}
+            {settingsPanel}
             <div className="grid gap-2">
               <ActionButton
                 disabled={imagesDisabled}
@@ -1061,6 +1117,7 @@ function DirectorComposer({
                 {labels.createWorkflow}
               </ActionButton>
             </div>
+            {actionRail}
           </div>
         </div>
       ) : null}
@@ -1082,6 +1139,7 @@ function DirectorComposer({
 
           <div className="space-y-3">
             {modelPicker}
+            {settingsPanel}
             <div className="grid gap-2">
               <ActionButton
                 disabled={directorDisabled}
@@ -1106,6 +1164,7 @@ function DirectorComposer({
                 {labels.createWorkflow}
               </ActionButton>
             </div>
+            {actionRail}
           </div>
         </div>
       ) : null}
@@ -1134,6 +1193,7 @@ function DirectorSettingsPanel({
   resolution,
   setResolution,
   resolutionOptions,
+  compact = false,
 }: {
   labels: ReturnType<typeof useTranslations>["directorPage"]
   genre: string
@@ -1155,16 +1215,17 @@ function DirectorSettingsPanel({
   resolution: string
   setResolution: (value: string) => void
   resolutionOptions: string[]
+  compact?: boolean
 }) {
   return (
-    <section className="space-y-3 rounded-xl border border-border bg-card/82 p-4 shadow-sm">
+    <section className={cn("space-y-3 rounded-xl border border-border shadow-sm", compact ? "bg-background/70 p-3" : "bg-card/82 p-4")}>
       <div className="flex items-start gap-3">
-        <div className="grid size-9 shrink-0 place-items-center rounded-lg border border-signal/20 bg-signal/10 text-signal">
-          <Clapperboard className="size-4" />
+        <div className={cn("grid shrink-0 place-items-center rounded-lg border border-signal/20 bg-signal/10 text-signal", compact ? "size-7" : "size-9")}>
+          <Clapperboard className={compact ? "size-3.5" : "size-4"} />
         </div>
         <div>
-          <h2 className="text-sm font-medium text-foreground">{labels.briefTitle}</h2>
-          <p className="mt-1 text-[12px] leading-relaxed text-muted-foreground">{labels.briefSubtitle}</p>
+          <h2 className={cn("font-medium text-foreground", compact ? "text-[12.5px]" : "text-sm")}>{labels.briefTitle}</h2>
+          {!compact ? <p className="mt-1 text-[12px] leading-relaxed text-muted-foreground">{labels.briefSubtitle}</p> : null}
         </div>
       </div>
       <div className="grid grid-cols-2 gap-2">

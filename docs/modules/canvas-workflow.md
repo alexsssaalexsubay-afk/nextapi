@@ -150,10 +150,14 @@ Before running:
 The MVP dashboard page is `/canvas`.
 
 Layout:
-- left: node palette
+- compact left: icon node palette
 - center: React Flow canvas
-- right: selected node inspector
-- bottom/right: run status and output preview
+- bottom overlay: selected node inspector, generation parameters, run status, and output preview
+
+The Canvas page should behave like a creation workbench. Avoid a permanent
+right inspector column or large top explanation band in the first viewport; keep
+the editable canvas as the primary surface and let parameters follow the active
+node.
 
 The page uses the existing dashboard `apiFetch`, existing asset library endpoint, and existing video polling endpoint.
 

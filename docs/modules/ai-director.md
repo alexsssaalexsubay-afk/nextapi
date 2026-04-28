@@ -30,6 +30,18 @@ billing, throughput, moderation, and webhook paths.
   `VIDEO_MERGE_EXECUTOR_ENABLED=true`; otherwise Director must not advertise
   automatic final video stitching.
 
+## Workspace UX
+
+- Director is a creation workbench, not a report page. The canvas and editable
+  shot/workflow cards get the first viewport.
+- Top chrome must stay compact: no large hero copy, no persistent explanation
+  bands, and no dashboard summary blocks above the working surface.
+- Prompt, model, and generation parameters belong with the active card or the
+  composer below the canvas, so users can keep context while editing.
+- Runtime readiness, engine evidence, memory bindings, and closed-loop proof are
+  still visible, but they should not occupy a permanent right column before the
+  user has workspace context.
+
 ## Rollout
 
 The feature is additive:

@@ -533,6 +533,7 @@ export default function BatchStudioPage() {
       activeHref="/batch"
       title={tb.title}
       description={tb.subtitle}
+      workspace
       actions={
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={() => void loadRecentRuns()}>
@@ -548,15 +549,15 @@ export default function BatchStudioPage() {
         </div>
       }
     >
-      <div className="space-y-8 p-6">
-        <section className="premium-surface rounded-3xl p-5">
+      <div className="space-y-4 p-2 sm:p-3">
+        <section className="rounded-lg border border-border bg-card/70 p-3">
           <div className="flex flex-wrap items-start gap-3">
-            <span className="flex size-11 items-center justify-center rounded-2xl border border-white/12 bg-signal/10 shadow-sm backdrop-blur-md">
-              <Clapperboard className="size-5 text-signal" />
+            <span className="flex size-8 items-center justify-center rounded-lg border border-signal/20 bg-signal/10">
+              <Clapperboard className="size-4 text-signal" />
             </span>
-            <div className="min-w-0 flex-1 space-y-2">
-              <p className="text-[13px] leading-relaxed text-muted-foreground">{tb.intro}</p>
-              <p className="text-[12px] text-muted-foreground">
+            <div className="min-w-0 flex-1">
+              <p className="text-[12px] leading-relaxed text-muted-foreground">{tb.intro}</p>
+              <p className="mt-1 text-[11.5px] text-muted-foreground">
                 {tb.desktopHint}{" "}
                 <code className="rounded bg-muted px-1 py-0.5 font-mono text-[11px]">toolkit/batch_studio</code>.
               </p>
@@ -564,7 +565,7 @@ export default function BatchStudioPage() {
           </div>
         </section>
 
-        <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
+        <section className="grid gap-4">
           <div className="space-y-4">
             <div>
               <Label className="text-[12px]">{tb.uploadCsv}</Label>

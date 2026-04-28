@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import { useSearchParams } from "next/navigation"
 import {
   addEdge,
@@ -379,60 +379,56 @@ export function CanvasWorkspace() {
   const videoURL = currentVideo?.output?.url || currentVideo?.output?.video_url
 
   return (
-    <div className="flex h-[calc(100vh-3.5rem)] min-h-[720px] flex-col overflow-hidden rounded-t-[32px] border-t border-white/10 bg-background/25">
-      <header className="flex flex-wrap items-center justify-between gap-4 border-b border-white/10 bg-background/52 px-5 py-3 shadow-[0_18px_70px_-58px] shadow-signal backdrop-blur-xl">
+    <div data-canvas-workspace-mode="immersive" className="flex h-[calc(100vh-2.75rem)] min-h-[680px] flex-col overflow-hidden bg-background">
+      <header className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-card/82 px-3 py-2">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <span className="flex size-8 items-center justify-center rounded-2xl border border-white/12 bg-card/55 text-signal shadow-sm backdrop-blur-md">
+            <span className="flex size-7 items-center justify-center rounded-lg border border-signal/20 bg-signal/10 text-signal">
               <Workflow className="size-4" />
             </span>
             <div>
-              <h1 className="text-[18px] font-medium tracking-tight">{labels.title}</h1>
-              <p className="mt-0.5 text-[12.5px] text-muted-foreground">{labels.subtitle}</p>
+              <h1 className="text-[14px] font-medium tracking-tight">{labels.title}</h1>
+              <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">{nodes.length} {labels.nodes} · {edges.length} {labels.edges}</p>
             </div>
           </div>
         </div>
         <div className="flex flex-wrap items-center justify-end gap-2">
-          <div className="hidden rounded-full border border-white/12 bg-card/55 px-3 py-1.5 font-mono text-[11px] text-muted-foreground shadow-sm backdrop-blur-md lg:block">
-            {nodes.length} {labels.nodes} · {edges.length} {labels.edges}
-          </div>
           <input
             value={name}
             onChange={(event) => setName(event.target.value)}
-            className="h-9 w-64 rounded-full border border-white/12 bg-card/55 px-3 text-[13px] shadow-sm backdrop-blur-md focus:border-signal/45 focus:outline-none"
+            className="h-8 w-52 rounded-md border border-border bg-background px-3 text-[12.5px] focus:border-signal/45 focus:outline-none"
           />
-          <button type="button" onClick={save} disabled={saving} className="inline-flex h-9 items-center gap-2 rounded-full border border-white/12 bg-card/55 px-4 text-[12.5px] shadow-sm backdrop-blur-md hover:border-signal/35 disabled:opacity-60">
+          <button type="button" onClick={save} disabled={saving} className="inline-flex h-8 items-center gap-2 rounded-md border border-border bg-background px-3 text-[12px] hover:border-signal/35 disabled:opacity-60">
             {saving ? <Loader2 className="size-3.5 animate-spin" /> : <Save className="size-3.5" />}
             {labels.save}
           </button>
-          <button type="button" onClick={saveTemplate} disabled={templateSaving} className="inline-flex h-9 items-center gap-2 rounded-full border border-white/12 bg-card/55 px-4 text-[12.5px] shadow-sm backdrop-blur-md hover:border-signal/35 disabled:opacity-60">
+          <button type="button" onClick={saveTemplate} disabled={templateSaving} className="inline-flex h-8 items-center gap-2 rounded-md border border-border bg-background px-3 text-[12px] hover:border-signal/35 disabled:opacity-60">
             {templateSaving ? <Loader2 className="size-3.5 animate-spin" /> : <Sparkles className="size-3.5" />}
             {labels.saveTemplate}
           </button>
-          <button type="button" onClick={exportAPI} disabled={exporting} className="inline-flex h-9 items-center gap-2 rounded-full border border-white/12 bg-card/55 px-4 text-[12.5px] shadow-sm backdrop-blur-md hover:border-signal/35 disabled:opacity-60">
+          <button type="button" onClick={exportAPI} disabled={exporting} className="inline-flex h-8 items-center gap-2 rounded-md border border-border bg-background px-3 text-[12px] hover:border-signal/35 disabled:opacity-60">
             {exporting ? <Loader2 className="size-3.5 animate-spin" /> : <Code2 className="size-3.5" />}
             {labels.exportApi}
           </button>
-          <button type="button" onClick={run} disabled={running} className="premium-button inline-flex h-9 items-center gap-2 rounded-full border border-white/20 bg-[radial-gradient(circle_at_20%_0%,rgba(255,255,255,0.42),transparent_30%),linear-gradient(110deg,#2563eb_0%,#7c3aed_42%,#db2777_100%)] px-4 text-[12.5px] font-medium text-white disabled:opacity-60">
+          <button type="button" onClick={run} disabled={running} className="inline-flex h-8 items-center gap-2 rounded-md border border-signal/35 bg-signal px-3 text-[12px] font-medium text-signal-foreground disabled:opacity-60">
             {running ? <Loader2 className="size-3.5 animate-spin" /> : <Play className="size-3.5" />}
             {labels.run}
           </button>
         </div>
       </header>
-      <div className="grid min-h-0 flex-1 grid-cols-[240px_minmax(0,1fr)_360px]">
-        <aside className="border-r border-white/10 bg-card/30 p-3 backdrop-blur-md">
-          <div className="mb-3 rounded-2xl border border-white/10 bg-background/45 px-3 py-2">
-            <div className="font-mono text-[11px] uppercase tracking-[0.16em] text-muted-foreground">{labels.nodes}</div>
-            <p className="mt-1 text-[11.5px] leading-relaxed text-muted-foreground">{labels.nodeLibraryHint}</p>
+      <div className="grid min-h-0 flex-1 grid-cols-[68px_minmax(0,1fr)]">
+        <aside className="border-r border-border bg-card/64 p-2">
+          <div className="mb-2 grid h-9 place-items-center rounded-lg border border-border bg-background font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground" title={labels.nodeLibraryHint}>
+            {labels.nodes}
           </div>
-          <NodeButton label={labels.imageNode} onClick={() => addNode("image.input")} />
-          <NodeButton label={labels.promptNode} onClick={() => addNode("prompt.input")} />
-          <NodeButton label={labels.paramsNode} onClick={() => addNode("video.params")} />
-          <NodeButton label={labels.videoNode} onClick={() => addNode("seedance.video")} />
-          <NodeButton label={labels.outputNode} onClick={() => addNode("output.preview")} />
+          <NodeButton label={labels.imageNode} icon={<ImageIcon className="size-4" />} onClick={() => addNode("image.input")} />
+          <NodeButton label={labels.promptNode} icon={<Type className="size-4" />} onClick={() => addNode("prompt.input")} />
+          <NodeButton label={labels.paramsNode} icon={<Settings2 className="size-4" />} onClick={() => addNode("video.params")} />
+          <NodeButton label={labels.videoNode} icon={<Sparkles className="size-4" />} onClick={() => addNode("seedance.video")} />
+          <NodeButton label={labels.outputNode} icon={<Video className="size-4" />} onClick={() => addNode("output.preview")} />
         </aside>
         <main className="relative min-h-0 bg-background/18">
-          <div className="pointer-events-none absolute left-4 top-4 z-10 rounded-full border border-white/12 bg-background/60 px-3 py-1.5 font-mono text-[10.5px] uppercase tracking-[0.14em] text-muted-foreground shadow-sm backdrop-blur-md">
+          <div className="pointer-events-none absolute left-4 top-4 z-10 rounded-md border border-border bg-background/80 px-3 py-1.5 font-mono text-[10.5px] uppercase tracking-[0.14em] text-muted-foreground shadow-sm">
             {labels.canvasRoute}
           </div>
           <ReactFlow
@@ -449,43 +445,44 @@ export function CanvasWorkspace() {
             <MiniMap pannable zoomable />
             <Controls />
           </ReactFlow>
-        </main>
-        <aside className="flex min-h-0 flex-col border-l border-white/10 bg-card/30 backdrop-blur-md">
-          <NodeInspector
-            node={selectedNode}
-            assets={assets}
-            labels={labels}
-            uploadingImage={uploadingImage}
-            durationMin={durationMin}
-            durationMax={durationMax}
-            resolutionOptions={resolutionOptions}
-            ratioOptions={ratioOptions}
-            availableModelIds={videoCatalog.modelIds}
-            onUploadImage={uploadImageForSelectedNode}
-            onChange={updateSelectedData}
-          />
-          <div className="border-t border-white/10 p-4">
-            <RunStatusCard currentVideo={currentVideo} videoURL={videoURL} exportResult={exportResult} labels={labels} />
-            {exportResult ? (
-              <div className="mt-3 rounded-2xl border border-white/12 bg-background/70 p-3">
-                <div className="mb-2 text-[12px] font-medium">{labels.exportedApi}</div>
-                <pre className="max-h-48 overflow-auto whitespace-pre-wrap rounded-xl bg-card/70 p-2 font-mono text-[10.5px] text-muted-foreground">
-                  {exportResult.curl}
-                </pre>
-              </div>
-            ) : null}
+          <div className="pointer-events-auto absolute inset-x-3 bottom-3 z-20 grid max-h-[46%] gap-3 lg:grid-cols-[minmax(0,1fr)_320px]">
+            <section className="min-h-0 overflow-hidden rounded-lg border border-border bg-card/94 shadow-sm">
+              <NodeInspector
+                node={selectedNode}
+                assets={assets}
+                labels={labels}
+                uploadingImage={uploadingImage}
+                durationMin={durationMin}
+                durationMax={durationMax}
+                resolutionOptions={resolutionOptions}
+                ratioOptions={ratioOptions}
+                availableModelIds={videoCatalog.modelIds}
+                onUploadImage={uploadImageForSelectedNode}
+                onChange={updateSelectedData}
+              />
+            </section>
+            <section className="min-h-0 overflow-y-auto rounded-lg border border-border bg-card/94 p-3 shadow-sm">
+              <RunStatusCard currentVideo={currentVideo} videoURL={videoURL} exportResult={exportResult} labels={labels} />
+              {exportResult ? (
+                <div className="mt-3 rounded-lg border border-border bg-background p-3">
+                  <div className="mb-2 text-[12px] font-medium">{labels.exportedApi}</div>
+                  <pre className="max-h-32 overflow-auto whitespace-pre-wrap rounded-md bg-muted/50 p-2 font-mono text-[10.5px] text-muted-foreground">
+                    {exportResult.curl}
+                  </pre>
+                </div>
+              ) : null}
+            </section>
           </div>
-        </aside>
+        </main>
       </div>
     </div>
   )
 }
 
-function NodeButton({ label, onClick }: { label: string; onClick: () => void }) {
+function NodeButton({ label, icon, onClick }: { label: string; icon: ReactNode; onClick: () => void }) {
   return (
-    <button type="button" onClick={onClick} className="mb-2 flex w-full items-center justify-between rounded-2xl border border-white/12 bg-background/55 px-3 py-2 text-left text-[12.5px] shadow-sm backdrop-blur-md hover:border-signal/35 hover:bg-card">
-      <span>{label}</span>
-      <span className="text-muted-foreground">+</span>
+    <button type="button" title={label} aria-label={label} onClick={onClick} className="mb-2 grid h-11 w-full place-items-center rounded-lg border border-border bg-background text-muted-foreground shadow-sm transition hover:border-signal/35 hover:bg-accent hover:text-foreground">
+      {icon}
     </button>
   )
 }

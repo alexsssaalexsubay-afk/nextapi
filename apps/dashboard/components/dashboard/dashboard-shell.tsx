@@ -36,12 +36,14 @@ export function DashboardShell({
   title,
   description,
   actions,
+  workspace = false,
 }: {
   children: React.ReactNode
   activeHref?: string
   title?: string
   description?: string
   actions?: React.ReactNode
+  workspace?: boolean
 }) {
   const t = useTranslations()
   const router = useRouter()
@@ -49,7 +51,7 @@ export function DashboardShell({
   const [balance, setBalance] = useState<number | null>(null)
   const [initials, setInitials] = useState<string>("—")
   const [signingOut, setSigningOut] = useState(false)
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(workspace)
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
   const searchInputRef = useRef<HTMLInputElement | null>(null)
@@ -69,7 +71,8 @@ export function DashboardShell({
   useEffect(() => {
     if (typeof window !== "undefined") {
       console.info(`[NextAPI dashboard] build ${BUILD_LABEL}`)
-      setSidebarCollapsed(window.localStorage.getItem("nextapi.sidebar.collapsed") === "1")
+      const storedSidebar = window.localStorage.getItem("nextapi.sidebar.collapsed")
+      setSidebarCollapsed(workspace ? true : storedSidebar === "1")
     }
     let cancelled = false
     apiFetch("/v1/auth/me").then((res) => {
@@ -90,7 +93,7 @@ export function DashboardShell({
       }
     }).catch(() => { /* non-fatal: sidebar still renders */ })
     return () => { cancelled = true }
-  }, [])
+  }, [workspace])
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
@@ -277,9 +280,12 @@ export function DashboardShell({
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-border bg-background/95 px-4 sm:px-5">
+        <header className={cn("sticky top-0 z-30 flex items-center border-b border-border bg-background/95", workspace ? "h-11 gap-2 px-2 sm:px-3" : "h-14 gap-3 px-4 sm:px-5")}>
           <div
-            className="relative flex h-8 min-w-0 max-w-xl flex-1 items-center gap-2 rounded-lg border border-border bg-card px-3 text-left text-[12.5px] text-muted-foreground transition-colors focus-within:border-signal/45 focus-within:bg-background"
+            className={cn(
+              "relative flex h-8 min-w-0 items-center gap-2 rounded-lg border border-border bg-card px-3 text-left text-[12.5px] text-muted-foreground transition-colors focus-within:border-signal/45 focus-within:bg-background",
+              workspace ? "hidden max-w-sm flex-1 md:flex" : "max-w-xl flex-1",
+            )}
             onBlur={() => window.setTimeout(() => setSearchOpen(false), 120)}
           >
             <Search className="size-3.5" />
@@ -329,8 +335,15 @@ export function DashboardShell({
               </div>
             )}
           </div>
+          {workspace && title ? (
+            <div className="hidden min-w-0 items-center gap-2 lg:flex">
+              <span className="max-w-[260px] truncate text-[13px] font-medium tracking-tight text-foreground">{title}</span>
+              {description ? <span className="max-w-[360px] truncate text-[12px] text-muted-foreground xl:inline">{description}</span> : null}
+            </div>
+          ) : null}
           <div className="ml-auto flex items-center gap-2">
-            <div className="hidden items-center gap-2 rounded-lg border border-border bg-card px-3 py-1.5 text-[12px] text-muted-foreground md:inline-flex">
+            {workspace && actions ? <div className="hidden items-center gap-2 xl:flex">{actions}</div> : null}
+            <div className={cn("hidden items-center gap-2 rounded-lg border border-border bg-card px-3 py-1.5 text-[12px] text-muted-foreground", workspace ? "2xl:inline-flex" : "md:inline-flex")}>
               <span>{t.dashboard.stats.available}</span>
               <span className="font-mono text-foreground">
                 {balance !== null ? `$${(balance / 100).toFixed(2)}` : "—"}
@@ -363,7 +376,7 @@ export function DashboardShell({
           </div>
         </header>
 
-        {(title || description || actions) && (
+        {!workspace && (title || description || actions) && (
           <div className="border-b border-border bg-muted/20 px-5 py-4">
             <div className="flex flex-wrap items-end justify-between gap-4">
               <div>
