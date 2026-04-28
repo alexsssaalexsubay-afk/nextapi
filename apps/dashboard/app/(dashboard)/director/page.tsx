@@ -10,8 +10,10 @@ import {
   Clapperboard,
   Cpu,
   Film,
+  Grid3X3,
   ImageIcon,
   Loader2,
+  Maximize2,
   Minus,
   Plus,
   Route,
@@ -41,6 +43,9 @@ type PipelineStep = {
 
 const DEFAULT_RATIOS = ["9:16", "16:9", "1:1"]
 const DEFAULT_RESOLUTIONS = ["480p", "720p", "1080p"]
+const DIRECTOR_ZOOM_MIN = 0.88
+const DIRECTOR_ZOOM_MAX = 1.08
+const DIRECTOR_ZOOM_STEP = 0.05
 
 export default function DirectorPage() {
   const t = useTranslations()
@@ -64,6 +69,8 @@ export default function DirectorPage() {
   const [busyStage, setBusyStage] = useState<BusyStage | null>(null)
   const [workspaceFocus, setWorkspaceFocus] = useState<DirectorWorkspaceFocus>("brief")
   const [selectedShotIndex, setSelectedShotIndex] = useState(0)
+  const [viewportZoom, setViewportZoom] = useState(1)
+  const [gridEnabled, setGridEnabled] = useState(true)
   const [actionFeedback, setActionFeedback] = useState<Partial<Record<ActionKey, ActionFeedback>>>({})
   const [error, setError] = useState<string | null>(null)
   const videoCatalog = useVideoModelCatalog()
@@ -293,6 +300,10 @@ export default function DirectorPage() {
     setWorkspaceFocus("brief")
   }
 
+  function changeViewportZoom(delta: number) {
+    setViewportZoom((current) => clampNumber(Number((current + delta).toFixed(2)), DIRECTOR_ZOOM_MIN, DIRECTOR_ZOOM_MAX))
+  }
+
   const modelCatalogBlocked = videoCatalog.state !== "ready" || videoCatalog.modelIds.length === 0
   const blocked = !status?.available || modelCatalogBlocked
   const imageBlocked = status != null && !status.image_provider_configured
@@ -363,7 +374,10 @@ export default function DirectorPage() {
               onFocusChange={setWorkspaceFocus}
             />
 
-            <section className="relative min-h-[760px] overflow-hidden rounded-xl border border-border bg-card/86 bg-dots shadow-sm">
+            <section
+              className={cn("relative min-h-[760px] overflow-hidden rounded-xl border border-border bg-card/86 shadow-sm", gridEnabled && "bg-dots")}
+              data-director-grid={gridEnabled ? "on" : "off"}
+            >
               <div className="absolute inset-0 bg-background/45" />
               <div className="relative z-10 flex min-h-[760px] flex-col">
                 <div className="border-b border-border bg-card/76 px-4 py-3">
@@ -393,6 +407,8 @@ export default function DirectorPage() {
                   workflowRun={workflowRun}
                   focus={workspaceFocus}
                   selectedShotIndex={selectedShotIndex}
+                  viewportZoom={viewportZoom}
+                  gridEnabled={gridEnabled}
                   labels={labels}
                   imagesDisabled={imagesDisabled}
                   imagesActionState={imagesActionState}
@@ -400,6 +416,10 @@ export default function DirectorPage() {
                   workflowActionState={workflowActionState}
                   onFocusChange={setWorkspaceFocus}
                   onSelectShot={setSelectedShotIndex}
+                  onZoomOut={() => changeViewportZoom(-DIRECTOR_ZOOM_STEP)}
+                  onZoomIn={() => changeViewportZoom(DIRECTOR_ZOOM_STEP)}
+                  onResetView={() => setViewportZoom(1)}
+                  onToggleGrid={() => setGridEnabled((current) => !current)}
                   onGenerateImages={() => void generateImages()}
                   onCreateWorkflow={() => void createWorkflow()}
                   onUpdateShot={updateShot}
@@ -568,6 +588,8 @@ function DirectorCanvasBoard({
   workflowRun,
   focus,
   selectedShotIndex,
+  viewportZoom,
+  gridEnabled,
   labels,
   imagesDisabled,
   imagesActionState,
@@ -575,6 +597,10 @@ function DirectorCanvasBoard({
   workflowActionState,
   onFocusChange,
   onSelectShot,
+  onZoomOut,
+  onZoomIn,
+  onResetView,
+  onToggleGrid,
   onGenerateImages,
   onCreateWorkflow,
   onUpdateShot,
@@ -589,6 +615,8 @@ function DirectorCanvasBoard({
   workflowRun: WorkflowRunResult | null
   focus: DirectorWorkspaceFocus
   selectedShotIndex: number
+  viewportZoom: number
+  gridEnabled: boolean
   labels: ReturnType<typeof useTranslations>["directorPage"]
   imagesDisabled: boolean
   imagesActionState: ActionButtonState
@@ -596,6 +624,10 @@ function DirectorCanvasBoard({
   workflowActionState: ActionButtonState
   onFocusChange: (focus: DirectorWorkspaceFocus) => void
   onSelectShot: (index: number) => void
+  onZoomOut: () => void
+  onZoomIn: () => void
+  onResetView: () => void
+  onToggleGrid: () => void
   onGenerateImages: () => void
   onCreateWorkflow: () => void
   onUpdateShot: (index: number, patch: Partial<DirectorShot>) => void
@@ -604,8 +636,12 @@ function DirectorCanvasBoard({
   const selectedShot = storyboard?.shots[selectedShotIndex] ?? storyboard?.shots[0]
 
   return (
-    <div className="relative flex-1 p-4 pb-4 lg:p-5 lg:pb-[335px]">
-      <div className="relative min-h-[560px]">
+    <div className="relative flex-1 p-4 pb-24 lg:p-5 lg:pb-[335px]">
+      <div
+        className="relative min-h-[560px] origin-top transition-transform duration-200 ease-out"
+        data-director-viewport-zoom={viewportZoom.toFixed(2)}
+        style={{ transform: `scale(${viewportZoom})` }}
+      >
         <div className="pointer-events-none absolute left-[31%] right-[39%] top-[29%] hidden h-px bg-border lg:block" />
         <div className="pointer-events-none absolute left-[31%] top-[29%] hidden size-4 -translate-x-1/2 -translate-y-1/2 rounded-full border border-border bg-card lg:block" />
         <div className="pointer-events-none absolute right-[39%] top-[29%] hidden size-4 translate-x-1/2 -translate-y-1/2 rounded-full border border-signal/40 bg-card lg:block" />
@@ -696,7 +732,129 @@ function DirectorCanvasBoard({
           </CanvasNode>
         </div>
       </div>
+      <DirectorViewportControls
+        labels={labels}
+        zoom={viewportZoom}
+        gridEnabled={gridEnabled}
+        focus={focus}
+        storyboardReady={Boolean(storyboard)}
+        workflowReady={Boolean(workflowID)}
+        onZoomOut={onZoomOut}
+        onZoomIn={onZoomIn}
+        onResetView={onResetView}
+        onToggleGrid={onToggleGrid}
+      />
     </div>
+  )
+}
+
+function DirectorViewportControls({
+  labels,
+  zoom,
+  gridEnabled,
+  focus,
+  storyboardReady,
+  workflowReady,
+  onZoomOut,
+  onZoomIn,
+  onResetView,
+  onToggleGrid,
+}: {
+  labels: ReturnType<typeof useTranslations>["directorPage"]
+  zoom: number
+  gridEnabled: boolean
+  focus: DirectorWorkspaceFocus
+  storyboardReady: boolean
+  workflowReady: boolean
+  onZoomOut: () => void
+  onZoomIn: () => void
+  onResetView: () => void
+  onToggleGrid: () => void
+}) {
+  const routeItems: Array<{ id: DirectorWorkspaceFocus; label: string; ready: boolean }> = [
+    { id: "brief", label: labels.pipelineBrief, ready: true },
+    { id: "storyboard", label: labels.pipelineStoryboard, ready: storyboardReady },
+    { id: "workflow", label: labels.pipelineWorkflow, ready: workflowReady },
+  ]
+
+  return (
+    <div className="absolute inset-x-4 bottom-4 z-20 flex flex-wrap items-end justify-between gap-3 lg:bottom-[255px]" data-director-viewport-controls>
+      <div className="flex items-center gap-1 rounded-xl border border-border bg-card/94 p-1 shadow-sm">
+        <ViewportIconButton label={labels.viewportZoomOut} onClick={onZoomOut} disabled={zoom <= DIRECTOR_ZOOM_MIN + 0.001}>
+          <Minus className="size-3.5" />
+        </ViewportIconButton>
+        <span className="min-w-12 rounded-lg border border-border bg-background px-2 py-1 text-center font-mono text-[10px] text-muted-foreground">
+          {Math.round(zoom * 100)}%
+        </span>
+        <ViewportIconButton label={labels.viewportZoomIn} onClick={onZoomIn} disabled={zoom >= DIRECTOR_ZOOM_MAX - 0.001}>
+          <Plus className="size-3.5" />
+        </ViewportIconButton>
+        <ViewportIconButton label={labels.viewportReset} onClick={onResetView}>
+          <Maximize2 className="size-3.5" />
+        </ViewportIconButton>
+        <ViewportIconButton label={labels.viewportGrid} onClick={onToggleGrid} active={gridEnabled}>
+          <Grid3X3 className="size-3.5" />
+        </ViewportIconButton>
+      </div>
+
+      <div className="hidden w-48 rounded-xl border border-border bg-card/94 p-2 shadow-sm sm:block" aria-label={labels.viewportMinimap}>
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <span className="inline-flex items-center gap-1.5 font-mono text-[9.5px] uppercase tracking-[0.14em] text-muted-foreground">
+            <Route className="size-3 text-signal" />
+            {labels.viewportMinimap}
+          </span>
+          <span className="font-mono text-[9.5px] text-muted-foreground">{Math.round(zoom * 100)}%</span>
+        </div>
+        <ol className="grid grid-cols-3 gap-1.5">
+          {routeItems.map((item) => {
+            const active = item.id === focus
+            return (
+              <li key={item.id}>
+                <span
+                  className={cn(
+                    "block h-8 rounded-md border px-1 py-1 text-center text-[10px] transition",
+                    active ? "border-signal/55 bg-signal/10 text-signal" : item.ready ? "border-status-success/35 bg-status-success/10 text-status-success" : "border-border bg-background text-muted-foreground",
+                  )}
+                >
+                  <span className="block truncate">{item.label}</span>
+                </span>
+              </li>
+            )
+          })}
+        </ol>
+      </div>
+    </div>
+  )
+}
+
+function ViewportIconButton({
+  label,
+  active,
+  disabled,
+  onClick,
+  children,
+}: {
+  label: string
+  active?: boolean
+  disabled?: boolean
+  onClick: () => void
+  children: ReactNode
+}) {
+  return (
+    <button
+      type="button"
+      title={label}
+      aria-label={label}
+      aria-pressed={active}
+      disabled={disabled}
+      onClick={onClick}
+      className={cn(
+        "grid size-8 place-items-center rounded-lg border transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal/35 disabled:cursor-not-allowed disabled:opacity-40",
+        active ? "border-signal/40 bg-signal/10 text-signal" : "border-border bg-background text-muted-foreground hover:bg-accent hover:text-foreground",
+      )}
+    >
+      {children}
+    </button>
   )
 }
 
