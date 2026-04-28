@@ -1,6 +1,9 @@
 services:
   backend:
     image: ghcr.io/alexsssaalexsubay-afk/nextapi-backend:${IMAGE_TAG:-main}
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
     restart: unless-stopped
     env_file: .env
     environment:
@@ -24,6 +27,9 @@ services:
 
   worker:
     image: ghcr.io/alexsssaalexsubay-afk/nextapi-backend:${IMAGE_TAG:-main}
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
     restart: unless-stopped
     env_file: .env
     command: ["/app/worker"]
