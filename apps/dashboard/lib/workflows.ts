@@ -60,6 +60,7 @@ export type WorkflowRunResult = {
   estimated_cost_cents?: number
   batch_run_id?: string
   job_ids?: string[]
+  video_ids?: string[]
   merge_job_id?: string
 }
 
@@ -145,6 +146,11 @@ export type BatchRunDetail = {
 
 export type CharacterRecord = {
   id: string
+  name: string
+  reference_images: string[]
+}
+
+export type CreateCharacterInput = {
   name: string
   reference_images: string[]
 }
@@ -359,4 +365,11 @@ export async function getBatchRun(id: string): Promise<BatchRunDetail> {
 export async function listCharacters(): Promise<CharacterRecord[]> {
   const res = await apiFetch("/v1/characters") as { data?: CharacterRecord[] }
   return Array.isArray(res.data) ? res.data : []
+}
+
+export async function createCharacter(input: CreateCharacterInput): Promise<CharacterRecord> {
+  return apiFetch("/v1/characters", {
+    method: "POST",
+    body: JSON.stringify(input),
+  }) as Promise<CharacterRecord>
 }

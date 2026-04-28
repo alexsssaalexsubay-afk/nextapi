@@ -25,7 +25,12 @@ func NewService(db *gorm.DB) *Service {
 }
 
 func (s *Service) Enabled() bool {
-	return s != nil && os.Getenv("VIDEO_MERGE_ENABLED") == "true"
+	// Creating merge jobs without an executor is worse than disabling merge:
+	// it makes Director look closed-loop while the final asset can never be
+	// produced. Keep merge fail-closed until a real merge processor is wired.
+	return s != nil &&
+		os.Getenv("VIDEO_MERGE_ENABLED") == "true" &&
+		os.Getenv("VIDEO_MERGE_EXECUTOR_ENABLED") == "true"
 }
 
 func (s *Service) Create(ctx context.Context, in CreateInput) (*domain.VideoMergeJob, error) {

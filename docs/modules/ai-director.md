@@ -25,8 +25,10 @@ billing, throughput, moderation, and webhook paths.
 - Model choice is staged through visible catalog cards first. Non-Seedance
   providers can appear as "coming soon" until operators configure live
   providers in admin.
-- Video merge stays disabled by default. The merge node records intent for
-  future support, but v1 does not promise automatic final video stitching.
+- Video merge stays fail-closed by default. It requires both
+  `VIDEO_MERGE_ENABLED=true` and a proven executor flag
+  `VIDEO_MERGE_EXECUTOR_ENABLED=true`; otherwise Director must not advertise
+  automatic final video stitching.
 
 ## Rollout
 

@@ -6,7 +6,7 @@ import { DashboardShell } from "@/components/dashboard/dashboard-shell"
 import { StatCard } from "@/components/dashboard/stat-card"
 import { Button } from "@/components/ui/button"
 import { useTranslations } from "@/lib/i18n/context"
-import { apiFetch } from "@/lib/api"
+import { apiFetch, ApiError } from "@/lib/api"
 
 type UsagePoint = {
   day: string
@@ -18,16 +18,22 @@ export default function UsagePage() {
   const t = useTranslations()
   const [data, setData] = useState<UsagePoint[] | null>(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   const load = useCallback(() => {
     setLoading(true)
-    apiFetch("/v1/usage?days=30")
+    setError(null)
+    apiFetch("/v1/me/billing/usage?days=30")
       .then((res) => {
         if (Array.isArray(res?.data)) setData(res.data as UsagePoint[])
       })
-      .catch(() => {})
+      .catch((e) => {
+        const msg = e instanceof ApiError ? e.message : e instanceof Error ? e.message : t.usage.loadFailed
+        setError(msg)
+        setData([])
+      })
       .finally(() => setLoading(false))
-  }, [])
+  }, [t.usage.loadFailed])
 
   useEffect(() => { load() }, [load])
 
@@ -57,6 +63,10 @@ export default function UsagePage() {
         {loading && !data ? (
           <div className="flex items-center justify-center py-20 text-muted-foreground">
             <Loader2 className="mr-2 size-4 animate-spin" /> Loading…
+          </div>
+        ) : error ? (
+          <div className="rounded-2xl border border-destructive/40 bg-destructive/10 p-5 text-[13px] text-destructive">
+            {error}
           </div>
         ) : (
           <>
@@ -135,7 +145,7 @@ export default function UsagePage() {
                   {(!data || data.length === 0) && (
                     <tr>
                       <td colSpan={3} className="px-5 py-8 text-center text-muted-foreground">
-                        No usage data yet
+                        {t.usage.empty}
                       </td>
                     </tr>
                   )}

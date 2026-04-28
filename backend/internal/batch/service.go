@@ -34,6 +34,7 @@ type CreateInput struct {
 type CreateResult struct {
 	BatchRunID string   `json:"batch_run_id"`
 	JobIDs     []string `json:"job_ids"`
+	VideoIDs   []string `json:"video_ids,omitempty"`
 	Total      int      `json:"total"`
 	Accepted   int      `json:"accepted"`
 	Rejected   int      `json:"rejected"`
@@ -75,8 +76,12 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*CreateResult, er
 	}
 
 	jobIDs := make([]string, 0, totalShots)
+	videoIDs := make([]string, 0, totalShots)
 	for _, shot := range in.Shots {
 		shot.BatchRunID = &br.ID
+		shot.CreateVideoRecord = true
+		metadata, _ := json.Marshal(map[string]any{"batch_run_id": br.ID})
+		shot.VideoMetadata = metadata
 		res, err := s.jobSvc.Create(ctx, shot)
 		if err != nil {
 			s.db.WithContext(ctx).Model(&domain.BatchRun{}).
@@ -85,6 +90,9 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*CreateResult, er
 			continue
 		}
 		jobIDs = append(jobIDs, res.JobID)
+		if res.VideoID != "" {
+			videoIDs = append(videoIDs, res.VideoID)
+		}
 	}
 
 	queued := len(jobIDs)
@@ -103,6 +111,7 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*CreateResult, er
 	return &CreateResult{
 		BatchRunID: br.ID,
 		JobIDs:     jobIDs,
+		VideoIDs:   videoIDs,
 		Total:      totalShots,
 		Accepted:   queued,
 		Rejected:   totalShots - queued,

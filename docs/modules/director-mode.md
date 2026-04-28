@@ -145,7 +145,7 @@ Both require `X-Director-Runtime-Token`.
 - `video.params`
 - `seedance.video`
 
-When merge is requested, it appends `video.merge` and `output.preview`; otherwise each video connects directly to output preview.
+When merge is requested and the production merge executor is enabled, it appends `video.merge` and `output.preview`; otherwise each video connects directly to output preview. Merge is intentionally fail-closed: `VIDEO_MERGE_ENABLED=true` alone is not enough, because creating merge jobs without an executor produces a fake closed loop.
 
 ## Director Workflow State Machine
 

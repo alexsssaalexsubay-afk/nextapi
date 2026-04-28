@@ -8,11 +8,14 @@ import {
   Music,
   Trash2,
   UploadCloud,
+  UserRoundPlus,
   Video,
+  X,
 } from "lucide-react"
 import { DashboardShell } from "@/components/dashboard/dashboard-shell"
 import { useTranslations } from "@/lib/i18n/context"
 import { apiFetch, apiUpload, ApiError } from "@/lib/api"
+import { createCharacter } from "@/lib/workflows"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
 
@@ -25,6 +28,8 @@ type LibraryAsset = {
   content_type: string
   size_bytes: number
   url: string
+  generation_url?: string
+  seedance_asset_status?: string
   url_expires_at: string
   created_at: string
 }
@@ -65,6 +70,8 @@ export default function AssetLibraryPage() {
   const [uploading, setUploading] = useState<AssetKind | null>(null)
   const [filter, setFilter] = useState<"all" | AssetKind>("all")
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [characterDraft, setCharacterDraft] = useState<{ asset: LibraryAsset; name: string } | null>(null)
+  const [creatingCharacter, setCreatingCharacter] = useState(false)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
 
   const refresh = useCallback(async () => {
@@ -139,6 +146,37 @@ export default function AssetLibraryPage() {
     },
     [labels],
   )
+
+  const openCharacterDraft = useCallback((asset: LibraryAsset) => {
+    const rawName = asset.filename?.replace(/\.[^.]+$/, "").replace(/[_-]+/g, " ").trim()
+    setCharacterDraft({ asset, name: rawName || labels.defaultCharacterName })
+  }, [labels.defaultCharacterName])
+
+  const handleCreateCharacter = useCallback(async () => {
+    if (!characterDraft) return
+    const name = characterDraft.name.trim()
+    const referenceURL = isProviderReadyAsset(characterDraft.asset) ? characterDraft.asset.generation_url : ""
+    if (!name) {
+      toast.error(labels.characterNameRequired)
+      return
+    }
+    if (!referenceURL) {
+      toast.error(labels.characterProviderPending)
+      return
+    }
+    setCreatingCharacter(true)
+    try {
+      await createCharacter({ name, reference_images: [referenceURL] })
+      toast.success(labels.characterSaved)
+      setCharacterDraft(null)
+    } catch (e) {
+      const msg =
+        e instanceof ApiError ? e.message : e instanceof Error ? e.message : labels.characterSaveFailed
+      toast.error(msg)
+    } finally {
+      setCreatingCharacter(false)
+    }
+  }, [characterDraft, labels])
 
   const filtered = useMemo(() => {
     if (filter === "all") return assets
@@ -265,11 +303,76 @@ export default function AssetLibraryPage() {
                 asset={asset}
                 deleting={deletingId === asset.id}
                 onDelete={() => handleDelete(asset)}
+                onCreateCharacter={() => openCharacterDraft(asset)}
                 labels={labels}
               />
             ))}
           </div>
         )}
+
+        {characterDraft ? (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/70 p-4 backdrop-blur-xl">
+            <div className="w-full max-w-[480px] overflow-hidden rounded-[28px] border border-border/80 bg-card shadow-2xl">
+              <div className="flex items-start justify-between gap-4 border-b border-border/70 p-5">
+                <div>
+                  <h2 className="text-[18px] font-semibold tracking-tight">{labels.characterModalTitle}</h2>
+                  <p className="mt-1 text-[12.5px] leading-relaxed text-muted-foreground">
+                    {labels.characterModalSubtitle}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setCharacterDraft(null)}
+                  className="inline-flex size-8 shrink-0 items-center justify-center rounded-full border border-border/70 text-muted-foreground transition hover:bg-background hover:text-foreground"
+                  aria-label={labels.close}
+                >
+                  <X className="size-4" />
+                </button>
+              </div>
+              <div className="grid gap-4 p-5 sm:grid-cols-[112px_1fr]">
+                <div className="relative aspect-square overflow-hidden rounded-2xl border border-border/70 bg-background">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={characterDraft.asset.url}
+                    alt={characterDraft.asset.filename}
+                    className="absolute inset-0 h-full w-full object-cover"
+                  />
+                </div>
+                <label className="space-y-2">
+                  <span className="text-[12px] font-medium text-muted-foreground">{labels.characterName}</span>
+                  <input
+                    value={characterDraft.name}
+                    onChange={(e) => setCharacterDraft((current) => current ? { ...current, name: e.target.value } : current)}
+                    className="h-11 w-full rounded-2xl border border-border/80 bg-background px-3 text-sm outline-none transition focus:border-signal focus:ring-4 focus:ring-signal/15"
+                    placeholder={labels.characterNamePlaceholder}
+                    autoFocus
+                  />
+                  <p className="text-[11.5px] leading-relaxed text-muted-foreground">
+                    {labels.characterModalHint}
+                  </p>
+                </label>
+              </div>
+              <div className="flex justify-end gap-2 border-t border-border/70 p-5">
+                <button
+                  type="button"
+                  onClick={() => setCharacterDraft(null)}
+                  className="inline-flex h-10 items-center rounded-full border border-border/80 px-4 text-[13px] text-muted-foreground transition hover:text-foreground"
+                >
+                  {labels.cancel}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleCreateCharacter()}
+                  disabled={creatingCharacter}
+                  className="inline-flex h-10 items-center gap-2 rounded-full bg-signal px-5 text-[13px] font-semibold text-white shadow-lg shadow-signal/25 transition hover:-translate-y-0.5 disabled:pointer-events-none disabled:opacity-60"
+                >
+                  {creatingCharacter ? <Loader2 className="size-3.5 animate-spin" /> : <UserRoundPlus className="size-3.5" />}
+                  {labels.saveAsCharacter}
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
       </div>
     </DashboardShell>
   )
@@ -279,15 +382,18 @@ function AssetCard({
   asset,
   deleting,
   onDelete,
+  onCreateCharacter,
   labels,
 }: {
   asset: LibraryAsset
   deleting: boolean
   onDelete: () => void
+  onCreateCharacter: () => void
   labels: ReturnType<typeof useTranslations>["library"]
 }) {
   const created = new Date(asset.created_at).toLocaleDateString()
   const Icon = asset.kind === "video" ? Video : asset.kind === "audio" ? Music : ImageIcon
+  const canSaveCharacter = isProviderReadyAsset(asset)
 
   return (
     <div className="group flex flex-col overflow-hidden rounded-[18px] border border-border/80 bg-card/40 transition-shadow hover:shadow-lg">
@@ -339,6 +445,18 @@ function AssetCard({
         </button>
       </div>
       <div className="flex items-center gap-2 border-t border-border/60 px-3 py-2">
+        {asset.kind === "image" ? (
+          <button
+            type="button"
+            onClick={onCreateCharacter}
+            disabled={!canSaveCharacter}
+            title={canSaveCharacter ? labels.saveAsCharacter : labels.characterProviderPending}
+            className="inline-flex h-7 items-center gap-1 rounded-md border border-signal/30 bg-signal/10 px-2 text-[11px] font-medium text-signal hover:bg-signal hover:text-white disabled:cursor-not-allowed disabled:border-border/70 disabled:bg-muted/30 disabled:text-muted-foreground"
+          >
+            <UserRoundPlus className="size-3" />
+            {labels.saveAsCharacter}
+          </button>
+        ) : null}
         <button
           type="button"
           onClick={() => {
@@ -359,4 +477,8 @@ function AssetCard({
       </div>
     </div>
   )
+}
+
+function isProviderReadyAsset(asset: LibraryAsset): asset is LibraryAsset & { generation_url: string } {
+  return asset.kind === "image" && asset.seedance_asset_status === "active" && Boolean(asset.generation_url)
 }

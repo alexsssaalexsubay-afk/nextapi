@@ -25,6 +25,7 @@ import { useTranslations } from "@/lib/i18n/context"
 import { cn } from "@/lib/utils"
 import { apiFetch, apiUpload, ApiError } from "@/lib/api"
 import { jobApiErrorMessage } from "@/lib/api-error-i18n"
+import { useVideoModelCatalog } from "@/lib/use-video-model-catalog"
 import { toast } from "sonner"
 
 type Mode = "text" | "image"
@@ -153,6 +154,7 @@ export default function NewJobPage() {
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [libraryAssets, setLibraryAssets] = useState<LibraryAsset[]>([])
   const [libraryLoading, setLibraryLoading] = useState(false)
+  const videoCatalog = useVideoModelCatalog()
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   // Stable per-attempt key — only rotates after a terminal status, so a double
@@ -453,6 +455,11 @@ export default function NewJobPage() {
     }
   }, [currentVideo?.status, rotateIdempotencyKey])
 
+  useEffect(() => {
+    if (videoCatalog.state !== "ready" || videoCatalog.modelIds.length === 0) return
+    setModel((current) => videoCatalog.modelIds.includes(current) ? current : videoCatalog.modelIds[0])
+  }, [videoCatalog.modelIds, videoCatalog.state])
+
   const retryCurrentVideo = async () => {
     if (!currentVideo?.id) return
     setRetrying(true)
@@ -484,9 +491,11 @@ export default function NewJobPage() {
     imageURLs.length > 0 ||
     videoURLs.length > 0
   const hasActiveJob = !!currentVideo && ACTIVE_STATUSES.has(currentVideo.status)
+  const modelCatalogReady = videoCatalog.state === "ready" && videoCatalog.modelIds.length > 0
   const canSubmit =
     !submitting &&
     !hasActiveJob &&
+    modelCatalogReady &&
     Boolean(prompt.trim()) &&
     (mode === "text" || hasVisualMedia)
   const attachmentCount =
@@ -742,7 +751,20 @@ export default function NewJobPage() {
                 <div className="border-t border-border/60 px-4 py-3">
                   <div className="grid gap-3 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
                     <div className="grid gap-3 md:grid-cols-2">
-                      <ModelSelect label={t.jobs.new.form.model} value={model} onChange={setModel} category="video" />
+                      <ModelSelect
+                        label={t.jobs.new.form.model}
+                        value={model}
+                        onChange={setModel}
+                        category="video"
+                        availableModelIds={videoCatalog.modelIds}
+                        helper={
+                          videoCatalog.state === "loading"
+                            ? t.jobs.new.form.modelCatalogLoading
+                            : modelCatalogReady
+                              ? t.jobs.new.form.modelCatalogReady
+                              : t.jobs.new.form.modelCatalogUnavailable
+                        }
+                      />
                       <label className="min-w-0">
                         <span className="mb-1 block text-[10.5px] uppercase tracking-[0.14em] text-muted-foreground">{t.jobs.new.form.webhook}</span>
                         <input
@@ -810,7 +832,7 @@ export default function NewJobPage() {
                           "inline-flex h-10 items-center gap-2 rounded-full bg-foreground px-5 text-[13px] font-medium text-background transition-all",
                           !canSubmit && "cursor-not-allowed opacity-60",
                         )}
-                        title={hasActiveJob ? t.jobs.new.form.activeJobBlocking : undefined}
+                        title={hasActiveJob ? t.jobs.new.form.activeJobBlocking : !modelCatalogReady ? t.jobs.new.form.modelCatalogUnavailable : undefined}
                       >
                         {submitting ? (
                           <>

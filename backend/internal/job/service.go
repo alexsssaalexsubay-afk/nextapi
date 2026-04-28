@@ -50,15 +50,18 @@ func (s *Service) SetModeration(ms *moderation.Service) { s.moderation = ms }
 func (s *Service) SetPricing(ps *pricingsvc.Service)    { s.pricing = ps }
 
 type CreateInput struct {
-	OrgID          string
-	APIKeyID       *string
-	BatchRunID     *string
-	SkipThroughput bool // batch service handles throughput externally via AcquireBatch
-	Request        provider.GenerationRequest
+	OrgID             string
+	APIKeyID          *string
+	BatchRunID        *string
+	SkipThroughput    bool // when true, caller has acquired throughput before enqueue
+	CreateVideoRecord bool
+	VideoMetadata     json.RawMessage
+	Request           provider.GenerationRequest
 }
 
 type CreateResult struct {
 	JobID                 string
+	VideoID               string
 	Status                string
 	EstimatedCredits      int64
 	UpstreamEstimateCents int64
@@ -106,6 +109,7 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*CreateResult, er
 	}
 
 	var job domain.Job
+	var video domain.Video
 	var decision *spend.Decision
 
 	negCredits := -credits
@@ -150,6 +154,41 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*CreateResult, er
 		}
 		if err := createDB.Create(&job).Error; err != nil {
 			return err
+		}
+		if in.CreateVideoRecord {
+			metadata := in.VideoMetadata
+			if len(metadata) == 0 {
+				metadata = json.RawMessage(`{}`)
+			}
+			model := in.Request.Model
+			if model == "" {
+				model = "seedance-2.0-pro"
+			}
+			upstreamJobID := job.ID
+			video = domain.Video{
+				OrgID:              in.OrgID,
+				APIKeyID:           in.APIKeyID,
+				Model:              model,
+				Status:             string(job.Status),
+				Input:              reqJSON,
+				Metadata:           metadata,
+				UpstreamJobID:      &upstreamJobID,
+				EstimatedCostCents: credits,
+				ReservedCents:      credits,
+			}
+			if s.pricing != nil {
+				video.UpstreamEstimateCents = &quote.UpstreamCostCents
+				video.MarginCents = &quote.MarginCents
+				video.PricingMarkupBPS = &quote.MarkupBPS
+				video.PricingSource = &quote.Source
+			}
+			videoDB := tx
+			if s.pricing == nil {
+				videoDB = videoDB.Omit("UpstreamEstimateCents", "UpstreamActualCents", "MarginCents", "PricingMarkupBPS", "PricingSource")
+			}
+			if err := videoDB.Create(&video).Error; err != nil {
+				return err
+			}
 		}
 		return tx.Create(&domain.CreditsLedger{
 			OrgID:        in.OrgID,
@@ -233,6 +272,7 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*CreateResult, er
 
 	return &CreateResult{
 		JobID:                 job.ID,
+		VideoID:               video.ID,
 		Status:                string(job.Status),
 		EstimatedCredits:      credits,
 		UpstreamEstimateCents: quote.UpstreamCostCents,

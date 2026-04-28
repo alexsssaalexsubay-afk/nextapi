@@ -50,6 +50,19 @@ func setupDB(t *testing.T) *gorm.DB {
 		submitting_at DATETIME, running_at DATETIME, retrying_at DATETIME,
 		timed_out_at DATETIME, canceled_at DATETIME,
 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP, completed_at DATETIME)`)
+	db.Exec(`CREATE TABLE IF NOT EXISTS videos (
+		id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+		org_id TEXT NOT NULL, api_key_id TEXT, model TEXT NOT NULL,
+		status TEXT NOT NULL DEFAULT 'queued', input TEXT NOT NULL,
+		output TEXT, metadata TEXT NOT NULL DEFAULT '{}',
+		upstream_job_id TEXT, upstream_tokens BIGINT, video_seconds REAL,
+		estimated_cost_cents BIGINT NOT NULL, actual_cost_cents BIGINT,
+		reserved_cents BIGINT NOT NULL, upstream_estimate_cents BIGINT,
+		upstream_actual_cents BIGINT, margin_cents BIGINT,
+		pricing_markup_bps INT, pricing_source TEXT, error_code TEXT,
+		error_message TEXT, webhook_url TEXT,
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP, started_at DATETIME,
+		finished_at DATETIME, idempotency_key TEXT, request_id TEXT)`)
 	db.Exec(`CREATE TABLE IF NOT EXISTS credits_ledger (
 		id INTEGER PRIMARY KEY AUTOINCREMENT, org_id TEXT NOT NULL,
 		delta_credits BIGINT NOT NULL, delta_cents BIGINT, reason TEXT NOT NULL, job_id TEXT,
@@ -121,6 +134,9 @@ func TestBatchCreate_AllShotsEnqueued(t *testing.T) {
 	if len(result.JobIDs) != 5 {
 		t.Fatalf("want 5 job IDs, got %d", len(result.JobIDs))
 	}
+	if len(result.VideoIDs) != 5 {
+		t.Fatalf("want 5 video IDs, got %d", len(result.VideoIDs))
+	}
 	if q.enqueued != 5 {
 		t.Fatalf("want 5 enqueues, got %d", q.enqueued)
 	}
@@ -159,6 +175,14 @@ func TestBatchCreate_JobsLinkedToBatchRun(t *testing.T) {
 	db.Where("batch_run_id = ?", result.BatchRunID).Find(&jobs)
 	if len(jobs) != 3 {
 		t.Fatalf("want 3 jobs linked to batch, got %d", len(jobs))
+	}
+	var videoCount int64
+	db.Table("videos").
+		Joins("JOIN jobs ON jobs.id = videos.upstream_job_id").
+		Where("jobs.batch_run_id = ?", result.BatchRunID).
+		Count(&videoCount)
+	if videoCount != 3 {
+		t.Fatalf("want 3 videos linked to batch jobs, got %d", videoCount)
 	}
 }
 
