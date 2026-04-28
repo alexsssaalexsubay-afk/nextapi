@@ -32,6 +32,7 @@ type ActionKey = BusyStage
 type ActionFeedback = "success" | "error"
 type ActionButtonState = "available" | "disabled" | "loading" | ActionFeedback
 type ProofStepState = "done" | "active" | "waiting" | "blocked"
+type DirectorWorkspaceFocus = "brief" | "storyboard" | "workflow"
 
 type PipelineStep = {
   id: "brief" | "script" | "storyboard" | "references" | "workflow" | "canvas"
@@ -61,6 +62,7 @@ export default function DirectorPage() {
   const [workflowRun, setWorkflowRun] = useState<WorkflowRunResult | null>(null)
   const [loading, setLoading] = useState(false)
   const [busyStage, setBusyStage] = useState<BusyStage | null>(null)
+  const [workspaceFocus, setWorkspaceFocus] = useState<DirectorWorkspaceFocus>("brief")
   const [actionFeedback, setActionFeedback] = useState<Partial<Record<ActionKey, ActionFeedback>>>({})
   const [error, setError] = useState<string | null>(null)
   const videoCatalog = useVideoModelCatalog()
@@ -139,6 +141,7 @@ export default function DirectorPage() {
         characters: directorCharacters(),
       })
       setStoryboard(next)
+      setWorkspaceFocus("storyboard")
       markAction("shots", "success")
     } catch (e) {
       markAction("shots", "error")
@@ -170,6 +173,7 @@ export default function DirectorPage() {
       })
       setWorkflowID(res.workflow.id)
       setWorkflowRun(null)
+      setWorkspaceFocus("workflow")
       markAction("workflow", "success")
     } catch (e) {
       markAction("workflow", "error")
@@ -189,6 +193,7 @@ export default function DirectorPage() {
     try {
       const res = await generateDirectorShotImages({ shots: storyboard.shots, style, resolution: "1024x1024" })
       setStoryboard({ ...storyboard, shots: res.shots })
+      setWorkspaceFocus("storyboard")
       markAction("images", "success")
     } catch (e) {
       markAction("images", "error")
@@ -250,6 +255,7 @@ export default function DirectorPage() {
           referenceImageAssetId: shot.referenceImageAssetId,
         })),
       })
+      setWorkspaceFocus("workflow")
       markAction("director", "success")
     } catch (e) {
       markAction("director", "error")
@@ -272,6 +278,7 @@ export default function DirectorPage() {
     setGenre(nextGenre)
     setStyle(nextStyle)
     setWorkflowID(null)
+    setWorkspaceFocus("brief")
   }
 
   const modelCatalogBlocked = videoCatalog.state !== "ready" || videoCatalog.modelIds.length === 0
@@ -335,7 +342,14 @@ export default function DirectorPage() {
           </div>
 
           <div className="grid min-h-[calc(100vh-9rem)] gap-3 bg-background/70 p-3 lg:grid-cols-[64px_minmax(0,1fr)] xl:grid-cols-[64px_minmax(0,1fr)_340px]">
-            <DirectorToolRail labels={labels} activeId={activePipelineStep} workflowID={workflowID} storyboard={storyboard} />
+            <DirectorToolRail
+              labels={labels}
+              activeId={activePipelineStep}
+              focus={workspaceFocus}
+              workflowID={workflowID}
+              storyboard={storyboard}
+              onFocusChange={setWorkspaceFocus}
+            />
 
             <section className="relative min-h-[760px] overflow-hidden rounded-xl border border-border bg-card/86 bg-dots shadow-sm">
               <div className="absolute inset-0 bg-background/45" />
@@ -365,11 +379,13 @@ export default function DirectorPage() {
                   storyboard={storyboard}
                   workflowID={workflowID}
                   workflowRun={workflowRun}
+                  focus={workspaceFocus}
                   labels={labels}
                   imagesDisabled={imagesDisabled}
                   imagesActionState={imagesActionState}
                   workflowDisabled={workflowDisabled}
                   workflowActionState={workflowActionState}
+                  onFocusChange={setWorkspaceFocus}
                   onGenerateImages={() => void generateImages()}
                   onCreateWorkflow={() => void createWorkflow()}
                   onUpdateShot={updateShot}
@@ -377,20 +393,30 @@ export default function DirectorPage() {
 
                 <DirectorComposer
                   labels={labels}
+                  focus={workspaceFocus}
                   story={story}
                   setStory={setStory}
+                  storyboard={storyboard}
+                  workflowID={workflowID}
+                  workflowRun={workflowRun}
                   videoModel={videoModel}
                   setVideoModel={setVideoModel}
                   videoCatalog={videoCatalog}
                   modelCatalogBlocked={modelCatalogBlocked}
                   directorDisabled={directorDisabled}
                   shotsDisabled={shotsDisabled}
+                  imagesDisabled={imagesDisabled}
+                  workflowDisabled={workflowDisabled}
                   directorActionState={directorActionState}
                   shotsActionState={shotsActionState}
+                  imagesActionState={imagesActionState}
+                  workflowActionState={workflowActionState}
                   busyStage={busyStage}
                   estimatedBudget={estimatedBudget}
                   onGenerateDirector={() => void generateDirectorWorkflow()}
                   onGenerateShots={() => void generate()}
+                  onGenerateImages={() => void generateImages()}
+                  onCreateWorkflow={() => void createWorkflow()}
                   onUsePreset={usePreset}
                 />
               </div>
@@ -469,30 +495,35 @@ export default function DirectorPage() {
 function DirectorToolRail({
   labels,
   activeId,
+  focus,
   workflowID,
   storyboard,
+  onFocusChange,
 }: {
   labels: ReturnType<typeof useTranslations>["directorPage"]
   activeId: PipelineStep["id"]
+  focus: DirectorWorkspaceFocus
   workflowID: string | null
   storyboard: DirectorStoryboard | null
+  onFocusChange: (focus: DirectorWorkspaceFocus) => void
 }) {
-  const items: Array<{ id: PipelineStep["id"] | "memory"; label: string; icon: ReactNode; ready: boolean }> = [
-    { id: "brief", label: labels.pipelineBrief, icon: <Clapperboard className="size-4" />, ready: activeId !== "brief" },
-    { id: "memory", label: labels.characterMemoryTitle, icon: <UsersRound className="size-4" />, ready: false },
-    { id: "storyboard", label: labels.pipelineStoryboard, icon: <Film className="size-4" />, ready: Boolean(storyboard) },
-    { id: "workflow", label: labels.pipelineWorkflow, icon: <Workflow className="size-4" />, ready: Boolean(workflowID) },
-    { id: "canvas", label: labels.pipelineCanvas, icon: <Route className="size-4" />, ready: Boolean(workflowID) },
+  const items: Array<{ id: DirectorWorkspaceFocus | "memory" | "canvas"; label: string; icon: ReactNode; ready: boolean; focusTarget: DirectorWorkspaceFocus }> = [
+    { id: "brief", label: labels.pipelineBrief, icon: <Clapperboard className="size-4" />, ready: activeId !== "brief", focusTarget: "brief" },
+    { id: "memory", label: labels.characterMemoryTitle, icon: <UsersRound className="size-4" />, ready: false, focusTarget: "brief" },
+    { id: "storyboard", label: labels.pipelineStoryboard, icon: <Film className="size-4" />, ready: Boolean(storyboard), focusTarget: "storyboard" },
+    { id: "workflow", label: labels.pipelineWorkflow, icon: <Workflow className="size-4" />, ready: Boolean(workflowID), focusTarget: "workflow" },
+    { id: "canvas", label: labels.pipelineCanvas, icon: <Route className="size-4" />, ready: Boolean(workflowID), focusTarget: "workflow" },
   ]
 
   return (
     <nav className="flex gap-2 overflow-x-auto rounded-xl border border-border bg-card/80 p-2 lg:flex-col lg:items-center lg:overflow-visible" aria-label={labels.consoleRoute}>
       {items.map((item) => {
-        const active = item.id === activeId || (item.id === "memory" && activeId === "brief")
+        const active = item.id === focus || (item.id === "canvas" && focus === "workflow" && activeId === "canvas")
         return (
           <button
             key={item.id}
             type="button"
+            onClick={() => onFocusChange(item.focusTarget)}
             className={cn(
               "group flex min-w-16 flex-1 flex-col items-center justify-center gap-1 rounded-lg border px-2 py-2 text-center text-[10.5px] transition lg:min-h-16 lg:w-full lg:flex-none",
               active ? "border-signal/45 bg-signal/12 text-signal" : "border-transparent text-muted-foreground hover:border-border hover:bg-background/70 hover:text-foreground",
@@ -518,11 +549,13 @@ function DirectorCanvasBoard({
   storyboard,
   workflowID,
   workflowRun,
+  focus,
   labels,
   imagesDisabled,
   imagesActionState,
   workflowDisabled,
   workflowActionState,
+  onFocusChange,
   onGenerateImages,
   onCreateWorkflow,
   onUpdateShot,
@@ -535,11 +568,13 @@ function DirectorCanvasBoard({
   storyboard: DirectorStoryboard | null
   workflowID: string | null
   workflowRun: WorkflowRunResult | null
+  focus: DirectorWorkspaceFocus
   labels: ReturnType<typeof useTranslations>["directorPage"]
   imagesDisabled: boolean
   imagesActionState: ActionButtonState
   workflowDisabled: boolean
   workflowActionState: ActionButtonState
+  onFocusChange: (focus: DirectorWorkspaceFocus) => void
   onGenerateImages: () => void
   onCreateWorkflow: () => void
   onUpdateShot: (index: number, patch: Partial<DirectorShot>) => void
@@ -557,6 +592,8 @@ function DirectorCanvasBoard({
           <CanvasNode
             className="lg:absolute lg:left-0 lg:top-3 lg:w-[33%]"
             active={storyReady}
+            selected={focus === "brief"}
+            onSelect={() => onFocusChange("brief")}
             icon={<Clapperboard className="size-4" />}
             eyebrow={labels.pipelineBrief}
             title={labels.briefTitle}
@@ -574,6 +611,8 @@ function DirectorCanvasBoard({
           <CanvasNode
             className="lg:absolute lg:right-0 lg:top-20 lg:w-[40%]"
             active={Boolean(storyboard)}
+            selected={focus === "storyboard"}
+            onSelect={() => onFocusChange("storyboard")}
             icon={<Film className="size-4" />}
             eyebrow={labels.editShots}
             title={labels.shotTimeline}
@@ -596,6 +635,8 @@ function DirectorCanvasBoard({
           <CanvasNode
             className="lg:absolute lg:bottom-2 lg:left-[28%] lg:w-[36%]"
             active={Boolean(workflowID)}
+            selected={focus === "workflow"}
+            onSelect={() => onFocusChange("workflow")}
             icon={<Workflow className="size-4" />}
             eyebrow={labels.pipelineWorkflow}
             title={workflowID ? labels.workflowReadyTitle : labels.nextStepTitle}
@@ -641,118 +682,248 @@ function DirectorCanvasBoard({
 
 function DirectorComposer({
   labels,
+  focus,
   story,
   setStory,
+  storyboard,
+  workflowID,
+  workflowRun,
   videoModel,
   setVideoModel,
   videoCatalog,
   modelCatalogBlocked,
   directorDisabled,
   shotsDisabled,
+  imagesDisabled,
+  workflowDisabled,
   directorActionState,
   shotsActionState,
+  imagesActionState,
+  workflowActionState,
   busyStage,
   estimatedBudget,
   onGenerateDirector,
   onGenerateShots,
+  onGenerateImages,
+  onCreateWorkflow,
   onUsePreset,
 }: {
   labels: ReturnType<typeof useTranslations>["directorPage"]
+  focus: DirectorWorkspaceFocus
   story: string
   setStory: (value: string) => void
+  storyboard: DirectorStoryboard | null
+  workflowID: string | null
+  workflowRun: WorkflowRunResult | null
   videoModel: string
   setVideoModel: (value: string) => void
   videoCatalog: ReturnType<typeof useVideoModelCatalog>
   modelCatalogBlocked: boolean
   directorDisabled: boolean
   shotsDisabled: boolean
+  imagesDisabled: boolean
+  workflowDisabled: boolean
   directorActionState: ActionButtonState
   shotsActionState: ActionButtonState
+  imagesActionState: ActionButtonState
+  workflowActionState: ActionButtonState
   busyStage: BusyStage | null
   estimatedBudget: string
   onGenerateDirector: () => void
   onGenerateShots: () => void
+  onGenerateImages: () => void
+  onCreateWorkflow: () => void
   onUsePreset: (story: string, genre: string, style: string) => void
 }) {
+  const modelPicker = (
+    <ModelSelect
+      label={labels.modelCatalog}
+      value={videoModel}
+      onChange={setVideoModel}
+      category="video"
+      helper={modelCatalogBlocked ? labels.modelCatalogUnavailable : labels.modelCatalogHint}
+      availableModelIds={videoCatalog.modelIds}
+      dropdownMode="inline"
+      dense
+      statusLabels={{
+        live: labels.online,
+        configured: labels.configured,
+        compat: labels.compatRoute,
+        comingSoon: labels.comingSoon,
+        recommended: labels.recommendedModels,
+        bestForFlow: labels.bestForFlow,
+        searchPlaceholder: labels.modelSearchPlaceholder,
+        noMatches: labels.modelNoMatches,
+        tierAdvanced: labels.tierAdvanced,
+        tierPrimary: labels.tierPrimary,
+        tierEconomy: labels.tierEconomy,
+        tierExperimental: labels.tierExperimental,
+        tierCompat: labels.tierCompat,
+      }}
+    />
+  )
+  const contextLabel = focus === "brief" ? labels.pipelineBrief : focus === "storyboard" ? labels.pipelineStoryboard : labels.pipelineWorkflow
+  const contextMetric = focus === "brief" ? estimatedBudget : focus === "storyboard" ? `${storyboard?.shots.length ?? 0} ${labels.estimatedShots}` : workflowID ?? labels.pipelineWorkflow
+
   return (
-    <div className="border-t border-border bg-card/94 p-3 lg:absolute lg:inset-x-4 lg:bottom-4 lg:rounded-xl lg:border lg:shadow-sm">
-      <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_320px]">
-        <div className="space-y-3">
-          <label className="flex flex-col gap-2 text-xs text-muted-foreground">
-            {labels.story}
-            <textarea
-              className="min-h-24 rounded-lg border border-border bg-background px-4 py-3 text-sm leading-relaxed text-foreground placeholder:text-muted-foreground/55 focus:border-signal/45 focus:outline-none"
-              value={story}
-              onChange={(event) => setStory(event.target.value)}
-              placeholder={labels.storyPlaceholder}
-            />
-          </label>
-          <details className="group rounded-lg border border-border bg-background/70 p-2.5">
-            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-[12px] font-medium text-muted-foreground transition hover:text-foreground">
-              <span>{labels.quickPresets}</span>
-              <ChevronDown className="size-3.5 transition group-open:rotate-180" />
-            </summary>
-            <div className="mt-2 grid gap-2 sm:grid-cols-3">
-              <PresetButton label={labels.presetShortDrama} onClick={() => onUsePreset(labels.presetShortDramaStory, "short drama", "cinematic realistic")} />
-              <PresetButton label={labels.presetEcommerce} onClick={() => onUsePreset(labels.presetEcommerceStory, "ecommerce", "premium commercial")} />
-              <PresetButton label={labels.presetTalkingCreator} onClick={() => onUsePreset(labels.presetTalkingCreatorStory, "talking creator", "clean studio")} />
+    <div data-director-composer={focus} className="border-t border-border bg-card/94 p-3 lg:absolute lg:inset-x-4 lg:bottom-4 lg:rounded-xl lg:border lg:shadow-sm">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <span className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.16em] text-signal">
+          <Route className="size-3.5" />
+          {contextLabel}
+        </span>
+        <span className="max-w-80 truncate rounded-md border border-border bg-background px-2 py-1 font-mono text-[10px] uppercase tracking-[0.1em] text-muted-foreground">
+          {contextMetric}
+        </span>
+      </div>
+
+      {focus === "brief" ? (
+        <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_320px]">
+          <div className="space-y-3">
+            <label className="flex flex-col gap-2 text-xs text-muted-foreground">
+              {labels.story}
+              <textarea
+                className="min-h-24 rounded-lg border border-border bg-background px-4 py-3 text-sm leading-relaxed text-foreground placeholder:text-muted-foreground/55 focus:border-signal/45 focus:outline-none"
+                value={story}
+                onChange={(event) => setStory(event.target.value)}
+                placeholder={labels.storyPlaceholder}
+              />
+            </label>
+            <details className="group rounded-lg border border-border bg-background/70 p-2.5">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-[12px] font-medium text-muted-foreground transition hover:text-foreground">
+                <span>{labels.quickPresets}</span>
+                <ChevronDown className="size-3.5 transition group-open:rotate-180" />
+              </summary>
+              <div className="mt-2 grid gap-2 sm:grid-cols-3">
+                <PresetButton label={labels.presetShortDrama} onClick={() => onUsePreset(labels.presetShortDramaStory, "short drama", "cinematic realistic")} />
+                <PresetButton label={labels.presetEcommerce} onClick={() => onUsePreset(labels.presetEcommerceStory, "ecommerce", "premium commercial")} />
+                <PresetButton label={labels.presetTalkingCreator} onClick={() => onUsePreset(labels.presetTalkingCreatorStory, "talking creator", "clean studio")} />
+              </div>
+            </details>
+          </div>
+
+          <div className="space-y-3">
+            {modelPicker}
+            <div className="grid gap-2">
+              <ActionButton
+                disabled={directorDisabled}
+                state={directorActionState}
+                onClick={onGenerateDirector}
+                labels={labels}
+                variant="primary"
+                className="h-10"
+                icon={<Sparkles className="size-4" />}
+              >
+                {busyStage === "director" ? labels.working : `${labels.generateDirectorWorkflow} · ${estimatedBudget}`}
+              </ActionButton>
+              <ActionButton
+                disabled={shotsDisabled}
+                state={shotsActionState}
+                onClick={onGenerateShots}
+                labels={labels}
+                compact
+                className="h-10"
+                icon={<Film className="size-3.5" />}
+              >
+                {labels.generateShots}
+              </ActionButton>
             </div>
-          </details>
-        </div>
-
-        <div className="space-y-3">
-          <ModelSelect
-            label={labels.modelCatalog}
-            value={videoModel}
-            onChange={setVideoModel}
-            category="video"
-            helper={modelCatalogBlocked ? labels.modelCatalogUnavailable : labels.modelCatalogHint}
-            availableModelIds={videoCatalog.modelIds}
-            dropdownMode="inline"
-            dense
-            statusLabels={{
-              live: labels.online,
-              configured: labels.configured,
-              compat: labels.compatRoute,
-              comingSoon: labels.comingSoon,
-              recommended: labels.recommendedModels,
-              bestForFlow: labels.bestForFlow,
-              searchPlaceholder: labels.modelSearchPlaceholder,
-              noMatches: labels.modelNoMatches,
-              tierAdvanced: labels.tierAdvanced,
-              tierPrimary: labels.tierPrimary,
-              tierEconomy: labels.tierEconomy,
-              tierExperimental: labels.tierExperimental,
-              tierCompat: labels.tierCompat,
-            }}
-          />
-
-          <div className="grid gap-2">
-            <ActionButton
-              disabled={directorDisabled}
-              state={directorActionState}
-              onClick={onGenerateDirector}
-              labels={labels}
-              variant="primary"
-              className="h-10"
-              icon={<Sparkles className="size-4" />}
-            >
-              {busyStage === "director" ? labels.working : `${labels.generateDirectorWorkflow} · ${estimatedBudget}`}
-            </ActionButton>
-            <ActionButton
-              disabled={shotsDisabled}
-              state={shotsActionState}
-              onClick={onGenerateShots}
-              labels={labels}
-              compact
-              className="h-10"
-              icon={<Film className="size-3.5" />}
-            >
-              {labels.generateShots}
-            </ActionButton>
           </div>
         </div>
-      </div>
+      ) : null}
+
+      {focus === "storyboard" ? (
+        <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_320px]">
+          <div className="rounded-lg border border-border bg-background/70 p-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h3 className="text-sm font-medium text-foreground">{labels.shotTimeline}</h3>
+                <p className="mt-1 text-[12px] leading-relaxed text-muted-foreground">{storyboard?.summary ?? labels.shotTimelineSubtitle}</p>
+              </div>
+              {storyboard ? (
+                <span className="rounded-md border border-border bg-card px-2 py-1 font-mono text-[10px] text-muted-foreground">
+                  {storyboard.shots.length} {labels.estimatedShots}
+                </span>
+              ) : null}
+            </div>
+            {storyboard ? <div className="mt-3"><ShotTimelineMap shots={storyboard.shots} labels={labels} /></div> : <CanvasEmptyState labels={labels} />}
+          </div>
+
+          <div className="space-y-3">
+            {modelPicker}
+            <div className="grid gap-2">
+              <ActionButton
+                disabled={imagesDisabled}
+                state={imagesActionState}
+                onClick={onGenerateImages}
+                labels={labels}
+                compact
+                className="h-10"
+                icon={<ImageIcon className="size-3.5" />}
+              >
+                {labels.generateImages}
+              </ActionButton>
+              <ActionButton
+                disabled={workflowDisabled}
+                state={workflowActionState}
+                onClick={onCreateWorkflow}
+                labels={labels}
+                variant="signal"
+                compact
+                className="h-10"
+                icon={<Workflow className="size-3.5" />}
+              >
+                {labels.createWorkflow}
+              </ActionButton>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {focus === "workflow" ? (
+        <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_320px]">
+          <div className="rounded-lg border border-border bg-background/70 p-3">
+            <div className="mb-3 flex items-start gap-3">
+              <span className="grid size-9 shrink-0 place-items-center rounded-lg border border-signal/25 bg-signal/10 text-signal">
+                <Workflow className="size-4" />
+              </span>
+              <div className="min-w-0">
+                <h3 className="text-sm font-medium text-foreground">{workflowID ? labels.workflowReadyTitle : labels.nextStepTitle}</h3>
+                <p className="mt-1 text-[12px] leading-relaxed text-muted-foreground">{labels.nextStepBody}</p>
+              </div>
+            </div>
+            {workflowID ? <WorkflowReadyCard workflowID={workflowID} run={workflowRun} labels={labels} /> : null}
+          </div>
+
+          <div className="space-y-3">
+            {modelPicker}
+            <div className="grid gap-2">
+              <ActionButton
+                disabled={directorDisabled}
+                state={directorActionState}
+                onClick={onGenerateDirector}
+                labels={labels}
+                variant="primary"
+                className="h-10"
+                icon={<Sparkles className="size-4" />}
+              >
+                {busyStage === "director" ? labels.working : `${labels.generateDirectorWorkflow} · ${estimatedBudget}`}
+              </ActionButton>
+              <ActionButton
+                disabled={workflowDisabled}
+                state={workflowActionState}
+                onClick={onCreateWorkflow}
+                labels={labels}
+                compact
+                className="h-10"
+                icon={<Workflow className="size-3.5" />}
+              >
+                {labels.createWorkflow}
+              </ActionButton>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }
@@ -829,6 +1000,8 @@ function CanvasNode({
   title,
   icon,
   active,
+  selected,
+  onSelect,
   children,
   className,
 }: {
@@ -836,22 +1009,26 @@ function CanvasNode({
   title: string
   icon: ReactNode
   active?: boolean
+  selected?: boolean
+  onSelect?: () => void
   children: ReactNode
   className?: string
 }) {
   return (
     <article
+      data-director-node-selected={selected ? "true" : "false"}
       className={cn(
         "rounded-xl border bg-card/92 p-3.5 shadow-sm transition-colors",
-        active ? "border-signal/45" : "border-border",
+        selected && "ring-2 ring-signal/15",
+        selected ? "border-signal/60" : active ? "border-signal/45" : "border-border",
         className,
       )}
     >
       <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
+        <button type="button" onClick={onSelect} className="min-w-0 rounded-md text-left outline-none transition focus-visible:ring-2 focus-visible:ring-signal/35" aria-pressed={selected}>
           <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-signal">{eyebrow}</p>
           <h2 className="mt-1 truncate text-sm font-medium tracking-tight text-foreground">{title}</h2>
-        </div>
+        </button>
         <span className={cn("grid size-8 shrink-0 place-items-center rounded-lg border", active ? "border-signal/30 bg-signal/10 text-signal" : "border-border bg-background text-muted-foreground")}>
           {icon}
         </span>
