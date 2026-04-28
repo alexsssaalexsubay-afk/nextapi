@@ -382,10 +382,16 @@ func updateWebhookBatchProgress(ctx context.Context, tx *gorm.DB, batchID string
 	}).Error
 	mergeStatus, mergeOutput := updateWebhookMergeJobsForBatch(ctx, tx, batchID, status, now)
 	workflowStatus := "succeeded"
+	if mergeStatus == "ready_for_merge" {
+		workflowStatus = "merging"
+	}
 	if status == "failed" {
 		workflowStatus = "failed"
 	} else if status == "partial_failure" {
 		workflowStatus = "partial_failure"
+	}
+	if mergeStatus == "blocked_no_clips" || mergeStatus == "merge_manifest_failed" {
+		workflowStatus = "failed"
 	}
 	outputJSON, _ := json.Marshal(map[string]any{
 		"batch_run_id":    batchID,
@@ -428,13 +434,19 @@ func updateWebhookMergeJobsForBatch(ctx context.Context, tx *gorm.DB, batchID st
 		mergeStatus = "blocked_no_clips"
 	}
 	snapshot, _ := json.Marshal(output)
-	_ = tx.WithContext(ctx).Model(&domain.VideoMergeJob{}).
+	res := tx.WithContext(ctx).Model(&domain.VideoMergeJob{}).
 		Where("batch_run_id = ? AND status IN ?", batchID, []string{"waiting_for_shots", "ready_for_merge", "blocked_by_failed_shot"}).
 		Updates(map[string]any{
 			"status":          mergeStatus,
 			"output_snapshot": snapshot,
 			"updated_at":      now,
-		}).Error
+		})
+	if res.Error != nil {
+		return "merge_manifest_failed", map[string]any{"error": "failed to update merge job"}
+	}
+	if res.RowsAffected == 0 {
+		return "", nil
+	}
 	return mergeStatus, output
 }
 

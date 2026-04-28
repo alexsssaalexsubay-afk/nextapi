@@ -9,7 +9,7 @@ RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o /out/worker ./cmd/worker
 RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o /out/accountctl ./cmd/accountctl
 
 FROM alpine:3.20
-RUN apk add --no-cache ca-certificates wget
+RUN apk add --no-cache ca-certificates ffmpeg wget
 WORKDIR /app
 COPY --from=build /out/server /app/server
 COPY --from=build /out/worker /app/worker

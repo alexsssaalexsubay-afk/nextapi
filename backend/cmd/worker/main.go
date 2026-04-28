@@ -21,6 +21,7 @@ import (
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/spend"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/storage/r2"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/throughput"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/videomerge"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/webhook"
 	"github.com/hibiken/asynq"
 )
@@ -48,8 +49,10 @@ func main() {
 	spendSvc.SetRedis(rClient)
 	throughputSvc := throughput.NewService(gormDB, rClient)
 	proc := &job.Processor{DB: gormDB, Billing: billSvc, Spend: spendSvc, Prov: prov, Queue: queue, Webhooks: whSvc, Throughput: throughputSvc, Pricing: pricingSvc}
+	var mergeExec *videomerge.Executor
 	if r2c, r2err := r2.New(); r2err == nil {
 		proc.TempStorage = r2c
+		mergeExec = videomerge.NewExecutor(gormDB, r2c)
 	} else {
 		log.Printf("r2: %v (temporary upload cleanup disabled)", r2err)
 	}
@@ -123,6 +126,34 @@ func main() {
 			}
 		}
 	}()
+
+	// Video merge executor: turns completed multi-shot workflows into a final
+	// MP4 asset. It only does work when both VIDEO_MERGE_ENABLED and
+	// VIDEO_MERGE_EXECUTOR_ENABLED are explicitly true.
+	if mergeExec != nil && mergeExec.Enabled() {
+		bg.Add(1)
+		go func() {
+			defer bg.Done()
+			t := time.NewTicker(10 * time.Second)
+			defer t.Stop()
+			for {
+				select {
+				case <-bgCtx.Done():
+					return
+				case <-t.C:
+					count, err := mergeExec.ProcessDue(bgCtx, 2)
+					if err != nil {
+						log.Printf("video merge: %v", err)
+					}
+					if count > 0 {
+						log.Printf("video merge: processed=%d", count)
+					}
+				}
+			}
+		}()
+	} else {
+		log.Printf("video merge: executor disabled")
+	}
 
 	// Asynq server with explicit shutdown timeout. Default is 8s, which
 	// is shorter than a typical Seedance create call (15s); this used

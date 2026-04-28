@@ -273,6 +273,10 @@ func (s *Service) runBatch(ctx context.Context, row *domain.Workflow, in RunInpu
 	if s.batches == nil {
 		return nil, fmt.Errorf("%w: batch service is required", ErrInvalidWorkflow)
 	}
+	requiresMerge := workflowHasNode(row.WorkflowJSON, NodeVideoMerge)
+	if requiresMerge && (s.merges == nil || !s.merges.Enabled()) {
+		return nil, fmt.Errorf("%w: video merge executor is disabled", ErrInvalidWorkflow)
+	}
 	shots := make([]job.CreateInput, 0, len(requests))
 	for _, req := range requests {
 		shots = append(shots, job.CreateInput{OrgID: in.OrgID, APIKeyID: in.APIKeyID, Request: req})
@@ -309,7 +313,7 @@ func (s *Service) runBatch(ctx context.Context, row *domain.Workflow, in RunInpu
 		return nil, err
 	}
 	mergeJobID := ""
-	if s.merges != nil && workflowHasNode(row.WorkflowJSON, NodeVideoMerge) {
+	if requiresMerge {
 		merge, err := s.merges.Create(ctx, videomerge.CreateInput{
 			OrgID:         in.OrgID,
 			WorkflowRunID: &run.ID,

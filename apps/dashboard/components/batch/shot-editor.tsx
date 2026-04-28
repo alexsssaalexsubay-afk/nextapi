@@ -4,6 +4,7 @@ import { useCallback } from "react"
 import { ArrowDown, ArrowUp, ImageIcon, Plus, Trash2, Type } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Slider } from "@/components/ui/slider"
 import {
   Select,
   SelectContent,
@@ -20,7 +21,8 @@ type Props = {
   disabled?: boolean
 }
 
-const DURATIONS = [3, 5, 10]
+const MIN_DURATION_SECONDS = 4
+const MAX_DURATION_SECONDS = 15
 
 export function ShotEditor({ shots, onChange, disabled }: Props) {
   const update = useCallback(
@@ -80,7 +82,7 @@ export function ShotEditor({ shots, onChange, disabled }: Props) {
               <th className="w-10 px-2 py-2">#</th>
               <th className="px-2 py-2">Prompt</th>
               <th className="w-20 px-2 py-2">Mode</th>
-              <th className="w-24 px-2 py-2">Duration</th>
+              <th className="w-44 px-2 py-2">Duration</th>
               <th className="w-24 px-2 py-2">Ratio</th>
               <th className="w-24 px-2 py-2" />
             </tr>
@@ -111,22 +113,11 @@ export function ShotEditor({ shots, onChange, disabled }: Props) {
                   </div>
                 </td>
                 <td className="px-2 py-1.5">
-                  <Select
-                    value={String(shot.duration_seconds)}
-                    onValueChange={(v) => update(i, { duration_seconds: Number(v) })}
+                  <DurationSlider
+                    value={shot.duration_seconds}
                     disabled={disabled}
-                  >
-                    <SelectTrigger className="h-8 text-xs">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {DURATIONS.map((d) => (
-                        <SelectItem key={d} value={String(d)}>
-                          {d}s
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    onChange={(duration_seconds) => update(i, { duration_seconds })}
+                  />
                 </td>
                 <td className="px-2 py-1.5">
                   <Select
@@ -188,4 +179,44 @@ export function ShotEditor({ shots, onChange, disabled }: Props) {
       </Button>
     </div>
   )
+}
+
+function DurationSlider({
+  value,
+  disabled,
+  onChange,
+}: {
+  value: number
+  disabled?: boolean
+  onChange: (value: number) => void
+}) {
+  const safeValue = clampDuration(value)
+  return (
+    <div className="min-w-36 rounded-xl border border-white/10 bg-background/45 px-2.5 py-2 shadow-inner">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <span className="font-mono text-[10px] text-muted-foreground">
+          {MIN_DURATION_SECONDS}s
+        </span>
+        <span className="rounded-full border border-signal/25 bg-signal/10 px-2 py-0.5 font-mono text-[11px] text-signal">
+          {safeValue}s
+        </span>
+        <span className="font-mono text-[10px] text-muted-foreground">
+          {MAX_DURATION_SECONDS}s
+        </span>
+      </div>
+      <Slider
+        min={MIN_DURATION_SECONDS}
+        max={MAX_DURATION_SECONDS}
+        step={1}
+        value={[safeValue]}
+        disabled={disabled}
+        onValueChange={(next) => onChange(clampDuration(next[0] ?? safeValue))}
+      />
+    </div>
+  )
+}
+
+function clampDuration(value: number) {
+  if (!Number.isFinite(value)) return 5
+  return Math.min(MAX_DURATION_SECONDS, Math.max(MIN_DURATION_SECONDS, Math.round(value)))
 }
