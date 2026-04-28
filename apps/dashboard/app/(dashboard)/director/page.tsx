@@ -31,6 +31,7 @@ type BusyStage = "shots" | "images" | "workflow" | "director"
 type ActionKey = BusyStage
 type ActionFeedback = "success" | "error"
 type ActionButtonState = "available" | "disabled" | "loading" | ActionFeedback
+type ProofStepState = "done" | "active" | "waiting" | "blocked"
 
 type PipelineStep = {
   id: "brief" | "script" | "storyboard" | "references" | "workflow" | "canvas"
@@ -538,6 +539,16 @@ export default function DirectorPage() {
 
             <div className="space-y-3 p-4">
               {workflowID && <WorkflowReadyCard workflowID={workflowID} run={workflowRun} labels={labels} />}
+              <EngineEvidenceBanner storyboard={storyboard} status={status} labels={labels} />
+              <ClosedLoopRail
+                story={story}
+                storyboard={storyboard}
+                workflowID={workflowID}
+                run={workflowRun}
+                status={status}
+                busyStage={busyStage}
+                labels={labels}
+              />
               {storyboard ? (
                 storyboard.shots.map((shot, index) => (
                   <ShotCard key={`${shot.shotIndex}-${index}`} shot={shot} index={index} labels={labels} onChange={(patch) => updateShot(index, patch)} />
@@ -634,6 +645,177 @@ function ActionStatusRail({
           )
         })}
       </div>
+    </div>
+  )
+}
+
+function EngineEvidenceBanner({ storyboard, status, labels }: { storyboard: DirectorStoryboard | null; status: DirectorStatus | null; labels: ReturnType<typeof useTranslations>["directorPage"] }) {
+  const runtimeStatus = getRuntimeStatus(storyboard, status)
+  const engineUsed = storyboard?.engine_used ?? runtimeStatus?.engine_used ?? status?.engine_used
+
+  if (!engineUsed && !runtimeStatus) {
+    return (
+      <section className="rounded-[24px] border border-white/12 bg-card/40 p-3 shadow-sm backdrop-blur-md">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground">{labels.engineEvidenceTitle}</p>
+            <p className="mt-1 text-[12.5px] text-muted-foreground">{labels.engineEvidenceWaiting}</p>
+          </div>
+          <span className="rounded-full border border-white/12 bg-background/55 px-2 py-1 font-mono text-[10px] uppercase text-muted-foreground">
+            engine_used: --
+          </span>
+        </div>
+      </section>
+    )
+  }
+
+  const fallbackUsed = runtimeStatus?.fallback_used ?? status?.fallback_used ?? engineUsed === "advanced_fallback"
+  const title = fallbackUsed ? labels.engineEvidenceFallback : labels.engineEvidenceAdvanced
+  const body = fallbackUsed ? labels.engineEvidenceFallbackBody : labels.engineEvidenceAdvancedBody
+
+  return (
+    <section
+      className={cn(
+        "rounded-[24px] border p-3 shadow-sm backdrop-blur-md",
+        fallbackUsed
+          ? "border-amber-500/35 bg-amber-500/10"
+          : "border-status-success/35 bg-status-success/10",
+      )}
+    >
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex min-w-0 items-start gap-2.5">
+          <span
+            className={cn(
+              "mt-0.5 grid size-8 shrink-0 place-items-center rounded-2xl border",
+              fallbackUsed ? "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-200" : "border-status-success/30 bg-status-success/10 text-status-success",
+            )}
+          >
+            {fallbackUsed ? <AlertTriangle className="size-4" /> : <CheckCircle2 className="size-4" />}
+          </span>
+          <div className="min-w-0">
+            <p className={cn("font-mono text-[10px] uppercase tracking-[0.16em]", fallbackUsed ? "text-amber-700 dark:text-amber-200" : "text-status-success")}>{labels.engineEvidenceTitle}</p>
+            <h3 className="mt-1 text-sm font-medium text-foreground">{title}</h3>
+            <p className="mt-1 text-[12.5px] leading-relaxed text-muted-foreground">{body}</p>
+          </div>
+        </div>
+        <div className="grid gap-1.5 text-[11px]">
+          <span className="rounded-full border border-white/12 bg-background/55 px-2 py-1 font-mono text-muted-foreground">
+            engine_used: {engineUsed ?? "--"}
+          </span>
+          {runtimeStatus?.reason ? (
+            <span className="max-w-72 truncate rounded-full border border-white/12 bg-background/55 px-2 py-1 text-muted-foreground">
+              {labels.fallbackReason}: {runtimeStatus.reason}
+            </span>
+          ) : null}
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function ClosedLoopRail({
+  story,
+  storyboard,
+  workflowID,
+  run,
+  status,
+  busyStage,
+  labels,
+}: {
+  story: string
+  storyboard: DirectorStoryboard | null
+  workflowID: string | null
+  run: WorkflowRunResult | null
+  status: DirectorStatus | null
+  busyStage: BusyStage | null
+  labels: ReturnType<typeof useTranslations>["directorPage"]
+}) {
+  const jobCount = run?.job_ids?.length ?? (run?.task_id ? 1 : 0)
+  const hasTasks = Boolean(run?.batch_run_id || jobCount > 0)
+  const mergeEnabled = status?.merge_enabled === true
+  const mergeStarted = Boolean(run?.merge_job_id)
+  const finalAssetProven = Boolean(runStringField(run, "final_asset_id") || runStringField(run, "final_asset_url") || runStringField(run, "asset_url"))
+  const libraryProven = Boolean(runStringField(run, "library_asset_id") || runStringField(run, "asset_id"))
+  const steps: Array<{ key: string; label: string; state: ProofStepState; evidence: string }> = [
+    {
+      key: "story",
+      label: labels.loopStory,
+      state: story.trim() ? "done" : "waiting",
+      evidence: story.trim() ? labels.loopStoryReady : labels.loopStoryWaiting,
+    },
+    {
+      key: "storyboard",
+      label: labels.loopStoryboard,
+      state: storyboard ? "done" : busyStage === "shots" || busyStage === "director" ? "active" : "waiting",
+      evidence: storyboard ? labels.loopStoryboardReady.replace("{count}", String(storyboard.shots.length)) : labels.loopStoryboardWaiting,
+    },
+    {
+      key: "workflow",
+      label: labels.loopWorkflow,
+      state: workflowID ? "done" : busyStage === "workflow" || busyStage === "director" ? "active" : "waiting",
+      evidence: workflowID ? labels.loopWorkflowReady : labels.loopWorkflowWaiting,
+    },
+    {
+      key: "canvas",
+      label: labels.loopCanvas,
+      state: workflowID ? "done" : "waiting",
+      evidence: workflowID ? labels.loopCanvasReady : labels.loopCanvasWaiting,
+    },
+    {
+      key: "tasks",
+      label: labels.loopTasks,
+      state: hasTasks ? "done" : run ? "active" : "waiting",
+      evidence: hasTasks ? labels.loopTasksReady.replace("{count}", String(jobCount)) : labels.loopTasksWaiting,
+    },
+    {
+      key: "merge",
+      label: labels.loopMerge,
+      state: mergeStarted ? "done" : mergeEnabled ? (hasTasks ? "active" : "waiting") : "blocked",
+      evidence: mergeStarted ? labels.loopMergeReady : mergeEnabled ? labels.loopMergeWaiting : labels.loopMergeBlocked,
+    },
+    {
+      key: "final_asset",
+      label: labels.loopFinalAsset,
+      state: finalAssetProven ? "done" : run ? "active" : "waiting",
+      evidence: finalAssetProven ? labels.loopFinalAssetReady : labels.loopFinalAssetWaiting,
+    },
+    {
+      key: "asset_library",
+      label: labels.loopAssetLibrary,
+      state: libraryProven ? "done" : run ? "active" : "waiting",
+      evidence: libraryProven ? labels.loopAssetLibraryReady : labels.loopAssetLibraryWaiting,
+    },
+  ]
+
+  return (
+    <section className="rounded-[24px] border border-white/12 bg-background/45 p-3 shadow-sm backdrop-blur-md">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-signal">{labels.loopProofTitle}</p>
+          <h3 className="mt-1 text-sm font-medium text-foreground">{labels.loopProofSubtitle}</h3>
+        </div>
+        <span className="rounded-full border border-white/12 bg-card/45 px-2 py-1 font-mono text-[10px] uppercase text-muted-foreground">
+          {labels.loopNoSilentFallback}
+        </span>
+      </div>
+      <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+        {steps.map((step) => (
+          <ProofStep key={step.key} label={step.label} evidence={step.evidence} state={step.state} />
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function ProofStep({ label, evidence, state }: { label: string; evidence: string; state: ProofStepState }) {
+  const meta = proofStepMeta(state)
+  return (
+    <div className={cn("min-h-24 rounded-2xl border px-3 py-2", meta.className)}>
+      <div className="flex items-center justify-between gap-2">
+        <span className="truncate text-[12px] font-medium text-foreground">{label}</span>
+        <span className="shrink-0">{meta.icon}</span>
+      </div>
+      <p className="mt-2 text-[11.5px] leading-relaxed text-muted-foreground">{evidence}</p>
     </div>
   )
 }
@@ -1098,6 +1280,37 @@ function actionStateMeta(state: ActionButtonState, labels: ReturnType<typeof use
     icon: null,
     badgeClassName: "border-signal/20 bg-signal/10 text-signal",
   }
+}
+
+function proofStepMeta(state: ProofStepState) {
+  if (state === "done") {
+    return {
+      className: "border-status-success/30 bg-status-success/10",
+      icon: <CheckCircle2 className="size-3.5 text-status-success" />,
+    }
+  }
+  if (state === "active") {
+    return {
+      className: "border-signal/30 bg-signal/10",
+      icon: <Loader2 className="size-3.5 animate-spin text-signal" />,
+    }
+  }
+  if (state === "blocked") {
+    return {
+      className: "border-destructive/35 bg-destructive/10",
+      icon: <AlertTriangle className="size-3.5 text-destructive" />,
+    }
+  }
+  return {
+    className: "border-white/10 bg-card/35",
+    icon: <Route className="size-3.5 text-muted-foreground" />,
+  }
+}
+
+function runStringField(run: WorkflowRunResult | null, key: string) {
+  if (!run) return ""
+  const value = (run as unknown as Record<string, unknown>)[key]
+  return typeof value === "string" ? value : ""
 }
 
 function Field({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
