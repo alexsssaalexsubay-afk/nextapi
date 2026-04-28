@@ -787,6 +787,7 @@ export const zh: Messages = {
     estimatedShots: "镜头",
     totalRuntime: "时长",
     outputRatio: "画幅",
+    resolution: "分辨率",
     estimatedBudget: "预估",
     estimateHint: "预计视频预留",
     shotUnit: "镜头",

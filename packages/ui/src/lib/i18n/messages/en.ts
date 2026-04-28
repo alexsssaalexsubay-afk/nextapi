@@ -798,6 +798,7 @@ export const en = {
     estimatedShots: "Shots",
     totalRuntime: "Runtime",
     outputRatio: "Output",
+    resolution: "Resolution",
     estimatedBudget: "Estimate",
     estimateHint: "Estimated video reserve",
     shotUnit: "shots",

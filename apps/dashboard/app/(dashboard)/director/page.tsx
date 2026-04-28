@@ -33,6 +33,9 @@ type PipelineStep = {
   label: string
 }
 
+const DEFAULT_RATIOS = ["9:16", "16:9", "1:1"]
+const DEFAULT_RESOLUTIONS = ["480p", "720p", "1080p"]
+
 export default function DirectorPage() {
   const t = useTranslations()
   const labels = t.directorPage
@@ -41,6 +44,8 @@ export default function DirectorPage() {
   const [style, setStyle] = useState("cinematic realistic")
   const [shotCount, setShotCount] = useState(3)
   const [duration, setDuration] = useState(5)
+  const [ratio, setRatio] = useState("9:16")
+  const [resolution, setResolution] = useState("1080p")
   const [videoModel, setVideoModel] = useState("seedance-2.0-pro")
   const [storyboard, setStoryboard] = useState<DirectorStoryboard | null>(null)
   const [status, setStatus] = useState<DirectorStatus | null>(null)
@@ -71,10 +76,20 @@ export default function DirectorPage() {
   const selectedVideoCapability = videoCatalog.modelById[videoModel]
   const durationMin = selectedVideoCapability?.minDurationSeconds ?? 4
   const durationMax = selectedVideoCapability?.maxDurationSeconds ?? 15
+  const ratioOptions = selectedVideoCapability?.supportedAspectRatios?.length ? selectedVideoCapability.supportedAspectRatios : DEFAULT_RATIOS
+  const resolutionOptions = selectedVideoCapability?.supportedResolutions?.length ? selectedVideoCapability.supportedResolutions : DEFAULT_RESOLUTIONS
 
   useEffect(() => {
     setDuration((current) => clampNumber(current, durationMin, durationMax))
   }, [durationMin, durationMax])
+
+  useEffect(() => {
+    setRatio((current) => ratioOptions.includes(current) ? current : ratioOptions[0] ?? "9:16")
+  }, [ratioOptions])
+
+  useEffect(() => {
+    setResolution((current) => resolutionOptions.includes(current) ? current : resolutionOptions[0] ?? "720p")
+  }, [resolutionOptions])
 
   function directorCharacters(): DirectorCharacterInput[] {
     const selected = new Set(selectedCharacterIDs)
@@ -172,8 +187,8 @@ export default function DirectorPage() {
         generate_images: status?.image_provider_configured ?? false,
         options: {
           name: labels.directorWorkflowName,
-          ratio: "9:16",
-          resolution: "1080p",
+          ratio,
+          resolution,
           generate_audio: false,
           model: videoModel,
           enable_merge: true,
@@ -353,6 +368,8 @@ export default function DirectorPage() {
               <Field label={labels.style} value={style} onChange={setStyle} />
               <ShotCountStepper label={labels.shots} decreaseLabel={labels.decreaseShots} increaseLabel={labels.increaseShots} value={shotCount} min={1} max={12} onChange={setShotCount} />
               <RangeField label={labels.secondsPerShot} value={duration} min={durationMin} max={durationMax} onChange={setDuration} />
+              <OptionSelect label={labels.outputRatio} value={ratio} values={withCurrent(ratioOptions, ratio)} onChange={setRatio} />
+              <OptionSelect label={labels.resolution} value={resolution} values={withCurrent(resolutionOptions, resolution)} onChange={setResolution} />
             </div>
 
             <ModelSelect
@@ -881,6 +898,21 @@ function Field({ label, value, onChange }: { label: string; value: string; onCha
   return <label className="flex flex-col gap-1 text-xs text-muted-foreground">{label}<input className="h-9 rounded-2xl border border-white/12 bg-background/55 px-3 text-sm text-foreground shadow-inner backdrop-blur-md focus:border-signal/45 focus:outline-none" value={value} onChange={(e) => onChange(e.target.value)} /></label>
 }
 
+function OptionSelect({ label, value, values, onChange }: { label: string; value: string; values: string[]; onChange: (v: string) => void }) {
+  return (
+    <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+      {label}
+      <select
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="h-9 rounded-2xl border border-white/12 bg-background/55 px-3 text-sm text-foreground shadow-inner backdrop-blur-md focus:border-signal/45 focus:outline-none"
+      >
+        {values.map((item) => <option key={item} value={item}>{item}</option>)}
+      </select>
+    </label>
+  )
+}
+
 function ShotCountStepper({ label, decreaseLabel, increaseLabel, value, min, max, onChange }: { label: string; decreaseLabel: string; increaseLabel: string; value: number; min: number; max: number; onChange: (value: number) => void }) {
   const safeValue = clampNumber(value, min, max)
   const steps = Array.from({ length: max - min + 1 }, (_, index) => min + index)
@@ -978,4 +1010,9 @@ function estimateDirectorVideoCostCents(model: string, shotCount: number, durati
 
 function formatUSD(cents: number) {
   return `$${(Math.max(0, cents) / 100).toFixed(2)}`
+}
+
+function withCurrent(values: string[], current: string) {
+  if (!current || values.includes(current)) return values
+  return [current, ...values]
 }
