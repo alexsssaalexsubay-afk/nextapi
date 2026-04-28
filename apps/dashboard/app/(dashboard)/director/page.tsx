@@ -801,6 +801,12 @@ function ClosedLoopRail({
       evidence: libraryProven ? labels.loopAssetLibraryReady : labels.loopAssetLibraryWaiting,
     },
   ]
+  const completedCount = steps.filter((step) => step.state === "done").length
+  const focusStep =
+    steps.find((step) => step.state === "blocked") ??
+    steps.find((step) => step.state === "active") ??
+    steps.find((step) => step.state === "waiting") ??
+    steps[steps.length - 1]
 
   return (
     <section className="rounded-lg border border-border bg-background/70 p-3">
@@ -813,24 +819,50 @@ function ClosedLoopRail({
           {labels.loopNoSilentFallback}
         </span>
       </div>
-      <div className="mt-3 grid gap-2 sm:grid-cols-2 2xl:grid-cols-3">
-        {steps.map((step) => (
-          <ProofStep key={step.key} label={step.label} evidence={step.evidence} state={step.state} />
-        ))}
+      <div className="mt-3 rounded-lg border border-border bg-card/55 px-3 py-3">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+            {completedCount}/{steps.length}
+          </span>
+          <span className="text-[11px] text-muted-foreground">{focusStep?.label}</span>
+        </div>
+        <ol className="grid grid-cols-9 gap-1">
+          {steps.map((step, index) => (
+            <ProofPathNode key={step.key} label={step.label} state={step.state} isLast={index === steps.length - 1} />
+          ))}
+        </ol>
       </div>
+      {focusStep ? <ProofFocus step={focusStep} /> : null}
     </section>
   )
 }
 
-function ProofStep({ label, evidence, state }: { label: string; evidence: string; state: ProofStepState }) {
-  const meta = proofStepMeta(state)
+function ProofPathNode({ label, state, isLast }: { label: string; state: ProofStepState; isLast: boolean }) {
+  const meta = proofPathMeta(state)
   return (
-    <div className={cn("min-h-24 rounded-lg border px-3 py-2", meta.className)}>
-      <div className="flex items-center justify-between gap-2">
-        <span className="truncate text-[12px] font-medium text-foreground">{label}</span>
-        <span className="shrink-0">{meta.icon}</span>
+    <li className="relative min-w-0">
+      {!isLast ? <span className={cn("absolute left-[calc(50%+18px)] right-[calc(-50%+18px)] top-3.5 h-px", meta.lineClassName)} /> : null}
+      <div className="relative z-10 flex min-w-0 flex-col items-center gap-1.5">
+        <span className={cn("grid size-7 place-items-center rounded-md border bg-card", meta.nodeClassName)}>
+          {meta.icon}
+        </span>
+        <span className="max-w-full truncate text-center text-[10px] text-muted-foreground">{label}</span>
       </div>
-      <p className="mt-2 text-[11.5px] leading-relaxed text-muted-foreground">{evidence}</p>
+    </li>
+  )
+}
+
+function ProofFocus({ step }: { step: { label: string; state: ProofStepState; evidence: string } }) {
+  const meta = proofPathMeta(step.state)
+  return (
+    <div className={cn("mt-3 flex items-start gap-2 rounded-lg border-l-2 bg-card/45 px-3 py-2", meta.focusClassName)}>
+      <span className={cn("mt-0.5 grid size-6 shrink-0 place-items-center rounded-md border", meta.nodeClassName)}>
+        {meta.icon}
+      </span>
+      <div className="min-w-0">
+        <p className="text-[12px] font-medium text-foreground">{step.label}</p>
+        <p className="mt-0.5 text-[11.5px] leading-relaxed text-muted-foreground">{step.evidence}</p>
+      </div>
     </div>
   )
 }
@@ -1398,28 +1430,36 @@ function actionStateMeta(state: ActionButtonState, labels: ReturnType<typeof use
   }
 }
 
-function proofStepMeta(state: ProofStepState) {
+function proofPathMeta(state: ProofStepState) {
   if (state === "done") {
     return {
-      className: "border-status-success/30 bg-status-success/10",
-      icon: <CheckCircle2 className="size-3.5 text-status-success" />,
+      icon: <CheckCircle2 className="size-3.5" />,
+      nodeClassName: "border-status-success/30 bg-status-success/10 text-status-success",
+      lineClassName: "bg-status-success/35",
+      focusClassName: "border-l-status-success",
     }
   }
   if (state === "active") {
     return {
-      className: "border-signal/30 bg-signal/10",
-      icon: <Loader2 className="size-3.5 animate-spin text-signal" />,
+      icon: <Loader2 className="size-3.5 animate-spin" />,
+      nodeClassName: "border-signal/25 bg-signal/10 text-signal",
+      lineClassName: "bg-signal/30",
+      focusClassName: "border-l-signal",
     }
   }
   if (state === "blocked") {
     return {
-      className: "border-destructive/35 bg-destructive/10",
-      icon: <AlertTriangle className="size-3.5 text-destructive" />,
+      icon: <AlertTriangle className="size-3.5" />,
+      nodeClassName: "border-destructive/35 bg-destructive/10 text-destructive",
+      lineClassName: "bg-border",
+      focusClassName: "border-l-destructive",
     }
   }
   return {
-    className: "border-border bg-card/70",
-    icon: <Route className="size-3.5 text-muted-foreground" />,
+    icon: <Route className="size-3.5" />,
+    nodeClassName: "border-border bg-background text-muted-foreground",
+    lineClassName: "bg-border",
+    focusClassName: "border-l-border",
   }
 }
 
