@@ -114,7 +114,10 @@ def _load_class(path: Path, class_name: str) -> Any:
         spec.loader.exec_module(module)
     except Exception as exc:
         raise PipelineUnavailable(f"cannot load pipeline module {path.name}: {exc}") from exc
-    return getattr(module, class_name)
+    try:
+        return getattr(module, class_name)
+    except AttributeError as exc:
+        raise PipelineUnavailable(f"pipeline module {path.name} is missing {class_name}") from exc
 
 
 def _build_user_requirement(request: Any) -> str:
