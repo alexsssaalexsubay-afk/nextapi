@@ -185,6 +185,7 @@ export default function DirectorPage() {
         duration_per_shot: duration,
         characters: directorCharacters(),
         generate_images: status?.image_provider_configured ?? false,
+        run_workflow: true,
         options: {
           name: labels.directorWorkflowName,
           ratio,

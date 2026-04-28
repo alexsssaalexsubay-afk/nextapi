@@ -221,7 +221,7 @@ func (h *DirectorHandlers) RunDirectorMode(c *gin.Context) {
 		return
 	}
 	var runResult *workflow.RunResult
-	shouldRunWorkflow := req.RunWorkflow == nil || *req.RunWorkflow
+	shouldRunWorkflow := shouldRunDirectorWorkflow(req.RunWorkflow)
 	if shouldRunWorkflow {
 		var apiKeyID *string
 		if ak := auth.APIKeyFrom(c); ak != nil {
@@ -253,6 +253,10 @@ func (h *DirectorHandlers) RunDirectorMode(c *gin.Context) {
 		"engine_used":   storyboard.EngineUsed,
 		"engine_status": storyboard.EngineStatus,
 	})
+}
+
+func shouldRunDirectorWorkflow(runWorkflow *bool) bool {
+	return runWorkflow != nil && *runWorkflow
 }
 
 func (h *DirectorHandlers) GenerateShotImages(c *gin.Context) {
