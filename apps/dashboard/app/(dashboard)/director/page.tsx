@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { useEffect, useState } from "react"
+import { useEffect, useState, type ReactNode } from "react"
 import {
   AlertTriangle,
   ArrowRight,
@@ -21,12 +21,16 @@ import {
 } from "lucide-react"
 import { ModelSelect } from "@/components/ai/model-select"
 import { DashboardShell } from "@/components/dashboard/dashboard-shell"
+import { Slider } from "@/components/ui/slider"
 import { useTranslations } from "@/lib/i18n/context"
 import { useVideoModelCatalog } from "@/lib/use-video-model-catalog"
 import { createDirectorWorkflow, generateDirectorShotImages, generateDirectorShots, getDirectorStatus, listCharacters, runBackendDirectorPipeline, type CharacterRecord, type DirectorCharacterInput, type DirectorEngineStatus, type DirectorShot, type DirectorStatus, type DirectorStoryboard, type WorkflowRunResult } from "@/lib/workflows"
 import { cn } from "@/lib/utils"
 
 type BusyStage = "shots" | "images" | "workflow" | "director"
+type ActionKey = BusyStage
+type ActionFeedback = "success" | "error"
+type ActionButtonState = "available" | "disabled" | "loading" | ActionFeedback
 
 type PipelineStep = {
   id: "brief" | "script" | "storyboard" | "references" | "workflow" | "canvas"
@@ -56,6 +60,7 @@ export default function DirectorPage() {
   const [workflowRun, setWorkflowRun] = useState<WorkflowRunResult | null>(null)
   const [loading, setLoading] = useState(false)
   const [busyStage, setBusyStage] = useState<BusyStage | null>(null)
+  const [actionFeedback, setActionFeedback] = useState<Partial<Record<ActionKey, ActionFeedback>>>({})
   const [error, setError] = useState<string | null>(null)
   const [heroExpanded, setHeroExpanded] = useState(false)
   const videoCatalog = useVideoModelCatalog()
@@ -97,6 +102,14 @@ export default function DirectorPage() {
     setMaxParallel((current) => clampNumber(current, 1, maxParallelLimit))
   }, [maxParallelLimit])
 
+  useEffect(() => {
+    setActionFeedback({})
+  }, [story, genre, style, shotCount, duration, maxParallel, ratio, resolution, videoModel, selectedCharacterIDs])
+
+  function markAction(action: ActionKey, feedback: ActionFeedback) {
+    setActionFeedback((current) => ({ ...current, [action]: feedback }))
+  }
+
   function directorCharacters(): DirectorCharacterInput[] {
     const selected = new Set(selectedCharacterIDs)
     return characters
@@ -111,6 +124,7 @@ export default function DirectorPage() {
   async function generate() {
     setLoading(true)
     setBusyStage("shots")
+    setActionFeedback((current) => ({ ...current, shots: undefined }))
     setError(null)
     setWorkflowID(null)
     setWorkflowRun(null)
@@ -125,7 +139,9 @@ export default function DirectorPage() {
         characters: directorCharacters(),
       })
       setStoryboard(next)
+      markAction("shots", "success")
     } catch (e) {
+      markAction("shots", "error")
       setError(e instanceof Error ? e.message : labels.generateFailed)
     } finally {
       setLoading(false)
@@ -137,6 +153,7 @@ export default function DirectorPage() {
     if (!storyboard) return
     setLoading(true)
     setBusyStage("workflow")
+    setActionFeedback((current) => ({ ...current, workflow: undefined }))
     setError(null)
     try {
       const res = await createDirectorWorkflow({
@@ -152,7 +169,9 @@ export default function DirectorPage() {
       })
       setWorkflowID(res.workflow.id)
       setWorkflowRun(null)
+      markAction("workflow", "success")
     } catch (e) {
+      markAction("workflow", "error")
       setError(e instanceof Error ? e.message : labels.workflowFailed)
     } finally {
       setLoading(false)
@@ -164,11 +183,14 @@ export default function DirectorPage() {
     if (!storyboard) return
     setLoading(true)
     setBusyStage("images")
+    setActionFeedback((current) => ({ ...current, images: undefined }))
     setError(null)
     try {
       const res = await generateDirectorShotImages({ shots: storyboard.shots, style, resolution: "1024x1024" })
       setStoryboard({ ...storyboard, shots: res.shots })
+      markAction("images", "success")
     } catch (e) {
+      markAction("images", "error")
       setError(e instanceof Error ? e.message : labels.imageFailed)
     } finally {
       setLoading(false)
@@ -179,6 +201,7 @@ export default function DirectorPage() {
   async function generateDirectorWorkflow() {
     setLoading(true)
     setBusyStage("director")
+    setActionFeedback((current) => ({ ...current, director: undefined }))
     setError(null)
     setWorkflowID(null)
     setWorkflowRun(null)
@@ -226,7 +249,9 @@ export default function DirectorPage() {
           referenceImageAssetId: shot.referenceImageAssetId,
         })),
       })
+      markAction("director", "success")
     } catch (e) {
+      markAction("director", "error")
       setError(e instanceof Error ? e.message : labels.workflowFailed)
     } finally {
       setLoading(false)
@@ -251,6 +276,11 @@ export default function DirectorPage() {
   const modelCatalogBlocked = videoCatalog.state !== "ready" || videoCatalog.modelIds.length === 0
   const blocked = !status?.available || modelCatalogBlocked
   const imageBlocked = status != null && !status.image_provider_configured
+  const storyMissing = story.trim() === ""
+  const directorDisabled = loading || blocked || storyMissing
+  const shotsDisabled = loading || blocked || storyMissing
+  const imagesDisabled = loading || imageBlocked || !storyboard
+  const workflowDisabled = loading || blocked || !storyboard
   const totalDuration = storyboard?.shots.reduce((sum, shot) => sum + Number(shot.duration || 0), 0) ?? shotCount * duration
   const estimatedCostCents = estimateDirectorVideoCostCents(videoModel, shotCount, duration, videoCatalog.priceCentsPerSecond)
   const estimatedBudget = formatUSD(estimatedCostCents)
@@ -269,6 +299,10 @@ export default function DirectorPage() {
     { id: "canvas", label: labels.pipelineCanvas },
   ]
   const activeBusyLabel = busyStage ? busyStageLabel(busyStage, labels) : null
+  const directorActionState = actionButtonState(directorDisabled, busyStage === "director", actionFeedback.director)
+  const shotsActionState = actionButtonState(shotsDisabled, busyStage === "shots", actionFeedback.shots)
+  const imagesActionState = actionButtonState(imagesDisabled, busyStage === "images", actionFeedback.images)
+  const workflowActionState = actionButtonState(workflowDisabled, busyStage === "workflow", actionFeedback.workflow)
 
   return (
     <DashboardShell activeHref="/director">
@@ -423,27 +457,42 @@ export default function DirectorPage() {
             />
 
             <div className="rounded-3xl border border-white/12 bg-background/50 p-2.5 shadow-sm backdrop-blur-md">
-              <button
-                disabled={loading || blocked || story.trim() === ""}
+              <ActionButton
+                disabled={directorDisabled}
+                state={directorActionState}
                 onClick={() => void generateDirectorWorkflow()}
-                className="premium-button inline-flex h-10 w-full items-center justify-center gap-2 rounded-full border border-white/20 px-4 text-sm font-semibold text-white disabled:opacity-50"
+                labels={labels}
+                variant="primary"
+                className="h-10 w-full"
+                icon={<Sparkles className="size-4" />}
               >
-                {busyStage === "director" ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
                 {busyStage === "director" ? labels.working : `${labels.generateDirectorWorkflow} · ${estimatedBudget}`}
-              </button>
+              </ActionButton>
               <div className="mt-3 flex items-center justify-between gap-3">
                 <p className="text-[11.5px] leading-relaxed text-muted-foreground">
                   {labels.runAllHint} {labels.estimateHint}: {estimatedBudget} · {shotCount} {labels.shotUnit} · {shotCount * duration}s · {labels.maxParallel} {maxParallel}.
                 </p>
-                <button
-                  disabled={loading || blocked || story.trim() === ""}
+                <ActionButton
+                  disabled={shotsDisabled}
+                  state={shotsActionState}
                   onClick={() => void generate()}
-                  className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border border-white/12 bg-card/55 px-3 text-[12px] shadow-sm backdrop-blur-md hover:border-signal/35 disabled:opacity-50"
+                  labels={labels}
+                  compact
+                  className="h-8 shrink-0"
+                  icon={<Film className="size-3.5" />}
                 >
-                  {busyStage === "shots" ? <Loader2 className="size-3.5 animate-spin" /> : <Film className="size-3.5" />}
                   {labels.generateShots}
-                </button>
+                </ActionButton>
               </div>
+              <ActionStatusRail
+                labels={labels}
+                items={[
+                  { label: labels.actionDirector, state: directorActionState },
+                  { label: labels.actionShots, state: shotsActionState },
+                  { label: labels.actionImages, state: imagesActionState },
+                  { label: labels.actionWorkflow, state: workflowActionState },
+                ]}
+              />
             </div>
           </section>
 
@@ -459,22 +508,29 @@ export default function DirectorPage() {
                 </div>
                 {storyboard && (
                   <div className="flex flex-wrap gap-2">
-                    <button
-                      disabled={loading || imageBlocked}
+                    <ActionButton
+                      disabled={imagesDisabled}
+                      state={imagesActionState}
                       onClick={() => void generateImages()}
-                      className="inline-flex h-9 items-center gap-2 rounded-full border border-white/12 bg-card/55 px-3 text-sm shadow-sm backdrop-blur-md disabled:opacity-50"
+                      labels={labels}
+                      compact
+                      className="h-9"
+                      icon={<ImageIcon className="size-3.5" />}
                     >
-                      {busyStage === "images" ? <Loader2 className="size-3.5 animate-spin" /> : <ImageIcon className="size-3.5" />}
                       {labels.generateImages}
-                    </button>
-                    <button
-                      disabled={loading || blocked}
+                    </ActionButton>
+                    <ActionButton
+                      disabled={workflowDisabled}
+                      state={workflowActionState}
                       onClick={() => void createWorkflow()}
-                      className="inline-flex h-9 items-center gap-2 rounded-full border border-signal/30 bg-signal/10 px-3 text-sm text-signal disabled:opacity-50"
+                      labels={labels}
+                      variant="signal"
+                      compact
+                      className="h-9"
+                      icon={<Workflow className="size-3.5" />}
                     >
-                      {busyStage === "workflow" ? <Loader2 className="size-3.5 animate-spin" /> : <Workflow className="size-3.5" />}
                       {labels.createWorkflow}
-                    </button>
+                    </ActionButton>
                   </div>
                 )}
               </div>
@@ -499,6 +555,86 @@ export default function DirectorPage() {
         </div>
       </div>
     </DashboardShell>
+  )
+}
+
+function ActionButton({
+  state,
+  labels,
+  icon,
+  children,
+  className,
+  compact = false,
+  variant = "secondary",
+  disabled,
+  onClick,
+}: {
+  state: ActionButtonState
+  labels: ReturnType<typeof useTranslations>["directorPage"]
+  icon: ReactNode
+  children: ReactNode
+  className?: string
+  compact?: boolean
+  variant?: "primary" | "secondary" | "signal"
+  disabled?: boolean
+  onClick: () => void
+}) {
+  const meta = actionStateMeta(state, labels)
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      className={cn(
+        "inline-flex min-w-0 items-center justify-center gap-2 rounded-full border text-sm font-medium shadow-sm transition disabled:cursor-not-allowed",
+        compact ? "px-3 text-[12px]" : "px-4",
+        variant === "primary" && "premium-button border-white/20 text-white disabled:opacity-65",
+        variant === "secondary" && "border-white/12 bg-card/55 text-foreground backdrop-blur-md hover:border-signal/35 disabled:opacity-55",
+        variant === "signal" && "border-signal/30 bg-signal/10 text-signal hover:bg-signal/15 disabled:opacity-55",
+        state === "success" && "border-status-success/35 bg-status-success/10 text-status-success",
+        state === "error" && "border-destructive/40 bg-destructive/10 text-destructive",
+        className,
+      )}
+    >
+      {meta.icon ?? icon}
+      <span className="min-w-0 truncate">{children}</span>
+      <span
+        className={cn(
+          "ml-auto inline-flex shrink-0 items-center rounded-full border px-1.5 py-0.5 font-mono text-[9.5px] uppercase tracking-[0.1em]",
+          meta.badgeClassName,
+        )}
+      >
+        {meta.label}
+      </span>
+    </button>
+  )
+}
+
+function ActionStatusRail({
+  labels,
+  items,
+}: {
+  labels: ReturnType<typeof useTranslations>["directorPage"]
+  items: Array<{ label: string; state: ActionButtonState }>
+}) {
+  return (
+    <div className="mt-3 rounded-2xl border border-white/10 bg-card/35 p-2 shadow-sm backdrop-blur-md">
+      <div className="mb-2 font-mono text-[9.5px] uppercase tracking-[0.14em] text-muted-foreground">{labels.actionStatesTitle}</div>
+      <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
+        {items.map((item) => {
+          const meta = actionStateMeta(item.state, labels)
+          return (
+            <div key={item.label} className={cn("flex items-center justify-between gap-2 rounded-xl border px-2 py-1.5 text-[11px]", meta.badgeClassName)}>
+              <span className="truncate">{item.label}</span>
+              <span className="inline-flex items-center gap-1 font-mono text-[9.5px] uppercase tracking-[0.1em]">
+                {meta.icon}
+                {meta.label}
+              </span>
+            </div>
+          )
+        })}
+      </div>
+    </div>
   )
 }
 
@@ -922,6 +1058,48 @@ function busyStageLabel(stage: BusyStage, labels: ReturnType<typeof useTranslati
   return labels.busyDirector
 }
 
+function actionButtonState(disabled: boolean, loading: boolean, feedback?: ActionFeedback): ActionButtonState {
+  if (loading) return "loading"
+  if (disabled) return "disabled"
+  return feedback ?? "available"
+}
+
+function actionStateMeta(state: ActionButtonState, labels: ReturnType<typeof useTranslations>["directorPage"]) {
+  if (state === "loading") {
+    return {
+      label: labels.buttonLoading,
+      icon: <Loader2 className="size-3.5 animate-spin" />,
+      badgeClassName: "border-signal/25 bg-signal/10 text-signal",
+    }
+  }
+  if (state === "success") {
+    return {
+      label: labels.buttonSuccess,
+      icon: <CheckCircle2 className="size-3.5" />,
+      badgeClassName: "border-status-success/30 bg-status-success/10 text-status-success",
+    }
+  }
+  if (state === "error") {
+    return {
+      label: labels.buttonFailure,
+      icon: <AlertTriangle className="size-3.5" />,
+      badgeClassName: "border-destructive/35 bg-destructive/10 text-destructive",
+    }
+  }
+  if (state === "disabled") {
+    return {
+      label: labels.buttonDisabled,
+      icon: null,
+      badgeClassName: "border-white/10 bg-muted/35 text-muted-foreground",
+    }
+  }
+  return {
+    label: labels.buttonAvailable,
+    icon: null,
+    badgeClassName: "border-signal/20 bg-signal/10 text-signal",
+  }
+}
+
 function Field({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
   return <label className="flex flex-col gap-1 text-xs text-muted-foreground">{label}<input className="h-9 rounded-2xl border border-white/12 bg-background/55 px-3 text-sm text-foreground shadow-inner backdrop-blur-md focus:border-signal/45 focus:outline-none" value={value} onChange={(e) => onChange(e.target.value)} /></label>
 }
@@ -999,29 +1177,27 @@ function ShotCountStepper({ label, decreaseLabel, increaseLabel, value, min, max
 
 function RangeField({ label, value, min, max, unit = "s", onChange }: { label: string; value: number; min: number; max: number; unit?: string; onChange: (value: number) => void }) {
   const safeValue = clampNumber(value, min, max)
-  const span = Math.max(1, max - min)
-  const progress = ((safeValue - min) / span) * 100
   return (
-    <label className="flex flex-col gap-2 rounded-2xl border border-white/12 bg-background/55 px-3 py-2 shadow-sm backdrop-blur-md">
+    <div className="flex flex-col gap-2 rounded-2xl border border-white/12 bg-background/55 px-3 py-2 shadow-sm backdrop-blur-md">
       <span className="flex items-center justify-between text-xs text-muted-foreground">
         <span>{label}</span>
         <span className="rounded-full border border-signal/25 bg-signal/10 px-2 py-0.5 font-mono text-sm text-signal">{safeValue}{unit}</span>
       </span>
-      <input
-        type="range"
+      <Slider
+        aria-label={label}
         min={min}
         max={max}
-        value={safeValue}
-        onChange={(e) => onChange(clampNumber(Number(e.target.value), min, max))}
-        className="h-2 cursor-pointer rounded-full accent-signal"
-        style={{ background: `linear-gradient(90deg, var(--signal) ${progress}%, transparent ${progress}%)` }}
+        step={1}
+        value={[safeValue]}
+        onValueChange={(next) => onChange(clampNumber(next[0] ?? safeValue, min, max))}
+        className="[&_[data-slot=slider-range]]:bg-signal [&_[data-slot=slider-thumb]]:border-signal [&_[data-slot=slider-thumb]]:bg-background [&_[data-slot=slider-track]]:bg-muted/70"
       />
       <span className="flex justify-between font-mono text-[10px] text-muted-foreground">
         <span>{min}{unit}</span>
         <span>{Math.round((min + max) / 2)}{unit}</span>
         <span>{max}{unit}</span>
       </span>
-    </label>
+    </div>
   )
 }
 
