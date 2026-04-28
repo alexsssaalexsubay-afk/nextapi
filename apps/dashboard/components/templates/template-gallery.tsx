@@ -581,6 +581,8 @@ function TemplateForm({
     : Object.entries(fallbackFields).map(([key, label]) => [key, label, null])
   const defaultRatio = template.default_aspect_ratio ?? "9:16"
   const defaultResolution = template.default_resolution ?? "1080p"
+  const ratioValue = inputs.aspect_ratio ?? defaultRatio
+  const resolutionValue = inputs.resolution ?? defaultResolution
   return (
     <div className="grid gap-3 md:grid-cols-2">
       {entries.map(([key, label, field]) => (
@@ -605,8 +607,8 @@ function TemplateForm({
         </label>
       ))}
       <RangeField label={labels.duration} value={Number(inputs.duration || template.default_duration || constraints.durationMin)} min={constraints.durationMin} max={constraints.durationMax} onChange={(value) => onChange("duration", String(value))} />
-      <SelectField label={labels.aspectRatio} value={inputs.aspect_ratio ?? defaultRatio} values={withCurrent(constraints.ratios, defaultRatio)} onChange={(value) => onChange("aspect_ratio", value)} />
-      <SelectField label={labels.resolution} value={inputs.resolution ?? defaultResolution} values={withCurrent(constraints.resolutions, defaultResolution)} onChange={(value) => onChange("resolution", value)} />
+      <SelectField label={labels.aspectRatio} value={ratioValue} values={withCurrent(constraints.ratios, ratioValue)} onChange={(value) => onChange("aspect_ratio", value)} />
+      <SelectField label={labels.resolution} value={resolutionValue} values={withCurrent(constraints.resolutions, resolutionValue)} onChange={(value) => onChange("resolution", value)} />
     </div>
   )
 }
