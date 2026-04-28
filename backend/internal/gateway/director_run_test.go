@@ -28,7 +28,7 @@ func TestDirectorListRunsReturnsPagedOrgScopedSummaries(t *testing.T) {
 			ID:                   newestID,
 			OrgID:                orgID,
 			Title:                "Newest",
-			Status:               "running",
+			Status:               "final_asset",
 			EngineUsed:           "advanced_sidecar",
 			SelectedCharacterIDs: json.RawMessage(`[]`),
 			BudgetSnapshot:       json.RawMessage(`{"shot_count":2}`),
@@ -90,9 +90,20 @@ func TestDirectorListRunsReturnsPagedOrgScopedSummaries(t *testing.T) {
 			DirectorJobID:  newestID,
 			OrgID:          orgID,
 			StepKey:        "video_submit",
-			Status:         "running",
+			Status:         "succeeded",
 			InputSnapshot:  json.RawMessage(`{}`),
 			OutputSnapshot: json.RawMessage(`{}`),
+		},
+		{
+			ID:             "66666666-6666-6666-6666-666666666664",
+			DirectorJobID:  newestID,
+			OrgID:          orgID,
+			StepKey:        "final_asset",
+			Status:         "succeeded",
+			InputSnapshot:  json.RawMessage(`{}`),
+			OutputSnapshot: json.RawMessage(`{"asset_id":"asset_final_1","storage_key":"merges/org/run.mp4","video_url":"https://cdn.example/final.mp4","merged_at":"2026-04-29T09:00:00Z"}`),
+			CreatedAt:      now.Add(-15 * time.Second),
+			UpdatedAt:      now.Add(-10 * time.Second),
 		},
 		{
 			ID:             "66666666-6666-6666-6666-666666666663",
@@ -155,11 +166,14 @@ func TestDirectorListRunsReturnsPagedOrgScopedSummaries(t *testing.T) {
 	if page.Data[0].DirectorJob.ID != newestID || page.Data[1].DirectorJob.ID != middleID {
 		t.Fatalf("unexpected ordering: %#v", page.Data)
 	}
-	if page.Data[0].StepCount != 2 {
-		t.Fatalf("expected newest step count 2, got %d", page.Data[0].StepCount)
+	if page.Data[0].StepCount != 3 {
+		t.Fatalf("expected newest step count 3, got %d", page.Data[0].StepCount)
 	}
 	if page.Data[0].Totals.MeteringEvents != 2 || page.Data[0].Totals.EstimatedCents != 150 || page.Data[0].Totals.ActualCents != 120 || page.Data[0].Totals.CreditsDelta != -150 {
 		t.Fatalf("unexpected newest totals: %#v", page.Data[0].Totals)
+	}
+	if page.Data[0].FinalAsset == nil || !page.Data[0].FinalAsset.Available || page.Data[0].FinalAsset.AssetID != "asset_final_1" || page.Data[0].FinalAsset.VideoURL != "https://cdn.example/final.mp4" {
+		t.Fatalf("unexpected newest final asset: %#v", page.Data[0].FinalAsset)
 	}
 
 	w = httptest.NewRecorder()
@@ -190,6 +204,7 @@ func TestDirectorGetRunReturnsOrgScopedAuditTrail(t *testing.T) {
 	workflowRunID := "44444444-4444-4444-4444-444444444444"
 	stepOneID := "55555555-5555-5555-5555-555555555555"
 	stepTwoID := "66666666-6666-6666-6666-666666666666"
+	finalStepID := "88888888-8888-8888-8888-888888888881"
 	videoJobID := "77777777-7777-7777-7777-777777777777"
 	now := time.Date(2026, 4, 29, 8, 0, 0, 0, time.UTC)
 	if err := db.Create(&domain.DirectorJob{
@@ -199,7 +214,7 @@ func TestDirectorGetRunReturnsOrgScopedAuditTrail(t *testing.T) {
 		WorkflowRunID:        &workflowRunID,
 		Title:                "Launch teaser",
 		Story:                "One prompt to multi-shot video",
-		Status:               "running",
+		Status:               "final_asset",
 		EngineUsed:           "advanced_sidecar",
 		FallbackUsed:         false,
 		SelectedCharacterIDs: json.RawMessage(`["asset_character_1"]`),
@@ -229,13 +244,25 @@ func TestDirectorGetRunReturnsOrgScopedAuditTrail(t *testing.T) {
 			DirectorJobID:  runID,
 			OrgID:          orgID,
 			StepKey:        "video_submit",
-			Status:         "running",
+			Status:         "succeeded",
 			JobID:          &videoJobID,
 			InputSnapshot:  json.RawMessage(`{"workflow_id":"33333333-3333-3333-3333-333333333333"}`),
 			OutputSnapshot: json.RawMessage(`{"job_ids":["77777777-7777-7777-7777-777777777777"]}`),
 			Attempts:       1,
 			CreatedAt:      now.Add(-1 * time.Minute),
 			UpdatedAt:      now.Add(-30 * time.Second),
+		},
+		{
+			ID:             finalStepID,
+			DirectorJobID:  runID,
+			OrgID:          orgID,
+			StepKey:        "final_asset",
+			Status:         "succeeded",
+			InputSnapshot:  json.RawMessage(`{"merge_job_id":"merge_1"}`),
+			OutputSnapshot: json.RawMessage(`{"asset_id":"asset_final_2","storage_key":"merges/org/final.mp4","url":"https://cdn.example/final-detail.mp4","merged_at":"2026-04-29T08:00:00Z"}`),
+			Attempts:       1,
+			CreatedAt:      now.Add(-20 * time.Second),
+			UpdatedAt:      now.Add(-10 * time.Second),
 		},
 	}).Error; err != nil {
 		t.Fatalf("create director steps: %v", err)
@@ -290,7 +317,7 @@ func TestDirectorGetRunReturnsOrgScopedAuditTrail(t *testing.T) {
 	if body.DirectorJob.ID != runID || body.DirectorJob.OrgID != orgID {
 		t.Fatalf("unexpected director job: %#v", body.DirectorJob)
 	}
-	if len(body.Steps) != 2 || body.Steps[0].StepKey != "storyboard" || body.Steps[1].StepKey != "video_submit" {
+	if len(body.Steps) != 3 || body.Steps[0].StepKey != "storyboard" || body.Steps[1].StepKey != "video_submit" || body.Steps[2].StepKey != "final_asset" {
 		t.Fatalf("unexpected steps: %#v", body.Steps)
 	}
 	if len(body.Metering) != 2 || body.Metering[0].StepID == nil || *body.Metering[0].StepID != stepTwoID {
@@ -298,6 +325,9 @@ func TestDirectorGetRunReturnsOrgScopedAuditTrail(t *testing.T) {
 	}
 	if body.Totals.MeteringEvents != 2 || body.Totals.EstimatedCents != 620 || body.Totals.ActualCents != 618 || body.Totals.CreditsDelta != -620 {
 		t.Fatalf("unexpected totals: %#v", body.Totals)
+	}
+	if body.FinalAsset == nil || !body.FinalAsset.Available || body.FinalAsset.AssetID != "asset_final_2" || body.FinalAsset.VideoURL != "https://cdn.example/final-detail.mp4" || body.FinalAsset.StorageKey != "merges/org/final.mp4" {
+		t.Fatalf("unexpected final asset: %#v", body.FinalAsset)
 	}
 }
 
@@ -326,6 +356,24 @@ func TestDirectorGetRunHidesRunsFromOtherOrgs(t *testing.T) {
 
 	if w.Code != http.StatusNotFound {
 		t.Fatalf("expected 404, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestDirectorFinalAssetFromStepIncludesFailureEvidence(t *testing.T) {
+	asset := directorFinalAssetFromStep(domain.DirectorStep{
+		StepKey:        directorFinalAssetStepKey,
+		Status:         "failed",
+		ErrorCode:      "merge_ffmpeg_failed",
+		OutputSnapshot: json.RawMessage(`{"error_code":"upstream_timeout","video_url":"https://cdn.example/partial.mp4"}`),
+	})
+	if asset == nil {
+		t.Fatal("expected final asset evidence")
+	}
+	if asset.Available {
+		t.Fatalf("failed final asset must not be available: %#v", asset)
+	}
+	if asset.ErrorCode != "merge_ffmpeg_failed" || asset.StepStatus != "failed" || asset.VideoURL != "https://cdn.example/partial.mp4" {
+		t.Fatalf("unexpected failure evidence: %#v", asset)
 	}
 }
 

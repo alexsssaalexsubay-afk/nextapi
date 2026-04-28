@@ -2115,6 +2115,18 @@ components:
         actual_cents: { type: integer, format: int64 }
         credits_delta: { type: integer, format: int64 }
 
+    DirectorRunFinalAsset:
+      type: object
+      required: [available, step_status]
+      properties:
+        available: { type: boolean }
+        step_status: { type: string }
+        error_code: { type: string }
+        asset_id: { type: string }
+        video_url: { type: string }
+        storage_key: { type: string }
+        merged_at: { type: string }
+
     DirectorRunSummary:
       type: object
       required: [director_job, step_count, totals]
@@ -2122,6 +2134,7 @@ components:
         director_job: { $ref: '#/components/schemas/DirectorJob' }
         step_count: { type: integer, format: int64 }
         totals: { $ref: '#/components/schemas/DirectorRunTotals' }
+        final_asset: { $ref: '#/components/schemas/DirectorRunFinalAsset' }
 
     DirectorRunPage:
       type: object
@@ -2145,6 +2158,7 @@ components:
           type: array
           items: { $ref: '#/components/schemas/DirectorMetering' }
         totals: { $ref: '#/components/schemas/DirectorRunTotals' }
+        final_asset: { $ref: '#/components/schemas/DirectorRunFinalAsset' }
 
     Model:
       type: object

@@ -1517,11 +1517,21 @@ export interface components {
             /** Format: int64 */
             credits_delta: number;
         };
+        DirectorRunFinalAsset: {
+            available: boolean;
+            step_status: string;
+            error_code?: string;
+            asset_id?: string;
+            video_url?: string;
+            storage_key?: string;
+            merged_at?: string;
+        };
         DirectorRunSummary: {
             director_job: components["schemas"]["DirectorJob"];
             /** Format: int64 */
             step_count: number;
             totals: components["schemas"]["DirectorRunTotals"];
+            final_asset?: components["schemas"]["DirectorRunFinalAsset"];
         };
         DirectorRunPage: {
             data: components["schemas"]["DirectorRunSummary"][];
@@ -1533,6 +1543,7 @@ export interface components {
             steps: components["schemas"]["DirectorStep"][];
             metering: components["schemas"]["DirectorMetering"][];
             totals: components["schemas"]["DirectorRunTotals"];
+            final_asset?: components["schemas"]["DirectorRunFinalAsset"];
         };
         Model: {
             id: string;

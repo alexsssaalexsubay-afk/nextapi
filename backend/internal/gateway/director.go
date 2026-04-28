@@ -57,12 +57,14 @@ type directorRunResponse struct {
 	Steps       []domain.DirectorStep     `json:"steps"`
 	Metering    []domain.DirectorMetering `json:"metering"`
 	Totals      directorRunTotals         `json:"totals"`
+	FinalAsset  *directorRunFinalAsset    `json:"final_asset,omitempty"`
 }
 
 type directorRunSummary struct {
-	DirectorJob domain.DirectorJob `json:"director_job"`
-	StepCount   int64              `json:"step_count"`
-	Totals      directorRunTotals  `json:"totals"`
+	DirectorJob domain.DirectorJob     `json:"director_job"`
+	StepCount   int64                  `json:"step_count"`
+	Totals      directorRunTotals      `json:"totals"`
+	FinalAsset  *directorRunFinalAsset `json:"final_asset,omitempty"`
 }
 
 type directorRunPage struct {
@@ -78,6 +80,16 @@ type directorRunTotals struct {
 	CreditsDelta   int64 `json:"credits_delta"`
 }
 
+type directorRunFinalAsset struct {
+	Available  bool   `json:"available"`
+	StepStatus string `json:"step_status"`
+	ErrorCode  string `json:"error_code,omitempty"`
+	AssetID    string `json:"asset_id,omitempty"`
+	VideoURL   string `json:"video_url,omitempty"`
+	StorageKey string `json:"storage_key,omitempty"`
+	MergedAt   string `json:"merged_at,omitempty"`
+}
+
 type directorRunStepAggregate struct {
 	DirectorJobID string `gorm:"column:director_job_id"`
 	StepCount     int64  `gorm:"column:step_count"`
@@ -90,6 +102,8 @@ type directorRunMeteringAggregate struct {
 	ActualCents    int64  `gorm:"column:actual_cents"`
 	CreditsDelta   int64  `gorm:"column:credits_delta"`
 }
+
+const directorFinalAssetStepKey = "final_asset"
 
 func (h *DirectorHandlers) Status(c *gin.Context) {
 	org := auth.OrgFrom(c)
@@ -205,6 +219,7 @@ func (h *DirectorHandlers) GetRun(c *gin.Context) {
 		Steps:       steps,
 		Metering:    metering,
 		Totals:      totals,
+		FinalAsset:  directorFinalAssetFromSteps(steps),
 	})
 }
 
@@ -248,14 +263,115 @@ func (h *DirectorHandlers) directorRunSummaries(ctx context.Context, orgID strin
 			CreditsDelta:   row.CreditsDelta,
 		}
 	}
+	finalAssetsByJob, err := h.directorFinalAssetsByJob(ctx, orgID, ids)
+	if err != nil {
+		return nil, err
+	}
 	for _, job := range jobs {
 		summaries = append(summaries, directorRunSummary{
 			DirectorJob: job,
 			StepCount:   stepCounts[job.ID],
 			Totals:      totalsByJob[job.ID],
+			FinalAsset:  finalAssetsByJob[job.ID],
 		})
 	}
 	return summaries, nil
+}
+
+func (h *DirectorHandlers) directorFinalAssetsByJob(ctx context.Context, orgID string, jobIDs []string) (map[string]*directorRunFinalAsset, error) {
+	assetsByJob := map[string]*directorRunFinalAsset{}
+	if len(jobIDs) == 0 {
+		return assetsByJob, nil
+	}
+	var steps []domain.DirectorStep
+	if err := h.DB.WithContext(ctx).
+		Where("org_id = ? AND director_job_id IN ? AND step_key = ?", orgID, jobIDs, directorFinalAssetStepKey).
+		Order("updated_at DESC, created_at DESC, id DESC").
+		Find(&steps).Error; err != nil {
+		return nil, err
+	}
+	for _, step := range steps {
+		if _, ok := assetsByJob[step.DirectorJobID]; ok {
+			continue
+		}
+		if asset := directorFinalAssetFromStep(step); asset != nil {
+			assetsByJob[step.DirectorJobID] = asset
+		}
+	}
+	return assetsByJob, nil
+}
+
+func directorFinalAssetFromSteps(steps []domain.DirectorStep) *directorRunFinalAsset {
+	var selected *domain.DirectorStep
+	for i := range steps {
+		step := &steps[i]
+		if step.StepKey != directorFinalAssetStepKey {
+			continue
+		}
+		if selected == nil || directorStepAfter(*step, *selected) {
+			selected = step
+		}
+	}
+	if selected == nil {
+		return nil
+	}
+	return directorFinalAssetFromStep(*selected)
+}
+
+func directorFinalAssetFromStep(step domain.DirectorStep) *directorRunFinalAsset {
+	if step.StepKey != directorFinalAssetStepKey {
+		return nil
+	}
+	fields := map[string]json.RawMessage{}
+	if len(step.OutputSnapshot) > 0 {
+		_ = json.Unmarshal(step.OutputSnapshot, &fields)
+	}
+	videoURL := directorRawStringField(fields, "video_url")
+	if videoURL == "" {
+		videoURL = directorRawStringField(fields, "url")
+	}
+	errorCode := strings.TrimSpace(step.ErrorCode)
+	if errorCode == "" {
+		errorCode = directorRawStringField(fields, "error_code")
+	}
+	assetID := directorRawStringField(fields, "asset_id")
+	storageKey := directorRawStringField(fields, "storage_key")
+	return &directorRunFinalAsset{
+		Available:  step.Status == "succeeded" && (assetID != "" || videoURL != "" || storageKey != ""),
+		StepStatus: strings.TrimSpace(step.Status),
+		ErrorCode:  errorCode,
+		AssetID:    assetID,
+		VideoURL:   videoURL,
+		StorageKey: storageKey,
+		MergedAt:   directorRawStringField(fields, "merged_at"),
+	}
+}
+
+func directorStepAfter(candidate domain.DirectorStep, current domain.DirectorStep) bool {
+	candidateTime := candidate.UpdatedAt
+	if candidateTime.IsZero() {
+		candidateTime = candidate.CreatedAt
+	}
+	currentTime := current.UpdatedAt
+	if currentTime.IsZero() {
+		currentTime = current.CreatedAt
+	}
+	if candidateTime.Equal(currentTime) {
+		return candidate.ID > current.ID
+	}
+	return candidateTime.After(currentTime)
+}
+
+func directorRawStringField(fields map[string]json.RawMessage, key string) string {
+	raw, ok := fields[key]
+	if !ok || len(raw) == 0 {
+		return ""
+	}
+	var value string
+	if err := json.Unmarshal(raw, &value); err != nil {
+		return ""
+	}
+	return strings.TrimSpace(value)
 }
 
 func parseDirectorRunLimit(raw string) int {

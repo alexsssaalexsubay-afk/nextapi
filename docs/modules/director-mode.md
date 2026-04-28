@@ -210,6 +210,14 @@ show reservation/reconciliation evidence without recalculating from unrelated
 job tables. Org scoping is mandatory; a run owned by another org must behave as
 not found.
 
+When a run reaches `director_steps.step_key = "final_asset"`, both list and
+detail responses expose a compact `final_asset` evidence object derived from
+that existing step output. The object is read-only and may include the merged
+asset id, video URL, storage key, merge timestamp, step status, and failure
+code. This keeps Director recovery tied to NextAPI-owned jobs, metering, merge,
+and media records without exposing provider keys or creating a parallel task
+system.
+
 ## Historical Assets MVP
 
 Phase 2 starts from explicit user-selected assets, not invisible global memory.
