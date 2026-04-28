@@ -63,6 +63,7 @@ export default function DirectorPage() {
   const [loading, setLoading] = useState(false)
   const [busyStage, setBusyStage] = useState<BusyStage | null>(null)
   const [workspaceFocus, setWorkspaceFocus] = useState<DirectorWorkspaceFocus>("brief")
+  const [selectedShotIndex, setSelectedShotIndex] = useState(0)
   const [actionFeedback, setActionFeedback] = useState<Partial<Record<ActionKey, ActionFeedback>>>({})
   const [error, setError] = useState<string | null>(null)
   const videoCatalog = useVideoModelCatalog()
@@ -105,6 +106,14 @@ export default function DirectorPage() {
   }, [maxParallelLimit])
 
   useEffect(() => {
+    if (!storyboard?.shots.length) {
+      setSelectedShotIndex(0)
+      return
+    }
+    setSelectedShotIndex((current) => clampNumber(current, 0, storyboard.shots.length - 1))
+  }, [storyboard?.shots.length])
+
+  useEffect(() => {
     setActionFeedback({})
   }, [story, genre, style, shotCount, duration, maxParallel, ratio, resolution, videoModel, selectedCharacterIDs])
 
@@ -142,6 +151,7 @@ export default function DirectorPage() {
       })
       setStoryboard(next)
       setWorkspaceFocus("storyboard")
+      setSelectedShotIndex(0)
       markAction("shots", "success")
     } catch (e) {
       markAction("shots", "error")
@@ -194,6 +204,7 @@ export default function DirectorPage() {
       const res = await generateDirectorShotImages({ shots: storyboard.shots, style, resolution: "1024x1024" })
       setStoryboard({ ...storyboard, shots: res.shots })
       setWorkspaceFocus("storyboard")
+      setSelectedShotIndex((current) => clampNumber(current, 0, Math.max(res.shots.length - 1, 0)))
       markAction("images", "success")
     } catch (e) {
       markAction("images", "error")
@@ -256,6 +267,7 @@ export default function DirectorPage() {
         })),
       })
       setWorkspaceFocus("workflow")
+      setSelectedShotIndex(0)
       markAction("director", "success")
     } catch (e) {
       markAction("director", "error")
@@ -380,12 +392,14 @@ export default function DirectorPage() {
                   workflowID={workflowID}
                   workflowRun={workflowRun}
                   focus={workspaceFocus}
+                  selectedShotIndex={selectedShotIndex}
                   labels={labels}
                   imagesDisabled={imagesDisabled}
                   imagesActionState={imagesActionState}
                   workflowDisabled={workflowDisabled}
                   workflowActionState={workflowActionState}
                   onFocusChange={setWorkspaceFocus}
+                  onSelectShot={setSelectedShotIndex}
                   onGenerateImages={() => void generateImages()}
                   onCreateWorkflow={() => void createWorkflow()}
                   onUpdateShot={updateShot}
@@ -399,6 +413,7 @@ export default function DirectorPage() {
                   storyboard={storyboard}
                   workflowID={workflowID}
                   workflowRun={workflowRun}
+                  selectedShotIndex={selectedShotIndex}
                   videoModel={videoModel}
                   setVideoModel={setVideoModel}
                   videoCatalog={videoCatalog}
@@ -417,6 +432,8 @@ export default function DirectorPage() {
                   onGenerateShots={() => void generate()}
                   onGenerateImages={() => void generateImages()}
                   onCreateWorkflow={() => void createWorkflow()}
+                  onSelectShot={setSelectedShotIndex}
+                  onUpdateShot={updateShot}
                   onUsePreset={usePreset}
                 />
               </div>
@@ -550,12 +567,14 @@ function DirectorCanvasBoard({
   workflowID,
   workflowRun,
   focus,
+  selectedShotIndex,
   labels,
   imagesDisabled,
   imagesActionState,
   workflowDisabled,
   workflowActionState,
   onFocusChange,
+  onSelectShot,
   onGenerateImages,
   onCreateWorkflow,
   onUpdateShot,
@@ -569,17 +588,20 @@ function DirectorCanvasBoard({
   workflowID: string | null
   workflowRun: WorkflowRunResult | null
   focus: DirectorWorkspaceFocus
+  selectedShotIndex: number
   labels: ReturnType<typeof useTranslations>["directorPage"]
   imagesDisabled: boolean
   imagesActionState: ActionButtonState
   workflowDisabled: boolean
   workflowActionState: ActionButtonState
   onFocusChange: (focus: DirectorWorkspaceFocus) => void
+  onSelectShot: (index: number) => void
   onGenerateImages: () => void
   onCreateWorkflow: () => void
   onUpdateShot: (index: number, patch: Partial<DirectorShot>) => void
 }) {
   const storyReady = story.trim().length > 0
+  const selectedShot = storyboard?.shots[selectedShotIndex] ?? storyboard?.shots[0]
 
   return (
     <div className="relative flex-1 p-4 pb-4 lg:p-5 lg:pb-[335px]">
@@ -620,12 +642,10 @@ function DirectorCanvasBoard({
             <p className="text-[12px] leading-relaxed text-muted-foreground">{storyboard?.summary ?? labels.shotTimelineSubtitle}</p>
             {storyboard ? (
               <div className="mt-3 space-y-3">
-                <ShotTimelineMap shots={storyboard.shots} labels={labels} />
-                <div className="max-h-64 space-y-2 overflow-y-auto pr-1 scroll-thin">
-                  {storyboard.shots.map((shot, index) => (
-                    <ShotMiniEditor key={`${shot.shotIndex}-${index}`} shot={shot} index={index} labels={labels} onChange={(patch) => onUpdateShot(index, patch)} />
-                  ))}
-                </div>
+                <ShotTimelineMap shots={storyboard.shots} labels={labels} activeIndex={selectedShotIndex} onSelectShot={onSelectShot} />
+                {selectedShot ? (
+                  <SelectedShotPreview shot={selectedShot} index={selectedShotIndex} labels={labels} onChange={(patch) => onUpdateShot(selectedShotIndex, patch)} />
+                ) : null}
               </div>
             ) : (
               <CanvasEmptyState labels={labels} />
@@ -688,6 +708,7 @@ function DirectorComposer({
   storyboard,
   workflowID,
   workflowRun,
+  selectedShotIndex,
   videoModel,
   setVideoModel,
   videoCatalog,
@@ -706,6 +727,8 @@ function DirectorComposer({
   onGenerateShots,
   onGenerateImages,
   onCreateWorkflow,
+  onSelectShot,
+  onUpdateShot,
   onUsePreset,
 }: {
   labels: ReturnType<typeof useTranslations>["directorPage"]
@@ -715,6 +738,7 @@ function DirectorComposer({
   storyboard: DirectorStoryboard | null
   workflowID: string | null
   workflowRun: WorkflowRunResult | null
+  selectedShotIndex: number
   videoModel: string
   setVideoModel: (value: string) => void
   videoCatalog: ReturnType<typeof useVideoModelCatalog>
@@ -733,6 +757,8 @@ function DirectorComposer({
   onGenerateShots: () => void
   onGenerateImages: () => void
   onCreateWorkflow: () => void
+  onSelectShot: (index: number) => void
+  onUpdateShot: (index: number, patch: Partial<DirectorShot>) => void
   onUsePreset: (story: string, genre: string, style: string) => void
 }) {
   const modelPicker = (
@@ -764,6 +790,7 @@ function DirectorComposer({
   )
   const contextLabel = focus === "brief" ? labels.pipelineBrief : focus === "storyboard" ? labels.pipelineStoryboard : labels.pipelineWorkflow
   const contextMetric = focus === "brief" ? estimatedBudget : focus === "storyboard" ? `${storyboard?.shots.length ?? 0} ${labels.estimatedShots}` : workflowID ?? labels.pipelineWorkflow
+  const selectedShot = storyboard?.shots[selectedShotIndex] ?? storyboard?.shots[0]
 
   return (
     <div data-director-composer={focus} className="border-t border-border bg-card/94 p-3 lg:absolute lg:inset-x-4 lg:bottom-4 lg:rounded-xl lg:border lg:shadow-sm">
@@ -834,22 +861,22 @@ function DirectorComposer({
 
       {focus === "storyboard" ? (
         <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_320px]">
-          <div className="rounded-lg border border-border bg-background/70 p-3">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div>
-                <h3 className="text-sm font-medium text-foreground">{labels.shotTimeline}</h3>
-                <p className="mt-1 text-[12px] leading-relaxed text-muted-foreground">{storyboard?.summary ?? labels.shotTimelineSubtitle}</p>
-              </div>
-              {storyboard ? (
-                <span className="rounded-md border border-border bg-card px-2 py-1 font-mono text-[10px] text-muted-foreground">
-                  {storyboard.shots.length} {labels.estimatedShots}
-                </span>
-              ) : null}
+          {storyboard && selectedShot ? (
+            <ShotParameterDesk
+              shot={selectedShot}
+              index={selectedShotIndex}
+              shotCount={storyboard.shots.length}
+              labels={labels}
+              onChange={(patch) => onUpdateShot(selectedShotIndex, patch)}
+            />
+          ) : (
+            <div className="rounded-lg border border-border bg-background/70 p-3">
+              <CanvasEmptyState labels={labels} />
             </div>
-            {storyboard ? <div className="mt-3"><ShotTimelineMap shots={storyboard.shots} labels={labels} /></div> : <CanvasEmptyState labels={labels} />}
-          </div>
+          )}
 
           <div className="space-y-3">
+            {storyboard ? <ShotTimelineMap shots={storyboard.shots} labels={labels} activeIndex={selectedShotIndex} onSelectShot={onSelectShot} compact /> : null}
             {modelPicker}
             <div className="grid gap-2">
               <ActionButton
@@ -1048,10 +1075,10 @@ function CanvasEmptyState({ labels }: { labels: ReturnType<typeof useTranslation
   )
 }
 
-function ShotMiniEditor({ shot, index, labels, onChange }: { shot: DirectorShot; index: number; labels: ReturnType<typeof useTranslations>["directorPage"]; onChange: (patch: Partial<DirectorShot>) => void }) {
+function SelectedShotPreview({ shot, index, labels, onChange }: { shot: DirectorShot; index: number; labels: ReturnType<typeof useTranslations>["directorPage"]; onChange: (patch: Partial<DirectorShot>) => void }) {
   const shotNumber = shot.shotIndex || index + 1
   return (
-    <article className="rounded-lg border border-border bg-background/70 p-2.5">
+    <article className="rounded-lg border border-border bg-background/70 p-2.5" data-director-selected-shot={index}>
       <div className="flex items-start gap-2">
         {shot.referenceImageUrl ? (
           <img src={shot.referenceImageUrl} alt={shot.title} className="size-14 shrink-0 rounded-md object-cover" />
@@ -1070,15 +1097,101 @@ function ShotMiniEditor({ shot, index, labels, onChange }: { shot: DirectorShot;
             value={shot.title}
             onChange={(event) => onChange({ title: event.target.value })}
           />
-          <textarea
-            className="mt-2 min-h-16 w-full resize-none rounded-md border border-border bg-card px-2 py-1.5 text-[12px] leading-relaxed text-foreground focus:border-signal/45 focus:outline-none"
-            value={shot.videoPrompt}
-            aria-label={`${labels.videoPrompt} S${shotNumber}`}
-            onChange={(event) => onChange({ videoPrompt: event.target.value })}
-          />
+          <p className="mt-2 line-clamp-3 text-[12px] leading-relaxed text-muted-foreground">{shot.videoPrompt || labels.videoPrompt}</p>
         </div>
       </div>
     </article>
+  )
+}
+
+function ShotParameterDesk({
+  shot,
+  index,
+  shotCount,
+  labels,
+  onChange,
+}: {
+  shot: DirectorShot
+  index: number
+  shotCount: number
+  labels: ReturnType<typeof useTranslations>["directorPage"]
+  onChange: (patch: Partial<DirectorShot>) => void
+}) {
+  const shotNumber = shot.shotIndex || index + 1
+
+  return (
+    <section className="rounded-lg border border-border bg-background/70 p-3" data-director-shot-parameters={index}>
+      <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="mb-2 flex items-center gap-2">
+            <span className="rounded-md border border-signal/25 bg-signal/10 px-2 py-1 font-mono text-[10px] text-signal">
+              S{shotNumber}/{shotCount}
+            </span>
+            <span className="rounded-md border border-border bg-card px-2 py-1 font-mono text-[10px] text-muted-foreground">
+              {shot.duration}s
+            </span>
+          </div>
+          <input
+            className="w-full min-w-0 bg-transparent text-sm font-medium text-foreground outline-none"
+            value={shot.title}
+            aria-label={`${labels.shotTimeline} S${shotNumber}`}
+            onChange={(event) => onChange({ title: event.target.value })}
+          />
+        </div>
+        {shot.referenceImageUrl ? (
+          <img src={shot.referenceImageUrl} alt={shot.title} className="h-16 w-24 rounded-md object-cover" />
+        ) : (
+          <span className="grid h-16 w-24 shrink-0 place-items-center rounded-md border border-dashed border-border bg-card text-muted-foreground">
+            <ImageIcon className="size-5" />
+          </span>
+        )}
+      </div>
+
+      <div className="grid gap-2 sm:grid-cols-4">
+        <label className="flex flex-col gap-1 text-[11px] text-muted-foreground">
+          {labels.camera}
+          <input className="h-9 rounded-md border border-border bg-card px-2 text-[12px] text-foreground outline-none focus:border-signal/45" value={shot.camera ?? ""} onChange={(event) => onChange({ camera: event.target.value })} />
+        </label>
+        <label className="flex flex-col gap-1 text-[11px] text-muted-foreground">
+          {labels.emotion}
+          <input className="h-9 rounded-md border border-border bg-card px-2 text-[12px] text-foreground outline-none focus:border-signal/45" value={shot.emotion ?? ""} onChange={(event) => onChange({ emotion: event.target.value })} />
+        </label>
+        <label className="flex flex-col gap-1 text-[11px] text-muted-foreground">
+          {labels.action}
+          <input className="h-9 rounded-md border border-border bg-card px-2 text-[12px] text-foreground outline-none focus:border-signal/45" value={shot.action ?? ""} onChange={(event) => onChange({ action: event.target.value })} />
+        </label>
+        <label className="flex flex-col gap-1 text-[11px] text-muted-foreground">
+          {labels.secondsPerShot}
+          <input
+            type="number"
+            min={1}
+            max={60}
+            className="h-9 rounded-md border border-border bg-card px-2 text-[12px] text-foreground outline-none focus:border-signal/45"
+            value={shot.duration}
+            onChange={(event) => onChange({ duration: clampNumber(Number(event.target.value || 1), 1, 60) })}
+          />
+        </label>
+      </div>
+
+      <div className="mt-3 grid gap-2 lg:grid-cols-2">
+        <label className="flex flex-col gap-1 text-[11px] text-muted-foreground">
+          {labels.videoPrompt}
+          <textarea
+            className="min-h-24 resize-none rounded-md border border-border bg-card px-3 py-2 text-[12px] leading-relaxed text-foreground outline-none focus:border-signal/45"
+            value={shot.videoPrompt}
+            onChange={(event) => onChange({ videoPrompt: event.target.value })}
+          />
+        </label>
+        <label className="flex flex-col gap-1 text-[11px] text-muted-foreground">
+          {labels.imagePrompt}
+          <textarea
+            className="min-h-24 resize-none rounded-md border border-border bg-card px-3 py-2 text-[12px] leading-relaxed text-foreground outline-none focus:border-signal/45"
+            value={shot.imagePrompt ?? ""}
+            onChange={(event) => onChange({ imagePrompt: event.target.value })}
+          />
+        </label>
+      </div>
+    </section>
   )
 }
 
@@ -1607,7 +1720,19 @@ function RunSummary({ run, labels }: { run: WorkflowRunResult; labels: ReturnTyp
   )
 }
 
-function ShotTimelineMap({ shots, labels }: { shots: DirectorShot[]; labels: ReturnType<typeof useTranslations>["directorPage"] }) {
+function ShotTimelineMap({
+  shots,
+  labels,
+  activeIndex = 0,
+  onSelectShot,
+  compact = false,
+}: {
+  shots: DirectorShot[]
+  labels: ReturnType<typeof useTranslations>["directorPage"]
+  activeIndex?: number
+  onSelectShot?: (index: number) => void
+  compact?: boolean
+}) {
   let cursor = 0
   const segments = shots.map((shot, index) => {
     const duration = clampNumber(Number(shot.duration || 0), 1, 60)
@@ -1624,11 +1749,11 @@ function ShotTimelineMap({ shots, labels }: { shots: DirectorShot[]; labels: Ret
   const hasReferences = shots.filter((shot) => Boolean(shot.referenceImageUrl)).length
 
   return (
-    <section className="rounded-lg border border-border bg-background/70 p-3" aria-label={labels.shotTimeline}>
+    <section className={cn("rounded-lg border border-border bg-background/70", compact ? "p-2.5" : "p-3")} aria-label={labels.shotTimeline}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-signal">{labels.shotTimeline}</p>
-          <p className="mt-1 text-[12px] text-muted-foreground">
+          <p className={cn("mt-1 text-muted-foreground", compact ? "text-[11px]" : "text-[12px]")}>
             {formatTimelineTime(cursor)} · {shots.length} {labels.shotUnit} · {labels.memoryReferenceCount.replace("{count}", String(hasReferences))} / {shots.length}
           </p>
         </div>
@@ -1636,22 +1761,32 @@ function ShotTimelineMap({ shots, labels }: { shots: DirectorShot[]; labels: Ret
           {labels.totalRuntime}: {formatTimelineTime(cursor)}
         </span>
       </div>
-      <ol className="mt-3 flex gap-1.5 overflow-x-auto pb-1">
+      <ol className={cn("flex gap-1.5 overflow-x-auto pb-1", compact ? "mt-2" : "mt-3")}>
         {segments.map((segment) => (
-          <li key={`${segment.shot.shotIndex}-${segment.index}`} className="min-w-32 flex-1 rounded-md border border-border bg-card px-2 py-2">
-            <div className="flex items-center justify-between gap-2">
-              <span className="rounded-md border border-signal/25 bg-signal/10 px-1.5 py-0.5 font-mono text-[10px] text-signal">
-                S{segment.shot.shotIndex || segment.index + 1}
-              </span>
-              <span className="font-mono text-[10px] text-muted-foreground">
-                {formatTimelineTime(segment.start)}-{formatTimelineTime(segment.end)}
-              </span>
-            </div>
-            <p className="mt-2 truncate text-[12px] font-medium text-foreground">{segment.shot.title || labels.planOnly}</p>
-            <div className="mt-2 flex items-center justify-between gap-2 text-[10.5px] text-muted-foreground">
-              <span className="truncate">{segment.shot.camera || labels.camera}</span>
-              <span>{segment.duration}s</span>
-            </div>
+          <li key={`${segment.shot.shotIndex}-${segment.index}`} className={cn("flex-1", compact ? "min-w-24" : "min-w-32")}>
+            <button
+              type="button"
+              onClick={() => onSelectShot?.(segment.index)}
+              aria-pressed={segment.index === activeIndex}
+              className={cn(
+                "h-full w-full rounded-md border bg-card px-2 py-2 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal/35",
+                segment.index === activeIndex ? "border-signal/55 bg-signal/10" : "border-border hover:border-signal/30 hover:bg-accent/45",
+              )}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className="rounded-md border border-signal/25 bg-signal/10 px-1.5 py-0.5 font-mono text-[10px] text-signal">
+                  S{segment.shot.shotIndex || segment.index + 1}
+                </span>
+                <span className="font-mono text-[10px] text-muted-foreground">
+                  {formatTimelineTime(segment.start)}-{formatTimelineTime(segment.end)}
+                </span>
+              </div>
+              <p className={cn("mt-2 truncate font-medium text-foreground", compact ? "text-[11.5px]" : "text-[12px]")}>{segment.shot.title || labels.planOnly}</p>
+              <div className="mt-2 flex items-center justify-between gap-2 text-[10.5px] text-muted-foreground">
+                <span className="truncate">{segment.shot.camera || labels.camera}</span>
+                <span>{segment.duration}s</span>
+              </div>
+            </button>
           </li>
         ))}
       </ol>
