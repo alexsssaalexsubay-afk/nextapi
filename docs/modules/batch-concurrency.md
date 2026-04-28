@@ -1,100 +1,105 @@
-# Batch Concurrency — 全量并行 + 客户分层
+# Batch Concurrency — Bounded Step Dispatch
 
-## 核心原则
+## Current Contract
 
-上游 Seedance 根 API **无限并发**。这是我们最大的竞争优势。
+Batch Studio, template runs, Canvas multi-shot workflows, and AI Director all use the same batch/job pipeline.
 
-并发控制的唯一目的是**客户分层**（销售工具），不是技术瓶颈保护。
-批量提交必须全量并行推上游，不排队。
+The platform does **not** enqueue every video task at once anymore. A batch creates and reserves all accepted jobs first, then dispatches only a bounded wave to the worker queue. When a shot finishes through worker polling or upstream webhook completion, the dispatcher releases the next queued job in the same batch.
 
-## 现状问题
+This is the first production-safe Step Machine layer:
 
-`batch.Create` 逐个调 `jobSvc.Create`，每个都走 `throughput.Acquire`。
-burst_concurrency 默认 8，200 条 shot 的批次前 8 条成功，剩下 192 条立即 429。
-
-## 修复方案
-
-### 1. throughput 服务加 `unlimited` 模式
-
-`throughput_config` 表加 `unlimited BOOLEAN NOT NULL DEFAULT false`。
-
-- `unlimited=true` 时 `Acquire` / `AcquireBatch` 永远成功（只记录在飞数，不拒绝）
-- 给内部账号和大客户开
-
-### 2. 默认值大幅调高
-
-| 客户类型 | burst_concurrency | unlimited |
-|---------|-------------------|-----------|
-| 试用用户 | 5                 | false     |
-| 小客户   | 50                | false     |
-| 短剧客户 | 200               | false     |
-| 企业客户 | 500               | false     |
-| 内部/VIP | -                 | true      |
-
-代码里的 lazy-default 从 `burst=8` 改为 `burst=200`。
-
-### 3. 新增 `AcquireBatch` 方法
-
-```go
-func (s *Service) AcquireBatch(ctx context.Context, orgID string, count int, jobIDs []string) (accepted int, err error)
+```text
+batch accepted
+-> all jobs created as queued + reserved
+-> dispatch up to max_parallel
+-> worker/webhook marks a job terminal
+-> dispatch next queued job
+-> batch complete
+-> merge can proceed
 ```
 
-- unlimited org：全部通过，返回 count
-- 有限 org：返回 `min(count, burst - inFlight)`
-- 调用方根据返回值决定实际提交多少条
+## Why This Design
 
-### 4. batch.Create 改为全量并行
+- Keeps user submissions idempotent and auditable: every accepted shot has a job/video record before dispatch.
+- Prevents a single large batch from occupying all worker/network capacity.
+- Lets operators sell higher concurrency tiers without creating a second task system.
+- Keeps billing safe: reservation happens before dispatch; refund/reconcile paths remain in the existing job pipeline.
+- Makes AI Director practical: multi-shot stories can enter the queue without turning the HTTP request into a long-running video worker.
 
-1. 调 `AcquireBatch(orgID, len(shots), jobIDs)` — 一次性预留槽位
-2. 一个事务里 INSERT 所有 job（status=queued）+ batch_run 行
-3. 循环 enqueue 所有 `video:generate` Asynq 任务
-4. 超出 burst 的部分：返回 partial success（accepted N of M）
+## Runtime Fields
 
-### 5. batch_runs 加 max_parallel
+`batch_runs.max_parallel` controls the number of jobs that may be submitting/running at the same time for one batch.
 
-用户可以主动设置 max_parallel（"我只想同时跑 10 条"），
-实际并行度 = `min(max_parallel, burst - inFlight)`。
-max_parallel 为 NULL 时表示不限（用满 burst）。
+Current default when unset: `5`.
 
-## Migration 00013
+Current hard cap for Director workflow metadata: `20`.
 
-```sql
-ALTER TABLE throughput_config ADD COLUMN unlimited BOOLEAN NOT NULL DEFAULT false;
-ALTER TABLE batch_runs ADD COLUMN max_parallel INT;
-```
+AI Director now writes workflow metadata:
 
-## API 变更
-
-### POST /v1/batch/runs
-
-请求体新增可选字段：
-```json
-{ "max_parallel": 10 }
-```
-
-### GET /v1/batch/runs/:id
-
-响应新增：
 ```json
 {
-  "concurrency": {
-    "max_parallel": null,
-    "org_burst_limit": 200,
-    "org_unlimited": false,
-    "current_in_flight": 47
+  "source": "director",
+  "max_parallel": 3
+}
+```
+
+When `/v1/workflows/:id/run` detects multiple `seedance.video` nodes, it reads `metadata.max_parallel` and passes it into `batch.Create`.
+
+## API Surface
+
+### Batch Studio
+
+`POST /v1/batch/runs`
+
+```json
+{
+  "max_parallel": 5,
+  "items": []
+}
+```
+
+### Template Batch
+
+`POST /v1/templates/:id/run-batch`
+
+```json
+{
+  "max_parallel": 5,
+  "inputs": []
+}
+```
+
+### AI Director
+
+`POST /v1/director/mode/run`
+
+```json
+{
+  "run_workflow": true,
+  "options": {
+    "max_parallel": 3
   }
 }
 ```
 
-## 测试计划
+The Dashboard Director UI exposes this as a compact slider named `Parallel shots`.
 
-1. unlimited org 提交 200 条 → 200 个 job 全部 queued + 入队
-2. burst=50 org 提交 200 条 → accepted=50, rejected=150, 返回 partial
-3. max_parallel=10 + burst=200 → 只推 10 条（后续由 processor 完成后自动补位——这是 Phase 1.5 的事）
-4. 单条 API 请求仍走原有 Acquire 路径，不受影响
+## Verified Evidence
 
-## 风险
+Latest verified slice:
 
-- max_parallel 的"完成后自动补位"需要 processor 回调 batch dispatcher。
-  Phase 1 先不做自动补位，max_parallel 仅在首次提交时生效。
-  Phase 1.5 再加 processor 完成回调。
+- `go test ./internal/director ./internal/workflow ./internal/batch ./internal/job`
+- `pnpm --filter @nextapi/ui check-i18n`
+- `pnpm --filter @nextapi/dashboard typecheck`
+- `pnpm --filter @nextapi/dashboard build`
+- Server deploy at commit `2aa239d`
+- `https://api.nextapi.top/health` returned `{"status":"ok"}`
+- `director-sidecar` smoke returned `{"status":"ok","provider_callback_calls":4,"shot_count":2,"source":"vendored_director_pipeline"}`
+
+## Not Yet Done
+
+- Per-plan Admin concurrency tiers.
+- 100-user load test.
+- Web UI for retrying only failed shots inside a Director batch.
+- Durable external orchestrator such as Temporal/Cloudflare Workflows.
+- Automatic merge verification against real provider-produced media.

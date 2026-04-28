@@ -2,6 +2,22 @@
 
 Legend: ✅ closed-loop (builds, tests pass, wired) · 🟡 compiles but not integration-tested · 🔴 stub / not started
 
+## Latest verified checkpoint (2026-04-28 evening)
+
+- AI Director now carries `max_parallel` from Dashboard controls into workflow metadata and then into `batch_runs.max_parallel` when `/v1/workflows/:id/run` fans out multiple video nodes.
+- Batch/Director multi-shot execution uses bounded step dispatch: accepted jobs are created/reserved first, only the first wave is enqueued, and worker/webhook completions dispatch the next queued job.
+- Backend/server/worker were deployed to the VPS at commit `2aa239d`; the repo was later fast-forwarded to `bb064bf` for frontend health-route hardening.
+- Verified on VPS: `https://api.nextapi.top/health` returned `{"status":"ok"}` and `director-sidecar` smoke returned `{"status":"ok","provider_callback_calls":4,"shot_count":2,"source":"vendored_director_pipeline"}`.
+- Frontend `app.nextapi.top/health` and `admin.nextapi.top/health` still return HTTP 500 until Cloudflare Workers are redeployed. Local builds pass, but wrangler deployment is blocked because local wrangler auth is not logged in (`Failed to fetch auth token: 400 Bad Request`).
+
+Validation:
+
+- `cd backend && go test ./internal/director ./internal/workflow ./internal/batch ./internal/job` → ✅
+- `pnpm --filter @nextapi/ui check-i18n` → ✅
+- `pnpm --filter @nextapi/dashboard typecheck` → ✅
+- `pnpm --filter @nextapi/dashboard build` → ✅
+- `pnpm --filter @nextapi/admin build` → ✅
+
 ## Build health
 
 | Target | Command | Status |
