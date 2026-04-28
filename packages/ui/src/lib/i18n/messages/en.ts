@@ -585,7 +585,7 @@ export const en = {
       workspace: "Live workspace",
       title: "Operate generation from one compact control surface.",
       subtitle:
-        "Credits, keys, tasks, webhooks, and Director launches stay visible without turning the dashboard into a landing page.",
+        "View credits, keys, recent jobs, and webhook health, then launch the next generation workflow.",
     },
     quickActions: {
       title: "Launch actions",

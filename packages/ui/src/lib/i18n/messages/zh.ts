@@ -576,7 +576,7 @@ export const zh: Messages = {
       workspace: "Live 工作区",
       title: "把生成业务收进一个紧凑的运营台。",
       subtitle:
-        "点数、密钥、任务、Webhook 和 AI Director 入口保持可见，不再把控制台做成落地页。",
+        "查看余额、密钥、最近任务与 Webhook 状态，快速启动下一次生成。",
     },
     quickActions: {
       title: "启动动作",
