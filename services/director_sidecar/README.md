@@ -21,6 +21,14 @@ export DIRECTOR_RUNTIME_CALLBACK_URL="http://127.0.0.1:8080/v1/internal/director
 uvicorn services.director_sidecar.app:app --host 127.0.0.1 --port 8091
 ```
 
+Offline pipeline smoke:
+
+```bash
+python -m services.director_sidecar.smoke
+```
+
+This starts a fake internal text-provider callback and verifies that the vendored screenwriter, character extractor, and storyboard artist execute without any external model keys.
+
 Backend env:
 
 ```bash
