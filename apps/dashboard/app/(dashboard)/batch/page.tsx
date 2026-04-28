@@ -725,6 +725,8 @@ export default function BatchStudioPage() {
                 comingSoon: tb.modelStatusUnavailable,
                 recommended: tb.recommendedModels,
                 bestForFlow: tb.bestForBatch,
+                searchPlaceholder: tb.modelSearchPlaceholder,
+                noMatches: tb.modelNoMatches,
                 tierAdvanced: tb.tierAdvanced,
                 tierPrimary: tb.tierPrimary,
                 tierEconomy: tb.tierEconomy,

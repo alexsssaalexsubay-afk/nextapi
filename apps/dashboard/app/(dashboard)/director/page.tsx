@@ -386,6 +386,8 @@ export default function DirectorPage() {
                 comingSoon: labels.comingSoon,
                 recommended: labels.recommendedModels,
                 bestForFlow: labels.bestForFlow,
+                searchPlaceholder: labels.modelSearchPlaceholder,
+                noMatches: labels.modelNoMatches,
                 tierAdvanced: labels.tierAdvanced,
                 tierPrimary: labels.tierPrimary,
                 tierEconomy: labels.tierEconomy,
