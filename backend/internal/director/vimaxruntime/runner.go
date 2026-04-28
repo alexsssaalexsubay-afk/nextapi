@@ -122,6 +122,7 @@ func (r *Runner) runSidecar(ctx context.Context, in director.GenerateShotsInput)
 		DurationPerShot: in.DurationPerShot,
 		Characters:      in.Characters,
 		TextProviderID:  in.TextProviderID,
+		ImageProviderID: in.ImageProviderID,
 		Callback: CallbackConfig{
 			BaseURL:       r.callbackBaseURL,
 			Token:         r.callbackToken,

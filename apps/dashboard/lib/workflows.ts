@@ -258,6 +258,7 @@ export async function generateDirectorShots(input: {
   scene?: string
   characters?: DirectorCharacterInput[]
   text_provider_id?: string
+  image_provider_id?: string
 }): Promise<DirectorStoryboard> {
   return apiFetch("/v1/director/generate-shots", {
     method: "POST",

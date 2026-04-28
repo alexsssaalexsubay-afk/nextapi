@@ -205,6 +205,11 @@ second task system, a second billing path, or a direct ViMax/Seedance credential
 surface. They exist so Dashboard/Canvas/Admin can recover runs after refresh and
 show evidence from platform records instead of local component state.
 
+Advanced runtime requests now carry both `text_provider_id` and
+`image_provider_id` to the managed sidecar request. The sidecar may ask for
+text/image exits only through `/v1/internal/director-runtime/*`, keeping provider
+credentials, asset persistence, task status, and metering inside NextAPI.
+
 The response includes aggregate metering totals so UI and support tools can
 show reservation/reconciliation evidence without recalculating from unrelated
 job tables. Org scoping is mandatory; a run owned by another org must behave as

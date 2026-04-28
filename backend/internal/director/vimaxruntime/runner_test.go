@@ -57,6 +57,7 @@ func TestRunnerSendsManagedCallbackAndToken(t *testing.T) {
 		ShotCount:       1,
 		DurationPerShot: 4,
 		TextProviderID:  "provider_text",
+		ImageProviderID: "provider_image",
 	}, director.PlannerDeps{})
 	if err != nil {
 		t.Fatalf("GenerateStoryboard: %v", err)
@@ -69,6 +70,9 @@ func TestRunnerSendsManagedCallbackAndToken(t *testing.T) {
 	}
 	if got.TextProviderID != "provider_text" {
 		t.Fatalf("got.TextProviderID=%q", got.TextProviderID)
+	}
+	if got.ImageProviderID != "provider_image" {
+		t.Fatalf("got.ImageProviderID=%q", got.ImageProviderID)
 	}
 	if got.Callback.BaseURL == "" || got.Callback.Token != "runtime-token" {
 		t.Fatalf("callback not passed: %+v", got.Callback)

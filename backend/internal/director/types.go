@@ -18,6 +18,7 @@ type GenerateShotsInput struct {
 	Characters      []CharacterInput `json:"characters"`
 	Scene           string           `json:"scene"`
 	TextProviderID  string           `json:"text_provider_id"`
+	ImageProviderID string           `json:"image_provider_id"`
 }
 
 const (

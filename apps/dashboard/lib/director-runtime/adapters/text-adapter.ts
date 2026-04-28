@@ -9,6 +9,7 @@ export async function generateTextWithProvider(options: DirectorRuntimeOptions):
     shot_count: options.shotCount,
     duration_per_shot: options.durationPerShot,
     text_provider_id: options.textProviderId,
+    image_provider_id: options.imageProviderId,
   })
   return {
     title: storyboard.title,

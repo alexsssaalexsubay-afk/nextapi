@@ -522,6 +522,7 @@ func (h *DirectorHandlers) RunDirectorMode(c *gin.Context) {
 		DurationPerShot: req.Duration,
 		Characters:      req.Characters,
 		TextProviderID:  req.TextProviderID,
+		ImageProviderID: req.ImageProviderID,
 	}
 	ctx := h.directorMeteringContext(c.Request.Context(), org.ID, directorJob, planningStep)
 	storyboard, err := h.Service.GenerateShots(ctx, shotsReq)
