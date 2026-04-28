@@ -68,6 +68,14 @@ export default function DirectorPage() {
     setVideoModel((current) => videoCatalog.modelIds.includes(current) ? current : videoCatalog.modelIds[0])
   }, [videoCatalog.modelIds, videoCatalog.state])
 
+  const selectedVideoCapability = videoCatalog.modelById[videoModel]
+  const durationMin = selectedVideoCapability?.minDurationSeconds ?? 4
+  const durationMax = selectedVideoCapability?.maxDurationSeconds ?? 15
+
+  useEffect(() => {
+    setDuration((current) => clampNumber(current, durationMin, durationMax))
+  }, [durationMin, durationMax])
+
   function directorCharacters(): DirectorCharacterInput[] {
     const selected = new Set(selectedCharacterIDs)
     return characters
@@ -344,7 +352,7 @@ export default function DirectorPage() {
               <Field label={labels.genre} value={genre} onChange={setGenre} />
               <Field label={labels.style} value={style} onChange={setStyle} />
               <ShotCountStepper label={labels.shots} decreaseLabel={labels.decreaseShots} increaseLabel={labels.increaseShots} value={shotCount} min={1} max={12} onChange={setShotCount} />
-              <RangeField label={labels.secondsPerShot} value={duration} min={4} max={15} onChange={setDuration} />
+              <RangeField label={labels.secondsPerShot} value={duration} min={durationMin} max={durationMax} onChange={setDuration} />
             </div>
 
             <ModelSelect
@@ -931,7 +939,8 @@ function ShotCountStepper({ label, decreaseLabel, increaseLabel, value, min, max
 
 function RangeField({ label, value, min, max, onChange }: { label: string; value: number; min: number; max: number; onChange: (value: number) => void }) {
   const safeValue = clampNumber(value, min, max)
-  const progress = ((safeValue - min) / (max - min)) * 100
+  const span = Math.max(1, max - min)
+  const progress = ((safeValue - min) / span) * 100
   return (
     <label className="flex flex-col gap-2 rounded-2xl border border-white/12 bg-background/55 px-3 py-2 shadow-sm backdrop-blur-md">
       <span className="flex items-center justify-between text-xs text-muted-foreground">

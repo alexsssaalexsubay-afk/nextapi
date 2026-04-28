@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef, useCallback } from "react"
+import { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import Link from "next/link"
 import {
   ChevronLeft,
@@ -88,6 +88,10 @@ function formatUSD(usd: number): string {
 function formatCents(cents: number | null | undefined): string {
   if (cents == null) return "—"
   return formatUSD(cents / 100)
+}
+
+function clampNumber(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, Number.isFinite(value) ? value : min))
 }
 
 // Trigger a real download by fetching the URL as a blob and synthesizing a
@@ -181,11 +185,14 @@ export default function NewJobPage() {
           parseMediaURLs(referenceImageURLs).length > 0 ||
           parseMediaURLs(referenceVideoURLs).length > 0,
       )
+      const catalogPriceCents = videoCatalog.modelById[model]?.priceCentsPerSecond?.[resolution]
       setEstimatedUSD(
-        estimateCostUSD(Number(duration), resolution, hasVisualReference),
+        typeof catalogPriceCents === "number"
+          ? Math.ceil(catalogPriceCents * Number(duration)) / 100
+          : estimateCostUSD(Number(duration), resolution, hasVisualReference),
       )
     }, 300)
-  }, [duration, resolution, imageUrl, lastFrameUrl, referenceImageURLs, referenceVideoURLs])
+  }, [duration, resolution, imageUrl, lastFrameUrl, model, referenceImageURLs, referenceVideoURLs, videoCatalog.modelById])
 
   useEffect(() => {
     updateCost()
@@ -459,6 +466,36 @@ export default function NewJobPage() {
     if (videoCatalog.state !== "ready" || videoCatalog.modelIds.length === 0) return
     setModel((current) => videoCatalog.modelIds.includes(current) ? current : videoCatalog.modelIds[0])
   }, [videoCatalog.modelIds, videoCatalog.state])
+
+  const selectedVideoCapability = videoCatalog.modelById[model]
+  const durationMin = selectedVideoCapability?.minDurationSeconds ?? 4
+  const durationMax = selectedVideoCapability?.maxDurationSeconds ?? 15
+  const resolutionOptions = useMemo(
+    () => selectedVideoCapability?.supportedResolutions.length
+      ? RESOLUTIONS.filter((item) => selectedVideoCapability.supportedResolutions.includes(item))
+      : RESOLUTIONS,
+    [selectedVideoCapability],
+  )
+  const ratioOptions = useMemo(
+    () => selectedVideoCapability?.supportedAspectRatios.length
+      ? RATIOS.filter((item) => selectedVideoCapability.supportedAspectRatios.includes(item) || item === "adaptive")
+      : RATIOS,
+    [selectedVideoCapability],
+  )
+
+  useEffect(() => {
+    setDuration((current) => String(clampNumber(Number(current), durationMin, durationMax)))
+  }, [durationMin, durationMax])
+
+  useEffect(() => {
+    if (resolutionOptions.length === 0) return
+    setResolution((current) => resolutionOptions.includes(current) ? current : resolutionOptions[0])
+  }, [resolutionOptions])
+
+  useEffect(() => {
+    if (ratioOptions.length === 0) return
+    setAspectRatio((current) => ratioOptions.includes(current) ? current : ratioOptions[0])
+  }, [ratioOptions])
 
   const retryCurrentVideo = async () => {
     if (!currentVideo?.id) return
@@ -776,17 +813,17 @@ export default function NewJobPage() {
                       </label>
                     </div>
                     <div className="flex flex-wrap items-end justify-start gap-2 lg:justify-end">
-                      <PillSelect label={t.jobs.new.form.resolution} value={resolution} onChange={setResolution} values={RESOLUTIONS} />
-                      <PillSelect label={t.jobs.new.form.aspectRatio} value={aspectRatio} onChange={setAspectRatio} values={RATIOS} />
+                      <PillSelect label={t.jobs.new.form.resolution} value={resolution} onChange={setResolution} values={resolutionOptions.length > 0 ? resolutionOptions : RESOLUTIONS} />
+                      <PillSelect label={t.jobs.new.form.aspectRatio} value={aspectRatio} onChange={setAspectRatio} values={ratioOptions.length > 0 ? ratioOptions : RATIOS} />
                       <label className="rounded-xl border border-border/80 bg-card/60 px-3 py-2">
                         <span className="block text-[10px] uppercase tracking-[0.14em] text-muted-foreground">{t.jobs.new.form.duration}</span>
                         <span className="mt-1 flex items-center gap-2">
                           <input
                             type="range"
-                            min={4}
-                            max={15}
+                            min={durationMin}
+                            max={durationMax}
                             value={duration}
-                            onChange={(e) => setDuration(e.target.value)}
+                            onChange={(e) => setDuration(String(clampNumber(Number(e.target.value), durationMin, durationMax)))}
                             className="w-24"
                           />
                           <span className="w-8 font-mono text-[12px] text-foreground">{duration}s</span>

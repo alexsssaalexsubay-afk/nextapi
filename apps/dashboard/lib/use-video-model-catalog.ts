@@ -63,6 +63,11 @@ export function useVideoModelCatalog() {
   }, [])
 
   const modelIds = useMemo(() => models.map((model) => model.id), [models])
+  const modelById = useMemo(() => {
+    const out: Record<string, VideoModelCapability> = {}
+    for (const model of models) out[model.id] = model
+    return out
+  }, [models])
   const priceCentsPerSecond = useMemo(() => {
     const out: Record<string, number> = {}
     for (const model of models) {
@@ -72,5 +77,5 @@ export function useVideoModelCatalog() {
     return out
   }, [models])
 
-  return { state, models, modelIds, priceCentsPerSecond }
+  return { state, models, modelIds, modelById, priceCentsPerSecond }
 }
