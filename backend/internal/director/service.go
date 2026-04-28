@@ -155,13 +155,15 @@ func BuildWorkflowFromShots(storyboard Storyboard, options WorkflowOptions) (jso
 			workflow.Edge{ID: "edge_" + promptID + "_" + videoID, Source: promptID, Target: videoID},
 			workflow.Edge{ID: "edge_" + paramsID + "_" + videoID, Source: paramsID, Target: videoID},
 		)
-		for refIndex, refURL := range referenceImageInputs(shot) {
+		for refIndex, ref := range referenceImageInputs(shot, options.Characters) {
 			imageID := fmt.Sprintf("shot_%d_image_%d", shot.ShotIndex, refIndex+1)
-			assetID := ""
-			if refIndex == 0 && refURL == strings.TrimSpace(shot.ReferenceImageURL) {
-				assetID = shot.ReferenceImageAssetID
-			}
-			imageData, _ := json.Marshal(map[string]any{"label": "Reference image", "asset_id": assetID, "image_url": refURL, "image_type": "reference"})
+			imageData, _ := json.Marshal(map[string]any{
+				"label":          ref.Label,
+				"asset_id":       ref.AssetID,
+				"image_url":      ref.URL,
+				"image_type":     ref.ImageType,
+				"character_name": ref.CharacterName,
+			})
 			nodes = append(nodes, workflow.Node{ID: imageID, Type: workflow.NodeImageInput, Position: position(col, 400+refIndex*120), Data: imageData})
 			edges = append(edges, workflow.Edge{ID: "edge_" + imageID + "_" + videoID, Source: imageID, Target: videoID})
 		}
@@ -279,10 +281,18 @@ func position(x, y int) json.RawMessage {
 	return b
 }
 
-func referenceImageInputs(shot Shot) []string {
-	out := make([]string, 0, len(shot.ReferenceAssets)+1)
+type workflowImageInput struct {
+	URL           string
+	AssetID       string
+	Label         string
+	ImageType     string
+	CharacterName string
+}
+
+func referenceImageInputs(shot Shot, characters []CharacterInput) []workflowImageInput {
+	out := make([]workflowImageInput, 0, len(shot.ReferenceAssets)+len(characters)+1)
 	seen := map[string]struct{}{}
-	add := func(raw string) {
+	add := func(raw string, assetID string, label string, imageType string, characterName string) {
 		raw = strings.TrimSpace(raw)
 		if !isWorkflowImageReference(raw) {
 			return
@@ -291,11 +301,27 @@ func referenceImageInputs(shot Shot) []string {
 			return
 		}
 		seen[raw] = struct{}{}
-		out = append(out, raw)
+		if label == "" {
+			label = "Reference image"
+		}
+		if imageType == "" {
+			imageType = "reference"
+		}
+		out = append(out, workflowImageInput{URL: raw, AssetID: strings.TrimSpace(assetID), Label: label, ImageType: imageType, CharacterName: strings.TrimSpace(characterName)})
 	}
-	add(shot.ReferenceImageURL)
+	add(shot.ReferenceImageURL, shot.ReferenceImageAssetID, "Reference image", "reference", "")
 	for _, ref := range shot.ReferenceAssets {
-		add(ref)
+		add(ref, "", "Reference image", "reference", "")
+	}
+	for _, character := range characters {
+		name := strings.TrimSpace(character.Name)
+		label := "Character reference"
+		if name != "" {
+			label = "Character: " + name
+		}
+		for _, ref := range character.ReferenceImages {
+			add(ref, character.AssetID, label, "character", name)
+		}
 	}
 	return out
 }

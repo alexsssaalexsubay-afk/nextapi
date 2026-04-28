@@ -208,14 +208,17 @@ Current vertical slice:
 - Users can select historical characters before generating a storyboard.
 - Selected character names, ids, and reference image URLs are sent to `/v1/director/generate-shots` and `/v1/director/mode/run`.
 - The Go Director service passes those characters to both the advanced sidecar request and provider-managed fallback prompt.
+- The Director page surfaces selected characters as auditable memory bindings with asset ids and reference-image counts.
+- Director workflow creation can carry selected characters in `WorkflowOptions.characters`.
+- `BuildWorkflowFromShots` converts selected character reference images into Canvas `image.input` nodes with `asset_id`, `image_type: "character"`, and `character_name`, so Canvas and the existing workflow/video path can inspect and run them without a second task or billing system.
 
 Not yet claimed:
 
-- Automatic character-image injection into every video node.
 - Vector retrieval over historical assets.
 - Automatic prompt evolution.
 - Automatic model routing changes.
 - Actual media stitching into a final merged video file.
+- Final video assets are persisted as `media_assets` by the merge executor, but the customer asset-library API still exposes image assets only.
 
 # Code Implementation
 

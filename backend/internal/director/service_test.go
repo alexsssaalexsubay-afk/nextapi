@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/aiprovider"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/workflow"
 )
 
 type fakeText struct {
@@ -147,6 +148,73 @@ func TestBuildWorkflowFromShots(t *testing.T) {
 	}
 	if parsed.Metadata.MaxParallel != 1 {
 		t.Fatalf("max_parallel=%d want 1", parsed.Metadata.MaxParallel)
+	}
+}
+
+func TestBuildWorkflowFromShotsAddsCharacterMemoryRefs(t *testing.T) {
+	def, err := BuildWorkflowFromShots(
+		Storyboard{
+			Title: "T",
+			Shots: []Shot{{
+				ShotIndex:      1,
+				Title:          "A",
+				Duration:       4,
+				VideoPrompt:    "p",
+				NegativePrompt: "n",
+			}},
+		},
+		WorkflowOptions{
+			Characters: []CharacterInput{{
+				Name:            "Lin",
+				AssetID:         "char_lin",
+				ReferenceImages: []string{"https://cdn.nextapi.test/lin.png"},
+			}},
+		},
+	)
+	if err != nil {
+		t.Fatalf("BuildWorkflowFromShots: %v", err)
+	}
+	var parsed struct {
+		Nodes []struct {
+			Type string          `json:"type"`
+			Data json.RawMessage `json:"data"`
+		} `json:"nodes"`
+	}
+	if err := json.Unmarshal(def, &parsed); err != nil {
+		t.Fatalf("json: %v", err)
+	}
+	var found bool
+	for _, n := range parsed.Nodes {
+		if n.Type != "image.input" {
+			continue
+		}
+		var data struct {
+			AssetID       string `json:"asset_id"`
+			CharacterName string `json:"character_name"`
+			ImageType     string `json:"image_type"`
+			ImageURL      string `json:"image_url"`
+			Label         string `json:"label"`
+		}
+		if err := json.Unmarshal(n.Data, &data); err != nil {
+			t.Fatalf("node data: %v", err)
+		}
+		if data.AssetID == "char_lin" &&
+			data.CharacterName == "Lin" &&
+			data.ImageType == "character" &&
+			data.ImageURL == "https://cdn.nextapi.test/lin.png" &&
+			data.Label == "Character: Lin" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("character memory image node not found: %+v", parsed.Nodes)
+	}
+	payload, _, _, err := workflow.WorkflowToExistingVideoPayload(def)
+	if err != nil {
+		t.Fatalf("WorkflowToExistingVideoPayload: %v", err)
+	}
+	if payload.Input.FirstFrameURL == nil || *payload.Input.FirstFrameURL != "https://cdn.nextapi.test/lin.png" {
+		t.Fatalf("first_frame_url = %v", payload.Input.FirstFrameURL)
 	}
 }
 

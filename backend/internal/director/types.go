@@ -86,11 +86,12 @@ type GenerateShotImagesInput struct {
 }
 
 type WorkflowOptions struct {
-	Name          string `json:"name"`
-	Ratio         string `json:"ratio"`
-	Resolution    string `json:"resolution"`
-	GenerateAudio bool   `json:"generate_audio"`
-	Model         string `json:"model"`
-	EnableMerge   bool   `json:"enable_merge"`
-	MaxParallel   int    `json:"max_parallel"`
+	Name          string           `json:"name"`
+	Ratio         string           `json:"ratio"`
+	Resolution    string           `json:"resolution"`
+	GenerateAudio bool             `json:"generate_audio"`
+	Model         string           `json:"model"`
+	EnableMerge   bool             `json:"enable_merge"`
+	MaxParallel   int              `json:"max_parallel"`
+	Characters    []CharacterInput `json:"characters,omitempty"`
 }

@@ -240,6 +240,7 @@ func (h *DirectorHandlers) RunDirectorMode(c *gin.Context) {
 		h.completeDirectorStep(c.Request.Context(), imageStep, gin.H{"shot_count": len(storyboard.Shots)})
 	}
 	req.Options.EnableMerge = h.WorkflowSvc.MergeEnabled()
+	req.Options.Characters = req.Characters
 	workflowStep, err := h.startDirectorStep(c.Request.Context(), org.ID, directorJob, "workflow_build", gin.H{
 		"shot_count":     len(storyboard.Shots),
 		"enable_merge":   req.Options.EnableMerge,

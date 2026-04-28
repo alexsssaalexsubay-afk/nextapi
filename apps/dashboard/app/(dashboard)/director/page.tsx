@@ -166,6 +166,7 @@ export default function DirectorPage() {
           generate_audio: false,
           model: videoModel,
           max_parallel: maxParallel,
+          characters: directorCharacters(),
         },
       })
       setWorkflowID(res.workflow.id)
@@ -304,6 +305,8 @@ export default function DirectorPage() {
   const shotsActionState = actionButtonState(shotsDisabled, busyStage === "shots", actionFeedback.shots)
   const imagesActionState = actionButtonState(imagesDisabled, busyStage === "images", actionFeedback.images)
   const workflowActionState = actionButtonState(workflowDisabled, busyStage === "workflow", actionFeedback.workflow)
+  const selectedCharacterSet = new Set(selectedCharacterIDs)
+  const selectedCharacters = characters.filter((character) => selectedCharacterSet.has(character.id))
 
   return (
     <DashboardShell activeHref="/director">
@@ -403,6 +406,7 @@ export default function DirectorPage() {
                 setWorkflowRun(null)
               }}
             />
+            <MemoryBindingPanel labels={labels} selectedCharacters={selectedCharacters} />
 
             {error && (
               <div className="flex items-start gap-2 rounded-2xl border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
@@ -542,6 +546,7 @@ export default function DirectorPage() {
               <EngineEvidenceBanner storyboard={storyboard} status={status} labels={labels} />
               <ClosedLoopRail
                 story={story}
+                selectedCharacters={selectedCharacters}
                 storyboard={storyboard}
                 workflowID={workflowID}
                 run={workflowRun}
@@ -715,6 +720,7 @@ function EngineEvidenceBanner({ storyboard, status, labels }: { storyboard: Dire
 
 function ClosedLoopRail({
   story,
+  selectedCharacters,
   storyboard,
   workflowID,
   run,
@@ -723,6 +729,7 @@ function ClosedLoopRail({
   labels,
 }: {
   story: string
+  selectedCharacters: CharacterRecord[]
   storyboard: DirectorStoryboard | null
   workflowID: string | null
   run: WorkflowRunResult | null
@@ -742,6 +749,12 @@ function ClosedLoopRail({
       label: labels.loopStory,
       state: story.trim() ? "done" : "waiting",
       evidence: story.trim() ? labels.loopStoryReady : labels.loopStoryWaiting,
+    },
+    {
+      key: "memory",
+      label: labels.loopMemory,
+      state: selectedCharacters.length > 0 ? "done" : "waiting",
+      evidence: selectedCharacters.length > 0 ? labels.loopMemoryReady.replace("{count}", String(selectedCharacters.length)) : labels.loopMemoryWaiting,
     },
     {
       key: "storyboard",
@@ -817,6 +830,55 @@ function ProofStep({ label, evidence, state }: { label: string; evidence: string
       </div>
       <p className="mt-2 text-[11.5px] leading-relaxed text-muted-foreground">{evidence}</p>
     </div>
+  )
+}
+
+function MemoryBindingPanel({ labels, selectedCharacters }: { labels: ReturnType<typeof useTranslations>["directorPage"]; selectedCharacters: CharacterRecord[] }) {
+  return (
+    <section className="rounded-2xl border border-white/12 bg-background/45 p-2.5 shadow-sm backdrop-blur-md">
+      <div className="flex items-start gap-3">
+        <div className="grid size-8 shrink-0 place-items-center rounded-2xl border border-cyan-400/25 bg-cyan-400/10 text-cyan-600 dark:text-cyan-300">
+          <Workflow className="size-4" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 className="text-sm font-medium text-foreground">{labels.memoryBindingsTitle}</h3>
+            <span className="rounded-full border border-white/12 bg-card/45 px-2 py-0.5 font-mono text-[10px] text-muted-foreground">
+              {selectedCharacters.length} {labels.memoryBindingsCount}
+            </span>
+          </div>
+          <p className="mt-0.5 text-[11px] leading-relaxed text-muted-foreground">
+            {selectedCharacters.length > 0 ? labels.memoryBindingsSubtitle : labels.memoryBindingsEmpty}
+          </p>
+        </div>
+      </div>
+      {selectedCharacters.length > 0 ? (
+        <div className="mt-3 grid gap-2">
+          {selectedCharacters.map((character) => {
+            const refs = Array.isArray(character.reference_images) ? character.reference_images : []
+            const cover = refs[0]
+            return (
+              <div key={character.id} className="flex items-center gap-2 rounded-2xl border border-white/10 bg-card/40 px-2 py-2">
+                {cover ? (
+                  <img src={cover} alt="" className="size-10 shrink-0 rounded-xl object-cover" />
+                ) : (
+                  <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-background/65 text-xs text-muted-foreground">
+                    {character.name.slice(0, 1).toUpperCase()}
+                  </span>
+                )}
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-[12.5px] font-medium text-foreground">{character.name}</div>
+                  <div className="mt-0.5 flex flex-wrap gap-1.5 text-[10.5px] text-muted-foreground">
+                    <span className="rounded-full border border-white/10 bg-background/45 px-1.5 py-0.5">{labels.memoryReferenceCount.replace("{count}", String(refs.length))}</span>
+                    <span className="max-w-32 truncate rounded-full border border-white/10 bg-background/45 px-1.5 py-0.5 font-mono">{labels.memoryAssetID}: {character.id}</span>
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      ) : null}
+    </section>
   )
 }
 
