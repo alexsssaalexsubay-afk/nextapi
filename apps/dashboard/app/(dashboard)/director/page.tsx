@@ -6,6 +6,7 @@ import {
   AlertTriangle,
   ArrowRight,
   CheckCircle2,
+  ChevronDown,
   Clapperboard,
   Cpu,
   Film,
@@ -50,6 +51,7 @@ export default function DirectorPage() {
   const [loading, setLoading] = useState(false)
   const [busyStage, setBusyStage] = useState<BusyStage | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [heroExpanded, setHeroExpanded] = useState(false)
   const videoCatalog = useVideoModelCatalog()
 
   useEffect(() => {
@@ -237,37 +239,50 @@ export default function DirectorPage() {
   const activeBusyLabel = busyStage ? busyStageLabel(busyStage, labels) : null
 
   return (
-    <DashboardShell activeHref="/director" title={labels.title} description={labels.description}>
-      <div className="space-y-6 p-6">
-        <section className="premium-surface relative overflow-hidden rounded-[32px] p-5 sm:p-6">
-          <div aria-hidden className="pointer-events-none absolute -right-20 -top-24 h-64 w-72 rounded-full bg-fuchsia-500/18 blur-3xl" />
-          <div aria-hidden className="pointer-events-none absolute -bottom-28 left-1/3 h-72 w-96 rounded-full bg-cyan-400/10 blur-3xl" />
-          <div className="relative grid gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
-            <div>
-              <div className="inline-flex items-center gap-2 rounded-full border border-white/12 bg-background/55 px-3 py-1 font-mono text-[11px] uppercase tracking-[0.18em] text-signal shadow-sm backdrop-blur-md">
-                <Sparkles className="size-3.5" />
-                {labels.eyebrow}
+    <DashboardShell activeHref="/director">
+      <div className="space-y-4 p-4 sm:p-5">
+        <section className="premium-surface relative overflow-hidden rounded-[24px] p-4 sm:p-5">
+          <div aria-hidden className="pointer-events-none absolute -right-20 -top-28 h-56 w-72 rounded-full bg-fuchsia-500/16 blur-3xl" />
+          <div aria-hidden className="pointer-events-none absolute -bottom-28 left-1/3 h-56 w-96 rounded-full bg-cyan-400/10 blur-3xl" />
+          <div className="relative flex flex-wrap items-center justify-between gap-3">
+            <div className="min-w-[260px] flex-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/12 bg-background/55 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.16em] text-signal shadow-sm backdrop-blur-md">
+                  <Sparkles className="size-3" />
+                  {labels.eyebrow}
+                </span>
+                <span className="text-[12.5px] text-muted-foreground">{labels.title}</span>
               </div>
-              <h2 className="mt-4 max-w-3xl text-3xl font-medium tracking-tight text-foreground sm:text-4xl">
+              <h1 className="mt-2 max-w-4xl text-2xl font-semibold tracking-tight text-foreground sm:text-[28px]">
                 {labels.primaryPromise}
-              </h2>
-              <p className="mt-3 max-w-2xl text-[13.5px] leading-relaxed text-muted-foreground">
-                {labels.storyHint}
-              </p>
-              <div className="mt-5 grid max-w-2xl gap-2 sm:grid-cols-3">
-                <HeroMetric label={labels.estimatedShots} value={`${shotCount}`} />
-                <HeroMetric label={labels.totalRuntime} value={`${totalDuration}s`} />
-                <HeroMetric label={labels.estimatedBudget} value={estimatedBudget} />
-              </div>
+              </h1>
+              {heroExpanded && (
+                <p className="mt-2 max-w-3xl text-[13px] leading-relaxed text-muted-foreground">
+                  {labels.storyHint}
+                </p>
+              )}
             </div>
-            <div className="rounded-3xl border border-white/12 bg-background/50 p-4 shadow-sm backdrop-blur-md">
-              <div className="mb-4 flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2">
-                  <Route className="size-4 text-signal" />
-                  <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-                    {labels.consoleRoute}
-                  </span>
-                </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <CompactMetric label={labels.estimatedShots} value={`${shotCount}`} />
+              <CompactMetric label={labels.totalRuntime} value={`${totalDuration}s`} />
+              <CompactMetric label={labels.estimatedBudget} value={estimatedBudget} />
+              <button
+                type="button"
+                onClick={() => setHeroExpanded((value) => !value)}
+                className="inline-flex h-10 items-center gap-1.5 rounded-full border border-white/12 bg-card/55 px-3 text-[12px] text-muted-foreground shadow-sm backdrop-blur-md transition hover:border-signal/35 hover:text-foreground"
+              >
+                <Route className="size-3.5" />
+                {labels.consoleRoute}
+                <ChevronDown className={cn("size-3.5 transition", heroExpanded && "rotate-180")} />
+              </button>
+            </div>
+          </div>
+          {heroExpanded && (
+            <div className="relative mt-4 rounded-2xl border border-white/12 bg-background/50 p-3 shadow-sm backdrop-blur-md">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <span className="font-mono text-[10.5px] uppercase tracking-[0.18em] text-muted-foreground">
+                  {labels.consoleRoute}
+                </span>
                 {activeBusyLabel ? (
                   <span className="inline-flex items-center gap-1.5 rounded-full border border-signal/30 bg-signal/10 px-2 py-1 text-[11px] text-signal">
                     <Loader2 className="size-3 animate-spin" />
@@ -275,9 +290,9 @@ export default function DirectorPage() {
                   </span>
                 ) : null}
               </div>
-              <PipelineStepper steps={pipelineSteps} activeId={activePipelineStep} loading={loading} />
+              <PipelineStepper steps={pipelineSteps} activeId={activePipelineStep} loading={loading} compact />
             </div>
-          </div>
+          )}
         </section>
 
         <div className="grid gap-6 xl:grid-cols-[minmax(330px,0.82fr)_minmax(0,1.4fr)_340px]">
@@ -434,18 +449,19 @@ export default function DirectorPage() {
   )
 }
 
-function PipelineStepper({ steps, activeId, loading }: { steps: PipelineStep[]; activeId: PipelineStep["id"]; loading: boolean }) {
+function PipelineStepper({ steps, activeId, loading, compact = false }: { steps: PipelineStep[]; activeId: PipelineStep["id"]; loading: boolean; compact?: boolean }) {
   const activeIndex = Math.max(0, steps.findIndex((step) => step.id === activeId))
   return (
-    <ol className="space-y-2">
+    <ol className={cn(compact ? "grid gap-2 sm:grid-cols-3 xl:grid-cols-6" : "space-y-2")}>
       {steps.map((step, index) => {
         const active = index === activeIndex
         const done = index < activeIndex
         return (
-          <li key={step.id} className="flex items-center gap-3">
+          <li key={step.id} className={cn("flex items-center gap-3", compact && "rounded-xl border border-white/10 bg-card/35 px-2 py-1.5")}>
             <span
               className={cn(
-                "flex size-7 shrink-0 items-center justify-center rounded-full border font-mono text-[11px]",
+                "flex shrink-0 items-center justify-center rounded-full border font-mono text-[11px]",
+                compact ? "size-6" : "size-7",
                 done && "border-status-success/40 bg-status-success/10 text-status-success",
                 active && "border-signal/45 bg-signal/12 text-signal shadow-[0_0_28px_-14px] shadow-signal",
                 !done && !active && "border-white/12 bg-card/45 text-muted-foreground",
@@ -825,11 +841,11 @@ function PresetButton({ label, onClick }: { label: string; onClick: () => void }
   )
 }
 
-function HeroMetric({ label, value }: { label: string; value: string }) {
+function CompactMetric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-2xl border border-white/12 bg-background/45 px-3 py-2 shadow-sm backdrop-blur-md">
-      <div className="font-mono text-[10.5px] uppercase tracking-[0.14em] text-muted-foreground">{label}</div>
-      <div className="mt-1 text-lg font-medium tracking-tight">{value}</div>
+    <div className="min-w-20 rounded-2xl border border-white/12 bg-background/55 px-3 py-2 shadow-sm backdrop-blur-md">
+      <div className="font-mono text-[9.5px] uppercase tracking-[0.12em] text-muted-foreground">{label}</div>
+      <div className="mt-0.5 text-base font-semibold tracking-tight">{value}</div>
     </div>
   )
 }

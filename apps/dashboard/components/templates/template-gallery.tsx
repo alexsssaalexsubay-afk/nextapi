@@ -145,19 +145,19 @@ export function TemplateGallery() {
   }
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6 px-6 py-6">
-      <section className="premium-surface relative overflow-hidden rounded-[32px] p-6">
-        <div aria-hidden className="pointer-events-none absolute -right-24 -top-24 h-72 w-80 rounded-full bg-fuchsia-500/16 blur-3xl" />
-        <div aria-hidden className="pointer-events-none absolute bottom-[-140px] left-1/4 h-80 w-[420px] rounded-full bg-cyan-400/10 blur-3xl" />
-        <div className="relative flex flex-wrap items-end justify-between gap-6">
+    <div className="mx-auto max-w-7xl space-y-4 px-4 py-4 sm:px-5 sm:py-5">
+      <section className="premium-surface relative overflow-hidden rounded-[24px] p-4 sm:p-5">
+        <div aria-hidden className="pointer-events-none absolute -right-24 -top-24 h-56 w-72 rounded-full bg-fuchsia-500/16 blur-3xl" />
+        <div aria-hidden className="pointer-events-none absolute bottom-[-120px] left-1/4 h-56 w-[380px] rounded-full bg-cyan-400/10 blur-3xl" />
+        <div className="relative flex flex-wrap items-end justify-between gap-4">
           <div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-white/12 bg-background/55 px-3 py-1 font-mono text-[11px] uppercase tracking-[0.18em] text-signal shadow-sm backdrop-blur-md">
-              <Sparkles className="size-3.5" />
+            <div className="inline-flex items-center gap-1.5 rounded-full border border-white/12 bg-background/55 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.16em] text-signal shadow-sm backdrop-blur-md">
+              <Sparkles className="size-3" />
               {labels.eyebrow}
             </div>
-            <h1 className="mt-4 max-w-3xl text-3xl font-medium tracking-tight sm:text-4xl">{labels.title}</h1>
-            <p className="mt-3 max-w-2xl text-[13.5px] leading-relaxed text-muted-foreground">{labels.subtitle}</p>
-            <p className="mt-2 max-w-2xl text-[12.5px] leading-relaxed text-muted-foreground">{labels.valueProof}</p>
+            <h1 className="mt-3 max-w-3xl text-2xl font-semibold tracking-tight sm:text-[30px]">{labels.title}</h1>
+            <p className="mt-2 max-w-3xl text-[13px] leading-relaxed text-muted-foreground">{labels.subtitle}</p>
+            <p className="mt-1 max-w-3xl text-[12.5px] leading-relaxed text-muted-foreground">{labels.valueProof}</p>
           </div>
           <div className="grid w-full gap-2 sm:w-auto sm:grid-cols-3">
             <TemplateHeroMetric icon={Route} label={labels.workflowCompile} value={labels.routeHint} />

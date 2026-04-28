@@ -64,7 +64,7 @@ export function ModelSelect({
 }) {
   const [open, setOpen] = useState(false)
   const rootRef = useRef<HTMLDivElement | null>(null)
-  const availableModelSet = availableModelIds ? new Set(availableModelIds) : null
+  const availableModelSet = availableModelIds && availableModelIds.length > 0 ? new Set(availableModelIds) : null
   const items = AI_MODEL_CATALOG.filter((item) =>
     item.category === category &&
     (!availableModelSet || availableModelSet.has(item.id)) &&
@@ -114,6 +114,11 @@ export function ModelSelect({
       {helper && <div className="mt-1 text-[11px] leading-relaxed text-muted-foreground">{helper}</div>}
       {open && (
         <div className="absolute z-50 mt-2 max-h-[26rem] w-full overflow-y-auto rounded-2xl border border-white/12 bg-popover/96 p-2 text-popover-foreground shadow-[0_24px_80px_-45px_rgba(79,70,229,0.45)] backdrop-blur-2xl">
+          {items.length === 0 && (
+            <div className="rounded-xl border border-border/70 bg-muted/35 px-3 py-3 text-[12px] leading-relaxed text-muted-foreground">
+              {helper ?? "No models are available for this capability yet."}
+            </div>
+          )}
           {recommendedItems.length > 0 && (
             <div className="mb-2 rounded-xl border border-signal/20 bg-signal/10 p-1.5">
               <div className="flex items-center justify-between px-2 py-1 text-[10px] font-medium uppercase tracking-[0.14em] text-signal">

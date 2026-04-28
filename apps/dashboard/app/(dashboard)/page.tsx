@@ -108,41 +108,41 @@ export default function DashboardHome() {
         </>
       }
     >
-      <div className="flex flex-col gap-6 p-6">
+      <div className="flex flex-col gap-4 p-4 sm:p-5">
         {error && (
           <div className="rounded-2xl border border-destructive/40 bg-destructive/10 px-4 py-2 text-[13px] text-destructive">
             {error}
           </div>
         )}
 
-        <section className="premium-surface relative overflow-hidden rounded-[32px] p-6">
-          <div aria-hidden className="pointer-events-none absolute -right-20 -top-28 h-72 w-80 rounded-full bg-fuchsia-500/16 blur-3xl" />
-          <div aria-hidden className="pointer-events-none absolute bottom-[-140px] left-1/4 h-80 w-[440px] rounded-full bg-cyan-400/10 blur-3xl" />
-          <div className="relative grid gap-6 xl:grid-cols-[minmax(0,1.15fr)_420px]">
+        <section className="premium-surface relative overflow-hidden rounded-[24px] p-4 sm:p-5">
+          <div aria-hidden className="pointer-events-none absolute -right-20 -top-28 h-56 w-72 rounded-full bg-fuchsia-500/16 blur-3xl" />
+          <div aria-hidden className="pointer-events-none absolute bottom-[-120px] left-1/4 h-56 w-[400px] rounded-full bg-cyan-400/10 blur-3xl" />
+          <div className="relative grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_380px]">
             <div>
-              <div className="inline-flex items-center gap-2 rounded-full border border-white/12 bg-background/55 px-3 py-1 font-mono text-[11px] uppercase tracking-[0.18em] text-signal shadow-sm backdrop-blur-md">
-                <Sparkles className="size-3.5" />
+              <div className="inline-flex items-center gap-1.5 rounded-full border border-white/12 bg-background/55 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.16em] text-signal shadow-sm backdrop-blur-md">
+                <Sparkles className="size-3" />
                 {t.dashboard.heroEyebrow}
               </div>
-              <h2 className="mt-4 max-w-3xl text-3xl font-medium tracking-tight text-foreground sm:text-4xl">
+              <h2 className="mt-3 max-w-3xl text-2xl font-semibold tracking-tight text-foreground sm:text-[30px]">
                 {t.dashboard.heroTitle}
               </h2>
-              <p className="mt-3 max-w-2xl text-[13.5px] leading-relaxed text-muted-foreground">
+              <p className="mt-2 max-w-2xl text-[13px] leading-relaxed text-muted-foreground">
                 {t.dashboard.heroBody}
               </p>
-              <div className="mt-5 flex flex-wrap gap-3">
-                <Link href="/keys" className="inline-flex h-10 items-center gap-2 rounded-full border border-white/12 bg-card/55 px-4 text-sm font-medium shadow-sm backdrop-blur-md hover:border-signal/35">
+              <div className="mt-4 flex flex-wrap gap-2">
+                <Link href="/keys" className="inline-flex h-9 items-center gap-2 rounded-full border border-white/12 bg-card/55 px-3.5 text-[13px] font-medium shadow-sm backdrop-blur-md hover:border-signal/35">
                   <KeyRound className="size-4 text-signal" />
                   {t.dashboard.onboarding.step2.action}
                 </Link>
-                <Link href="/jobs/new" className="premium-button inline-flex h-10 items-center gap-2 rounded-full border border-white/20 px-4 text-sm font-semibold text-white">
+                <Link href="/jobs/new" className="premium-button inline-flex h-9 items-center gap-2 rounded-full border border-white/20 px-3.5 text-[13px] font-semibold text-white">
                   <Play className="size-4" />
                   {t.dashboard.onboarding.step3.action}
                 </Link>
               </div>
             </div>
-            <div className="rounded-3xl border border-white/12 bg-background/50 p-4 shadow-sm backdrop-blur-md">
-              <div className="mb-4 flex items-center justify-between">
+            <div className="rounded-2xl border border-white/12 bg-background/50 p-3 shadow-sm backdrop-blur-md">
+              <div className="mb-3 flex items-center justify-between">
                 <div>
                   <div className="text-sm font-medium">{t.dashboard.firstSuccess.title}</div>
                   <div className="mt-1 text-[12px] text-muted-foreground">{t.dashboard.firstSuccess.subtitle}</div>
