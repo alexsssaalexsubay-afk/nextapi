@@ -63,7 +63,6 @@ export default function DirectorPage() {
   const [busyStage, setBusyStage] = useState<BusyStage | null>(null)
   const [actionFeedback, setActionFeedback] = useState<Partial<Record<ActionKey, ActionFeedback>>>({})
   const [error, setError] = useState<string | null>(null)
-  const [heroExpanded, setHeroExpanded] = useState(false)
   const videoCatalog = useVideoModelCatalog()
 
   useEffect(() => {
@@ -310,9 +309,9 @@ export default function DirectorPage() {
 
   return (
     <DashboardShell activeHref="/director">
-      <div className="space-y-3 p-3 sm:p-4">
-        <section className="rounded-xl border border-border bg-card/82 p-3 shadow-sm">
-          <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="p-3 sm:p-4">
+        <section className="overflow-hidden rounded-xl border border-border bg-card/82 shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-card px-4 py-3">
             <div className="flex min-w-[240px] flex-1 items-center gap-2.5">
               <span className="grid size-9 shrink-0 place-items-center rounded-lg border border-signal/20 bg-signal/10 text-signal">
                 <Sparkles className="size-4" />
@@ -321,172 +320,111 @@ export default function DirectorPage() {
                 <div className="flex flex-wrap items-center gap-2">
                   <h1 className="text-base font-semibold tracking-tight text-foreground sm:text-lg">{labels.title}</h1>
                   <span className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-2 py-0.5 font-mono text-[9.5px] uppercase tracking-[0.14em] text-signal">
-                  <Sparkles className="size-3" />
-                  {labels.eyebrow}
-                </span>
+                    <Sparkles className="size-3" />
+                    {labels.eyebrow}
+                  </span>
                 </div>
-                <p className="mt-0.5 max-w-4xl truncate text-[12px] text-muted-foreground">
-                  {labels.primaryPromise}
-                </p>
+                <p className="mt-0.5 max-w-4xl truncate text-[12px] text-muted-foreground">{labels.primaryPromise}</p>
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <div className="hidden flex-wrap items-center gap-2 md:flex">
-                <CompactMetric label={labels.estimatedShots} value={`${shotCount}`} compact />
-                <CompactMetric label={labels.totalRuntime} value={`${totalDuration}s`} compact />
-                <CompactMetric label={labels.estimatedBudget} value={estimatedBudget} compact />
-              </div>
-              <button
-                type="button"
-                onClick={() => setHeroExpanded((value) => !value)}
-                className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border bg-card px-3 text-[12px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-              >
-                <Route className="size-3.5" />
-                {labels.consoleRoute}
-                <ChevronDown className={cn("size-3.5 transition", heroExpanded && "rotate-180")} />
-              </button>
+              <CompactMetric label={labels.estimatedShots} value={`${shotCount}`} compact />
+              <CompactMetric label={labels.totalRuntime} value={`${totalDuration}s`} compact />
+              <CompactMetric label={labels.estimatedBudget} value={estimatedBudget} compact />
             </div>
           </div>
-          {heroExpanded && (
-            <div className="mt-2 grid gap-3 rounded-lg border border-border bg-background/70 p-3 lg:grid-cols-[minmax(0,0.7fr)_minmax(280px,1fr)]">
-              <div>
-                <h2 className="text-base font-semibold tracking-tight text-foreground">{labels.primaryPromise}</h2>
-                <p className="mt-1 max-w-3xl text-[12.5px] leading-relaxed text-muted-foreground">{labels.storyHint}</p>
-              </div>
-              <div>
-                <div className="mb-2 flex items-center justify-between gap-3">
-                  <span className="font-mono text-[10.5px] uppercase tracking-[0.18em] text-muted-foreground">
-                    {labels.consoleRoute}
-                  </span>
-                  {activeBusyLabel ? (
-                    <span className="inline-flex items-center gap-1.5 rounded-md border border-signal/30 bg-signal/10 px-2 py-1 text-[11px] text-signal">
-                      <Loader2 className="size-3 animate-spin" />
-                      {activeBusyLabel}
+
+          <div className="grid min-h-[calc(100vh-9rem)] gap-3 bg-background/70 p-3 lg:grid-cols-[64px_minmax(0,1fr)] xl:grid-cols-[64px_minmax(0,1fr)_340px]">
+            <DirectorToolRail labels={labels} activeId={activePipelineStep} workflowID={workflowID} storyboard={storyboard} />
+
+            <section className="relative min-h-[760px] overflow-hidden rounded-xl border border-border bg-card/86 bg-dots shadow-sm">
+              <div className="absolute inset-0 bg-background/45" />
+              <div className="relative z-10 flex min-h-[760px] flex-col">
+                <div className="border-b border-border bg-card/76 px-4 py-3">
+                  <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                    <span className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
+                      <Route className="size-3.5 text-signal" />
+                      {labels.consoleRoute}
                     </span>
-                  ) : null}
+                    {activeBusyLabel ? (
+                      <span className="inline-flex items-center gap-1.5 rounded-md border border-signal/30 bg-signal/10 px-2 py-1 text-[11px] text-signal">
+                        <Loader2 className="size-3 animate-spin" />
+                        {activeBusyLabel}
+                      </span>
+                    ) : null}
+                  </div>
+                  <PipelineStepper steps={pipelineSteps} activeId={activePipelineStep} loading={loading} compact />
                 </div>
-                <PipelineStepper steps={pipelineSteps} activeId={activePipelineStep} loading={loading} compact />
-              </div>
-            </div>
-          )}
-        </section>
 
-        <div className="grid gap-4 xl:grid-cols-[minmax(320px,0.72fr)_minmax(0,1.55fr)_320px]">
-          <section className="space-y-4 rounded-xl border border-border bg-card/82 p-4 shadow-sm">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-signal">{labels.stepStory}</p>
-                <h2 className="mt-1 text-lg font-medium tracking-tight">{labels.briefTitle}</h2>
-                <p className="mt-1 text-[12px] leading-relaxed text-muted-foreground">{labels.briefSubtitle}</p>
-              </div>
-              <Clapperboard className="size-5 text-signal" />
-            </div>
-
-            <details className="group rounded-lg border border-border bg-background/70 p-2.5">
-              <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-[12px] font-medium text-muted-foreground transition hover:text-foreground">
-                <span>{labels.quickPresets}</span>
-                <ChevronDown className="size-3.5 transition group-open:rotate-180" />
-              </summary>
-              <div className="mt-2 grid gap-2">
-                <PresetButton label={labels.presetShortDrama} onClick={() => usePreset(labels.presetShortDramaStory, "short drama", "cinematic realistic")} />
-                <PresetButton label={labels.presetEcommerce} onClick={() => usePreset(labels.presetEcommerceStory, "ecommerce", "premium commercial")} />
-                <PresetButton label={labels.presetTalkingCreator} onClick={() => usePreset(labels.presetTalkingCreatorStory, "talking creator", "clean studio")} />
-              </div>
-            </details>
-
-            <CharacterMemoryPicker
-              labels={labels}
-              characters={characters}
-              selectedIDs={selectedCharacterIDs}
-              onToggle={(id) => {
-                setSelectedCharacterIDs((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id])
-                setWorkflowID(null)
-                setWorkflowRun(null)
-              }}
-            />
-            <MemoryBindingPanel labels={labels} selectedCharacters={selectedCharacters} />
-
-            {error && (
-              <div className="flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
-                <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
-                <span>{error}</span>
-              </div>
-            )}
-
-            <label className="flex flex-col gap-2 text-xs text-muted-foreground">
-              {labels.story}
-              <textarea
-                className="min-h-36 rounded-lg border border-border bg-background px-4 py-3 text-sm leading-relaxed text-foreground placeholder:text-muted-foreground/55 focus:border-signal/45 focus:outline-none"
-                value={story}
-                onChange={(e) => setStory(e.target.value)}
-                placeholder={labels.storyPlaceholder}
-              />
-            </label>
-
-            <div className="grid grid-cols-2 gap-2.5">
-              <Field label={labels.genre} value={genre} onChange={setGenre} />
-              <Field label={labels.style} value={style} onChange={setStyle} />
-              <ShotCountStepper label={labels.shots} decreaseLabel={labels.decreaseShots} increaseLabel={labels.increaseShots} value={shotCount} min={1} max={12} onChange={setShotCount} />
-              <RangeField label={labels.secondsPerShot} value={duration} min={durationMin} max={durationMax} onChange={setDuration} />
-              <RangeField label={labels.maxParallel} value={maxParallel} min={1} max={maxParallelLimit} unit="" onChange={setMaxParallel} />
-              <OptionSelect label={labels.outputRatio} value={ratio} values={withCurrent(ratioOptions, ratio)} onChange={setRatio} />
-              <OptionSelect label={labels.resolution} value={resolution} values={withCurrent(resolutionOptions, resolution)} onChange={setResolution} />
-            </div>
-
-            <ModelSelect
-              label={labels.modelCatalog}
-              value={videoModel}
-              onChange={setVideoModel}
-              category="video"
-              helper={modelCatalogBlocked ? labels.modelCatalogUnavailable : labels.modelCatalogHint}
-              availableModelIds={videoCatalog.modelIds}
-              dropdownMode="inline"
-              dense
-              statusLabels={{
-                live: labels.online,
-                configured: labels.configured,
-                compat: labels.compatRoute,
-                comingSoon: labels.comingSoon,
-                recommended: labels.recommendedModels,
-                bestForFlow: labels.bestForFlow,
-                searchPlaceholder: labels.modelSearchPlaceholder,
-                noMatches: labels.modelNoMatches,
-                tierAdvanced: labels.tierAdvanced,
-                tierPrimary: labels.tierPrimary,
-                tierEconomy: labels.tierEconomy,
-                tierExperimental: labels.tierExperimental,
-                tierCompat: labels.tierCompat,
-              }}
-            />
-
-            <div className="rounded-lg border border-border bg-background/70 p-2.5">
-              <ActionButton
-                disabled={directorDisabled}
-                state={directorActionState}
-                onClick={() => void generateDirectorWorkflow()}
-                labels={labels}
-                variant="primary"
-                className="h-10 w-full"
-                icon={<Sparkles className="size-4" />}
-              >
-                {busyStage === "director" ? labels.working : `${labels.generateDirectorWorkflow} · ${estimatedBudget}`}
-              </ActionButton>
-              <div className="mt-3 grid gap-2">
-                <p className="text-[11.5px] leading-relaxed text-muted-foreground">
-                  {labels.runAllHint} {labels.estimateHint}: {estimatedBudget} · {shotCount} {labels.shotUnit} · {shotCount * duration}s · {labels.maxParallel} {maxParallel}.
-                </p>
-                <ActionButton
-                  disabled={shotsDisabled}
-                  state={shotsActionState}
-                  onClick={() => void generate()}
+                <DirectorCanvasBoard
+                  story={story}
+                  genre={genre}
+                  style={style}
+                  shotCount={shotCount}
+                  duration={duration}
+                  storyboard={storyboard}
+                  workflowID={workflowID}
+                  workflowRun={workflowRun}
                   labels={labels}
-                  compact
-                  className="h-8 w-full"
-                  icon={<Film className="size-3.5" />}
-                >
-                  {labels.generateShots}
-                </ActionButton>
+                  imagesDisabled={imagesDisabled}
+                  imagesActionState={imagesActionState}
+                  workflowDisabled={workflowDisabled}
+                  workflowActionState={workflowActionState}
+                  onGenerateImages={() => void generateImages()}
+                  onCreateWorkflow={() => void createWorkflow()}
+                  onUpdateShot={updateShot}
+                />
+
+                <DirectorComposer
+                  labels={labels}
+                  story={story}
+                  setStory={setStory}
+                  videoModel={videoModel}
+                  setVideoModel={setVideoModel}
+                  videoCatalog={videoCatalog}
+                  modelCatalogBlocked={modelCatalogBlocked}
+                  directorDisabled={directorDisabled}
+                  shotsDisabled={shotsDisabled}
+                  directorActionState={directorActionState}
+                  shotsActionState={shotsActionState}
+                  busyStage={busyStage}
+                  estimatedBudget={estimatedBudget}
+                  onGenerateDirector={() => void generateDirectorWorkflow()}
+                  onGenerateShots={() => void generate()}
+                  onUsePreset={usePreset}
+                />
               </div>
+            </section>
+
+            <aside className="space-y-3 overflow-y-auto xl:max-h-[calc(100vh-9rem)]">
+              {error && (
+                <div className="flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                  <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
+                  <span>{error}</span>
+                </div>
+              )}
+              <DirectorSettingsPanel
+                labels={labels}
+                genre={genre}
+                setGenre={setGenre}
+                style={style}
+                setStyle={setStyle}
+                shotCount={shotCount}
+                setShotCount={setShotCount}
+                duration={duration}
+                setDuration={setDuration}
+                durationMin={durationMin}
+                durationMax={durationMax}
+                maxParallel={maxParallel}
+                setMaxParallel={setMaxParallel}
+                maxParallelLimit={maxParallelLimit}
+                ratio={ratio}
+                setRatio={setRatio}
+                ratioOptions={ratioOptions}
+                resolution={resolution}
+                setResolution={setResolution}
+                resolutionOptions={resolutionOptions}
+              />
               <ActionStatusRail
                 labels={labels}
                 items={[
@@ -496,51 +434,19 @@ export default function DirectorPage() {
                   { label: labels.actionWorkflow, state: workflowActionState },
                 ]}
               />
-            </div>
-          </section>
-
-          <section className="min-h-[560px] overflow-hidden rounded-xl border border-border bg-card/82 shadow-sm">
-            <div className="border-b border-border bg-muted/20 px-4 py-3">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-signal">{labels.editShots}</p>
-                  <h2 className="mt-1 text-lg font-medium tracking-tight">{labels.shotTimeline}</h2>
-                  <p className="mt-1 max-w-2xl text-[12.5px] leading-relaxed text-muted-foreground">
-                    {storyboard?.summary ?? labels.shotTimelineSubtitle}
-                  </p>
-                </div>
-                {storyboard && (
-                  <div className="flex flex-wrap gap-2">
-                    <ActionButton
-                      disabled={imagesDisabled}
-                      state={imagesActionState}
-                      onClick={() => void generateImages()}
-                      labels={labels}
-                      compact
-                      className="h-9"
-                      icon={<ImageIcon className="size-3.5" />}
-                    >
-                      {labels.generateImages}
-                    </ActionButton>
-                    <ActionButton
-                      disabled={workflowDisabled}
-                      state={workflowActionState}
-                      onClick={() => void createWorkflow()}
-                      labels={labels}
-                      variant="signal"
-                      compact
-                      className="h-9"
-                      icon={<Workflow className="size-3.5" />}
-                    >
-                      {labels.createWorkflow}
-                    </ActionButton>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="space-y-3 p-4">
-              {workflowID && <WorkflowReadyCard workflowID={workflowID} run={workflowRun} labels={labels} />}
+              <RuntimePanel status={status} storyboard={storyboard} labels={labels} />
+              <CharacterMemoryPicker
+                labels={labels}
+                characters={characters}
+                selectedIDs={selectedCharacterIDs}
+                onToggle={(id) => {
+                  setSelectedCharacterIDs((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id])
+                  setWorkflowID(null)
+                  setWorkflowRun(null)
+                }}
+              />
+              <MemoryBindingPanel labels={labels} selectedCharacters={selectedCharacters} />
+              <HandoffPanel workflowID={workflowID} run={workflowRun} labels={labels} />
               <EngineEvidenceBanner storyboard={storyboard} status={status} labels={labels} />
               <ClosedLoopRail
                 story={story}
@@ -552,26 +458,450 @@ export default function DirectorPage() {
                 busyStage={busyStage}
                 labels={labels}
               />
-              {storyboard ? (
-                <>
-                  <ShotTimelineMap shots={storyboard.shots} labels={labels} />
-                  {storyboard.shots.map((shot, index) => (
-                    <ShotCard key={`${shot.shotIndex}-${index}`} shot={shot} index={index} labels={labels} onChange={(patch) => updateShot(index, patch)} />
-                  ))}
-                </>
-              ) : (
-                <EmptyStoryboard labels={labels} />
-              )}
-            </div>
-          </section>
-
-          <aside className="space-y-4">
-            <RuntimePanel status={status} storyboard={storyboard} labels={labels} />
-            <HandoffPanel workflowID={workflowID} run={workflowRun} labels={labels} />
-          </aside>
-        </div>
+            </aside>
+          </div>
+        </section>
       </div>
     </DashboardShell>
+  )
+}
+
+function DirectorToolRail({
+  labels,
+  activeId,
+  workflowID,
+  storyboard,
+}: {
+  labels: ReturnType<typeof useTranslations>["directorPage"]
+  activeId: PipelineStep["id"]
+  workflowID: string | null
+  storyboard: DirectorStoryboard | null
+}) {
+  const items: Array<{ id: PipelineStep["id"] | "memory"; label: string; icon: ReactNode; ready: boolean }> = [
+    { id: "brief", label: labels.pipelineBrief, icon: <Clapperboard className="size-4" />, ready: activeId !== "brief" },
+    { id: "memory", label: labels.characterMemoryTitle, icon: <UsersRound className="size-4" />, ready: false },
+    { id: "storyboard", label: labels.pipelineStoryboard, icon: <Film className="size-4" />, ready: Boolean(storyboard) },
+    { id: "workflow", label: labels.pipelineWorkflow, icon: <Workflow className="size-4" />, ready: Boolean(workflowID) },
+    { id: "canvas", label: labels.pipelineCanvas, icon: <Route className="size-4" />, ready: Boolean(workflowID) },
+  ]
+
+  return (
+    <nav className="flex gap-2 overflow-x-auto rounded-xl border border-border bg-card/80 p-2 lg:flex-col lg:items-center lg:overflow-visible" aria-label={labels.consoleRoute}>
+      {items.map((item) => {
+        const active = item.id === activeId || (item.id === "memory" && activeId === "brief")
+        return (
+          <button
+            key={item.id}
+            type="button"
+            className={cn(
+              "group flex min-w-16 flex-1 flex-col items-center justify-center gap-1 rounded-lg border px-2 py-2 text-center text-[10.5px] transition lg:min-h-16 lg:w-full lg:flex-none",
+              active ? "border-signal/45 bg-signal/12 text-signal" : "border-transparent text-muted-foreground hover:border-border hover:bg-background/70 hover:text-foreground",
+            )}
+            aria-pressed={active}
+          >
+            <span className={cn("grid size-8 place-items-center rounded-lg border", active ? "border-signal/30 bg-signal/10" : "border-border bg-background")}>{item.icon}</span>
+            <span className="max-w-full truncate">{item.label}</span>
+            {item.ready ? <span className="h-1 w-1 rounded-full bg-status-success" /> : <span className="h-1 w-1 rounded-full bg-border" />}
+          </button>
+        )
+      })}
+    </nav>
+  )
+}
+
+function DirectorCanvasBoard({
+  story,
+  genre,
+  style,
+  shotCount,
+  duration,
+  storyboard,
+  workflowID,
+  workflowRun,
+  labels,
+  imagesDisabled,
+  imagesActionState,
+  workflowDisabled,
+  workflowActionState,
+  onGenerateImages,
+  onCreateWorkflow,
+  onUpdateShot,
+}: {
+  story: string
+  genre: string
+  style: string
+  shotCount: number
+  duration: number
+  storyboard: DirectorStoryboard | null
+  workflowID: string | null
+  workflowRun: WorkflowRunResult | null
+  labels: ReturnType<typeof useTranslations>["directorPage"]
+  imagesDisabled: boolean
+  imagesActionState: ActionButtonState
+  workflowDisabled: boolean
+  workflowActionState: ActionButtonState
+  onGenerateImages: () => void
+  onCreateWorkflow: () => void
+  onUpdateShot: (index: number, patch: Partial<DirectorShot>) => void
+}) {
+  const storyReady = story.trim().length > 0
+
+  return (
+    <div className="relative flex-1 p-4 pb-4 lg:p-5 lg:pb-[335px]">
+      <div className="relative min-h-[560px]">
+        <div className="pointer-events-none absolute left-[31%] right-[39%] top-[29%] hidden h-px bg-border lg:block" />
+        <div className="pointer-events-none absolute left-[31%] top-[29%] hidden size-4 -translate-x-1/2 -translate-y-1/2 rounded-full border border-border bg-card lg:block" />
+        <div className="pointer-events-none absolute right-[39%] top-[29%] hidden size-4 translate-x-1/2 -translate-y-1/2 rounded-full border border-signal/40 bg-card lg:block" />
+
+        <div className="grid gap-4 lg:block">
+          <CanvasNode
+            className="lg:absolute lg:left-0 lg:top-3 lg:w-[33%]"
+            active={storyReady}
+            icon={<Clapperboard className="size-4" />}
+            eyebrow={labels.pipelineBrief}
+            title={labels.briefTitle}
+          >
+            <p className={cn("line-clamp-4 text-[12.5px] leading-relaxed", storyReady ? "text-foreground" : "text-muted-foreground")}>
+              {storyReady ? story : labels.storyPlaceholder}
+            </p>
+            <div className="mt-3 grid gap-2 text-[11.5px] text-muted-foreground">
+              <Meta label={labels.genre} value={genre} />
+              <Meta label={labels.style} value={style} />
+              <Meta label={labels.totalRuntime} value={`${shotCount * duration}s`} />
+            </div>
+          </CanvasNode>
+
+          <CanvasNode
+            className="lg:absolute lg:right-0 lg:top-20 lg:w-[40%]"
+            active={Boolean(storyboard)}
+            icon={<Film className="size-4" />}
+            eyebrow={labels.editShots}
+            title={labels.shotTimeline}
+          >
+            <p className="text-[12px] leading-relaxed text-muted-foreground">{storyboard?.summary ?? labels.shotTimelineSubtitle}</p>
+            {storyboard ? (
+              <div className="mt-3 space-y-3">
+                <ShotTimelineMap shots={storyboard.shots} labels={labels} />
+                <div className="max-h-64 space-y-2 overflow-y-auto pr-1 scroll-thin">
+                  {storyboard.shots.map((shot, index) => (
+                    <ShotMiniEditor key={`${shot.shotIndex}-${index}`} shot={shot} index={index} labels={labels} onChange={(patch) => onUpdateShot(index, patch)} />
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <CanvasEmptyState labels={labels} />
+            )}
+          </CanvasNode>
+
+          <CanvasNode
+            className="lg:absolute lg:bottom-2 lg:left-[28%] lg:w-[36%]"
+            active={Boolean(workflowID)}
+            icon={<Workflow className="size-4" />}
+            eyebrow={labels.pipelineWorkflow}
+            title={workflowID ? labels.workflowReadyTitle : labels.nextStepTitle}
+          >
+            {workflowID ? (
+              <WorkflowReadyCard workflowID={workflowID} run={workflowRun} labels={labels} />
+            ) : (
+              <div>
+                <p className="text-[12px] leading-relaxed text-muted-foreground">{labels.nextStepBody}</p>
+                <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                  <ActionButton
+                    disabled={imagesDisabled}
+                    state={imagesActionState}
+                    onClick={onGenerateImages}
+                    labels={labels}
+                    compact
+                    className="h-9"
+                    icon={<ImageIcon className="size-3.5" />}
+                  >
+                    {labels.generateImages}
+                  </ActionButton>
+                  <ActionButton
+                    disabled={workflowDisabled}
+                    state={workflowActionState}
+                    onClick={onCreateWorkflow}
+                    labels={labels}
+                    variant="signal"
+                    compact
+                    className="h-9"
+                    icon={<Workflow className="size-3.5" />}
+                  >
+                    {labels.createWorkflow}
+                  </ActionButton>
+                </div>
+              </div>
+            )}
+          </CanvasNode>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function DirectorComposer({
+  labels,
+  story,
+  setStory,
+  videoModel,
+  setVideoModel,
+  videoCatalog,
+  modelCatalogBlocked,
+  directorDisabled,
+  shotsDisabled,
+  directorActionState,
+  shotsActionState,
+  busyStage,
+  estimatedBudget,
+  onGenerateDirector,
+  onGenerateShots,
+  onUsePreset,
+}: {
+  labels: ReturnType<typeof useTranslations>["directorPage"]
+  story: string
+  setStory: (value: string) => void
+  videoModel: string
+  setVideoModel: (value: string) => void
+  videoCatalog: ReturnType<typeof useVideoModelCatalog>
+  modelCatalogBlocked: boolean
+  directorDisabled: boolean
+  shotsDisabled: boolean
+  directorActionState: ActionButtonState
+  shotsActionState: ActionButtonState
+  busyStage: BusyStage | null
+  estimatedBudget: string
+  onGenerateDirector: () => void
+  onGenerateShots: () => void
+  onUsePreset: (story: string, genre: string, style: string) => void
+}) {
+  return (
+    <div className="border-t border-border bg-card/94 p-3 lg:absolute lg:inset-x-4 lg:bottom-4 lg:rounded-xl lg:border lg:shadow-sm">
+      <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="space-y-3">
+          <label className="flex flex-col gap-2 text-xs text-muted-foreground">
+            {labels.story}
+            <textarea
+              className="min-h-24 rounded-lg border border-border bg-background px-4 py-3 text-sm leading-relaxed text-foreground placeholder:text-muted-foreground/55 focus:border-signal/45 focus:outline-none"
+              value={story}
+              onChange={(event) => setStory(event.target.value)}
+              placeholder={labels.storyPlaceholder}
+            />
+          </label>
+          <details className="group rounded-lg border border-border bg-background/70 p-2.5">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-[12px] font-medium text-muted-foreground transition hover:text-foreground">
+              <span>{labels.quickPresets}</span>
+              <ChevronDown className="size-3.5 transition group-open:rotate-180" />
+            </summary>
+            <div className="mt-2 grid gap-2 sm:grid-cols-3">
+              <PresetButton label={labels.presetShortDrama} onClick={() => onUsePreset(labels.presetShortDramaStory, "short drama", "cinematic realistic")} />
+              <PresetButton label={labels.presetEcommerce} onClick={() => onUsePreset(labels.presetEcommerceStory, "ecommerce", "premium commercial")} />
+              <PresetButton label={labels.presetTalkingCreator} onClick={() => onUsePreset(labels.presetTalkingCreatorStory, "talking creator", "clean studio")} />
+            </div>
+          </details>
+        </div>
+
+        <div className="space-y-3">
+          <ModelSelect
+            label={labels.modelCatalog}
+            value={videoModel}
+            onChange={setVideoModel}
+            category="video"
+            helper={modelCatalogBlocked ? labels.modelCatalogUnavailable : labels.modelCatalogHint}
+            availableModelIds={videoCatalog.modelIds}
+            dropdownMode="inline"
+            dense
+            statusLabels={{
+              live: labels.online,
+              configured: labels.configured,
+              compat: labels.compatRoute,
+              comingSoon: labels.comingSoon,
+              recommended: labels.recommendedModels,
+              bestForFlow: labels.bestForFlow,
+              searchPlaceholder: labels.modelSearchPlaceholder,
+              noMatches: labels.modelNoMatches,
+              tierAdvanced: labels.tierAdvanced,
+              tierPrimary: labels.tierPrimary,
+              tierEconomy: labels.tierEconomy,
+              tierExperimental: labels.tierExperimental,
+              tierCompat: labels.tierCompat,
+            }}
+          />
+
+          <div className="grid gap-2">
+            <ActionButton
+              disabled={directorDisabled}
+              state={directorActionState}
+              onClick={onGenerateDirector}
+              labels={labels}
+              variant="primary"
+              className="h-10"
+              icon={<Sparkles className="size-4" />}
+            >
+              {busyStage === "director" ? labels.working : `${labels.generateDirectorWorkflow} · ${estimatedBudget}`}
+            </ActionButton>
+            <ActionButton
+              disabled={shotsDisabled}
+              state={shotsActionState}
+              onClick={onGenerateShots}
+              labels={labels}
+              compact
+              className="h-10"
+              icon={<Film className="size-3.5" />}
+            >
+              {labels.generateShots}
+            </ActionButton>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function DirectorSettingsPanel({
+  labels,
+  genre,
+  setGenre,
+  style,
+  setStyle,
+  shotCount,
+  setShotCount,
+  duration,
+  setDuration,
+  durationMin,
+  durationMax,
+  maxParallel,
+  setMaxParallel,
+  maxParallelLimit,
+  ratio,
+  setRatio,
+  ratioOptions,
+  resolution,
+  setResolution,
+  resolutionOptions,
+}: {
+  labels: ReturnType<typeof useTranslations>["directorPage"]
+  genre: string
+  setGenre: (value: string) => void
+  style: string
+  setStyle: (value: string) => void
+  shotCount: number
+  setShotCount: (value: number) => void
+  duration: number
+  setDuration: (value: number) => void
+  durationMin: number
+  durationMax: number
+  maxParallel: number
+  setMaxParallel: (value: number) => void
+  maxParallelLimit: number
+  ratio: string
+  setRatio: (value: string) => void
+  ratioOptions: string[]
+  resolution: string
+  setResolution: (value: string) => void
+  resolutionOptions: string[]
+}) {
+  return (
+    <section className="space-y-3 rounded-xl border border-border bg-card/82 p-4 shadow-sm">
+      <div className="flex items-start gap-3">
+        <div className="grid size-9 shrink-0 place-items-center rounded-lg border border-signal/20 bg-signal/10 text-signal">
+          <Clapperboard className="size-4" />
+        </div>
+        <div>
+          <h2 className="text-sm font-medium text-foreground">{labels.briefTitle}</h2>
+          <p className="mt-1 text-[12px] leading-relaxed text-muted-foreground">{labels.briefSubtitle}</p>
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <Field label={labels.genre} value={genre} onChange={setGenre} />
+        <Field label={labels.style} value={style} onChange={setStyle} />
+        <ShotCountStepper label={labels.shots} decreaseLabel={labels.decreaseShots} increaseLabel={labels.increaseShots} value={shotCount} min={1} max={12} onChange={setShotCount} />
+        <RangeField label={labels.secondsPerShot} value={duration} min={durationMin} max={durationMax} onChange={setDuration} />
+        <RangeField label={labels.maxParallel} value={maxParallel} min={1} max={maxParallelLimit} unit="" onChange={setMaxParallel} />
+        <OptionSelect label={labels.outputRatio} value={ratio} values={withCurrent(ratioOptions, ratio)} onChange={setRatio} />
+        <OptionSelect label={labels.resolution} value={resolution} values={withCurrent(resolutionOptions, resolution)} onChange={setResolution} />
+      </div>
+    </section>
+  )
+}
+
+function CanvasNode({
+  eyebrow,
+  title,
+  icon,
+  active,
+  children,
+  className,
+}: {
+  eyebrow: string
+  title: string
+  icon: ReactNode
+  active?: boolean
+  children: ReactNode
+  className?: string
+}) {
+  return (
+    <article
+      className={cn(
+        "rounded-xl border bg-card/92 p-3.5 shadow-sm transition-colors",
+        active ? "border-signal/45" : "border-border",
+        className,
+      )}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-signal">{eyebrow}</p>
+          <h2 className="mt-1 truncate text-sm font-medium tracking-tight text-foreground">{title}</h2>
+        </div>
+        <span className={cn("grid size-8 shrink-0 place-items-center rounded-lg border", active ? "border-signal/30 bg-signal/10 text-signal" : "border-border bg-background text-muted-foreground")}>
+          {icon}
+        </span>
+      </div>
+      <div className="mt-3">{children}</div>
+    </article>
+  )
+}
+
+function CanvasEmptyState({ labels }: { labels: ReturnType<typeof useTranslations>["directorPage"] }) {
+  return (
+    <div className="mt-3 rounded-lg border border-dashed border-border bg-background/60 px-4 py-5 text-center">
+      <Sparkles className="mx-auto size-5 text-signal" />
+      <h3 className="mt-3 text-sm font-medium text-foreground">{labels.emptyTitle}</h3>
+      <p className="mt-2 text-[12px] leading-relaxed text-muted-foreground">{labels.emptyBody}</p>
+    </div>
+  )
+}
+
+function ShotMiniEditor({ shot, index, labels, onChange }: { shot: DirectorShot; index: number; labels: ReturnType<typeof useTranslations>["directorPage"]; onChange: (patch: Partial<DirectorShot>) => void }) {
+  const shotNumber = shot.shotIndex || index + 1
+  return (
+    <article className="rounded-lg border border-border bg-background/70 p-2.5">
+      <div className="flex items-start gap-2">
+        {shot.referenceImageUrl ? (
+          <img src={shot.referenceImageUrl} alt={shot.title} className="size-14 shrink-0 rounded-md object-cover" />
+        ) : (
+          <span className="grid size-14 shrink-0 place-items-center rounded-md border border-border bg-card text-signal">
+            <ImageIcon className="size-5" />
+          </span>
+        )}
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="rounded-md border border-signal/25 bg-signal/10 px-1.5 py-0.5 font-mono text-[10px] text-signal">S{shotNumber}</span>
+            <span className="rounded-md border border-border bg-card px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">{shot.duration}s</span>
+          </div>
+          <input
+            className="mt-2 w-full bg-transparent text-[13px] font-medium text-foreground outline-none"
+            value={shot.title}
+            onChange={(event) => onChange({ title: event.target.value })}
+          />
+          <textarea
+            className="mt-2 min-h-16 w-full resize-none rounded-md border border-border bg-card px-2 py-1.5 text-[12px] leading-relaxed text-foreground focus:border-signal/45 focus:outline-none"
+            value={shot.videoPrompt}
+            aria-label={`${labels.videoPrompt} S${shotNumber}`}
+            onChange={(event) => onChange({ videoPrompt: event.target.value })}
+          />
+        </div>
+      </div>
+    </article>
   )
 }
 
@@ -1100,29 +1430,6 @@ function RunSummary({ run, labels }: { run: WorkflowRunResult; labels: ReturnTyp
   )
 }
 
-function EmptyStoryboard({ labels }: { labels: ReturnType<typeof useTranslations>["directorPage"] }) {
-  const steps = [labels.emptyStepBrief, labels.emptyStepGenerate, labels.emptyStepCanvas]
-  return (
-    <div className="grid min-h-[380px] place-items-center rounded-lg border border-dashed border-border bg-background/55 px-6 py-8 text-center">
-      <div className="max-w-md">
-        <div className="mx-auto flex size-12 items-center justify-center rounded-lg border border-border bg-card text-signal">
-          <Sparkles className="size-5" />
-        </div>
-        <h3 className="mt-4 text-base font-medium">{labels.emptyTitle}</h3>
-        <p className="mt-2 text-[13px] leading-relaxed text-muted-foreground">{labels.emptyBody}</p>
-        <div className="mt-6 grid gap-2 text-left">
-          {steps.map((step, index) => (
-            <div key={step} className="flex items-center gap-3 rounded-lg border border-border bg-card/70 px-3 py-2 text-[12.5px] text-muted-foreground">
-              <span className="flex size-6 items-center justify-center rounded-md bg-signal/10 font-mono text-[11px] text-signal">{index + 1}</span>
-              {step}
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  )
-}
-
 function ShotTimelineMap({ shots, labels }: { shots: DirectorShot[]; labels: ReturnType<typeof useTranslations>["directorPage"] }) {
   let cursor = 0
   const segments = shots.map((shot, index) => {
@@ -1172,66 +1479,6 @@ function ShotTimelineMap({ shots, labels }: { shots: DirectorShot[]; labels: Ret
         ))}
       </ol>
     </section>
-  )
-}
-
-function ShotCard({ shot, index, labels, onChange }: { shot: DirectorShot; index: number; labels: ReturnType<typeof useTranslations>["directorPage"]; onChange: (patch: Partial<DirectorShot>) => void }) {
-  const shotNumber = shot.shotIndex || index + 1
-  return (
-    <article className="group rounded-lg border border-border bg-background/70 p-3.5 transition-colors hover:border-signal/25 hover:bg-background">
-      <div className="grid gap-3 lg:grid-cols-[150px_minmax(0,1fr)]">
-        <div className="overflow-hidden rounded-lg border border-border bg-card">
-          {shot.referenceImageUrl ? (
-            <img src={shot.referenceImageUrl} alt={shot.title} className="aspect-[4/5] w-full object-cover" />
-          ) : (
-            <div className="grid aspect-[4/5] place-items-center bg-muted/35">
-              <div className="text-center">
-                <ImageIcon className="mx-auto size-7 text-signal" />
-                <p className="mt-2 px-4 text-[11px] text-muted-foreground">{labels.noReference}</p>
-              </div>
-            </div>
-          )}
-        </div>
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded-md border border-signal/30 bg-signal/10 px-2 py-1 font-mono text-[11px] text-signal">
-              SHOT {shotNumber}
-            </span>
-            <span className="rounded-md border border-border bg-card px-2 py-1 font-mono text-[11px] text-muted-foreground">
-              {shot.duration}s
-            </span>
-          </div>
-          <input
-            className="mt-3 w-full bg-transparent text-base font-medium tracking-tight outline-none"
-            value={shot.title}
-            onChange={(e) => onChange({ title: e.target.value })}
-          />
-          <div className="mt-3 grid gap-2 text-[11.5px] text-muted-foreground md:grid-cols-3">
-            <Meta label={labels.camera} value={shot.camera || labels.planOnly} />
-            <Meta label={labels.emotion} value={shot.emotion || labels.planOnly} />
-            <Meta label={labels.action} value={shot.action || labels.planOnly} />
-          </div>
-          <div className="mt-4 grid gap-3">
-            <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-              {labels.videoPrompt}
-              <textarea
-                className="min-h-24 rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-signal/45 focus:outline-none"
-                value={shot.videoPrompt}
-                onChange={(e) => onChange({ videoPrompt: e.target.value })}
-              />
-            </label>
-            <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-              {labels.imagePrompt}
-              <textarea
-                className="min-h-20 rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-signal/45 focus:outline-none"
-                value={shot.imagePrompt}
-                onChange={(e) => onChange({ imagePrompt: e.target.value })}
-              />
-            </label>
-          </div>
-        </div>
-      </div>
-    </article>
   )
 }
 
