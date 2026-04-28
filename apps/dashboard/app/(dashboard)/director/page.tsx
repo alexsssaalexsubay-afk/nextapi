@@ -311,18 +311,16 @@ export default function DirectorPage() {
   return (
     <DashboardShell activeHref="/director">
       <div className="space-y-3 p-3 sm:p-4">
-        <section className="premium-surface relative overflow-hidden rounded-[20px] p-2.5 sm:p-3">
-          <div aria-hidden className="pointer-events-none absolute -right-20 -top-32 h-44 w-64 rounded-full bg-fuchsia-500/14 blur-3xl" />
-          <div aria-hidden className="pointer-events-none absolute -bottom-28 left-1/2 h-40 w-80 rounded-full bg-cyan-400/10 blur-3xl" />
-          <div className="relative flex flex-wrap items-center justify-between gap-3">
+        <section className="rounded-xl border border-border bg-card/82 p-3 shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex min-w-[240px] flex-1 items-center gap-2.5">
-              <span className="grid size-9 shrink-0 place-items-center rounded-2xl border border-signal/20 bg-signal/10 text-signal shadow-sm backdrop-blur-md">
+              <span className="grid size-9 shrink-0 place-items-center rounded-lg border border-signal/20 bg-signal/10 text-signal">
                 <Sparkles className="size-4" />
               </span>
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
                   <h1 className="text-base font-semibold tracking-tight text-foreground sm:text-lg">{labels.title}</h1>
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/12 bg-background/55 px-2 py-0.5 font-mono text-[9.5px] uppercase tracking-[0.14em] text-signal shadow-sm backdrop-blur-md">
+                  <span className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-2 py-0.5 font-mono text-[9.5px] uppercase tracking-[0.14em] text-signal">
                   <Sparkles className="size-3" />
                   {labels.eyebrow}
                 </span>
@@ -341,7 +339,7 @@ export default function DirectorPage() {
               <button
                 type="button"
                 onClick={() => setHeroExpanded((value) => !value)}
-                className="inline-flex h-9 items-center gap-1.5 rounded-full border border-white/12 bg-card/55 px-3 text-[12px] text-muted-foreground shadow-sm backdrop-blur-md transition hover:border-signal/35 hover:text-foreground"
+                className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border bg-card px-3 text-[12px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
               >
                 <Route className="size-3.5" />
                 {labels.consoleRoute}
@@ -350,7 +348,7 @@ export default function DirectorPage() {
             </div>
           </div>
           {heroExpanded && (
-            <div className="relative mt-2 grid gap-3 rounded-2xl border border-white/12 bg-background/50 p-3 shadow-sm backdrop-blur-md lg:grid-cols-[minmax(0,0.7fr)_minmax(280px,1fr)]">
+            <div className="mt-2 grid gap-3 rounded-lg border border-border bg-background/70 p-3 lg:grid-cols-[minmax(0,0.7fr)_minmax(280px,1fr)]">
               <div>
                 <h2 className="text-base font-semibold tracking-tight text-foreground">{labels.primaryPromise}</h2>
                 <p className="mt-1 max-w-3xl text-[12.5px] leading-relaxed text-muted-foreground">{labels.storyHint}</p>
@@ -361,7 +359,7 @@ export default function DirectorPage() {
                     {labels.consoleRoute}
                   </span>
                   {activeBusyLabel ? (
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-signal/30 bg-signal/10 px-2 py-1 text-[11px] text-signal">
+                    <span className="inline-flex items-center gap-1.5 rounded-md border border-signal/30 bg-signal/10 px-2 py-1 text-[11px] text-signal">
                       <Loader2 className="size-3 animate-spin" />
                       {activeBusyLabel}
                     </span>
@@ -374,7 +372,7 @@ export default function DirectorPage() {
         </section>
 
         <div className="grid gap-4 xl:grid-cols-[minmax(320px,0.72fr)_minmax(0,1.55fr)_320px]">
-          <section className="premium-surface space-y-4 rounded-[24px] p-4">
+          <section className="space-y-4 rounded-xl border border-border bg-card/82 p-4 shadow-sm">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-signal">{labels.stepStory}</p>
@@ -384,7 +382,7 @@ export default function DirectorPage() {
               <Clapperboard className="size-5 text-signal" />
             </div>
 
-            <details className="group rounded-2xl border border-white/12 bg-background/42 p-2.5 shadow-sm backdrop-blur-md">
+            <details className="group rounded-lg border border-border bg-background/70 p-2.5">
               <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-[12px] font-medium text-muted-foreground transition hover:text-foreground">
                 <span>{labels.quickPresets}</span>
                 <ChevronDown className="size-3.5 transition group-open:rotate-180" />
@@ -409,7 +407,7 @@ export default function DirectorPage() {
             <MemoryBindingPanel labels={labels} selectedCharacters={selectedCharacters} />
 
             {error && (
-              <div className="flex items-start gap-2 rounded-2xl border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+              <div className="flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
                 <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
                 <span>{error}</span>
               </div>
@@ -418,7 +416,7 @@ export default function DirectorPage() {
             <label className="flex flex-col gap-2 text-xs text-muted-foreground">
               {labels.story}
               <textarea
-                className="min-h-36 rounded-3xl border border-white/12 bg-background/55 px-4 py-3 text-sm leading-relaxed text-foreground shadow-inner backdrop-blur-md placeholder:text-muted-foreground/55 focus:border-signal/45 focus:outline-none"
+                className="min-h-36 rounded-lg border border-border bg-background px-4 py-3 text-sm leading-relaxed text-foreground placeholder:text-muted-foreground/55 focus:border-signal/45 focus:outline-none"
                 value={story}
                 onChange={(e) => setStory(e.target.value)}
                 placeholder={labels.storyPlaceholder}
@@ -461,7 +459,7 @@ export default function DirectorPage() {
               }}
             />
 
-            <div className="rounded-3xl border border-white/12 bg-background/50 p-2.5 shadow-sm backdrop-blur-md">
+            <div className="rounded-lg border border-border bg-background/70 p-2.5">
               <ActionButton
                 disabled={directorDisabled}
                 state={directorActionState}
@@ -501,8 +499,8 @@ export default function DirectorPage() {
             </div>
           </section>
 
-          <section className="premium-surface min-h-[560px] overflow-hidden rounded-[24px]">
-            <div className="border-b border-white/10 bg-background/30 px-4 py-3 backdrop-blur-sm">
+          <section className="min-h-[560px] overflow-hidden rounded-xl border border-border bg-card/82 shadow-sm">
+            <div className="border-b border-border bg-muted/20 px-4 py-3">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-signal">{labels.editShots}</p>
@@ -602,10 +600,10 @@ function ActionButton({
       disabled={disabled}
       onClick={onClick}
       className={cn(
-        "inline-flex min-w-0 items-center justify-center gap-2 rounded-full border text-sm font-medium shadow-sm transition disabled:cursor-not-allowed",
+        "inline-flex min-w-0 items-center justify-center gap-2 rounded-lg border text-sm font-medium transition disabled:cursor-not-allowed",
         compact ? "px-3 text-[12px]" : "px-4",
-        variant === "primary" && "premium-button border-white/20 text-white disabled:opacity-65",
-        variant === "secondary" && "border-white/12 bg-card/55 text-foreground backdrop-blur-md hover:border-signal/35 disabled:opacity-55",
+        variant === "primary" && "border-foreground bg-foreground text-background hover:opacity-90 disabled:opacity-65",
+        variant === "secondary" && "border-border bg-card text-foreground hover:bg-accent disabled:opacity-55",
         variant === "signal" && "border-signal/30 bg-signal/10 text-signal hover:bg-signal/15 disabled:opacity-55",
         state === "success" && "border-status-success/35 bg-status-success/10 text-status-success",
         state === "error" && "border-destructive/40 bg-destructive/10 text-destructive",
@@ -616,7 +614,7 @@ function ActionButton({
       <span className="min-w-0 truncate">{children}</span>
       <span
         className={cn(
-          "ml-auto inline-flex shrink-0 items-center rounded-full border px-1.5 py-0.5 font-mono text-[9.5px] uppercase tracking-[0.1em]",
+          "ml-auto inline-flex shrink-0 items-center rounded-md border px-1.5 py-0.5 font-mono text-[9.5px] uppercase tracking-[0.1em]",
           meta.badgeClassName,
         )}
       >
@@ -634,13 +632,13 @@ function ActionStatusRail({
   items: Array<{ label: string; state: ActionButtonState }>
 }) {
   return (
-    <div className="mt-3 rounded-2xl border border-white/10 bg-card/35 p-2 shadow-sm backdrop-blur-md">
+    <div className="mt-3 rounded-lg border border-border bg-background/70 p-2">
       <div className="mb-2 font-mono text-[9.5px] uppercase tracking-[0.14em] text-muted-foreground">{labels.actionStatesTitle}</div>
       <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
         {items.map((item) => {
           const meta = actionStateMeta(item.state, labels)
           return (
-            <div key={item.label} className={cn("flex items-center justify-between gap-2 rounded-xl border px-2 py-1.5 text-[11px]", meta.badgeClassName)}>
+            <div key={item.label} className={cn("flex items-center justify-between gap-2 rounded-md border px-2 py-1.5 text-[11px]", meta.badgeClassName)}>
               <span className="truncate">{item.label}</span>
               <span className="inline-flex items-center gap-1 font-mono text-[9.5px] uppercase tracking-[0.1em]">
                 {meta.icon}
@@ -660,13 +658,13 @@ function EngineEvidenceBanner({ storyboard, status, labels }: { storyboard: Dire
 
   if (!engineUsed && !runtimeStatus) {
     return (
-      <section className="rounded-[24px] border border-white/12 bg-card/40 p-3 shadow-sm backdrop-blur-md">
+      <section className="rounded-lg border border-border bg-card/70 p-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground">{labels.engineEvidenceTitle}</p>
             <p className="mt-1 text-[12.5px] text-muted-foreground">{labels.engineEvidenceWaiting}</p>
           </div>
-          <span className="rounded-full border border-white/12 bg-background/55 px-2 py-1 font-mono text-[10px] uppercase text-muted-foreground">
+          <span className="rounded-md border border-border bg-background px-2 py-1 font-mono text-[10px] uppercase text-muted-foreground">
             engine_used: --
           </span>
         </div>
@@ -681,7 +679,7 @@ function EngineEvidenceBanner({ storyboard, status, labels }: { storyboard: Dire
   return (
     <section
       className={cn(
-        "rounded-[24px] border p-3 shadow-sm backdrop-blur-md",
+        "rounded-lg border p-3",
         fallbackUsed
           ? "border-amber-500/35 bg-amber-500/10"
           : "border-status-success/35 bg-status-success/10",
@@ -691,7 +689,7 @@ function EngineEvidenceBanner({ storyboard, status, labels }: { storyboard: Dire
         <div className="flex min-w-0 items-start gap-2.5">
           <span
             className={cn(
-              "mt-0.5 grid size-8 shrink-0 place-items-center rounded-2xl border",
+              "mt-0.5 grid size-8 shrink-0 place-items-center rounded-lg border",
               fallbackUsed ? "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-200" : "border-status-success/30 bg-status-success/10 text-status-success",
             )}
           >
@@ -704,11 +702,11 @@ function EngineEvidenceBanner({ storyboard, status, labels }: { storyboard: Dire
           </div>
         </div>
         <div className="grid gap-1.5 text-[11px]">
-          <span className="rounded-full border border-white/12 bg-background/55 px-2 py-1 font-mono text-muted-foreground">
+          <span className="rounded-md border border-border bg-background px-2 py-1 font-mono text-muted-foreground">
             engine_used: {engineUsed ?? "--"}
           </span>
           {runtimeStatus?.reason ? (
-            <span className="max-w-72 truncate rounded-full border border-white/12 bg-background/55 px-2 py-1 text-muted-foreground">
+            <span className="max-w-72 truncate rounded-md border border-border bg-background px-2 py-1 text-muted-foreground">
               {labels.fallbackReason}: {runtimeStatus.reason}
             </span>
           ) : null}
@@ -801,13 +799,13 @@ function ClosedLoopRail({
   ]
 
   return (
-    <section className="rounded-[24px] border border-white/12 bg-background/45 p-3 shadow-sm backdrop-blur-md">
+    <section className="rounded-lg border border-border bg-background/70 p-3">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-signal">{labels.loopProofTitle}</p>
           <h3 className="mt-1 text-sm font-medium text-foreground">{labels.loopProofSubtitle}</h3>
         </div>
-        <span className="rounded-full border border-white/12 bg-card/45 px-2 py-1 font-mono text-[10px] uppercase text-muted-foreground">
+        <span className="rounded-md border border-border bg-card px-2 py-1 font-mono text-[10px] uppercase text-muted-foreground">
           {labels.loopNoSilentFallback}
         </span>
       </div>
@@ -823,7 +821,7 @@ function ClosedLoopRail({
 function ProofStep({ label, evidence, state }: { label: string; evidence: string; state: ProofStepState }) {
   const meta = proofStepMeta(state)
   return (
-    <div className={cn("min-h-24 rounded-2xl border px-3 py-2", meta.className)}>
+    <div className={cn("min-h-24 rounded-lg border px-3 py-2", meta.className)}>
       <div className="flex items-center justify-between gap-2">
         <span className="truncate text-[12px] font-medium text-foreground">{label}</span>
         <span className="shrink-0">{meta.icon}</span>
@@ -835,15 +833,15 @@ function ProofStep({ label, evidence, state }: { label: string; evidence: string
 
 function MemoryBindingPanel({ labels, selectedCharacters }: { labels: ReturnType<typeof useTranslations>["directorPage"]; selectedCharacters: CharacterRecord[] }) {
   return (
-    <section className="rounded-2xl border border-white/12 bg-background/45 p-2.5 shadow-sm backdrop-blur-md">
+    <section className="rounded-lg border border-border bg-background/70 p-2.5">
       <div className="flex items-start gap-3">
-        <div className="grid size-8 shrink-0 place-items-center rounded-2xl border border-cyan-400/25 bg-cyan-400/10 text-cyan-600 dark:text-cyan-300">
+        <div className="grid size-8 shrink-0 place-items-center rounded-lg border border-cyan-400/25 bg-cyan-400/10 text-cyan-600 dark:text-cyan-300">
           <Workflow className="size-4" />
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h3 className="text-sm font-medium text-foreground">{labels.memoryBindingsTitle}</h3>
-            <span className="rounded-full border border-white/12 bg-card/45 px-2 py-0.5 font-mono text-[10px] text-muted-foreground">
+            <span className="rounded-md border border-border bg-card px-2 py-0.5 font-mono text-[10px] text-muted-foreground">
               {selectedCharacters.length} {labels.memoryBindingsCount}
             </span>
           </div>
@@ -858,19 +856,19 @@ function MemoryBindingPanel({ labels, selectedCharacters }: { labels: ReturnType
             const refs = Array.isArray(character.reference_images) ? character.reference_images : []
             const cover = refs[0]
             return (
-              <div key={character.id} className="flex items-center gap-2 rounded-2xl border border-white/10 bg-card/40 px-2 py-2">
+              <div key={character.id} className="flex items-center gap-2 rounded-lg border border-border bg-card/70 px-2 py-2">
                 {cover ? (
-                  <img src={cover} alt="" className="size-10 shrink-0 rounded-xl object-cover" />
+                  <img src={cover} alt="" className="size-10 shrink-0 rounded-md object-cover" />
                 ) : (
-                  <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-background/65 text-xs text-muted-foreground">
+                  <span className="grid size-10 shrink-0 place-items-center rounded-md bg-background text-xs text-muted-foreground">
                     {character.name.slice(0, 1).toUpperCase()}
                   </span>
                 )}
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-[12.5px] font-medium text-foreground">{character.name}</div>
                   <div className="mt-0.5 flex flex-wrap gap-1.5 text-[10.5px] text-muted-foreground">
-                    <span className="rounded-full border border-white/10 bg-background/45 px-1.5 py-0.5">{labels.memoryReferenceCount.replace("{count}", String(refs.length))}</span>
-                    <span className="max-w-32 truncate rounded-full border border-white/10 bg-background/45 px-1.5 py-0.5 font-mono">{labels.memoryAssetID}: {character.id}</span>
+                    <span className="rounded-md border border-border bg-background px-1.5 py-0.5">{labels.memoryReferenceCount.replace("{count}", String(refs.length))}</span>
+                    <span className="max-w-32 truncate rounded-md border border-border bg-background px-1.5 py-0.5 font-mono">{labels.memoryAssetID}: {character.id}</span>
                   </div>
                 </div>
               </div>
@@ -890,14 +888,14 @@ function PipelineStepper({ steps, activeId, loading, compact = false }: { steps:
         const active = index === activeIndex
         const done = index < activeIndex
         return (
-          <li key={step.id} className={cn("flex items-center gap-3", compact && "rounded-xl border border-white/10 bg-card/35 px-2 py-1.5")}>
+          <li key={step.id} className={cn("flex items-center gap-3", compact && "rounded-md border border-border bg-card/70 px-2 py-1.5")}>
             <span
               className={cn(
-                "flex shrink-0 items-center justify-center rounded-full border font-mono text-[11px]",
+                "flex shrink-0 items-center justify-center rounded-md border font-mono text-[11px]",
                 compact ? "size-6" : "size-7",
                 done && "border-status-success/40 bg-status-success/10 text-status-success",
-                active && "border-signal/45 bg-signal/12 text-signal shadow-[0_0_28px_-14px] shadow-signal",
-                !done && !active && "border-white/12 bg-card/45 text-muted-foreground",
+                active && "border-signal/45 bg-signal/12 text-signal",
+                !done && !active && "border-border bg-card text-muted-foreground",
               )}
             >
               {active && loading ? <Loader2 className="size-3.5 animate-spin" /> : done ? <CheckCircle2 className="size-3.5" /> : index + 1}
@@ -923,16 +921,16 @@ function CharacterMemoryPicker({
 }) {
   const visible = characters.slice(0, 6)
   return (
-    <section className="rounded-2xl border border-white/12 bg-background/45 p-2.5 shadow-sm backdrop-blur-md">
+    <section className="rounded-lg border border-border bg-background/70 p-2.5">
       <div className="flex items-start gap-3">
-        <div className="grid size-8 shrink-0 place-items-center rounded-2xl border border-signal/20 bg-signal/10 text-signal">
+        <div className="grid size-8 shrink-0 place-items-center rounded-lg border border-signal/20 bg-signal/10 text-signal">
           <UsersRound className="size-4" />
         </div>
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="text-sm font-medium text-foreground">{labels.characterMemoryTitle}</h3>
             {selectedIDs.length > 0 ? (
-              <span className="rounded-full border border-status-success/30 bg-status-success/10 px-2 py-0.5 font-mono text-[10px] text-status-success">
+              <span className="rounded-md border border-status-success/30 bg-status-success/10 px-2 py-0.5 font-mono text-[10px] text-status-success">
                 {selectedIDs.length} {labels.selectedCharacters}
               </span>
             ) : null}
@@ -953,15 +951,15 @@ function CharacterMemoryPicker({
                 type="button"
                 onClick={() => onToggle(character.id)}
                 className={cn(
-                  "group flex min-w-32 max-w-40 items-center gap-2 rounded-2xl border bg-card/45 px-2 py-2 text-left transition",
-                  active ? "border-signal/45 bg-signal/12 text-foreground shadow-[0_0_26px_-18px] shadow-signal" : "border-white/10 text-muted-foreground hover:border-signal/30 hover:text-foreground",
+                  "group flex min-w-32 max-w-40 items-center gap-2 rounded-lg border bg-card/70 px-2 py-2 text-left transition",
+                  active ? "border-signal/45 bg-signal/12 text-foreground" : "border-border text-muted-foreground hover:border-signal/30 hover:text-foreground",
                 )}
                 aria-pressed={active}
               >
                 {cover ? (
-                  <img src={cover} alt="" className="size-9 shrink-0 rounded-xl object-cover" />
+                  <img src={cover} alt="" className="size-9 shrink-0 rounded-md object-cover" />
                 ) : (
-                  <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-background/65 text-xs text-muted-foreground">
+                  <span className="grid size-9 shrink-0 place-items-center rounded-md bg-background text-xs text-muted-foreground">
                     {character.name.slice(0, 1).toUpperCase()}
                   </span>
                 )}
@@ -980,9 +978,9 @@ function CharacterMemoryPicker({
 
 function RuntimePanel({ status, storyboard, labels }: { status: DirectorStatus | null; storyboard: DirectorStoryboard | null; labels: ReturnType<typeof useTranslations>["directorPage"] }) {
   return (
-    <section className="premium-surface space-y-3 rounded-[28px] p-4">
+    <section className="space-y-3 rounded-xl border border-border bg-card/82 p-4 shadow-sm">
       <div className="flex items-start gap-3">
-        <div className="flex size-9 items-center justify-center rounded-2xl border border-white/12 bg-background/60 text-signal shadow-sm backdrop-blur-md">
+        <div className="flex size-9 items-center justify-center rounded-lg border border-border bg-background text-signal">
           <Cpu className="size-4" />
         </div>
         <div>
@@ -1004,7 +1002,7 @@ function RuntimePanel({ status, storyboard, labels }: { status: DirectorStatus |
 function HandoffPanel({ workflowID, run, labels }: { workflowID: string | null; run: WorkflowRunResult | null; labels: ReturnType<typeof useTranslations>["directorPage"] }) {
   if (workflowID) {
     return (
-      <section className="overflow-hidden rounded-[28px] border border-status-success/35 bg-status-success/10 shadow-[0_24px_80px_-60px] shadow-status-success">
+      <section className="overflow-hidden rounded-xl border border-status-success/35 bg-status-success/10 shadow-sm">
         <div className="p-4">
           <div className="flex items-center gap-2 text-status-success">
             <CheckCircle2 className="size-4" />
@@ -1012,7 +1010,7 @@ function HandoffPanel({ workflowID, run, labels }: { workflowID: string | null; 
           </div>
           <p className="mt-2 text-[12.5px] leading-relaxed text-muted-foreground">{run ? labels.workflowQueuedBody : labels.workflowReadyBody}</p>
           {run ? <RunSummary run={run} labels={labels} /> : null}
-          <Link href={`/canvas?workflow=${workflowID}`} className="premium-button mt-4 inline-flex h-10 w-full items-center justify-center gap-2 rounded-full border border-white/20 px-4 text-sm font-semibold text-white">
+          <Link href={`/canvas?workflow=${workflowID}`} className="mt-4 inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-foreground px-4 text-sm font-semibold text-background transition-opacity hover:opacity-90">
             {labels.openCanvas}
             <ArrowRight className="size-4" />
           </Link>
@@ -1022,7 +1020,7 @@ function HandoffPanel({ workflowID, run, labels }: { workflowID: string | null; 
   }
 
   return (
-    <section className="rounded-[28px] border border-white/12 bg-card/40 p-4 shadow-sm backdrop-blur-md">
+    <section className="rounded-xl border border-border bg-card/82 p-4 shadow-sm">
       <div className="flex items-center gap-2">
         <Workflow className="size-4 text-signal" />
         <h2 className="text-sm font-medium">{labels.nextStepTitle}</h2>
@@ -1034,7 +1032,7 @@ function HandoffPanel({ workflowID, run, labels }: { workflowID: string | null; 
 
 function WorkflowReadyCard({ workflowID, run, labels }: { workflowID: string; run: WorkflowRunResult | null; labels: ReturnType<typeof useTranslations>["directorPage"] }) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-status-success/35 bg-status-success/10 px-4 py-3">
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-status-success/35 bg-status-success/10 px-4 py-3">
       <div>
         <div className="flex items-center gap-2 text-sm font-medium text-foreground">
           <CheckCircle2 className="size-4 text-status-success" />
@@ -1043,7 +1041,7 @@ function WorkflowReadyCard({ workflowID, run, labels }: { workflowID: string; ru
         <div className="mt-1 font-mono text-[11px] text-muted-foreground">{workflowID}</div>
         {run ? <div className="mt-1 text-[11.5px] text-muted-foreground">{run.batch_run_id ? `${labels.batchRun}: ${run.batch_run_id}` : `${labels.runStatus}: ${run.status}`}</div> : null}
       </div>
-      <Link href={`/canvas?workflow=${workflowID}`} className="inline-flex h-9 items-center gap-2 rounded-full border border-status-success/35 bg-status-success/10 px-3 text-sm text-status-success">
+      <Link href={`/canvas?workflow=${workflowID}`} className="inline-flex h-9 items-center gap-2 rounded-lg border border-status-success/35 bg-status-success/10 px-3 text-sm text-status-success">
         {labels.openCanvas}
         <ArrowRight className="size-3.5" />
       </Link>
@@ -1055,7 +1053,7 @@ function RunSummary({ run, labels }: { run: WorkflowRunResult; labels: ReturnTyp
   const jobs = run.job_ids?.length ?? (run.task_id ? 1 : 0)
   const hasBatchSummary = run.total != null || run.accepted != null || run.rejected != null
   return (
-    <div className="mt-3 grid gap-2 rounded-2xl border border-white/12 bg-background/45 p-3 text-[11.5px] text-muted-foreground">
+    <div className="mt-3 grid gap-2 rounded-lg border border-border bg-background/70 p-3 text-[11.5px] text-muted-foreground">
       <Meta label={labels.runStatus} value={run.status} />
       {hasBatchSummary ? <Meta label={labels.batchAccepted} value={`${run.accepted ?? jobs}/${run.total ?? jobs}`} /> : null}
       {run.rejected ? <Meta label={labels.batchRejected} value={String(run.rejected)} /> : null}
@@ -1069,17 +1067,17 @@ function RunSummary({ run, labels }: { run: WorkflowRunResult; labels: ReturnTyp
 function EmptyStoryboard({ labels }: { labels: ReturnType<typeof useTranslations>["directorPage"] }) {
   const steps = [labels.emptyStepBrief, labels.emptyStepGenerate, labels.emptyStepCanvas]
   return (
-    <div className="grid min-h-[380px] place-items-center rounded-[24px] border border-dashed border-white/14 bg-background/35 px-6 py-8 text-center">
+    <div className="grid min-h-[380px] place-items-center rounded-lg border border-dashed border-border bg-background/55 px-6 py-8 text-center">
       <div className="max-w-md">
-        <div className="mx-auto flex size-12 items-center justify-center rounded-3xl border border-white/12 bg-card/65 text-signal shadow-sm backdrop-blur-md">
+        <div className="mx-auto flex size-12 items-center justify-center rounded-lg border border-border bg-card text-signal">
           <Sparkles className="size-5" />
         </div>
         <h3 className="mt-4 text-base font-medium">{labels.emptyTitle}</h3>
         <p className="mt-2 text-[13px] leading-relaxed text-muted-foreground">{labels.emptyBody}</p>
         <div className="mt-6 grid gap-2 text-left">
           {steps.map((step, index) => (
-            <div key={step} className="flex items-center gap-3 rounded-2xl border border-white/10 bg-card/45 px-3 py-2 text-[12.5px] text-muted-foreground">
-              <span className="flex size-6 items-center justify-center rounded-full bg-signal/10 font-mono text-[11px] text-signal">{index + 1}</span>
+            <div key={step} className="flex items-center gap-3 rounded-lg border border-border bg-card/70 px-3 py-2 text-[12.5px] text-muted-foreground">
+              <span className="flex size-6 items-center justify-center rounded-md bg-signal/10 font-mono text-[11px] text-signal">{index + 1}</span>
               {step}
             </div>
           ))}
@@ -1092,9 +1090,9 @@ function EmptyStoryboard({ labels }: { labels: ReturnType<typeof useTranslations
 function ShotCard({ shot, index, labels, onChange }: { shot: DirectorShot; index: number; labels: ReturnType<typeof useTranslations>["directorPage"]; onChange: (patch: Partial<DirectorShot>) => void }) {
   const shotNumber = shot.shotIndex || index + 1
   return (
-    <article className="group rounded-[24px] border border-white/10 bg-background/42 p-3.5 shadow-sm backdrop-blur-md transition-all hover:border-signal/25 hover:bg-background/55">
+    <article className="group rounded-lg border border-border bg-background/70 p-3.5 transition-colors hover:border-signal/25 hover:bg-background">
       <div className="grid gap-3 lg:grid-cols-[150px_minmax(0,1fr)]">
-        <div className="overflow-hidden rounded-3xl border border-white/10 bg-card/55">
+        <div className="overflow-hidden rounded-lg border border-border bg-card">
           {shot.referenceImageUrl ? (
             <img src={shot.referenceImageUrl} alt={shot.title} className="aspect-[4/5] w-full object-cover" />
           ) : (
@@ -1108,10 +1106,10 @@ function ShotCard({ shot, index, labels, onChange }: { shot: DirectorShot; index
         </div>
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded-full border border-signal/30 bg-signal/10 px-2 py-1 font-mono text-[11px] text-signal">
+            <span className="rounded-md border border-signal/30 bg-signal/10 px-2 py-1 font-mono text-[11px] text-signal">
               SHOT {shotNumber}
             </span>
-            <span className="rounded-full border border-white/12 bg-card/45 px-2 py-1 font-mono text-[11px] text-muted-foreground">
+            <span className="rounded-md border border-border bg-card px-2 py-1 font-mono text-[11px] text-muted-foreground">
               {shot.duration}s
             </span>
           </div>
@@ -1129,7 +1127,7 @@ function ShotCard({ shot, index, labels, onChange }: { shot: DirectorShot; index
             <label className="flex flex-col gap-1 text-xs text-muted-foreground">
               {labels.videoPrompt}
               <textarea
-                className="min-h-24 rounded-2xl border border-white/12 bg-background/60 px-3 py-2 text-sm text-foreground focus:border-signal/45 focus:outline-none"
+                className="min-h-24 rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-signal/45 focus:outline-none"
                 value={shot.videoPrompt}
                 onChange={(e) => onChange({ videoPrompt: e.target.value })}
               />
@@ -1137,7 +1135,7 @@ function ShotCard({ shot, index, labels, onChange }: { shot: DirectorShot; index
             <label className="flex flex-col gap-1 text-xs text-muted-foreground">
               {labels.imagePrompt}
               <textarea
-                className="min-h-20 rounded-2xl border border-white/12 bg-background/60 px-3 py-2 text-sm text-foreground focus:border-signal/45 focus:outline-none"
+                className="min-h-20 rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-signal/45 focus:outline-none"
                 value={shot.imagePrompt}
                 onChange={(e) => onChange({ imagePrompt: e.target.value })}
               />
@@ -1152,7 +1150,7 @@ function ShotCard({ shot, index, labels, onChange }: { shot: DirectorShot; index
 function StatusBanner({ status, labels }: { status: DirectorStatus | null; labels: ReturnType<typeof useTranslations>["directorPage"] }) {
   if (!status) {
     return (
-      <div className="flex items-center gap-2 rounded-2xl border border-white/12 bg-background/55 px-3 py-2 text-xs text-muted-foreground shadow-sm backdrop-blur-md">
+      <div className="flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 text-xs text-muted-foreground">
         <Loader2 className="size-3.5 animate-spin text-signal" />
         {labels.statusLoading}
       </div>
@@ -1164,7 +1162,7 @@ function StatusBanner({ status, labels }: { status: DirectorStatus | null; label
     return (
       <div
         className={cn(
-          "flex items-start gap-2 rounded-2xl px-3 py-2 text-xs",
+          "flex items-start gap-2 rounded-lg px-3 py-2 text-xs",
           fallbackUsed
             ? "border border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-200"
             : "border border-status-success/35 bg-status-success/10 text-status-success",
@@ -1177,7 +1175,7 @@ function StatusBanner({ status, labels }: { status: DirectorStatus | null; label
   }
   const text = status.blocking_reason === "vip_required" ? labels.vipRequired : labels.providerMissing
   return (
-    <div className="flex items-start gap-2 rounded-2xl border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+    <div className="flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
       <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
       <span>{text}</span>
     </div>
@@ -1187,7 +1185,7 @@ function StatusBanner({ status, labels }: { status: DirectorStatus | null; label
 function ProviderStatus({ label, ready, labels, enabledCopy = false }: { label: string; ready?: boolean; labels: ReturnType<typeof useTranslations>["directorPage"]; enabledCopy?: boolean }) {
   const value = ready ? (enabledCopy ? labels.enabled : labels.configured) : (enabledCopy ? labels.disabled : labels.missing)
   return (
-    <div className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-background/45 px-3 py-2 text-[12px]">
+    <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-background/70 px-3 py-2 text-[12px]">
       <span className="text-muted-foreground">{label}</span>
       <span className={cn("font-medium", ready ? "text-status-success" : "text-status-failed")}>{value}</span>
     </div>
@@ -1208,10 +1206,10 @@ function EngineStatusCard({ storyboard, status, labels }: { storyboard: Director
   const reason = runtimeStatus?.reason ?? status?.reason
 
   return (
-    <div className="rounded-2xl border border-white/12 bg-background/55 px-3 py-3 text-xs shadow-sm backdrop-blur-md">
+    <div className="rounded-lg border border-border bg-background/70 px-3 py-3 text-xs">
       <div className="flex items-center justify-between gap-3">
         <span className="font-medium text-foreground">{labels.engineRuntime}</span>
-        {fallbackUsed && <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-amber-700 dark:text-amber-200">{labels.fallbackActive}</span>}
+        {fallbackUsed && <span className="rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-amber-700 dark:text-amber-200">{labels.fallbackActive}</span>}
       </div>
       <div className="mt-2 grid gap-2 text-muted-foreground">
         {runtimeStatus?.requested_engine && <Meta label={labels.requestedEngine} value={runtimeStatus.requested_engine} />}
@@ -1270,7 +1268,7 @@ function formatBool(value: boolean, labels: ReturnType<typeof useTranslations>["
 
 function Meta({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-card/40 px-2 py-1.5">
+    <div className="flex items-center justify-between gap-3 rounded-md border border-border bg-card/70 px-2 py-1.5">
       <span>{label}</span>
       <span className="text-right font-medium text-foreground">{value}</span>
     </div>
@@ -1279,7 +1277,7 @@ function Meta({ label, value }: { label: string; value: string }) {
 
 function PresetButton({ label, onClick }: { label: string; onClick: () => void }) {
   return (
-    <button type="button" onClick={onClick} className="flex items-center justify-between rounded-2xl border border-white/12 bg-background/45 px-3 py-2 text-left text-[12.5px] text-muted-foreground shadow-sm backdrop-blur-md transition-colors hover:border-signal/35 hover:text-foreground">
+    <button type="button" onClick={onClick} className="flex items-center justify-between rounded-lg border border-border bg-background px-3 py-2 text-left text-[12.5px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
       <span>{label}</span>
       <ArrowRight className="size-3.5" />
     </button>
@@ -1288,7 +1286,7 @@ function PresetButton({ label, onClick }: { label: string; onClick: () => void }
 
 function CompactMetric({ label, value, compact = false }: { label: string; value: string; compact?: boolean }) {
   return (
-    <div className={cn("min-w-20 rounded-2xl border border-white/12 bg-background/55 shadow-sm backdrop-blur-md", compact ? "px-2.5 py-1.5" : "px-3 py-2")}>
+    <div className={cn("min-w-20 rounded-lg border border-border bg-background", compact ? "px-2.5 py-1.5" : "px-3 py-2")}>
       <div className="font-mono text-[9.5px] uppercase tracking-[0.12em] text-muted-foreground">{label}</div>
       <div className={cn("mt-0.5 font-semibold tracking-tight", compact ? "text-sm" : "text-base")}>{value}</div>
     </div>
@@ -1334,7 +1332,7 @@ function actionStateMeta(state: ActionButtonState, labels: ReturnType<typeof use
     return {
       label: labels.buttonDisabled,
       icon: null,
-      badgeClassName: "border-white/10 bg-muted/35 text-muted-foreground",
+      badgeClassName: "border-border bg-muted/35 text-muted-foreground",
     }
   }
   return {
@@ -1364,7 +1362,7 @@ function proofStepMeta(state: ProofStepState) {
     }
   }
   return {
-    className: "border-white/10 bg-card/35",
+    className: "border-border bg-card/70",
     icon: <Route className="size-3.5 text-muted-foreground" />,
   }
 }
@@ -1376,7 +1374,7 @@ function runStringField(run: WorkflowRunResult | null, key: string) {
 }
 
 function Field({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
-  return <label className="flex flex-col gap-1 text-xs text-muted-foreground">{label}<input className="h-9 rounded-2xl border border-white/12 bg-background/55 px-3 text-sm text-foreground shadow-inner backdrop-blur-md focus:border-signal/45 focus:outline-none" value={value} onChange={(e) => onChange(e.target.value)} /></label>
+  return <label className="flex flex-col gap-1 text-xs text-muted-foreground">{label}<input className="h-9 rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:border-signal/45 focus:outline-none" value={value} onChange={(e) => onChange(e.target.value)} /></label>
 }
 
 function OptionSelect({ label, value, values, onChange }: { label: string; value: string; values: string[]; onChange: (v: string) => void }) {
@@ -1386,7 +1384,7 @@ function OptionSelect({ label, value, values, onChange }: { label: string; value
       <select
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="h-9 rounded-2xl border border-white/12 bg-background/55 px-3 text-sm text-foreground shadow-inner backdrop-blur-md focus:border-signal/45 focus:outline-none"
+        className="h-9 rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:border-signal/45 focus:outline-none"
       >
         {values.map((item) => <option key={item} value={item}>{item}</option>)}
       </select>
@@ -1399,7 +1397,7 @@ function ShotCountStepper({ label, decreaseLabel, increaseLabel, value, min, max
   const steps = Array.from({ length: max - min + 1 }, (_, index) => min + index)
 
   return (
-    <div className="col-span-2 rounded-2xl border border-white/12 bg-background/55 px-3 py-2 shadow-sm backdrop-blur-md">
+    <div className="col-span-2 rounded-lg border border-border bg-background px-3 py-2">
       <div className="flex items-center justify-between gap-3">
         <span className="text-xs text-muted-foreground">{label}</span>
         <div className="flex items-center gap-2">
@@ -1407,7 +1405,7 @@ function ShotCountStepper({ label, decreaseLabel, increaseLabel, value, min, max
             type="button"
             disabled={safeValue <= min}
             onClick={() => onChange(clampNumber(safeValue - 1, min, max))}
-            className="grid size-7 place-items-center rounded-full border border-white/12 bg-card/55 text-muted-foreground transition hover:border-signal/35 hover:text-foreground disabled:opacity-40"
+            className="grid size-7 place-items-center rounded-md border border-border bg-card text-muted-foreground transition hover:bg-accent hover:text-foreground disabled:opacity-40"
             aria-label={decreaseLabel}
           >
             <Minus className="size-3.5" />
@@ -1417,7 +1415,7 @@ function ShotCountStepper({ label, decreaseLabel, increaseLabel, value, min, max
             type="button"
             disabled={safeValue >= max}
             onClick={() => onChange(clampNumber(safeValue + 1, min, max))}
-            className="grid size-7 place-items-center rounded-full border border-white/12 bg-card/55 text-muted-foreground transition hover:border-signal/35 hover:text-foreground disabled:opacity-40"
+            className="grid size-7 place-items-center rounded-md border border-border bg-card text-muted-foreground transition hover:bg-accent hover:text-foreground disabled:opacity-40"
             aria-label={increaseLabel}
           >
             <Plus className="size-3.5" />
@@ -1434,10 +1432,10 @@ function ShotCountStepper({ label, decreaseLabel, increaseLabel, value, min, max
               type="button"
               onClick={() => onChange(step)}
               className={cn(
-                "relative h-7 flex-1 rounded-full border text-[10px] transition",
-                active && "border-signal/50 bg-signal/20 font-semibold text-signal shadow-[0_0_20px_-12px] shadow-signal",
+                "relative h-7 flex-1 rounded-md border text-[10px] transition",
+                active && "border-signal/50 bg-signal/20 font-semibold text-signal",
                 !active && filled && "border-signal/25 bg-signal/10 text-signal/80",
-                !active && !filled && "border-white/10 bg-card/35 text-muted-foreground/70 hover:border-signal/30 hover:text-foreground",
+                !active && !filled && "border-border bg-card text-muted-foreground/70 hover:border-signal/30 hover:text-foreground",
               )}
               aria-pressed={active}
             >
@@ -1453,10 +1451,10 @@ function ShotCountStepper({ label, decreaseLabel, increaseLabel, value, min, max
 function RangeField({ label, value, min, max, unit = "s", onChange }: { label: string; value: number; min: number; max: number; unit?: string; onChange: (value: number) => void }) {
   const safeValue = clampNumber(value, min, max)
   return (
-    <div className="flex flex-col gap-2 rounded-2xl border border-white/12 bg-background/55 px-3 py-2 shadow-sm backdrop-blur-md">
+    <div className="flex flex-col gap-2 rounded-lg border border-border bg-background px-3 py-2">
       <span className="flex items-center justify-between text-xs text-muted-foreground">
         <span>{label}</span>
-        <span className="rounded-full border border-signal/25 bg-signal/10 px-2 py-0.5 font-mono text-sm text-signal">{safeValue}{unit}</span>
+        <span className="rounded-md border border-signal/25 bg-signal/10 px-2 py-0.5 font-mono text-sm text-signal">{safeValue}{unit}</span>
       </span>
       <Slider
         aria-label={label}
