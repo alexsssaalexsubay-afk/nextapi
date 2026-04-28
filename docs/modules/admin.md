@@ -41,6 +41,20 @@ Admin is the source of truth for operator-configurable product behavior. These s
 
 Admin-configurable does not mean user-invisible. If a setting changes provider, model, price, entitlement, fallback, quota, or output availability, the affected user surface must expose the practical effect.
 
+### AI Director runtime status
+
+The admin AI provider page must expose the effective NextAPI Director runtime
+policy without leaking operator secrets:
+
+- Show whether the internal sidecar is configured, whether callback auth is
+  configured, and whether fallback is enabled or fail-closed.
+- Show only booleans and policy names. Do not return or render sidecar URLs,
+  callback URLs, runtime tokens, provider keys, or upstream vendor branding.
+- Keep the public engine label as `advanced` and the product brand as
+  `NextAPI Director`.
+- Make the invariant visible: storage uses `nextapi_assets`, task status uses
+  `nextapi_workflow_jobs`, and billing uses `nextapi_billing`.
+
 ## Invariants
 - Admin actions never bypass the ledger — every change is auditable.
 - The shared `ADMIN_TOKEN` is never sent to browser JavaScript.

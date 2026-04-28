@@ -93,9 +93,32 @@ type DirectorJobsSummary = {
   unavailable_why?: string
 }
 
+type DirectorRuntimePolicy = {
+  product_brand: string
+  public_engine: string
+  storage_mode: string
+  task_status_mode: string
+  billing_mode: string
+  workflow_output_schema: string
+  provider_keys_exposed: boolean
+  upstream_exposed: boolean
+}
+
+type DirectorRuntimeConfig = {
+  sidecar_configured: boolean
+  sidecar_token_configured: boolean
+  callback_configured: boolean
+  callback_token_configured: boolean
+  fallback_enabled: boolean
+  fail_closed: boolean
+  ready_for_sidecar: boolean
+  policy: DirectorRuntimePolicy
+}
+
 type AIDirectorAdminStatus = {
   providers: Array<{ type: string; configured: boolean; default_id?: string; model?: string }>
   active_vips: number
+  runtime?: DirectorRuntimeConfig
   metering?: DirectorMeteringSummary
   jobs?: DirectorJobsSummary
   usage_notice: string
@@ -376,6 +399,7 @@ export default function AIProvidersPage() {
                 <div>{directorStatus?.active_vips ?? 0}</div>
               </div>
             </div>
+            <DirectorRuntimePanel runtime={directorStatus?.runtime} copy={p} />
             <CapabilityMatrix providers={providers} directorStatus={directorStatus} copy={p} />
             <DirectorJobsPanel jobs={directorStatus?.jobs} copy={p} />
             <DirectorMeteringPanel metering={directorStatus?.metering} copy={p} />
@@ -423,6 +447,72 @@ export default function AIProvidersPage() {
         </div>
       </div>
     </AdminShell>
+  )
+}
+
+function DirectorRuntimePanel({
+  runtime,
+  copy,
+}: {
+  runtime?: DirectorRuntimeConfig
+  copy: ReturnType<typeof useTranslations>["admin"]["aiProvidersPage"]
+}) {
+  const policy = runtime?.policy
+  const ready = Boolean(runtime?.ready_for_sidecar)
+  return (
+    <div className="mb-5 rounded-xl border border-border bg-background/55 p-3" data-admin-director-runtime>
+      <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h3 className="text-sm font-medium">{copy.runtimeTitle}</h3>
+          <p className="mt-1 max-w-3xl text-xs leading-relaxed text-muted-foreground">{copy.runtimeHint}</p>
+        </div>
+        <span className={`rounded-md border px-2 py-1 font-mono text-[10px] uppercase tracking-[0.1em] ${ready ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600" : "border-amber-500/30 bg-amber-500/10 text-amber-600"}`}>
+          {ready ? copy.runtimeReady : copy.runtimeNeedsConfig}
+        </span>
+      </div>
+      <div className="grid gap-2 text-xs md:grid-cols-3 xl:grid-cols-6">
+        <RuntimeFlag label={copy.runtimeSidecar} active={Boolean(runtime?.sidecar_configured)} copy={copy} />
+        <RuntimeFlag label={copy.runtimeSidecarAuth} active={Boolean(runtime?.sidecar_token_configured)} copy={copy} />
+        <RuntimeFlag label={copy.runtimeCallback} active={Boolean(runtime?.callback_configured)} copy={copy} />
+        <RuntimeFlag label={copy.runtimeCallbackAuth} active={Boolean(runtime?.callback_token_configured)} copy={copy} />
+        <RuntimeFlag label={copy.runtimeFallback} active={Boolean(runtime?.fallback_enabled)} copy={copy} enabledTone />
+        <RuntimeFlag label={copy.runtimeFailClosed} active={Boolean(runtime?.fail_closed)} copy={copy} enabledTone />
+      </div>
+      <div className="mt-3 grid gap-2 text-xs md:grid-cols-2 xl:grid-cols-4">
+        <CapabilityLine label={copy.runtimeProduct} value={policy?.product_brand ?? "NextAPI Director"} />
+        <CapabilityLine label={copy.runtimeEngine} value={policy?.public_engine ?? "advanced"} mono />
+        <CapabilityLine label={copy.runtimeStorage} value={policy?.storage_mode ?? "nextapi_assets"} mono />
+        <CapabilityLine label={copy.runtimeTaskStatus} value={policy?.task_status_mode ?? "nextapi_workflow_jobs"} mono />
+        <CapabilityLine label={copy.runtimeBilling} value={policy?.billing_mode ?? "nextapi_billing"} mono />
+        <CapabilityLine label={copy.runtimePolicy} value={policy?.workflow_output_schema ?? "nextapi.director.storyboard.v1"} mono />
+        <CapabilityLine label={copy.runtimeNoExternalKeys} value={policy?.provider_keys_exposed ? copy.disabled : copy.enabled} />
+        <CapabilityLine label={copy.runtimeUpstreamHidden} value={policy?.upstream_exposed ? copy.disabled : copy.enabled} />
+      </div>
+    </div>
+  )
+}
+
+function RuntimeFlag({
+  label,
+  active,
+  enabledTone = false,
+  copy,
+}: {
+  label: string
+  active: boolean
+  enabledTone?: boolean
+  copy: ReturnType<typeof useTranslations>["admin"]["aiProvidersPage"]
+}) {
+  const tone = active
+    ? enabledTone ? "border-sky-500/30 bg-sky-500/10 text-sky-600" : "border-emerald-500/30 bg-emerald-500/10 text-emerald-600"
+    : "border-border bg-card/45 text-muted-foreground"
+  return (
+    <div className={`rounded-lg border p-2.5 ${tone}`}>
+      <div className="font-medium text-foreground">{label}</div>
+      <div className="mt-1 font-mono text-[10px] uppercase tracking-[0.1em]">
+        {active ? (enabledTone ? copy.enabled : copy.configured) : (enabledTone ? copy.disabled : copy.notConfigured)}
+      </div>
+    </div>
   )
 }
 

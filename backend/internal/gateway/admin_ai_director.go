@@ -88,6 +88,28 @@ type aiDirectorJobsSummary struct {
 	UnavailableWhy string               `json:"unavailable_why,omitempty"`
 }
 
+type aiDirectorRuntimePolicy struct {
+	ProductBrand         string `json:"product_brand"`
+	PublicEngine         string `json:"public_engine"`
+	StorageMode          string `json:"storage_mode"`
+	TaskStatusMode       string `json:"task_status_mode"`
+	BillingMode          string `json:"billing_mode"`
+	WorkflowOutputSchema string `json:"workflow_output_schema"`
+	ProviderKeysExposed  bool   `json:"provider_keys_exposed"`
+	UpstreamExposed      bool   `json:"upstream_exposed"`
+}
+
+type aiDirectorRuntimeConfig struct {
+	SidecarConfigured       bool                    `json:"sidecar_configured"`
+	SidecarTokenConfigured  bool                    `json:"sidecar_token_configured"`
+	CallbackConfigured      bool                    `json:"callback_configured"`
+	CallbackTokenConfigured bool                    `json:"callback_token_configured"`
+	FallbackEnabled         bool                    `json:"fallback_enabled"`
+	FailClosed              bool                    `json:"fail_closed"`
+	ReadyForSidecar         bool                    `json:"ready_for_sidecar"`
+	Policy                  aiDirectorRuntimePolicy `json:"policy"`
+}
+
 func (h *AdminHandlers) AdminAIDirectorStatus(c *gin.Context) {
 	type providerStatus struct {
 		Type       string `json:"type"`
@@ -130,6 +152,7 @@ func (h *AdminHandlers) AdminAIDirectorStatus(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"providers":    providers,
 		"active_vips":  activeVIPs,
+		"runtime":      adminDirectorRuntimeConfig(),
 		"metering":     metering,
 		"jobs":         jobs,
 		"usage_notice": "VIP access unlocks AI Director, but every live generation still consumes credits.",
@@ -375,6 +398,49 @@ func runtimeVideoProviderStatus() (bool, string, string) {
 		return true, "runtime:seedance-relay", model
 	default:
 		return false, "", ""
+	}
+}
+
+func adminDirectorRuntimeConfig() aiDirectorRuntimeConfig {
+	sidecarConfigured := strings.TrimSpace(os.Getenv("VIMAX_RUNTIME_URL")) != ""
+	sidecarTokenConfigured := strings.TrimSpace(os.Getenv("DIRECTOR_SIDECAR_TOKEN")) != ""
+	callbackConfigured := strings.TrimSpace(os.Getenv("DIRECTOR_RUNTIME_CALLBACK_URL")) != ""
+	callbackTokenConfigured := strings.TrimSpace(os.Getenv("DIRECTOR_RUNTIME_TOKEN")) != ""
+	fallbackEnabled := adminDirectorRuntimeAllowFallback()
+	return aiDirectorRuntimeConfig{
+		SidecarConfigured:       sidecarConfigured,
+		SidecarTokenConfigured:  sidecarTokenConfigured,
+		CallbackConfigured:      callbackConfigured,
+		CallbackTokenConfigured: callbackTokenConfigured,
+		FallbackEnabled:         fallbackEnabled,
+		FailClosed:              !fallbackEnabled,
+		ReadyForSidecar:         sidecarConfigured && sidecarTokenConfigured && callbackConfigured && callbackTokenConfigured,
+		Policy: aiDirectorRuntimePolicy{
+			ProductBrand:         "NextAPI Director",
+			PublicEngine:         "advanced",
+			StorageMode:          "nextapi_assets",
+			TaskStatusMode:       "nextapi_workflow_jobs",
+			BillingMode:          "nextapi_billing",
+			WorkflowOutputSchema: "nextapi.director.storyboard.v1",
+			ProviderKeysExposed:  false,
+			UpstreamExposed:      false,
+		},
+	}
+}
+
+func adminDirectorRuntimeAllowFallback() bool {
+	if envFlag("VIMAX_RUNTIME_DISABLE_FALLBACK") {
+		return false
+	}
+	return envFlag("VIMAX_RUNTIME_ALLOW_FALLBACK")
+}
+
+func envFlag(key string) bool {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv(key))) {
+	case "1", "true", "yes", "on":
+		return true
+	default:
+		return false
 	}
 }
 
