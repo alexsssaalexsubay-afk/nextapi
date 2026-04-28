@@ -16,9 +16,9 @@ interface ServiceResult {
 
 const ENDPOINTS: { key: string; label: string; url: string; method: "GET" | "HEAD"; cors: boolean }[] = [
   { key: "api", label: "API Gateway", url: "https://api.nextapi.top/health", method: "GET", cors: true },
-  { key: "app", label: "Dashboard (app)", url: "https://app.nextapi.top/sign-in", method: "HEAD", cors: false },
-  { key: "admin", label: "Admin", url: "https://admin.nextapi.top/sign-in", method: "HEAD", cors: false },
-  { key: "home", label: "Marketing Site", url: "https://nextapi.top", method: "HEAD", cors: false },
+  { key: "app", label: "Dashboard (app)", url: "https://app.nextapi.top/health", method: "GET", cors: true },
+  { key: "admin", label: "Admin", url: "https://admin.nextapi.top/health", method: "GET", cors: true },
+  { key: "home", label: "Marketing Site", url: "/health", method: "GET", cors: true },
 ]
 
 const TIMEOUT_MS = 5000
@@ -44,11 +44,9 @@ async function checkEndpoint(
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS)
   const t0 = Date.now()
   try {
-    // For the API we read the real /health JSON so a 503 actually shows
+    // Read real /health JSON where possible so a 503 actually shows
     // as "down" instead of being hidden behind a no-cors opaque response.
-    // For the SSR Workers (app / admin) and the static marketing site we
-    // stick to no-cors because we don't (and shouldn't) put CORS on a
-    // user-facing HTML response — the catch branch catches actual outages.
+    // User-facing HTML routes stay out of this probe path.
     const res = await fetch(url, {
       method,
       mode: cors ? "cors" : "no-cors",

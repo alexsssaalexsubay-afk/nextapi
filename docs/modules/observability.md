@@ -11,6 +11,12 @@ Know when it breaks, know why, know how fast.
 
 Backend exposes `GET /metrics`. Scraped by `ops/prometheus/prometheus.yml`.
 
+## Health Checks
+- API: `GET https://api.nextapi.top/health` and `GET /v1/health`.
+- Dashboard Worker: `GET https://app.nextapi.top/health` returns public JSON with app name, build SHA, and build time.
+- Admin Worker: `GET https://admin.nextapi.top/health` returns public JSON with app name, build SHA, and build time.
+- Marketing site: `GET https://nextapi.top/health` is a static JSON probe because the site is exported to Cloudflare Pages.
+
 ## Logs
 - Structured JSON via zap.
 - Collected by promtail → Loki (see `ops/loki`, `ops/promtail`).

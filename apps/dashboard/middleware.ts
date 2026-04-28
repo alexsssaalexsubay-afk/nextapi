@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server"
 
-const publicPrefixes = ["/sign-in", "/sign-up", "/forgot-password", "/reset-password"]
+const publicPrefixes = ["/health", "/sign-in", "/sign-up", "/forgot-password", "/reset-password"]
 
 export default function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
