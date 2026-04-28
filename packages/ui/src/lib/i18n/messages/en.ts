@@ -1837,12 +1837,14 @@ export const en = {
       description:
         "Every job that trips an operator rule lands here. Resolutions are one-click and always write to the audit log.",
       meta: {
-        open: "7 open",
-        oldest: "oldest 44m",
+        open: "open",
+        liveSources: "live jobs + moderation events",
+        partial: "partial data source failure",
         autoAssigned: "auto-assigned to on-call",
       },
       editRules: "Edit rules",
       bulkResolve: "Bulk resolve",
+      actionsUnavailable: "Rule editing and bulk resolve are not connected to backend handlers yet, so they are disabled instead of pretending to work.",
       columns: {
         sev: "sev",
         job: "job",
@@ -1860,6 +1862,7 @@ export const en = {
         title: "Active rules",
         description:
           "Every rule below has fired at least once in the last 30 days. Disable a rule only with a runbook link.",
+        pending: "live stats pending",
       },
     },
     auditPage: {
@@ -2147,6 +2150,15 @@ export const en = {
       missingImageHint: "Add an image provider before storyboard/reference image generation can run.",
       missingVideoHint: "Keep Seedance video routing visible here; add or enable a video provider when admin-managed routing is needed.",
       missingAvatarHint: "Avatar/digital human models are tracked separately from generic video and remain offline until an OmniHuman-style provider is enabled.",
+      directorMeteringTitle: "Director call audit",
+      directorMeteringHint: "Tracks AI Director text/image provider calls so operators can see real usage, estimated cost, and failures.",
+      directorMeteringUnavailable: "Director call audit is unavailable. Confirm the database migration has run.",
+      calls24h: "24h calls",
+      units24h: "24h units",
+      rated24h: "24h estimate",
+      noDirectorMetering: "No Director audit rows yet. Real script or storyboard image generations will appear here.",
+      units: "Units",
+      cost: "Cost",
       activeVIPs: "Active VIP orgs",
       orgID: "Org ID",
       loadVIP: "Load VIP",

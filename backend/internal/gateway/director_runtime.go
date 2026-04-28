@@ -49,7 +49,7 @@ func (h *DirectorRuntimeHandlers) TextCompletion(c *gin.Context) {
 		httpx.BadRequest(c, "invalid_request", "invalid request body")
 		return
 	}
-	ctx := aiprovider.WithUserID(aiprovider.WithOrgID(c.Request.Context(), strings.TrimSpace(req.OrgID)), strings.TrimSpace(req.UserID))
+	ctx := aiprovider.WithDirectorMetering(aiprovider.WithUserID(aiprovider.WithOrgID(c.Request.Context(), strings.TrimSpace(req.OrgID)), strings.TrimSpace(req.UserID)))
 	out, err := h.Text.GenerateTextWithProvider(ctx, req.ProviderID, req.Messages, req.Options)
 	if err != nil {
 		httpx.WriteError(c, http.StatusServiceUnavailable, "text_provider_unavailable", "text provider is unavailable")
@@ -71,7 +71,7 @@ func (h *DirectorRuntimeHandlers) ImageGeneration(c *gin.Context) {
 		httpx.BadRequest(c, "invalid_request", "invalid request body")
 		return
 	}
-	ctx := aiprovider.WithUserID(aiprovider.WithOrgID(c.Request.Context(), strings.TrimSpace(req.OrgID)), strings.TrimSpace(req.UserID))
+	ctx := aiprovider.WithDirectorMetering(aiprovider.WithUserID(aiprovider.WithOrgID(c.Request.Context(), strings.TrimSpace(req.OrgID)), strings.TrimSpace(req.UserID)))
 	out, err := h.Image.GenerateImageWithProvider(ctx, req.ProviderID, req.Prompt, req.Options)
 	if err != nil {
 		httpx.WriteError(c, http.StatusServiceUnavailable, "image_provider_unavailable", "image provider is unavailable")

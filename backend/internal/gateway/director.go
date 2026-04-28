@@ -79,7 +79,7 @@ func (h *DirectorHandlers) GenerateShots(c *gin.Context) {
 		return
 	}
 	req.OrgID = org.ID
-	ctx := aiprovider.WithOrgID(c.Request.Context(), org.ID)
+	ctx := aiprovider.WithDirectorMetering(aiprovider.WithOrgID(c.Request.Context(), org.ID))
 	out, err := h.Service.GenerateShots(ctx, req)
 	if err != nil {
 		handleDirectorError(c, err)
@@ -164,7 +164,7 @@ func (h *DirectorHandlers) RunDirectorMode(c *gin.Context) {
 		Characters:      req.Characters,
 		TextProviderID:  req.TextProviderID,
 	}
-	ctx := aiprovider.WithOrgID(c.Request.Context(), org.ID)
+	ctx := aiprovider.WithDirectorMetering(aiprovider.WithOrgID(c.Request.Context(), org.ID))
 	storyboard, err := h.Service.GenerateShots(ctx, shotsReq)
 	if err != nil {
 		handleDirectorError(c, err)
@@ -277,7 +277,7 @@ func (h *DirectorHandlers) GenerateShotImages(c *gin.Context) {
 		req.Shots[i].ReferenceImageURL = ""
 		req.Shots[i].ReferenceImageAssetID = ""
 	}
-	ctx := aiprovider.WithOrgID(c.Request.Context(), org.ID)
+	ctx := aiprovider.WithDirectorMetering(aiprovider.WithOrgID(c.Request.Context(), org.ID))
 	shots, err := h.Service.GenerateShotImages(ctx, req)
 	if err != nil {
 		handleDirectorError(c, err)

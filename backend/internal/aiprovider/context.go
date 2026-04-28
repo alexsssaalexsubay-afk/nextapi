@@ -5,8 +5,9 @@ import "context"
 type contextKey string
 
 const (
-	contextOrgID  contextKey = "nextapi.ai_provider.org_id"
-	contextUserID contextKey = "nextapi.ai_provider.user_id"
+	contextOrgID            contextKey = "nextapi.ai_provider.org_id"
+	contextUserID           contextKey = "nextapi.ai_provider.user_id"
+	contextDirectorMetering contextKey = "nextapi.ai_provider.director_metering"
 )
 
 // WithOrgID annotates provider calls so usage logs can be attributed to an org.
@@ -39,4 +40,15 @@ func userIDFromContext(ctx context.Context) string {
 		return ""
 	}
 	return value
+}
+
+// WithDirectorMetering marks provider calls that belong to AI Director flows.
+// The runtime writes usage rows to director_metering for audit/cost analysis.
+func WithDirectorMetering(ctx context.Context) context.Context {
+	return context.WithValue(ctx, contextDirectorMetering, true)
+}
+
+func directorMeteringFromContext(ctx context.Context) bool {
+	value, ok := ctx.Value(contextDirectorMetering).(bool)
+	return ok && value
 }

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"math"
 	"net/http"
 	"os"
 	"strings"
@@ -367,6 +368,117 @@ func (r *Runtime) log(ctx context.Context, prov *domain.AIProvider, request stri
 		UsageJSON:       usage,
 		Error:           sanitizeErr(err),
 	})
+	r.logDirectorMetering(ctx, prov, usage, err)
+}
+
+func (r *Runtime) logDirectorMetering(ctx context.Context, prov *domain.AIProvider, usage json.RawMessage, err error) {
+	if !directorMeteringFromContext(ctx) || prov == nil || r.service == nil || r.service.db == nil {
+		return
+	}
+	orgID := orgIDFromContext(ctx)
+	if orgID == nil || strings.TrimSpace(*orgID) == "" {
+		return
+	}
+	units := meteredUnits(prov.Type, usage, err)
+	cents := int64(0)
+	status := "recorded"
+	if err != nil {
+		status = "failed"
+	} else {
+		cents = meteredCents(*prov, units)
+		if cents > 0 {
+			status = "rated"
+		}
+	}
+	if len(usage) == 0 {
+		usage = json.RawMessage(`{}`)
+	}
+	if err != nil {
+		usage, _ = json.Marshal(map[string]any{"error": sanitizeErr(err)})
+	}
+	_ = r.service.db.WithContext(ctx).Create(&domain.DirectorMetering{
+		OrgID:          *orgID,
+		ProviderID:     &prov.ID,
+		MeterType:      directorMeterType(prov.Type),
+		Units:          units,
+		EstimatedCents: cents,
+		ActualCents:    cents,
+		CreditsDelta:   0,
+		Status:         status,
+		UsageJSON:      usage,
+	}).Error
+}
+
+func directorMeterType(providerType string) string {
+	switch providerType {
+	case domain.AIProviderTypeText:
+		return string(domain.ReasonTextGeneration)
+	case domain.AIProviderTypeImage:
+		return string(domain.ReasonImageGeneration)
+	default:
+		return providerType
+	}
+}
+
+func meteredCents(prov domain.AIProvider, units float64) int64 {
+	if units <= 0 {
+		return 0
+	}
+	var cfg ProviderConfig
+	_ = json.Unmarshal(prov.ConfigJSON, &cfg)
+	switch prov.Type {
+	case domain.AIProviderTypeText:
+		if cfg.MeterCentsPer1KTokens <= 0 {
+			return 0
+		}
+		return int64(math.Ceil(units * float64(cfg.MeterCentsPer1KTokens) / 1000))
+	case domain.AIProviderTypeImage:
+		if cfg.MeterCentsPerImage <= 0 {
+			return 0
+		}
+		return int64(math.Ceil(units * float64(cfg.MeterCentsPerImage)))
+	default:
+		return 0
+	}
+}
+
+func meteredUnits(providerType string, usage json.RawMessage, err error) float64 {
+	if err != nil {
+		return 0
+	}
+	if providerType == domain.AIProviderTypeImage {
+		return 1
+	}
+	if len(usage) == 0 {
+		return 0
+	}
+	var raw map[string]any
+	if json.Unmarshal(usage, &raw) != nil {
+		return 0
+	}
+	if total := numberField(raw, "total_tokens", "totalTokens", "total_token_count"); total > 0 {
+		return total
+	}
+	return numberField(raw, "input_tokens", "output_tokens", "prompt_tokens", "completion_tokens", "cached_tokens")
+}
+
+func numberField(raw map[string]any, keys ...string) float64 {
+	total := 0.0
+	for _, key := range keys {
+		switch v := raw[key].(type) {
+		case float64:
+			total += v
+		case int:
+			total += float64(v)
+		case int64:
+			total += float64(v)
+		case json.Number:
+			if n, err := v.Float64(); err == nil {
+				total += n
+			}
+		}
+	}
+	return total
 }
 
 func summarizeMessages(messages []Message) string {

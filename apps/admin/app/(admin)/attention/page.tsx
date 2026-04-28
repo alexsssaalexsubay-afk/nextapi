@@ -199,11 +199,11 @@ export default function AttentionQueuePage() {
       description={p.description}
       meta={
         <>
-          <span>{p.meta.open}</span>
+          <span>{rows.length} {p.meta.open}</span>
           <span className="text-muted-foreground/50">·</span>
-          <span>{p.meta.oldest}</span>
+          <span>{p.meta.liveSources}</span>
           <span className="text-muted-foreground/50">·</span>
-          <span>{p.meta.autoAssigned}</span>
+          <span>{loadError ? p.meta.partial : p.meta.autoAssigned}</span>
           {loading && (
             <>
               <span className="text-muted-foreground/50">·</span>
@@ -214,10 +214,20 @@ export default function AttentionQueuePage() {
       }
       actions={
         <>
-          <button className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border/80 bg-card/40 px-3 text-[12px] text-foreground hover:bg-card">
+          <button
+            type="button"
+            disabled
+            title={p.actionsUnavailable}
+            className="inline-flex h-8 cursor-not-allowed items-center gap-1.5 rounded-md border border-border/80 bg-card/40 px-3 text-[12px] text-muted-foreground opacity-60"
+          >
             {p.editRules}
           </button>
-          <button className="inline-flex h-8 items-center gap-1.5 rounded-md bg-foreground px-3 text-[12px] font-medium text-background hover:bg-foreground/90">
+          <button
+            type="button"
+            disabled
+            title={p.actionsUnavailable}
+            className="inline-flex h-8 cursor-not-allowed items-center gap-1.5 rounded-md bg-foreground/60 px-3 text-[12px] font-medium text-background opacity-60"
+          >
             {p.bulkResolve}
           </button>
         </>
@@ -278,10 +288,10 @@ export default function AttentionQueuePage() {
                   {r.credits}
                 </span>
                 <div className="flex items-center gap-1 justify-self-end">
-                  <button className="rounded-md border border-border/80 bg-card/40 px-2 py-0.5 text-[10.5px] text-foreground hover:bg-card">
+                  <Link href={r.id.startsWith("mod_") ? "/audit" : `/jobs?job=${encodeURIComponent(r.id)}`} className="rounded-md border border-border/80 bg-card/40 px-2 py-0.5 text-[10.5px] text-foreground hover:bg-card">
                     {p.actions.inspect}
-                  </button>
-                  <button className="rounded-md bg-foreground px-2 py-0.5 text-[10.5px] font-medium text-background hover:bg-foreground/90">
+                  </Link>
+                  <button type="button" disabled title={p.actionsUnavailable} className="cursor-not-allowed rounded-md bg-foreground/60 px-2 py-0.5 text-[10.5px] font-medium text-background opacity-60">
                     {p.actions.resolve}
                   </button>
                 </div>
@@ -296,14 +306,14 @@ export default function AttentionQueuePage() {
             {p.activeRules.description}
           </p>
           <ul className="mt-4 grid grid-cols-1 gap-2 font-mono text-[11.5px] md:grid-cols-2">
-            <Rule expr="upstream_timeout > 300s" hits="12 / 30d" />
-            <Rule expr="webhook.retries > 5" hits="4 / 30d" />
-            <Rule expr="queued > ETA + 60s" hits="38 / 30d" />
-            <Rule expr="reservation.unsettled > 10m" hits="9 / 30d" />
-            <Rule expr="content_policy.manual_review" hits="21 / 30d" />
-            <Rule expr="billed != reserved" hits="2 / 30d" />
-            <Rule expr="cdn.upload.failed" hits="17 / 30d" />
-            <Rule expr="error_rate(org, 1h) > 15%" hits="3 / 30d" />
+            <Rule expr="upstream_timeout > 300s" hits={p.activeRules.pending} />
+            <Rule expr="webhook.retries > 5" hits={p.activeRules.pending} />
+            <Rule expr="queued > ETA + 60s" hits={p.activeRules.pending} />
+            <Rule expr="reservation.unsettled > 10m" hits={p.activeRules.pending} />
+            <Rule expr="content_policy.manual_review" hits={p.activeRules.pending} />
+            <Rule expr="billed != reserved" hits={p.activeRules.pending} />
+            <Rule expr="cdn.upload.failed" hits={p.activeRules.pending} />
+            <Rule expr="error_rate(org, 1h) > 15%" hits={p.activeRules.pending} />
           </ul>
         </section>
       </div>

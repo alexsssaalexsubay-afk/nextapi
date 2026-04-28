@@ -31,9 +31,30 @@ type ProviderLog = {
   created_at: string
 }
 
+type DirectorMeteringEvent = {
+  id: number
+  org_id: string
+  provider_id?: string
+  meter_type: string
+  units: number
+  estimated_cents: number
+  actual_cents: number
+  status: string
+  created_at: string
+}
+
+type DirectorMeteringSummary = {
+  available: boolean
+  calls_24h: number
+  units_24h: number
+  rated_cents_24h: number
+  recent: DirectorMeteringEvent[]
+}
+
 type AIDirectorAdminStatus = {
   providers: Array<{ type: string; configured: boolean; default_id?: string; model?: string }>
   active_vips: number
+  metering?: DirectorMeteringSummary
   usage_notice: string
 }
 
@@ -313,6 +334,7 @@ export default function AIProvidersPage() {
               </div>
             </div>
             <CapabilityMatrix providers={providers} directorStatus={directorStatus} copy={p} />
+            <DirectorMeteringPanel metering={directorStatus?.metering} copy={p} />
             <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_120px]">
               <Field label={p.orgID} value={vipOrgID} onChange={setVipOrgID} />
               <button type="button" onClick={() => void loadEntitlement()} className="self-end rounded-full border border-white/12 bg-card/55 px-3 py-2 text-sm shadow-sm backdrop-blur-md">{p.loadVIP}</button>
@@ -357,6 +379,64 @@ export default function AIProvidersPage() {
         </div>
       </div>
     </AdminShell>
+  )
+}
+
+function DirectorMeteringPanel({
+  metering,
+  copy,
+}: {
+  metering?: DirectorMeteringSummary
+  copy: ReturnType<typeof useTranslations>["admin"]["aiProvidersPage"]
+}) {
+  const unavailable = !metering || !metering.available
+  return (
+    <div className="mb-5 rounded-3xl border border-white/12 bg-background/35 p-4 shadow-inner backdrop-blur-md">
+      <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h3 className="text-sm font-medium">{copy.directorMeteringTitle}</h3>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {unavailable ? copy.directorMeteringUnavailable : copy.directorMeteringHint}
+          </p>
+        </div>
+      </div>
+      <div className="mb-4 grid gap-2 text-xs md:grid-cols-3">
+        <MetricCard label={copy.calls24h} value={String(metering?.calls_24h ?? 0)} />
+        <MetricCard label={copy.units24h} value={formatCompactNumber(metering?.units_24h ?? 0)} />
+        <MetricCard label={copy.rated24h} value={formatMoney(metering?.rated_cents_24h ?? 0)} />
+      </div>
+      {metering?.recent?.length ? (
+        <div className="space-y-2">
+          {metering.recent.slice(0, 6).map((event) => (
+            <div key={event.id} className="flex flex-col gap-2 rounded-2xl border border-white/12 bg-card/45 p-3 text-xs shadow-sm backdrop-blur-md md:flex-row md:items-center md:justify-between">
+              <div>
+                <div className="font-medium">{event.meter_type} · {event.status}</div>
+                <div className="mt-1 font-mono text-[10px] text-muted-foreground">
+                  {new Date(event.created_at).toLocaleString()} · org {event.org_id.slice(0, 8)}
+                </div>
+              </div>
+              <div className="flex gap-2 text-muted-foreground">
+                <span>{copy.units}: {formatCompactNumber(event.units)}</span>
+                <span>{copy.cost}: {formatMoney(event.actual_cents)}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="rounded-2xl border border-dashed border-white/12 bg-card/35 p-4 text-xs text-muted-foreground">
+          {copy.noDirectorMetering}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function MetricCard({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-white/12 bg-card/45 p-3 shadow-sm backdrop-blur-md">
+      <div className="text-muted-foreground">{label}</div>
+      <div className="mt-1 font-mono text-sm text-foreground">{value}</div>
+    </div>
   )
 }
 
@@ -498,6 +578,14 @@ function isAvatarModel(model: string, name: string, config?: Record<string, unkn
   const capability = typeof config?.capability === "string" ? config.capability : ""
   const haystack = `${model} ${name} ${capability}`.toLowerCase()
   return haystack.includes("avatar") || haystack.includes("omnihuman") || haystack.includes("digital human") || haystack.includes("数字人")
+}
+
+function formatMoney(cents: number) {
+  return `$${(cents / 100).toFixed(2)}`
+}
+
+function formatCompactNumber(value: number) {
+  return new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 }).format(value)
 }
 
 function Field({ label, value, type = "text", onChange }: { label: string; value: string; type?: string; onChange: (v: string) => void }) {

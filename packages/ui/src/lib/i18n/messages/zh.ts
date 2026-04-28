@@ -1819,12 +1819,14 @@ export const zh: Messages = {
       description:
         "任何触发 operator 规则的任务都会出现在这里。处理操作一键完成，并自动写入审计日志。",
       meta: {
-        open: "7 待处理",
-        oldest: "最早 44 分钟前",
+        open: "待处理",
+        liveSources: "实时任务 + 审核事件",
+        partial: "部分数据源加载失败",
         autoAssigned: "已分配给当班",
       },
       editRules: "编辑规则",
       bulkResolve: "批量处理",
+      actionsUnavailable: "规则编辑和批量处理还没有接入后端，已禁用以避免假操作。",
       columns: {
         sev: "严重度",
         job: "任务",
@@ -1842,6 +1844,7 @@ export const zh: Messages = {
         title: "已生效规则",
         description:
           "下列每条规则在近 30 天内都至少触发过一次。仅在附带应急手册链接时才允许禁用。",
+        pending: "待接入真实统计",
       },
     },
     auditPage: {
@@ -2130,6 +2133,15 @@ export const zh: Messages = {
       missingImageHint: "添加图像 Provider 后，分镜图或参考图生成才能运行。",
       missingVideoHint: "这里会显示 Seedance 视频路由状态；如需后台托管路由，请添加或启用视频 Provider。",
       missingAvatarHint: "数字人/Avatar 与通用视频分开追踪，启用 OmniHuman 类 Provider 后才会上线。",
+      directorMeteringTitle: "Director 调用审计",
+      directorMeteringHint: "统计 AI Director 的文字/图像 Provider 调用，帮助判断真实使用、成本和失败状态。",
+      directorMeteringUnavailable: "Director 调用审计表暂不可用。请确认数据库迁移已执行。",
+      calls24h: "24 小时调用",
+      units24h: "24 小时用量",
+      rated24h: "24 小时估算",
+      noDirectorMetering: "暂无 Director 调用审计。真实生成剧本或分镜图后会出现在这里。",
+      units: "用量",
+      cost: "成本",
       activeVIPs: "有效 VIP 组织",
       orgID: "组织 ID",
       loadVIP: "读取 VIP",

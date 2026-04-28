@@ -246,7 +246,11 @@ export function DashboardShell({
 
       <div className="relative z-10 flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b border-white/10 bg-background/64 px-6 shadow-[0_18px_70px_-58px] shadow-signal backdrop-blur-2xl">
-          <button className="flex h-8 min-w-0 max-w-xl flex-1 items-center gap-2 rounded-full border border-white/12 bg-card/55 px-3 text-left text-[12.5px] text-muted-foreground shadow-sm backdrop-blur-md transition-colors hover:border-signal/30 hover:bg-card">
+          <button
+            type="button"
+            onClick={() => router.push("/jobs")}
+            className="flex h-8 min-w-0 max-w-xl flex-1 items-center gap-2 rounded-full border border-white/12 bg-card/55 px-3 text-left text-[12.5px] text-muted-foreground shadow-sm backdrop-blur-md transition-colors hover:border-signal/30 hover:bg-card"
+          >
             <Search className="size-3.5" />
             <span className="flex-1">{t.common.typeToSearch}</span>
             <Kbd>⌘K</Kbd>

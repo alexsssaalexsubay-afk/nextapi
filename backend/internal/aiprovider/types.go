@@ -45,6 +45,8 @@ type ProviderInput struct {
 }
 
 type ProviderConfig struct {
-	APIStyle         string `json:"api_style,omitempty"`
-	AnthropicVersion string `json:"anthropic_version,omitempty"`
+	APIStyle              string `json:"api_style,omitempty"`
+	AnthropicVersion      string `json:"anthropic_version,omitempty"`
+	MeterCentsPer1KTokens int64  `json:"meter_cents_per_1k_tokens,omitempty"`
+	MeterCentsPerImage    int64  `json:"meter_cents_per_image,omitempty"`
 }

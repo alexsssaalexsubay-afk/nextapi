@@ -255,7 +255,11 @@ export function AdminShell({
             </span>
           </div>
           <div className="ml-auto flex items-center gap-3">
-            <button className="flex h-7 items-center gap-2 rounded-full border border-white/12 bg-card/55 px-2.5 text-[11.5px] text-muted-foreground shadow-sm backdrop-blur-md hover:text-foreground">
+            <button
+              type="button"
+              onClick={() => router.push("/jobs")}
+              className="flex h-7 items-center gap-2 rounded-full border border-white/12 bg-card/55 px-2.5 text-[11.5px] text-muted-foreground shadow-sm backdrop-blur-md hover:text-foreground"
+            >
               <span>{t.admin.shell.jumpTo}</span>
               <Kbd>⌘K</Kbd>
             </button>

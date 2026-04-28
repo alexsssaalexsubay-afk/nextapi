@@ -110,6 +110,48 @@ func TestRuntimeLogUsesContextAttribution(t *testing.T) {
 	if row.UserID != "user1" {
 		t.Fatalf("user attribution = %q; want user1", row.UserID)
 	}
+	var meteringRows int64
+	if err := db.Model(&domain.DirectorMetering{}).Count(&meteringRows).Error; err != nil {
+		t.Fatalf("count director metering: %v", err)
+	}
+	if meteringRows != 0 {
+		t.Fatalf("director metering should require explicit context marker, got %d rows", meteringRows)
+	}
+}
+
+func TestRuntimeLogWritesDirectorMetering(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	migrateAIProviderTestTables(t, db)
+	prov := domain.AIProvider{
+		ID:         "provider_text",
+		Name:       "Text Provider",
+		Type:       domain.AIProviderTypeText,
+		Provider:   "openai",
+		Model:      "gpt-test",
+		Enabled:    true,
+		ConfigJSON: json.RawMessage(`{"meter_cents_per_1k_tokens":200}`),
+	}
+	if err := db.Create(&prov).Error; err != nil {
+		t.Fatalf("create provider: %v", err)
+	}
+
+	runtime := NewRuntime(NewService(db))
+	ctx := WithDirectorMetering(WithOrgID(context.Background(), "org1"))
+	runtime.log(ctx, &prov, "director request", json.RawMessage(`{"total_tokens":1500}`), nil)
+
+	var row domain.DirectorMetering
+	if err := db.First(&row).Error; err != nil {
+		t.Fatalf("load director metering: %v", err)
+	}
+	if row.OrgID != "org1" || row.ProviderID == nil || *row.ProviderID != prov.ID {
+		t.Fatalf("bad attribution: %+v", row)
+	}
+	if row.MeterType != string(domain.ReasonTextGeneration) || row.Units != 1500 || row.ActualCents != 300 || row.Status != "rated" {
+		t.Fatalf("bad metering row: %+v", row)
+	}
 }
 
 func migrateAIProviderTestTables(t *testing.T, db *gorm.DB) {
@@ -146,5 +188,24 @@ func migrateAIProviderTestTables(t *testing.T, db *gorm.DB) {
 	)`).Error
 	if err != nil {
 		t.Fatalf("migrate ai_provider_logs: %v", err)
+	}
+	err = db.Exec(`CREATE TABLE director_metering (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		org_id TEXT NOT NULL,
+		director_job_id TEXT,
+		step_id TEXT,
+		job_id TEXT,
+		provider_id TEXT,
+		meter_type TEXT NOT NULL,
+		units REAL NOT NULL DEFAULT 0,
+		estimated_cents INTEGER NOT NULL DEFAULT 0,
+		actual_cents INTEGER NOT NULL DEFAULT 0,
+		credits_delta INTEGER NOT NULL DEFAULT 0,
+		status TEXT NOT NULL DEFAULT 'recorded',
+		usage_json TEXT NOT NULL DEFAULT '{}',
+		created_at DATETIME
+	)`).Error
+	if err != nil {
+		t.Fatalf("migrate director_metering: %v", err)
 	}
 }

@@ -1,6 +1,7 @@
 package gateway
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"os"
@@ -18,6 +19,26 @@ type aiDirectorEntitlementReq struct {
 	Tier      string `json:"tier"`
 	ExpiresAt string `json:"expires_at"`
 	Note      string `json:"note"`
+}
+
+type aiDirectorMeteringEvent struct {
+	ID             int64   `json:"id"`
+	OrgID          string  `json:"org_id"`
+	ProviderID     *string `json:"provider_id,omitempty"`
+	MeterType      string  `json:"meter_type"`
+	Units          float64 `json:"units"`
+	EstimatedCents int64   `json:"estimated_cents"`
+	ActualCents    int64   `json:"actual_cents"`
+	Status         string  `json:"status"`
+	CreatedAt      string  `json:"created_at"`
+}
+
+type aiDirectorMeteringSummary struct {
+	Available     bool                      `json:"available"`
+	Calls24h      int64                     `json:"calls_24h"`
+	Units24h      float64                   `json:"units_24h"`
+	RatedCents24h int64                     `json:"rated_cents_24h"`
+	Recent        []aiDirectorMeteringEvent `json:"recent"`
 }
 
 func (h *AdminHandlers) AdminAIDirectorStatus(c *gin.Context) {
@@ -57,11 +78,52 @@ func (h *AdminHandlers) AdminAIDirectorStatus(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "internal_error"}})
 		return
 	}
+	metering := h.directorMeteringSummary(c.Request.Context())
 	c.JSON(http.StatusOK, gin.H{
 		"providers":    providers,
 		"active_vips":  activeVIPs,
+		"metering":     metering,
 		"usage_notice": "VIP access unlocks AI Director, but every live generation still consumes credits.",
 	})
+}
+
+func (h *AdminHandlers) directorMeteringSummary(ctx context.Context) aiDirectorMeteringSummary {
+	out := aiDirectorMeteringSummary{Available: true, Recent: []aiDirectorMeteringEvent{}}
+	since := time.Now().Add(-24 * time.Hour)
+	var agg struct {
+		Calls int64
+		Units float64
+		Cents int64
+	}
+	if err := h.DB.WithContext(ctx).Raw(`
+		SELECT COUNT(*) AS calls,
+		       COALESCE(SUM(units), 0) AS units,
+		       COALESCE(SUM(actual_cents), 0) AS cents
+		FROM director_metering
+		WHERE created_at >= ?`, since).Scan(&agg).Error; err != nil {
+		return aiDirectorMeteringSummary{Available: false, Recent: []aiDirectorMeteringEvent{}}
+	}
+	out.Calls24h = agg.Calls
+	out.Units24h = agg.Units
+	out.RatedCents24h = agg.Cents
+	var rows []domain.DirectorMetering
+	if err := h.DB.WithContext(ctx).Order("created_at DESC").Limit(20).Find(&rows).Error; err != nil {
+		return aiDirectorMeteringSummary{Available: false, Recent: []aiDirectorMeteringEvent{}}
+	}
+	for _, row := range rows {
+		out.Recent = append(out.Recent, aiDirectorMeteringEvent{
+			ID:             row.ID,
+			OrgID:          row.OrgID,
+			ProviderID:     row.ProviderID,
+			MeterType:      row.MeterType,
+			Units:          row.Units,
+			EstimatedCents: row.EstimatedCents,
+			ActualCents:    row.ActualCents,
+			Status:         row.Status,
+			CreatedAt:      row.CreatedAt.Format(time.RFC3339),
+		})
+	}
+	return out
 }
 
 func (h *AdminHandlers) GetAIDirectorEntitlement(c *gin.Context) {
