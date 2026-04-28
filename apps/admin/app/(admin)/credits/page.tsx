@@ -187,7 +187,12 @@ export default function CreditsPage() {
       }
       actions={
         <>
-          <button className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border/80 bg-card/40 px-3 text-[12px] text-foreground hover:bg-card">
+          <button
+            type="button"
+            disabled
+            title={t.common.disabled}
+            className="inline-flex h-8 cursor-not-allowed items-center gap-1.5 rounded-md border border-border/80 bg-card/40 px-3 text-[12px] text-muted-foreground opacity-60"
+          >
             {p.exportCsv}
           </button>
         </>

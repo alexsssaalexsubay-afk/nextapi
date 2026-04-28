@@ -37,10 +37,20 @@ export default function IncidentsPage() {
       }
       actions={
         <>
-          <button className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border/80 bg-card/40 px-3 text-[12px] text-foreground hover:bg-card">
+          <button
+            type="button"
+            disabled
+            title={t.common.disabled}
+            className="inline-flex h-8 cursor-not-allowed items-center gap-1.5 rounded-md border border-border/80 bg-card/40 px-3 text-[12px] text-muted-foreground opacity-60"
+          >
             {p.postUpdate}
           </button>
-          <button className="inline-flex h-8 items-center gap-1.5 rounded-md bg-foreground px-3 text-[12px] font-medium text-background hover:bg-foreground/90">
+          <button
+            type="button"
+            disabled
+            title={t.common.disabled}
+            className="inline-flex h-8 cursor-not-allowed items-center gap-1.5 rounded-md bg-foreground/60 px-3 text-[12px] font-medium text-background opacity-60"
+          >
             {p.newIncident}
           </button>
         </>

@@ -85,12 +85,22 @@ export default function AdminOverviewPage() {
       }
       actions={
         <>
-          <button className="inline-flex h-8 items-center gap-1.5 rounded-full border border-white/12 bg-card/55 px-3 text-[12px] text-foreground shadow-sm backdrop-blur-md hover:bg-card">
+          <button
+            type="button"
+            disabled
+            title={t.common.disabled}
+            className="inline-flex h-8 cursor-not-allowed items-center gap-1.5 rounded-full border border-white/12 bg-card/40 px-3 text-[12px] text-muted-foreground opacity-60 shadow-sm backdrop-blur-md"
+          >
             {t.common.export}
           </button>
-          <button className="premium-button inline-flex h-8 items-center gap-1.5 rounded-full border border-white/20 bg-[radial-gradient(circle_at_20%_0%,rgba(255,255,255,0.42),transparent_30%),linear-gradient(110deg,#2563eb_0%,#7c3aed_42%,#db2777_100%)] px-3 text-[12px] font-medium text-white">
+          <a
+            href="https://docs.nextapi.top"
+            target="_blank"
+            rel="noreferrer"
+            className="premium-button inline-flex h-8 items-center gap-1.5 rounded-full border border-white/20 bg-[radial-gradient(circle_at_20%_0%,rgba(255,255,255,0.42),transparent_30%),linear-gradient(110deg,#2563eb_0%,#7c3aed_42%,#db2777_100%)] px-3 text-[12px] font-medium text-white"
+          >
             {t.nav.admin.runbooks}
-          </button>
+          </a>
         </>
       }
     >
@@ -158,9 +168,9 @@ export default function AdminOverviewPage() {
               <span className="font-mono text-[10.5px] text-muted-foreground">
                 {t.admin.attention.subtitle}
               </span>
-              <button className="font-mono text-[10.5px] text-muted-foreground hover:text-foreground">
+              <Link href="/attention" className="font-mono text-[10.5px] text-muted-foreground hover:text-foreground">
                 {t.common.configure.toLowerCase()}
-              </button>
+              </Link>
             </div>
           </section>
 
@@ -206,9 +216,9 @@ export default function AdminOverviewPage() {
                 <span className="font-mono text-[10.5px] text-muted-foreground">
                   {t.admin.credits.threshold}: {t.admin.credits.thresholdValue}
                 </span>
-                <button className="font-mono text-[10.5px] text-foreground hover:text-signal">
+                <Link href="/credits" className="font-mono text-[10.5px] text-foreground hover:text-signal">
                   {t.admin.credits.newAdjustment.toLowerCase()}
-                </button>
+                </Link>
               </div>
             </section>
           </div>
@@ -225,12 +235,12 @@ export default function AdminOverviewPage() {
               <StatusPill status="queued" label={t.admin.pulse.unavailable} size="sm" />
             </div>
             <div className="flex items-center gap-2 font-mono text-[11px] text-muted-foreground">
-              <button className="rounded-md border border-border/80 bg-card/40 px-2 py-0.5 text-foreground">
+              <span className="rounded-md border border-border/80 bg-card/40 px-2 py-0.5 text-foreground">
                 {t.admin.liveFeed.allEvents}
-              </button>
-              <button className="rounded-md px-2 py-0.5 hover:text-foreground">job.*</button>
-              <button className="rounded-md px-2 py-0.5 hover:text-foreground">webhook.*</button>
-              <button className="rounded-md px-2 py-0.5 hover:text-foreground">billing.*</button>
+              </span>
+              <span className="rounded-md px-2 py-0.5 text-muted-foreground/60">job.*</span>
+              <span className="rounded-md px-2 py-0.5 text-muted-foreground/60">webhook.*</span>
+              <span className="rounded-md px-2 py-0.5 text-muted-foreground/60">billing.*</span>
             </div>
           </header>
           <OperatorEmptyState icon={Clock3} message={t.admin.overviewPage.noLiveFeed} />

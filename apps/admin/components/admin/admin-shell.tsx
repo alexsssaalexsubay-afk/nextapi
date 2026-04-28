@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import {
   AlertOctagon,
   Bot,
@@ -17,6 +17,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Percent,
+  Search,
   ScrollText,
   ShieldCheck,
   Terminal,
@@ -59,9 +60,24 @@ export function AdminShell({
   const router = useRouter()
   const [signingOut, setSigningOut] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [jumpOpen, setJumpOpen] = useState(false)
+  const [jumpTerm, setJumpTerm] = useState("")
+  const jumpInputRef = useRef<HTMLInputElement | null>(null)
 
   useEffect(() => {
     setSidebarCollapsed(window.localStorage.getItem("nextapi.admin.sidebar.collapsed") === "1")
+  }, [])
+
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault()
+        setJumpOpen(true)
+        jumpInputRef.current?.focus()
+      }
+    }
+    window.addEventListener("keydown", onKeyDown)
+    return () => window.removeEventListener("keydown", onKeyDown)
   }, [])
 
   async function onSignOut() {
@@ -122,6 +138,23 @@ export function AdminShell({
       ],
     },
   ]
+  const commandItems = sections.flatMap((section) =>
+    section.items.map((item) => ({
+      ...item,
+      section: section.heading,
+    })),
+  )
+  const normalizedJump = jumpTerm.trim().toLowerCase()
+  const visibleCommandItems = (normalizedJump
+    ? commandItems.filter((item) => `${item.label} ${item.section} ${item.href}`.toLowerCase().includes(normalizedJump))
+    : commandItems
+  ).slice(0, 8)
+
+  function openCommand(item: { href: string }) {
+    setJumpOpen(false)
+    setJumpTerm("")
+    router.push(item.href)
+  }
 
   return (
     <div className="brand-aurora relative isolate flex min-h-screen flex-col overflow-hidden bg-background">
@@ -255,14 +288,57 @@ export function AdminShell({
             </span>
           </div>
           <div className="ml-auto flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => router.push("/jobs")}
-              className="flex h-7 items-center gap-2 rounded-full border border-white/12 bg-card/55 px-2.5 text-[11.5px] text-muted-foreground shadow-sm backdrop-blur-md hover:text-foreground"
+            <div
+              className="relative flex h-7 w-[220px] items-center gap-2 rounded-full border border-white/12 bg-card/55 px-2.5 text-[11.5px] text-muted-foreground shadow-sm backdrop-blur-md focus-within:border-status-failed/35 focus-within:text-foreground"
+              onBlur={() => window.setTimeout(() => setJumpOpen(false), 120)}
             >
-              <span>{t.admin.shell.jumpTo}</span>
+              <Search className="size-3.5" />
+              <input
+                aria-label={t.admin.shell.jumpTo}
+                ref={jumpInputRef}
+                value={jumpTerm}
+                onFocus={() => setJumpOpen(true)}
+                onChange={(event) => {
+                  setJumpTerm(event.target.value)
+                  setJumpOpen(true)
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Escape") {
+                    setJumpOpen(false)
+                    return
+                  }
+                  if (event.key === "Enter" && visibleCommandItems[0]) {
+                    event.preventDefault()
+                    openCommand(visibleCommandItems[0])
+                  }
+                }}
+                placeholder={t.admin.shell.jumpTo}
+                className="h-full min-w-0 flex-1 bg-transparent text-[11.5px] text-foreground placeholder:text-muted-foreground focus:outline-none"
+              />
               <Kbd>⌘K</Kbd>
-            </button>
+              {jumpOpen && (
+                <div className="absolute right-0 top-[calc(100%+8px)] z-50 w-[280px] overflow-hidden rounded-2xl border border-white/12 bg-popover/95 p-1.5 shadow-2xl shadow-status-failed/10 backdrop-blur-2xl">
+                  {visibleCommandItems.length === 0 ? (
+                    <div className="px-3 py-2 text-xs text-muted-foreground">{t.common.empty}</div>
+                  ) : visibleCommandItems.map((item) => {
+                    const Icon = item.icon
+                    return (
+                      <button
+                        key={`${item.section}-${item.href}`}
+                        type="button"
+                        onMouseDown={(event) => event.preventDefault()}
+                        onClick={() => openCommand(item)}
+                        className="flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-left text-xs text-muted-foreground transition hover:bg-status-failed/10 hover:text-foreground"
+                      >
+                        <Icon className="size-3.5 text-status-failed" />
+                        <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                        <span className="font-mono text-[10px] text-muted-foreground/70">{item.href}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
             <div className="hidden items-center gap-1.5 rounded-full border border-white/12 bg-card/55 px-2 py-1 font-mono text-[11px] text-muted-foreground shadow-sm backdrop-blur-md md:flex">
               <span className="relative inline-flex h-1.5 w-1.5">
                 <span className="absolute inset-0 rounded-full bg-status-success op-pulse" />

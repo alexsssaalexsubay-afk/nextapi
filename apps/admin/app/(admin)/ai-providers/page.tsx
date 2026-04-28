@@ -535,7 +535,12 @@ function capabilityStatus(
   directorStatus: AIDirectorAdminStatus | null,
 ): "live" | "configured" | "missing" {
   const directorProvider = capability === "avatar" ? null : directorStatus?.providers.find((item) => item.type === capability)
-  if (directorProvider?.configured || enabledProviders.some((provider) => provider.is_default)) return "live"
+  if (capability !== "avatar") {
+    if (directorProvider?.configured) return "live"
+    if (enabledProviders.length > 0 || configuredProviders.length > 0 || directorProvider?.model) return "configured"
+    return "missing"
+  }
+  if (enabledProviders.some((provider) => provider.is_default)) return "live"
   if (enabledProviders.length > 0 || configuredProviders.length > 0) return "configured"
   return "missing"
 }

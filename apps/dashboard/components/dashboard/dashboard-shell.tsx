@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import {
@@ -50,6 +50,9 @@ export function DashboardShell({
   const [initials, setInitials] = useState<string>("—")
   const [signingOut, setSigningOut] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [searchTerm, setSearchTerm] = useState("")
+  const searchInputRef = useRef<HTMLInputElement | null>(null)
 
   async function onSignOut() {
     if (signingOut) return
@@ -87,6 +90,18 @@ export function DashboardShell({
       }
     }).catch(() => { /* non-fatal: sidebar still renders */ })
     return () => { cancelled = true }
+  }, [])
+
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault()
+        setSearchOpen(true)
+        searchInputRef.current?.focus()
+      }
+    }
+    window.addEventListener("keydown", onKeyDown)
+    return () => window.removeEventListener("keydown", onKeyDown)
   }, [])
 
   function toggleSidebar() {
@@ -132,6 +147,27 @@ export function DashboardShell({
       ],
     },
   ]
+  const commandItems = sections.flatMap((section) =>
+    section.items.map((item) => ({
+      ...item,
+      section: section.heading,
+    })),
+  )
+  const normalizedSearch = searchTerm.trim().toLowerCase()
+  const visibleCommandItems = (normalizedSearch
+    ? commandItems.filter((item) => `${item.label} ${item.section} ${item.href}`.toLowerCase().includes(normalizedSearch))
+    : commandItems
+  ).slice(0, 8)
+
+  function openCommand(item: { href: string }) {
+    setSearchOpen(false)
+    setSearchTerm("")
+    if (item.href.startsWith("http")) {
+      window.location.assign(item.href)
+      return
+    }
+    router.push(item.href)
+  }
 
   return (
     <div className="brand-aurora relative isolate flex min-h-screen overflow-hidden bg-background">
@@ -246,15 +282,57 @@ export function DashboardShell({
 
       <div className="relative z-10 flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b border-white/10 bg-background/64 px-6 shadow-[0_18px_70px_-58px] shadow-signal backdrop-blur-2xl">
-          <button
-            type="button"
-            onClick={() => router.push("/jobs")}
-            className="flex h-8 min-w-0 max-w-xl flex-1 items-center gap-2 rounded-full border border-white/12 bg-card/55 px-3 text-left text-[12.5px] text-muted-foreground shadow-sm backdrop-blur-md transition-colors hover:border-signal/30 hover:bg-card"
+          <div
+            className="relative flex h-8 min-w-0 max-w-xl flex-1 items-center gap-2 rounded-full border border-white/12 bg-card/55 px-3 text-left text-[12.5px] text-muted-foreground shadow-sm backdrop-blur-md transition-colors focus-within:border-signal/35 focus-within:bg-card"
+            onBlur={() => window.setTimeout(() => setSearchOpen(false), 120)}
           >
             <Search className="size-3.5" />
-            <span className="flex-1">{t.common.typeToSearch}</span>
+            <input
+              aria-label={t.common.typeToSearch}
+              ref={searchInputRef}
+              value={searchTerm}
+              onFocus={() => setSearchOpen(true)}
+              onChange={(event) => {
+                setSearchTerm(event.target.value)
+                setSearchOpen(true)
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "Escape") {
+                  setSearchOpen(false)
+                  return
+                }
+                if (event.key === "Enter" && visibleCommandItems[0]) {
+                  event.preventDefault()
+                  openCommand(visibleCommandItems[0])
+                }
+              }}
+              placeholder={t.common.typeToSearch}
+              className="h-full min-w-0 flex-1 bg-transparent text-[12.5px] text-foreground placeholder:text-muted-foreground focus:outline-none"
+            />
             <Kbd>⌘K</Kbd>
-          </button>
+            {searchOpen && (
+              <div className="absolute left-0 top-[calc(100%+8px)] z-50 w-full min-w-[280px] overflow-hidden rounded-2xl border border-white/12 bg-popover/95 p-1.5 shadow-2xl shadow-signal/10 backdrop-blur-2xl">
+                {visibleCommandItems.length === 0 ? (
+                  <div className="px-3 py-2 text-xs text-muted-foreground">{t.common.empty}</div>
+                ) : visibleCommandItems.map((item) => {
+                  const Icon = item.icon
+                  return (
+                    <button
+                      key={`${item.section}-${item.href}`}
+                      type="button"
+                      onMouseDown={(event) => event.preventDefault()}
+                      onClick={() => openCommand(item)}
+                      className="flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-left text-xs text-muted-foreground transition hover:bg-signal/10 hover:text-foreground"
+                    >
+                      <Icon className="size-3.5 text-signal" />
+                      <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                      <span className="font-mono text-[10px] text-muted-foreground/70">{item.href.startsWith("http") ? "docs" : item.href}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </div>
           <div className="ml-auto flex items-center gap-2">
             <div className="hidden items-center gap-2 rounded-full border border-white/12 bg-card/55 px-3 py-1.5 text-[12px] text-muted-foreground shadow-sm backdrop-blur-md md:inline-flex">
               <span>{t.dashboard.stats.available}</span>
