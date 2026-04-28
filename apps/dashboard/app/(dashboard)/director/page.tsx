@@ -377,12 +377,24 @@ export default function DirectorPage() {
                         </div>
                       </div>
                     </div>
-                    {activeBusyLabel ? (
-                      <span className="inline-flex items-center gap-1.5 rounded-md border border-signal/30 bg-signal/10 px-2 py-1 text-[11px] text-signal">
-                        <Loader2 className="size-3 animate-spin" />
-                        {activeBusyLabel}
-                      </span>
-                    ) : null}
+                    <div className="flex min-w-0 items-center gap-2">
+                      <ActionStatusStrip
+                        labels={labels}
+                        items={[
+                          { label: labels.actionDirector, state: directorActionState },
+                          { label: labels.actionShots, state: shotsActionState },
+                          { label: labels.actionImages, state: imagesActionState },
+                          { label: labels.actionWorkflow, state: workflowActionState },
+                        ]}
+                        className="hidden max-w-[560px] md:flex"
+                      />
+                      {activeBusyLabel ? (
+                        <span className="inline-flex items-center gap-1.5 rounded-md border border-signal/30 bg-signal/10 px-2 py-1 text-[11px] text-signal">
+                          <Loader2 className="size-3 animate-spin" />
+                          {activeBusyLabel}
+                        </span>
+                      ) : null}
+                    </div>
                   </div>
                   <PipelineStepper steps={pipelineSteps} activeId={activePipelineStep} loading={loading} compact />
                 </div>
@@ -1491,6 +1503,36 @@ function ActionStatusRail({
           )
         })}
       </div>
+    </div>
+  )
+}
+
+function ActionStatusStrip({
+  labels,
+  items,
+  className,
+}: {
+  labels: ReturnType<typeof useTranslations>["directorPage"]
+  items: Array<{ label: string; state: ActionButtonState }>
+  className?: string
+}) {
+  return (
+    <div className={cn("min-w-0 items-center gap-1.5 overflow-x-auto rounded-lg border border-border bg-background/70 p-1.5 scroll-thin", className)} aria-label={labels.actionStatesTitle} data-director-action-strip>
+      <span className="shrink-0 px-1.5 font-mono text-[9.5px] uppercase tracking-[0.12em] text-muted-foreground">
+        {labels.actionStatesTitle}
+      </span>
+      {items.map((item) => {
+        const meta = actionStateMeta(item.state, labels)
+        return (
+          <span key={item.label} className={cn("inline-flex shrink-0 items-center gap-1.5 rounded-md border px-2 py-1 text-[10.5px]", meta.badgeClassName)}>
+            <span className="font-medium text-current">{item.label}</span>
+            <span className="inline-flex items-center gap-1 font-mono text-[9px] uppercase tracking-[0.1em] opacity-90">
+              {meta.icon}
+              {meta.label}
+            </span>
+          </span>
+        )
+      })}
     </div>
   )
 }

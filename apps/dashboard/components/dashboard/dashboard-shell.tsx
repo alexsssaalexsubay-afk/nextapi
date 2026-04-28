@@ -58,6 +58,7 @@ export function DashboardShell({
   const [navigationOpen, setNavigationOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
+  const navigationMenuRef = useRef<HTMLDivElement | null>(null)
   const searchInputRef = useRef<HTMLInputElement | null>(null)
 
   async function onSignOut() {
@@ -106,10 +107,24 @@ export function DashboardShell({
         setSearchOpen(true)
         searchInputRef.current?.focus()
       }
+      if (event.key === "Escape") {
+        setNavigationOpen(false)
+        setSearchOpen(false)
+      }
     }
     window.addEventListener("keydown", onKeyDown)
     return () => window.removeEventListener("keydown", onKeyDown)
   }, [])
+
+  useEffect(() => {
+    if (!navigationOpen) return
+    function onPointerDown(event: PointerEvent) {
+      if (navigationMenuRef.current?.contains(event.target as Node)) return
+      setNavigationOpen(false)
+    }
+    window.addEventListener("pointerdown", onPointerDown)
+    return () => window.removeEventListener("pointerdown", onPointerDown)
+  }, [navigationOpen])
 
   function toggleSidebar() {
     setSidebarCollapsed((value) => {
@@ -165,6 +180,7 @@ export function DashboardShell({
     ? commandItems.filter((item) => `${item.label} ${item.section} ${item.href}`.toLowerCase().includes(normalizedSearch))
     : commandItems
   ).slice(0, 8)
+  const activeCommandItem = commandItems.find((item) => item.href === activeHref)
 
   function openCommand(item: { href: string }) {
     setSearchOpen(false)
@@ -293,7 +309,7 @@ export function DashboardShell({
               <Link href="/" className="grid size-8 shrink-0 place-items-center rounded-lg border border-border bg-card" aria-label="NextAPI dashboard">
                 <Logo withWordmark={false} />
               </Link>
-              <div className="relative">
+              <div className="relative" ref={navigationMenuRef}>
                 <button
                   type="button"
                   onClick={() => setNavigationOpen((value) => !value)}
@@ -301,10 +317,10 @@ export function DashboardShell({
                   aria-label={t.common.expandSidebar}
                   aria-expanded={navigationOpen}
                 >
-                  <PanelLeftOpen className="size-4" />
+                  {navigationOpen ? <PanelLeftClose className="size-4" /> : <PanelLeftOpen className="size-4" />}
                 </button>
                 {navigationOpen ? (
-                  <div className="absolute left-0 top-[calc(100%+8px)] z-50 w-72 overflow-hidden rounded-lg border border-border bg-popover p-2 shadow-lg">
+                  <div className="absolute left-0 top-[calc(100%+8px)] z-50 w-72 overflow-hidden rounded-lg border border-border bg-popover p-2 shadow-lg" data-immersive-nav-menu>
                     {sections.map((section) => (
                       <div key={section.heading} className="mb-2 last:mb-0">
                         <div className="px-2 py-1 font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">{section.heading}</div>
@@ -317,6 +333,7 @@ export function DashboardShell({
                                 key={`${section.heading}-${item.href}`}
                                 type="button"
                                 onClick={() => openCommand(item)}
+                                aria-current={active ? "page" : undefined}
                                 className={cn(
                                   "flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-xs transition",
                                   active ? "bg-accent text-foreground" : "text-muted-foreground hover:bg-accent hover:text-foreground",
@@ -334,9 +351,8 @@ export function DashboardShell({
                   </div>
                 ) : null}
               </div>
-              <div className="min-w-0">
-                <div className="truncate text-[13px] font-medium tracking-tight text-foreground">{title ?? "NextAPI"}</div>
-                {description ? <div className="hidden max-w-[420px] truncate text-[11px] text-muted-foreground md:block">{description}</div> : null}
+              <div className="flex min-w-0 items-center gap-2" data-immersive-workspace-title title={description ?? undefined}>
+                <span className="truncate text-[13px] font-medium tracking-tight text-foreground">{title ?? activeCommandItem?.label ?? "NextAPI"}</span>
               </div>
             </div>
           ) : (
