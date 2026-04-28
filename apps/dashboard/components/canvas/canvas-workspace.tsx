@@ -10,6 +10,7 @@ import {
   MiniMap,
   Position,
   ReactFlow,
+  ViewportPortal,
   type Connection,
   type Edge,
   type Node,
@@ -194,6 +195,7 @@ export function CanvasWorkspace() {
   const durationMax = selectedVideoCapability?.maxDurationSeconds ?? 15
   const resolutionOptions = selectedVideoCapability?.supportedResolutions?.length ? selectedVideoCapability.supportedResolutions : RESOLUTIONS
   const ratioOptions = selectedVideoCapability?.supportedAspectRatios?.length ? selectedVideoCapability.supportedAspectRatios : RATIOS
+  const attachedInspector = selectedNode ? attachedInspectorFrame(selectedNode) : null
 
   useEffect(() => {
     listLibraryAssets("image")
@@ -444,24 +446,35 @@ export function CanvasWorkspace() {
             <Background />
             <MiniMap pannable zoomable />
             <Controls />
+            {selectedNode && attachedInspector ? (
+              <ViewportPortal>
+                <div
+                  className="nodrag nopan absolute z-20"
+                  style={{
+                    transform: `translate(${attachedInspector.x}px, ${attachedInspector.y}px)`,
+                    width: attachedInspector.width,
+                  }}
+                  data-canvas-attached-inspector={String(selectedNode.data.node_type || "")}
+                >
+                  <NodeInspector
+                    node={selectedNode}
+                    assets={assets}
+                    labels={labels}
+                    uploadingImage={uploadingImage}
+                    durationMin={durationMin}
+                    durationMax={durationMax}
+                    resolutionOptions={resolutionOptions}
+                    ratioOptions={ratioOptions}
+                    availableModelIds={videoCatalog.modelIds}
+                    onUploadImage={uploadImageForSelectedNode}
+                    onChange={updateSelectedData}
+                  />
+                </div>
+              </ViewportPortal>
+            ) : null}
           </ReactFlow>
-          <div className="pointer-events-auto absolute inset-x-3 bottom-3 z-20 grid max-h-[46%] gap-3 lg:grid-cols-[minmax(0,1fr)_320px]">
-            <section className="min-h-0 overflow-hidden rounded-lg border border-border bg-card/94 shadow-sm">
-              <NodeInspector
-                node={selectedNode}
-                assets={assets}
-                labels={labels}
-                uploadingImage={uploadingImage}
-                durationMin={durationMin}
-                durationMax={durationMax}
-                resolutionOptions={resolutionOptions}
-                ratioOptions={ratioOptions}
-                availableModelIds={videoCatalog.modelIds}
-                onUploadImage={uploadImageForSelectedNode}
-                onChange={updateSelectedData}
-              />
-            </section>
-            <section className="min-h-0 overflow-y-auto rounded-lg border border-border bg-card/94 p-3 shadow-sm">
+          <div className="pointer-events-auto absolute bottom-3 right-3 z-20 w-[min(320px,calc(100vw-7rem))]">
+            <section className="max-h-[42vh] overflow-y-auto rounded-lg border border-border bg-card/94 p-3 shadow-sm">
               <RunStatusCard currentVideo={currentVideo} videoURL={videoURL} exportResult={exportResult} labels={labels} />
               {exportResult ? (
                 <div className="mt-3 rounded-lg border border-border bg-background p-3">
@@ -554,10 +567,15 @@ function NodeInspector({
   }
   const type = String(selectedNode.data.node_type) as CanvasNodeType
   return (
-    <div className="min-h-0 flex-1 overflow-y-auto p-4">
-      <div className="mb-3">
-        <div className="text-[12px] font-medium">{labels.inspector}</div>
-        <div className="font-mono text-[10.5px] text-muted-foreground">{type}</div>
+    <div className="max-h-[360px] overflow-y-auto rounded-lg border border-border bg-card/96 p-3 shadow-sm">
+      <div className="mb-3 flex items-start justify-between gap-3">
+        <div>
+          <div className="text-[12px] font-medium">{labels.inspector}</div>
+          <div className="font-mono text-[10.5px] text-muted-foreground">{type}</div>
+        </div>
+        <span className="rounded-md border border-border bg-background px-2 py-1 font-mono text-[9.5px] uppercase tracking-[0.1em] text-muted-foreground">
+          {String(selectedNode.data.label || selectedNode.data.node_type || "node")}
+        </span>
       </div>
       <label className="mb-3 block">
         <span className="mb-1 block text-[11px] text-muted-foreground">{labels.label}</span>
@@ -625,6 +643,23 @@ function NodeInspector({
       ) : null}
     </div>
   )
+}
+
+function attachedInspectorFrame(node: CanvasNode) {
+  const nodeType = String(node.data.node_type || "")
+  const height = node.measured?.height ?? node.height ?? 86
+  const nodeWidth = node.measured?.width ?? node.width ?? 256
+  const preferredWidth =
+    nodeType === "prompt.input" ? 520 :
+      nodeType === "image.input" ? 420 :
+        nodeType === "video.params" ? 360 :
+          nodeType === "seedance.video" ? 380 :
+            320
+  return {
+    x: node.position.x,
+    y: node.position.y + height + 16,
+    width: Math.max(nodeWidth, preferredWidth),
+  }
 }
 
 function RangeField({ label, value, min, max, onChange }: { label: string; value: number; min: number; max: number; onChange: (value: number) => void }) {
