@@ -572,6 +572,40 @@ export const zh: Messages = {
     heroEyebrow: "生产接入路径",
     heroTitle: "从 API Key 到第一次成功的 Seedance 任务。",
     heroBody: "控制台围绕最重要的接入路径组织：创建密钥、提交请求、查看异步状态，并在准备好后接入签名 Webhook。",
+    command: {
+      workspace: "Live 工作区",
+      title: "把生成业务收进一个紧凑的运营台。",
+      subtitle:
+        "点数、密钥、任务、Webhook 和 AI Director 入口保持可见，不再把控制台做成落地页。",
+    },
+    quickActions: {
+      title: "启动动作",
+      subtitle: "从你下一步真正要做的工作流开始。",
+      director: {
+        title: "AI Director",
+        description: "把一句剧情推进到分镜、多镜头任务与成片流程。",
+      },
+      newJob: {
+        title: "单条视频任务",
+        description: "直接提交 Seedance 任务，并查看异步状态。",
+      },
+      keys: {
+        title: "API 密钥",
+        description: "为当前工作区创建或轮换 live / test 密钥。",
+      },
+      usage: {
+        title: "用量与账单",
+        description: "查看计量、冻结与点数流水。",
+      },
+    },
+    readiness: {
+      title: "生产就绪度",
+      subtitle: "可信接入测试前的最小检查点。",
+      progress: "就绪度",
+      done: "正常",
+      optional: "可选",
+      waiting: "等待",
+    },
     firstSuccess: {
       title: "首次成功路径",
       subtitle: "到可信生产测试的最短路径。",
@@ -608,15 +642,15 @@ export const zh: Messages = {
       availableHint: "扣除进行中任务的预留",
       reserved: "已预留",
       activeKeys: "生效密钥",
-      activeKeysHint: "2 个 live · 1 个 test",
-      jobsToday: "任务 · 近 24 小时",
-      jobsTodayHint: "成功率 94.1%",
+      activeKeysHint: "当前工作区的 live 与 test 密钥",
+      jobsToday: "最近任务",
+      jobsTodayHint: "最新加载的任务",
       webhookHealth: "Webhook 投递率",
       webhookHealthHint: "近 7 天",
     },
     recentJobs: {
       title: "最近任务",
-      subtitle: "近 24 小时所有 API 密钥下的任务",
+      subtitle: "所有 API 密钥下的最新任务",
       viewAll: "查看全部任务",
       newJob: "新建任务",
     },

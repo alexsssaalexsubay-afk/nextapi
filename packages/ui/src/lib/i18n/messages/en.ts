@@ -581,6 +581,40 @@ export const en = {
     heroEyebrow: "Production launch path",
     heroTitle: "Get from API key to first successful Seedance job.",
     heroBody: "This console is organized around the integration path that matters: create a key, submit a request, inspect async state, and wire signed webhooks when ready.",
+    command: {
+      workspace: "Live workspace",
+      title: "Operate generation from one compact control surface.",
+      subtitle:
+        "Credits, keys, tasks, webhooks, and Director launches stay visible without turning the dashboard into a landing page.",
+    },
+    quickActions: {
+      title: "Launch actions",
+      subtitle: "Start from the workflow you actually need next.",
+      director: {
+        title: "AI Director",
+        description: "Turn a story into storyboarded multi-shot video runs.",
+      },
+      newJob: {
+        title: "Single video task",
+        description: "Submit a direct Seedance job and inspect async state.",
+      },
+      keys: {
+        title: "API keys",
+        description: "Create or rotate live and test keys for this workspace.",
+      },
+      usage: {
+        title: "Usage and billing",
+        description: "Review metering, reservations, and credit movement.",
+      },
+    },
+    readiness: {
+      title: "Production readiness",
+      subtitle: "The minimum checkpoints before a trusted integration test.",
+      progress: "Readiness",
+      done: "OK",
+      optional: "Optional",
+      waiting: "Waiting",
+    },
     firstSuccess: {
       title: "First-success path",
       subtitle: "The shortest route to a trusted production test.",
@@ -617,15 +651,15 @@ export const en = {
       availableHint: "Net of credits reserved on active jobs",
       reserved: "Reserved",
       activeKeys: "Active keys",
-      activeKeysHint: "2 live · 1 test",
-      jobsToday: "Jobs · last 24h",
-      jobsTodayHint: "94.1% success",
+      activeKeysHint: "Live and test keys in this workspace",
+      jobsToday: "Recent jobs",
+      jobsTodayHint: "Latest loaded jobs",
       webhookHealth: "Webhook delivery",
       webhookHealthHint: "last 7 days",
     },
     recentJobs: {
       title: "Recent jobs",
-      subtitle: "Last 24 hours across all API keys",
+      subtitle: "Latest jobs across all API keys",
       viewAll: "View all jobs",
       newJob: "New job",
     },
