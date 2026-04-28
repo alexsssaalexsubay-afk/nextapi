@@ -22,24 +22,9 @@ type ModelSelectStatusLabels = {
   noMatches?: string
 }
 
-const providerStyles: Record<AIModelCatalogItem["providerSlug"], string> = {
-  nextapi: "from-indigo-500 to-sky-500 text-white",
-  byteplus: "from-violet-500 to-fuchsia-500 text-white",
-  deepseek: "from-slate-700 to-slate-950 text-white",
-  openai: "from-emerald-500 to-teal-500 text-white",
-  anthropic: "from-orange-500 to-rose-500 text-white",
-  google: "from-blue-500 to-emerald-500 text-white",
-  "black-forest": "from-neutral-700 to-stone-950 text-white",
-  qwen: "from-sky-500 to-blue-700 text-white",
-  glm: "from-cyan-500 to-indigo-600 text-white",
-  kimi: "from-blue-950 to-slate-700 text-white",
-  minimax: "from-pink-500 to-orange-500 text-white",
-  kuaishou: "from-orange-500 to-amber-500 text-white",
-}
-
 export function ProviderLogo({ item, className }: { item: AIModelCatalogItem; className?: string }) {
   return (
-    <span className={cn("grid size-7 shrink-0 place-items-center rounded-lg bg-gradient-to-br text-[11px] font-semibold shadow-sm", providerStyles[item.providerSlug], className)}>
+    <span className={cn("grid size-7 shrink-0 place-items-center rounded-lg border border-border bg-muted text-[11px] font-semibold text-foreground", className)}>
       {item.provider === "BytePlus" ? "B+" : item.provider === "OpenAI" ? "AI" : item.provider.slice(0, 1)}
     </span>
   )
@@ -121,7 +106,7 @@ export function ModelSelect({
   if (!selected) return null
 
   const dropdownClassName = cn(
-    "overflow-y-auto overscroll-contain rounded-2xl border border-white/12 bg-popover/96 p-2 text-popover-foreground shadow-[0_24px_80px_-45px_rgba(79,70,229,0.45)] backdrop-blur-2xl scroll-thin",
+    "overflow-y-auto overscroll-contain rounded-lg border border-border bg-popover p-2 text-popover-foreground",
     dropdownMode === "inline"
       ? "relative mt-2 max-h-64 w-full"
       : "absolute left-0 top-full z-[80] mt-2 max-h-[min(22rem,60vh)] w-full min-w-[18rem] max-w-[calc(100vw-2rem)] sm:min-w-[24rem]",
@@ -135,12 +120,12 @@ export function ModelSelect({
         onClick={() => setOpen((value) => !value)}
         aria-expanded={open}
         className={cn(
-          "flex w-full items-center gap-2 rounded-2xl border border-border/80 bg-background px-2.5 text-left text-[13px] shadow-sm transition hover:border-signal/40",
+          "flex w-full items-center gap-2 rounded-lg border border-border bg-background px-2.5 text-left text-[13px] transition hover:border-signal/35",
           dense ? "h-9" : "h-10",
-          open && "border-signal/45 ring-4 ring-signal/10",
+          open && "border-signal/45 bg-card",
         )}
       >
-        <ProviderLogo item={selected} className={cn("rounded-xl", dense ? "size-7" : "size-8")} />
+        <ProviderLogo item={selected} className={cn(dense ? "size-7" : "size-8")} />
         <span className="min-w-0 flex-1">
           <span className="block truncate font-medium text-foreground">{selected.name}</span>
           <span className="block truncate text-[11px] text-muted-foreground">
@@ -153,7 +138,7 @@ export function ModelSelect({
       {open && (
         <div className={dropdownClassName}>
           {items.length > 4 && (
-            <label className="mb-2 flex h-9 items-center gap-2 rounded-xl border border-border/70 bg-background/70 px-2.5 text-[12px] text-muted-foreground">
+            <label className="mb-2 flex h-9 items-center gap-2 rounded-md border border-border bg-background px-2.5 text-[12px] text-muted-foreground">
               <Search className="size-3.5" />
               <input
                 value={query}
@@ -164,17 +149,17 @@ export function ModelSelect({
             </label>
           )}
           {items.length === 0 && (
-            <div className="rounded-xl border border-border/70 bg-muted/35 px-3 py-3 text-[12px] leading-relaxed text-muted-foreground">
+            <div className="rounded-md border border-border bg-muted/35 px-3 py-3 text-[12px] leading-relaxed text-muted-foreground">
               {helper ?? "No models are available for this capability yet."}
             </div>
           )}
           {items.length > 0 && !hasMatches && (
-            <div className="rounded-xl border border-border/70 bg-muted/35 px-3 py-3 text-[12px] leading-relaxed text-muted-foreground">
+            <div className="rounded-md border border-border bg-muted/35 px-3 py-3 text-[12px] leading-relaxed text-muted-foreground">
               {statusLabels?.noMatches ?? "No matching models."}
             </div>
           )}
           {recommendedItems.length > 0 && (
-            <div className="mb-2 rounded-xl border border-signal/20 bg-signal/10 p-1">
+            <div className="mb-2 rounded-lg border border-signal/20 bg-background p-1">
               <div className="flex items-center justify-between px-2 py-1 text-[10px] font-medium uppercase tracking-[0.14em] text-signal">
                 <span>{statusLabels?.recommended ?? "Recommended"}</span>
                 <span>{statusLabels?.bestForFlow ?? "Best fit"}</span>
@@ -237,28 +222,28 @@ function ModelOption({
       disabled={!item.enabled}
       onClick={onPick}
       className={cn(
-        "group flex w-full items-center gap-2.5 rounded-xl px-2.5 py-1.5 text-left transition-all duration-150",
-        active ? "bg-signal/10 ring-1 ring-signal/25" : "hover:bg-muted/70",
-        item.enabled ? "active:scale-[0.99]" : "cursor-not-allowed opacity-55",
+        "group flex w-full items-center gap-2.5 rounded-md border px-2.5 py-1.5 text-left transition-colors",
+        active ? "border-signal/30 bg-signal/10" : "border-transparent hover:border-border hover:bg-muted/55",
+        item.enabled ? "" : "cursor-not-allowed opacity-55",
       )}
     >
-      <ProviderLogo item={item} className="size-8 rounded-xl" />
+      <ProviderLogo item={item} className="size-8" />
       <span className="min-w-0 flex-1">
         <span className="flex min-w-0 items-center gap-2">
           <span className="truncate text-[13px] font-medium">{item.name}</span>
-          <span className="shrink-0 rounded-full border border-border/70 bg-background/45 px-1.5 py-0.5 text-[10px] text-muted-foreground">
+          <span className="shrink-0 rounded-md border border-border bg-background px-1.5 py-0.5 text-[10px] text-muted-foreground">
             {modelStatusLabel(item, statusLabels)}
           </span>
         </span>
         <span className="mt-0.5 block truncate text-[11px] text-muted-foreground">{item.description}</span>
         <span className="mt-1 flex flex-wrap gap-1">
           {item.tier && (
-            <span className="rounded-full border border-white/10 bg-card/45 px-1.5 py-0.5 text-[10px] text-muted-foreground">
+            <span className="rounded-md border border-border bg-card px-1.5 py-0.5 text-[10px] text-muted-foreground">
               {tierLabel(item.tier, statusLabels)}
             </span>
           )}
           {(item.capabilities ?? []).slice(0, 2).map((capability) => (
-            <span key={capability} className="rounded-full border border-signal/20 bg-signal/10 px-1.5 py-0.5 text-[10px] text-signal">
+            <span key={capability} className="rounded-md border border-border bg-background px-1.5 py-0.5 text-[10px] text-muted-foreground">
               {capability.replace("_", " ")}
             </span>
           ))}

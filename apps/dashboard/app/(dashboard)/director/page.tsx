@@ -471,7 +471,7 @@ export default function DirectorPage() {
               >
                 {busyStage === "director" ? labels.working : `${labels.generateDirectorWorkflow} · ${estimatedBudget}`}
               </ActionButton>
-              <div className="mt-3 flex items-center justify-between gap-3">
+              <div className="mt-3 grid gap-2">
                 <p className="text-[11.5px] leading-relaxed text-muted-foreground">
                   {labels.runAllHint} {labels.estimateHint}: {estimatedBudget} · {shotCount} {labels.shotUnit} · {shotCount * duration}s · {labels.maxParallel} {maxParallel}.
                 </p>
@@ -481,7 +481,7 @@ export default function DirectorPage() {
                   onClick={() => void generate()}
                   labels={labels}
                   compact
-                  className="h-8 shrink-0"
+                  className="h-8 w-full"
                   icon={<Film className="size-3.5" />}
                 >
                   {labels.generateShots}
@@ -553,9 +553,12 @@ export default function DirectorPage() {
                 labels={labels}
               />
               {storyboard ? (
-                storyboard.shots.map((shot, index) => (
-                  <ShotCard key={`${shot.shotIndex}-${index}`} shot={shot} index={index} labels={labels} onChange={(patch) => updateShot(index, patch)} />
-                ))
+                <>
+                  <ShotTimelineMap shots={storyboard.shots} labels={labels} />
+                  {storyboard.shots.map((shot, index) => (
+                    <ShotCard key={`${shot.shotIndex}-${index}`} shot={shot} index={index} labels={labels} onChange={(patch) => updateShot(index, patch)} />
+                  ))}
+                </>
               ) : (
                 <EmptyStoryboard labels={labels} />
               )}
@@ -607,6 +610,7 @@ function ActionButton({
         variant === "signal" && "border-signal/30 bg-signal/10 text-signal hover:bg-signal/15 disabled:opacity-55",
         state === "success" && "border-status-success/35 bg-status-success/10 text-status-success",
         state === "error" && "border-destructive/40 bg-destructive/10 text-destructive",
+        state === "disabled" && "border-border bg-muted/35 text-muted-foreground hover:bg-muted/35 disabled:opacity-100",
         className,
       )}
     >
@@ -634,7 +638,7 @@ function ActionStatusRail({
   return (
     <div className="mt-3 rounded-lg border border-border bg-background/70 p-2">
       <div className="mb-2 font-mono text-[9.5px] uppercase tracking-[0.14em] text-muted-foreground">{labels.actionStatesTitle}</div>
-      <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
+      <div className="grid gap-1.5">
         {items.map((item) => {
           const meta = actionStateMeta(item.state, labels)
           return (
@@ -809,7 +813,7 @@ function ClosedLoopRail({
           {labels.loopNoSilentFallback}
         </span>
       </div>
-      <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="mt-3 grid gap-2 sm:grid-cols-2 2xl:grid-cols-3">
         {steps.map((step) => (
           <ProofStep key={step.key} label={step.label} evidence={step.evidence} state={step.state} />
         ))}
@@ -1087,6 +1091,58 @@ function EmptyStoryboard({ labels }: { labels: ReturnType<typeof useTranslations
   )
 }
 
+function ShotTimelineMap({ shots, labels }: { shots: DirectorShot[]; labels: ReturnType<typeof useTranslations>["directorPage"] }) {
+  let cursor = 0
+  const segments = shots.map((shot, index) => {
+    const duration = clampNumber(Number(shot.duration || 0), 1, 60)
+    const start = cursor
+    cursor += duration
+    return {
+      shot,
+      index,
+      duration,
+      start,
+      end: cursor,
+    }
+  })
+  const hasReferences = shots.filter((shot) => Boolean(shot.referenceImageUrl)).length
+
+  return (
+    <section className="rounded-lg border border-border bg-background/70 p-3" aria-label={labels.shotTimeline}>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-signal">{labels.shotTimeline}</p>
+          <p className="mt-1 text-[12px] text-muted-foreground">
+            {formatTimelineTime(cursor)} · {shots.length} {labels.shotUnit} · {labels.memoryReferenceCount.replace("{count}", String(hasReferences))} / {shots.length}
+          </p>
+        </div>
+        <span className="rounded-md border border-border bg-card px-2 py-1 font-mono text-[10px] text-muted-foreground">
+          {labels.totalRuntime}: {formatTimelineTime(cursor)}
+        </span>
+      </div>
+      <ol className="mt-3 flex gap-1.5 overflow-x-auto pb-1">
+        {segments.map((segment) => (
+          <li key={`${segment.shot.shotIndex}-${segment.index}`} className="min-w-32 flex-1 rounded-md border border-border bg-card px-2 py-2">
+            <div className="flex items-center justify-between gap-2">
+              <span className="rounded-md border border-signal/25 bg-signal/10 px-1.5 py-0.5 font-mono text-[10px] text-signal">
+                S{segment.shot.shotIndex || segment.index + 1}
+              </span>
+              <span className="font-mono text-[10px] text-muted-foreground">
+                {formatTimelineTime(segment.start)}-{formatTimelineTime(segment.end)}
+              </span>
+            </div>
+            <p className="mt-2 truncate text-[12px] font-medium text-foreground">{segment.shot.title || labels.planOnly}</p>
+            <div className="mt-2 flex items-center justify-between gap-2 text-[10.5px] text-muted-foreground">
+              <span className="truncate">{segment.shot.camera || labels.camera}</span>
+              <span>{segment.duration}s</span>
+            </div>
+          </li>
+        ))}
+      </ol>
+    </section>
+  )
+}
+
 function ShotCard({ shot, index, labels, onChange }: { shot: DirectorShot; index: number; labels: ReturnType<typeof useTranslations>["directorPage"]; onChange: (patch: Partial<DirectorShot>) => void }) {
   const shotNumber = shot.shotIndex || index + 1
   return (
@@ -1096,7 +1152,7 @@ function ShotCard({ shot, index, labels, onChange }: { shot: DirectorShot; index
           {shot.referenceImageUrl ? (
             <img src={shot.referenceImageUrl} alt={shot.title} className="aspect-[4/5] w-full object-cover" />
           ) : (
-            <div className="grid aspect-[4/5] place-items-center bg-[radial-gradient(circle_at_35%_18%,rgba(124,58,237,0.28),transparent_35%),linear-gradient(145deg,rgba(255,255,255,0.08),rgba(255,255,255,0.02))]">
+            <div className="grid aspect-[4/5] place-items-center bg-muted/35">
               <div className="text-center">
                 <ImageIcon className="mx-auto size-7 text-signal" />
                 <p className="mt-2 px-4 text-[11px] text-muted-foreground">{labels.noReference}</p>
@@ -1487,6 +1543,10 @@ function estimateDirectorVideoCostCents(model: string, shotCount: number, durati
 
 function formatUSD(cents: number) {
   return `$${(Math.max(0, cents) / 100).toFixed(2)}`
+}
+
+function formatTimelineTime(seconds: number) {
+  return `${Math.max(0, Math.round(seconds))}s`
 }
 
 function withCurrent(values: string[], current: string) {
