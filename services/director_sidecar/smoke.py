@@ -84,6 +84,7 @@ def _response_for(prompt: str) -> str:
 
 
 async def _run_smoke() -> dict[str, Any]:
+    _FakeProviderHandler.calls = []
     server = ThreadingHTTPServer(("127.0.0.1", 0), _FakeProviderHandler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
@@ -103,15 +104,24 @@ async def _run_smoke() -> dict[str, Any]:
         )
         result = await ManagedDirectorBridge(Path(os.getenv("NEXTAPI_REPO_ROOT", Path.cwd()))).run(request)
         shots = result.get("storyboard", {}).get("shots", [])
+        audit = result.get("audit", {})
         if len(shots) != 2:
             raise RuntimeError(f"expected 2 shots, got {len(shots)}")
         if len(_FakeProviderHandler.calls) < 3:
             raise RuntimeError(f"expected provider callback calls, got {len(_FakeProviderHandler.calls)}")
+        if audit.get("source") != "vendored_director_pipeline":
+            raise RuntimeError(f"unexpected source: {audit.get('source')}")
+        if "chat_model.ainvoke -> NextAPI textProvider" not in audit.get("replaced_model_exits", []):
+            raise RuntimeError("text provider exit was not replaced by NextAPI")
+        if any(not shot.get("videoPrompt") or not shot.get("imagePrompt") for shot in shots):
+            raise RuntimeError("all shots must include videoPrompt and imagePrompt")
         return {
             "status": "ok",
             "provider_callback_calls": len(_FakeProviderHandler.calls),
             "shot_count": len(shots),
-            "source": result.get("audit", {}).get("source"),
+            "source": audit.get("source"),
+            "reusable_modules": audit.get("reusable_modules", []),
+            "replaced_model_exits": audit.get("replaced_model_exits", []),
         }
     finally:
         server.shutdown()
