@@ -48,6 +48,7 @@ tags:
   - name: billing
   - name: usage
   - name: keys
+  - name: assets
   - name: webhooks
   - name: spend_controls
   - name: moderation
@@ -879,6 +880,35 @@ paths:
       responses:
         '204': { description: Revoked. }
         '404': { $ref: '#/components/responses/NotFound' }
+
+  /me/library/assets:
+    get:
+      tags: [assets]
+      summary: List my reusable media assets
+      operationId: listMyLibraryAssets
+      security: [ { bearerBusiness: [] } ]
+      description: >-
+        Lists org-scoped persistent media assets. By default this returns only
+        image assets for existing reference-image flows. Use kind=video,
+        kind=audio, or kind=all to recover generated media rows such as
+        Director final_asset videos. Manual permanent uploads remain image-only.
+      parameters:
+        - name: kind
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [image, video, audio, all]
+            default: image
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LibraryAssetListResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '503':
+          description: R2-backed asset library is not configured.
 
   /webhooks:
     get:
@@ -2159,6 +2189,34 @@ components:
           items: { $ref: '#/components/schemas/DirectorMetering' }
         totals: { $ref: '#/components/schemas/DirectorRunTotals' }
         final_asset: { $ref: '#/components/schemas/DirectorRunFinalAsset' }
+
+    LibraryAsset:
+      type: object
+      required: [id, kind, filename, content_type, size_bytes, url, generation_url, url_expires_at, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        kind:
+          type: string
+          enum: [image, video, audio]
+        filename: { type: string }
+        content_type: { type: string }
+        size_bytes: { type: integer, format: int64 }
+        url: { type: string, format: uri }
+        generation_url: { type: string, format: uri }
+        url_expires_at: { type: string, format: date-time }
+        created_at: { type: string, format: date-time }
+        seedance_asset_id: { type: string }
+        seedance_asset_url: { type: string, format: uri }
+        seedance_asset_status: { type: string }
+
+    LibraryAssetListResponse:
+      type: object
+      required: [assets, ttl_seconds]
+      properties:
+        assets:
+          type: array
+          items: { $ref: '#/components/schemas/LibraryAsset' }
+        ttl_seconds: { type: integer }
 
     Model:
       type: object

@@ -228,6 +228,12 @@ Existing reusable primitives:
 - `characters`: reusable character records with reference image URLs.
 - `workflow_versions`: Canvas/workflow version history.
 
+Asset-library reads remain conservative: the default library list returns
+images for existing Dashboard reference-image flows, while `kind=video`,
+`kind=audio`, and `kind=all` let Director/Admin recover generated media rows
+such as merged `final_asset` videos. Manual permanent library uploads remain
+image-only until storage tiers and retention policy are explicitly expanded.
+
 New schema anchors added in `00032_director_asset_memory.sql`:
 
 - `director_jobs`: durable Director-level job envelope linking story, workflow, workflow run, batch run, engine evidence, selected characters, plan snapshot, and budget snapshot.

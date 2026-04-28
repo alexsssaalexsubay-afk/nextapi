@@ -13,7 +13,6 @@ import (
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/auth"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/domain"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/provider/uptoken"
-	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/storage/r2"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -28,8 +27,14 @@ import (
 // from exhausting bucket quota and per-file caps mirror the temp upload path.
 type MediaLibraryHandlers struct {
 	DB            *gorm.DB
-	R2            *r2.Client
+	R2            mediaLibraryStorage
 	UpTokenAssets UpTokenAssetProvider
+}
+
+type mediaLibraryStorage interface {
+	Upload(ctx context.Context, key string, body io.Reader, contentType string) error
+	Delete(ctx context.Context, key string) error
+	PresignGet(ctx context.Context, key string, expires time.Duration) (string, error)
 }
 
 type UpTokenAssetProvider interface {
@@ -78,14 +83,14 @@ func (h *MediaLibraryHandlers) List(c *gin.Context) {
 		Where("org_id = ?", org.ID).
 		Order("created_at DESC").
 		Limit(500)
-	// The permanent library is image-only by product policy; ignore any
-	// non-image kind a caller asks for so we never accidentally expose a
-	// row inserted before the policy was tightened.
-	if kind := strings.TrimSpace(c.Query("kind")); kind != "" && kind != "image" {
+	kind, ok := mediaLibraryKindFilter(c.Query("kind"))
+	if !ok {
 		c.JSON(http.StatusOK, gin.H{"assets": []libraryAssetResponse{}, "ttl_seconds": int(libraryAssetTTL.Seconds())})
 		return
 	}
-	q = q.Where("kind = ?", "image")
+	if kind != "" {
+		q = q.Where("kind = ?", kind)
+	}
 
 	var rows []domain.MediaAsset
 	if err := q.Find(&rows).Error; err != nil {
@@ -128,6 +133,20 @@ func (h *MediaLibraryHandlers) List(c *gin.Context) {
 		})
 	}
 	c.JSON(http.StatusOK, gin.H{"assets": out, "ttl_seconds": int(libraryAssetTTL.Seconds())})
+}
+
+func mediaLibraryKindFilter(raw string) (string, bool) {
+	kind := strings.ToLower(strings.TrimSpace(raw))
+	switch kind {
+	case "", string(domain.MediaAssetImage):
+		return string(domain.MediaAssetImage), true
+	case string(domain.MediaAssetVideo), string(domain.MediaAssetAudio):
+		return kind, true
+	case "all":
+		return "", true
+	default:
+		return "", false
+	}
 }
 
 // POST /v1/me/library/assets — multipart with field "file"

@@ -118,12 +118,18 @@ export type DirectorStatus = {
   reason?: string
 }
 
+export type LibraryAssetKind = "image" | "video" | "audio"
+
 export type LibraryAsset = {
   id: string
-  kind: "image" | "video" | "audio"
+  kind: LibraryAssetKind
   filename?: string
+  content_type?: string
+  size_bytes?: number
   url: string
   generation_url?: string
+  url_expires_at?: string
+  created_at?: string
 }
 
 export type TemplateBatchRunResult = {
@@ -305,7 +311,7 @@ export async function runBackendDirectorPipeline(input: {
   }) as Promise<{ plan: DirectorPlan & { engine_used?: DirectorEngineUsed | string; engine_status?: DirectorEngineStatus }; workflow: WorkflowJSON; record?: WorkflowRecord; run?: WorkflowRunResult | null; engine_used?: DirectorEngineUsed | string; engine_status?: DirectorEngineStatus }>
 }
 
-export async function listLibraryAssets(kind = "image"): Promise<LibraryAsset[]> {
+export async function listLibraryAssets(kind: LibraryAssetKind | "all" = "image"): Promise<LibraryAsset[]> {
   const res = await apiFetch(`/v1/me/library/assets?kind=${encodeURIComponent(kind)}`) as { assets?: LibraryAsset[] }
   return Array.isArray(res.assets) ? res.assets : []
 }

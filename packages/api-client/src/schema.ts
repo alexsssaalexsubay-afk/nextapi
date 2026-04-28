@@ -633,6 +633,26 @@ export interface paths {
         patch: operations["updateMyKey"];
         trace?: never;
     };
+    "/me/library/assets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List my reusable media assets
+         * @description Lists org-scoped persistent media assets. By default this returns only image assets for existing reference-image flows. Use kind=video, kind=audio, or kind=all to recover generated media rows such as Director final_asset videos. Manual permanent uploads remain image-only.
+         */
+        get: operations["listMyLibraryAssets"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/webhooks": {
         parameters: {
             query?: never;
@@ -1544,6 +1564,32 @@ export interface components {
             metering: components["schemas"]["DirectorMetering"][];
             totals: components["schemas"]["DirectorRunTotals"];
             final_asset?: components["schemas"]["DirectorRunFinalAsset"];
+        };
+        LibraryAsset: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            kind: "image" | "video" | "audio";
+            filename: string;
+            content_type: string;
+            /** Format: int64 */
+            size_bytes: number;
+            /** Format: uri */
+            url: string;
+            /** Format: uri */
+            generation_url: string;
+            /** Format: date-time */
+            url_expires_at: string;
+            /** Format: date-time */
+            created_at: string;
+            seedance_asset_id?: string;
+            /** Format: uri */
+            seedance_asset_url?: string;
+            seedance_asset_status?: string;
+        };
+        LibraryAssetListResponse: {
+            assets: components["schemas"]["LibraryAsset"][];
+            ttl_seconds: number;
         };
         Model: {
             id: string;
@@ -3000,6 +3046,36 @@ export interface operations {
                 };
             };
             404: components["responses"]["NotFound"];
+        };
+    };
+    listMyLibraryAssets: {
+        parameters: {
+            query?: {
+                kind?: "image" | "video" | "audio" | "all";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LibraryAssetListResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description R2-backed asset library is not configured. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
         };
     };
     listWebhooks: {
