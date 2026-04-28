@@ -217,16 +217,31 @@ func normalizeStoryboard(out *director.Storyboard, in director.GenerateShotsInpu
 			out.Shots[i].Duration = in.DurationPerShot
 		}
 		if out.Shots[i].Duration <= 0 {
+			out.Shots[i].Duration = 5
+		}
+		if out.Shots[i].Duration < 4 {
 			out.Shots[i].Duration = 4
+		}
+		if out.Shots[i].Duration > 15 {
+			out.Shots[i].Duration = 15
 		}
 		if strings.TrimSpace(out.Shots[i].VideoPrompt) == "" || strings.TrimSpace(out.Shots[i].ImagePrompt) == "" {
 			return nil, director.ErrInvalidStoryboard
 		}
+		out.Shots[i].VideoPrompt = ensureVideoPromptTerms(out.Shots[i].VideoPrompt)
 		if out.Shots[i].ReferenceAssets == nil {
 			out.Shots[i].ReferenceAssets = []string{}
 		}
 	}
 	return out, nil
+}
+
+func ensureVideoPromptTerms(prompt string) string {
+	required := "cinematic quality, stable face, same character, consistent clothing, natural body proportions, no distortion, stable camera movement"
+	if strings.Contains(prompt, "stable face") {
+		return prompt
+	}
+	return strings.TrimSpace(prompt) + ", " + required
 }
 
 func managedDirectorUserPrompt(in director.GenerateShotsInput) string {

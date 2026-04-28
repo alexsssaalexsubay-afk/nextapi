@@ -16,11 +16,14 @@ export type DirectorShot = {
   shotIndex: number
   title: string
   duration: number
+  scene?: string
   camera: string
   action: string
   emotion: string
   videoPrompt: string
   imagePrompt?: string
+  negativePrompt?: string
+  referenceAssets?: string[]
   referenceAssetIds?: string[]
   referenceImageUrl?: string
   referenceImageAssetId?: string

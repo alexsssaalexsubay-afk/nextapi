@@ -154,10 +154,14 @@ func BuildWorkflowFromShots(storyboard Storyboard, options WorkflowOptions) (jso
 			workflow.Edge{ID: "edge_" + promptID + "_" + videoID, Source: promptID, Target: videoID},
 			workflow.Edge{ID: "edge_" + paramsID + "_" + videoID, Source: paramsID, Target: videoID},
 		)
-		if strings.TrimSpace(shot.ReferenceImageURL) != "" {
-			imageID := fmt.Sprintf("shot_%d_image", shot.ShotIndex)
-			imageData, _ := json.Marshal(map[string]any{"label": "Reference image", "asset_id": shot.ReferenceImageAssetID, "image_url": shot.ReferenceImageURL, "image_type": "reference"})
-			nodes = append(nodes, workflow.Node{ID: imageID, Type: workflow.NodeImageInput, Position: position(col, 400), Data: imageData})
+		for refIndex, refURL := range referenceImageInputs(shot) {
+			imageID := fmt.Sprintf("shot_%d_image_%d", shot.ShotIndex, refIndex+1)
+			assetID := ""
+			if refIndex == 0 && refURL == strings.TrimSpace(shot.ReferenceImageURL) {
+				assetID = shot.ReferenceImageAssetID
+			}
+			imageData, _ := json.Marshal(map[string]any{"label": "Reference image", "asset_id": assetID, "image_url": refURL, "image_type": "reference"})
+			nodes = append(nodes, workflow.Node{ID: imageID, Type: workflow.NodeImageInput, Position: position(col, 400+refIndex*120), Data: imageData})
 			edges = append(edges, workflow.Edge{ID: "edge_" + imageID + "_" + videoID, Source: imageID, Target: videoID})
 		}
 	}
@@ -254,6 +258,31 @@ func position(x, y int) json.RawMessage {
 	return b
 }
 
+func referenceImageInputs(shot Shot) []string {
+	out := make([]string, 0, len(shot.ReferenceAssets)+1)
+	seen := map[string]struct{}{}
+	add := func(raw string) {
+		raw = strings.TrimSpace(raw)
+		if !isWorkflowImageReference(raw) {
+			return
+		}
+		if _, ok := seen[raw]; ok {
+			return
+		}
+		seen[raw] = struct{}{}
+		out = append(out, raw)
+	}
+	add(shot.ReferenceImageURL)
+	for _, ref := range shot.ReferenceAssets {
+		add(ref)
+	}
+	return out
+}
+
+func isWorkflowImageReference(raw string) bool {
+	return strings.HasPrefix(raw, "https://") || strings.HasPrefix(raw, "asset://ut-asset-")
+}
+
 func applyEngineDefaults(out *Storyboard, requestedEngine string) *Storyboard {
 	if out == nil {
 		return nil
@@ -293,7 +322,13 @@ func normalizeInput(in GenerateShotsInput) (GenerateShotsInput, error) {
 		in.ShotCount = 12
 	}
 	if in.DurationPerShot <= 0 {
+		in.DurationPerShot = 5
+	}
+	if in.DurationPerShot < 4 {
 		in.DurationPerShot = 4
+	}
+	if in.DurationPerShot > 15 {
+		in.DurationPerShot = 15
 	}
 	return in, nil
 }
@@ -319,6 +354,12 @@ func parseStoryboard(raw string, in GenerateShotsInput) (*Storyboard, error) {
 		}
 		if out.Shots[i].Duration <= 0 {
 			out.Shots[i].Duration = in.DurationPerShot
+		}
+		if out.Shots[i].Duration < 4 {
+			out.Shots[i].Duration = 4
+		}
+		if out.Shots[i].Duration > 15 {
+			out.Shots[i].Duration = 15
 		}
 		if strings.TrimSpace(out.Shots[i].VideoPrompt) == "" || strings.TrimSpace(out.Shots[i].ImagePrompt) == "" {
 			return nil, ErrInvalidStoryboard

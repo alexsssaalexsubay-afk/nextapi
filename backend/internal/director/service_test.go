@@ -119,7 +119,7 @@ func TestGenerateShotImagesReturnsProviderError(t *testing.T) {
 }
 
 func TestBuildWorkflowFromShots(t *testing.T) {
-	def, err := BuildWorkflowFromShots(Storyboard{Title: "T", Shots: []Shot{{ShotIndex: 1, Title: "A", Duration: 4, VideoPrompt: "p", NegativePrompt: "n"}}}, WorkflowOptions{})
+	def, err := BuildWorkflowFromShots(Storyboard{Title: "T", Shots: []Shot{{ShotIndex: 1, Title: "A", Duration: 4, VideoPrompt: "p", NegativePrompt: "n", ReferenceAssets: []string{"https://cdn.nextapi.test/ref.png"}}}}, WorkflowOptions{})
 	if err != nil {
 		t.Fatalf("BuildWorkflowFromShots: %v", err)
 	}
@@ -132,13 +132,26 @@ func TestBuildWorkflowFromShots(t *testing.T) {
 	if err := json.Unmarshal(def, &parsed); err != nil {
 		t.Fatalf("json: %v", err)
 	}
-	foundVideo, foundOutput, foundMerge := false, false, false
+	foundVideo, foundOutput, foundMerge, foundImage := false, false, false, false
 	for _, n := range parsed.Nodes {
 		foundVideo = foundVideo || n.Type == "seedance.video"
 		foundOutput = foundOutput || n.Type == "output.preview"
 		foundMerge = foundMerge || n.Type == "video.merge"
+		foundImage = foundImage || n.Type == "image.input"
 	}
-	if !foundVideo || !foundOutput || foundMerge || len(parsed.Edges) == 0 {
+	if !foundVideo || !foundOutput || foundMerge || !foundImage || len(parsed.Edges) == 0 {
 		t.Fatalf("missing expected workflow nodes/edges: %+v", parsed)
+	}
+}
+
+func TestGenerateShotsClampsDurationsForVideoProvider(t *testing.T) {
+	valid := `{"title":"Launch","summary":"A quick launch","shots":[{"shotIndex":1,"title":"Open","duration":99,"scene":"studio","camera":"push in","emotion":"hopeful","action":"founder looks at prototype","videoPrompt":"founder in studio","imagePrompt":"founder portrait","negativePrompt":"blur","referenceAssets":[]}]}`
+	svc := NewService(&fakeText{responses: []string{valid}})
+	out, err := svc.GenerateShots(context.Background(), GenerateShotsInput{Story: "build a launch film", ShotCount: 1, DurationPerShot: 99})
+	if err != nil {
+		t.Fatalf("GenerateShots: %v", err)
+	}
+	if out.Shots[0].Duration != 15 {
+		t.Fatalf("duration=%d want 15", out.Shots[0].Duration)
 	}
 }

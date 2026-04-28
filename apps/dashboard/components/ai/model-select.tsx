@@ -135,7 +135,7 @@ export function ModelSelect({
       </button>
       {helper && <div className="mt-1 text-[11px] leading-relaxed text-muted-foreground">{helper}</div>}
       {open && (
-        <div className="relative z-20 mt-2 max-h-[20rem] w-full overflow-y-auto rounded-2xl border border-white/12 bg-popover/96 p-2 text-popover-foreground shadow-[0_24px_80px_-45px_rgba(79,70,229,0.45)] backdrop-blur-2xl">
+        <div className="absolute left-0 top-full z-50 mt-2 max-h-[20rem] w-full min-w-[18rem] overflow-y-auto rounded-2xl border border-white/12 bg-popover/96 p-2 text-popover-foreground shadow-[0_24px_80px_-45px_rgba(79,70,229,0.45)] backdrop-blur-2xl">
           {items.length > 4 && (
             <label className="mb-2 flex h-9 items-center gap-2 rounded-xl border border-border/70 bg-background/70 px-2.5 text-[12px] text-muted-foreground">
               <Search className="size-3.5" />
