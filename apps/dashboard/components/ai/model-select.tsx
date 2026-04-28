@@ -1,7 +1,7 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
-import { Check, ChevronDown } from "lucide-react"
+import { useEffect, useMemo, useRef, useState } from "react"
+import { Check, ChevronDown, Search } from "lucide-react"
 import { AI_MODEL_CATALOG, type AIModelCatalogItem, type AIModelCategory } from "@/lib/ai-model-catalog"
 import { cn } from "@/lib/utils"
 
@@ -18,6 +18,8 @@ type ModelSelectStatusLabels = {
   tierEconomy?: string
   tierExperimental?: string
   tierCompat?: string
+  searchPlaceholder?: string
+  noMatches?: string
 }
 
 const providerStyles: Record<AIModelCatalogItem["providerSlug"], string> = {
@@ -63,6 +65,7 @@ export function ModelSelect({
   statusLabels?: ModelSelectStatusLabels
 }) {
   const [open, setOpen] = useState(false)
+  const [query, setQuery] = useState("")
   const rootRef = useRef<HTMLDivElement | null>(null)
   const availableModelSet = availableModelIds && availableModelIds.length > 0 ? new Set(availableModelIds) : null
   const items = AI_MODEL_CATALOG.filter((item) =>
@@ -71,10 +74,28 @@ export function ModelSelect({
     (includeDisabled || item.enabled),
   )
   const selected = items.find((item) => item.id === value) ?? AI_MODEL_CATALOG.find((item) => item.id === value) ?? items[0]
-  const recommendedItems = items
+  const normalizedQuery = query.trim().toLowerCase()
+  const filteredItems = useMemo(() => {
+    if (!normalizedQuery) return items
+    return items.filter((item) => {
+      const haystack = [
+        item.name,
+        item.id,
+        item.provider,
+        item.description,
+        item.tier ?? "",
+        ...(item.capabilities ?? []),
+      ].join(" ").toLowerCase()
+      return haystack.includes(normalizedQuery)
+    })
+  }, [items, normalizedQuery])
+  const recommendedItems = (normalizedQuery ? [] : filteredItems)
     .filter((item) => item.enabled && (item.tier === "primary" || item.tier === "advanced" || item.status === "live"))
     .slice(0, 3)
-  const groupedItems = items.reduce<Array<{ provider: string; items: AIModelCatalogItem[] }>>((groups, item) => {
+  const recommendedIds = new Set(recommendedItems.map((item) => item.id))
+  const groupedItems = filteredItems
+    .filter((item) => !recommendedIds.has(item.id))
+    .reduce<Array<{ provider: string; items: AIModelCatalogItem[] }>>((groups, item) => {
     const group = groups.find((entry) => entry.provider === item.provider)
     if (group) {
       group.items.push(item)
@@ -83,6 +104,7 @@ export function ModelSelect({
     }
     return groups
   }, [])
+  const hasMatches = filteredItems.length > 0
 
   useEffect(() => {
     function onPointerDown(event: PointerEvent) {
@@ -113,10 +135,26 @@ export function ModelSelect({
       </button>
       {helper && <div className="mt-1 text-[11px] leading-relaxed text-muted-foreground">{helper}</div>}
       {open && (
-        <div className="absolute z-50 mt-2 max-h-[26rem] w-full overflow-y-auto rounded-2xl border border-white/12 bg-popover/96 p-2 text-popover-foreground shadow-[0_24px_80px_-45px_rgba(79,70,229,0.45)] backdrop-blur-2xl">
+        <div className="relative z-20 mt-2 max-h-[20rem] w-full overflow-y-auto rounded-2xl border border-white/12 bg-popover/96 p-2 text-popover-foreground shadow-[0_24px_80px_-45px_rgba(79,70,229,0.45)] backdrop-blur-2xl">
+          {items.length > 4 && (
+            <label className="mb-2 flex h-9 items-center gap-2 rounded-xl border border-border/70 bg-background/70 px-2.5 text-[12px] text-muted-foreground">
+              <Search className="size-3.5" />
+              <input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder={statusLabels?.searchPlaceholder ?? "Search models..."}
+                className="min-w-0 flex-1 bg-transparent text-foreground outline-none placeholder:text-muted-foreground"
+              />
+            </label>
+          )}
           {items.length === 0 && (
             <div className="rounded-xl border border-border/70 bg-muted/35 px-3 py-3 text-[12px] leading-relaxed text-muted-foreground">
               {helper ?? "No models are available for this capability yet."}
+            </div>
+          )}
+          {items.length > 0 && !hasMatches && (
+            <div className="rounded-xl border border-border/70 bg-muted/35 px-3 py-3 text-[12px] leading-relaxed text-muted-foreground">
+              {statusLabels?.noMatches ?? "No matching models."}
             </div>
           )}
           {recommendedItems.length > 0 && (

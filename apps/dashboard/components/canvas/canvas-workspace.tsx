@@ -21,6 +21,7 @@ import { AlertTriangle, CheckCircle2, Code2, GitBranch, ImageIcon, Loader2, Play
 import { toast } from "sonner"
 import { ModelSelect } from "@/components/ai/model-select"
 import { apiFetch, ApiError } from "@/lib/api"
+import { useVideoModelCatalog } from "@/lib/use-video-model-catalog"
 import {
   createWorkflow,
   exportWorkflowAPI,
@@ -179,8 +180,20 @@ export function CanvasWorkspace() {
   const [assets, setAssets] = useState<LibraryAsset[]>([])
   const [uploadingImage, setUploadingImage] = useState(false)
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const videoCatalog = useVideoModelCatalog()
 
   const selectedNode = useMemo(() => nodes.find((n) => n.id === selectedId) ?? null, [nodes, selectedId])
+  const activeVideoModel = useMemo(() => {
+    const selectedModel = selectedNode?.data.node_type === "seedance.video" ? String(selectedNode.data.model || "") : ""
+    if (selectedModel) return selectedModel
+    const videoNode = nodes.find((item) => item.data.node_type === "seedance.video")
+    return String(videoNode?.data.model || "seedance-2.0-pro")
+  }, [nodes, selectedNode])
+  const selectedVideoCapability = videoCatalog.modelById[activeVideoModel]
+  const durationMin = selectedVideoCapability?.minDurationSeconds ?? 4
+  const durationMax = selectedVideoCapability?.maxDurationSeconds ?? 15
+  const resolutionOptions = selectedVideoCapability?.supportedResolutions?.length ? selectedVideoCapability.supportedResolutions : RESOLUTIONS
+  const ratioOptions = selectedVideoCapability?.supportedAspectRatios?.length ? selectedVideoCapability.supportedAspectRatios : RATIOS
 
   useEffect(() => {
     listLibraryAssets("image")
@@ -438,7 +451,19 @@ export function CanvasWorkspace() {
           </ReactFlow>
         </main>
         <aside className="flex min-h-0 flex-col border-l border-white/10 bg-card/30 backdrop-blur-md">
-          <NodeInspector node={selectedNode} assets={assets} labels={labels} uploadingImage={uploadingImage} onUploadImage={uploadImageForSelectedNode} onChange={updateSelectedData} />
+          <NodeInspector
+            node={selectedNode}
+            assets={assets}
+            labels={labels}
+            uploadingImage={uploadingImage}
+            durationMin={durationMin}
+            durationMax={durationMax}
+            resolutionOptions={resolutionOptions}
+            ratioOptions={ratioOptions}
+            availableModelIds={videoCatalog.modelIds}
+            onUploadImage={uploadImageForSelectedNode}
+            onChange={updateSelectedData}
+          />
           <div className="border-t border-white/10 p-4">
             <RunStatusCard currentVideo={currentVideo} videoURL={videoURL} exportResult={exportResult} labels={labels} />
             {exportResult ? (
@@ -507,6 +532,11 @@ function NodeInspector({
   assets,
   labels,
   uploadingImage,
+  durationMin,
+  durationMax,
+  resolutionOptions,
+  ratioOptions,
+  availableModelIds,
   onUploadImage,
   onChange,
 }: {
@@ -514,6 +544,11 @@ function NodeInspector({
   assets: LibraryAsset[]
   labels: ReturnType<typeof useTranslations>["canvas"]
   uploadingImage: boolean
+  durationMin: number
+  durationMax: number
+  resolutionOptions: string[]
+  ratioOptions: string[]
+  availableModelIds: string[]
   onUploadImage: (file: File) => Promise<void>
   onChange: (patch: CanvasNodeData) => void
 }) {
@@ -579,9 +614,9 @@ function NodeInspector({
       ) : null}
       {type === "video.params" ? (
         <div className="space-y-3">
-          <RangeField label={labels.duration} value={Number(selectedNode.data.duration || 5)} min={4} max={15} onChange={(duration) => onChange({ duration })} />
-          <Select label={labels.aspectRatio} value={String(selectedNode.data.aspect_ratio || "9:16")} values={RATIOS} onChange={(value) => onChange({ aspect_ratio: value })} />
-          <Select label={labels.resolution} value={String(selectedNode.data.resolution || "1080p")} values={RESOLUTIONS} onChange={(value) => onChange({ resolution: value })} />
+          <RangeField label={labels.duration} value={Number(selectedNode.data.duration || durationMin)} min={durationMin} max={durationMax} onChange={(duration) => onChange({ duration })} />
+          <Select label={labels.aspectRatio} value={String(selectedNode.data.aspect_ratio || "9:16")} values={withCurrent(ratioOptions, String(selectedNode.data.aspect_ratio || "9:16"))} onChange={(value) => onChange({ aspect_ratio: value })} />
+          <Select label={labels.resolution} value={String(selectedNode.data.resolution || "1080p")} values={withCurrent(resolutionOptions, String(selectedNode.data.resolution || "1080p"))} onChange={(value) => onChange({ resolution: value })} />
           <label className="block">
             <span className="mb-1 block text-[11px] text-muted-foreground">{labels.seed}</span>
             <input value={selectedNode.data.seed == null ? "" : String(selectedNode.data.seed)} onChange={(e) => onChange({ seed: e.target.value.trim() ? Number(e.target.value) : null })} className="h-9 w-full rounded-md border border-border/80 bg-background px-3 font-mono text-[12px]" />
@@ -589,7 +624,7 @@ function NodeInspector({
         </div>
       ) : null}
       {type === "seedance.video" ? (
-        <ModelSelect label={labels.model} value={String(selectedNode.data.model || "seedance-2.0-pro")} onChange={(model) => onChange({ model })} category="video" />
+        <ModelSelect label={labels.model} value={String(selectedNode.data.model || "seedance-2.0-pro")} onChange={(model) => onChange({ model })} category="video" availableModelIds={availableModelIds} />
       ) : null}
     </div>
   )
@@ -639,4 +674,9 @@ function taskStatusToNodeStatus(status: string): NonNullable<CanvasNodeData["nod
   if (status === "succeeded") return "success"
   if (status === "failed" || status === "timed_out" || status === "canceled" || status === "cancelled") return "failed"
   return "idle"
+}
+
+function withCurrent(values: string[], current: string) {
+  if (!current || values.includes(current)) return values
+  return [current, ...values]
 }
