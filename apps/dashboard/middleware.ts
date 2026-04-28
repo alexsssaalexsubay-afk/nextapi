@@ -8,9 +8,8 @@ export default function middleware(request: NextRequest) {
     return NextResponse.next()
   }
   if (!request.cookies.get("nextapi_account_session")?.value) {
-    const url = request.nextUrl.clone()
-    url.pathname = "/sign-in"
-    url.searchParams.set("next", pathname)
+    const url = new URL("/sign-in", request.url)
+    url.searchParams.set("next", `${pathname}${request.nextUrl.search}`)
     return NextResponse.redirect(url)
   }
   return NextResponse.next()

@@ -82,7 +82,8 @@ export default function SignInPage() {
       } else {
         await loginWithEmailCode(email, values.code ?? "")
       }
-      router.replace(search.get("next") || "/")
+      const next = search.get("next")
+      router.replace(next?.startsWith("/") && !next.startsWith("//") ? next : "/")
       router.refresh()
     } catch (error) {
       setServerError(error instanceof ApiError ? error.message : mode === "password" ? t.auth.invalidCredentials : t.auth.invalidCode)

@@ -22,7 +22,8 @@ export default function AdminSignInPage() {
     setLoading(true)
     try {
       await loginAdmin(email, password)
-      router.replace(search.get("next") || "/")
+      const next = search.get("next")
+      router.replace(next?.startsWith("/") && !next.startsWith("//") ? next : "/")
       router.refresh()
     } catch (err) {
       setError(err instanceof AdminApiError ? err.message : "Admin sign-in failed")
