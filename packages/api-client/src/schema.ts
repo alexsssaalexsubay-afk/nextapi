@@ -172,6 +172,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/director/runs/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Director run audit trail
+         * @description Returns the org-scoped Director job envelope, ordered step evidence, metering events, and aggregate cost totals from NextAPI-owned tables. This endpoint is read-only and does not create video tasks, provider calls, or a second billing path.
+         */
+        get: operations["getDirectorRun"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/videos": {
         parameters: {
             query?: never;
@@ -1381,6 +1401,108 @@ export interface components {
             event?: "queued" | "running" | "succeeded" | "failed" | "cancelled" | "heartbeat";
             data?: components["schemas"]["Video"];
         };
+        DirectorJob: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            org_id: string;
+            /** Format: uuid */
+            workflow_id?: string | null;
+            /** Format: uuid */
+            workflow_run_id?: string | null;
+            /** Format: uuid */
+            batch_run_id?: string | null;
+            title?: string;
+            story: string;
+            status: string;
+            engine_used: string;
+            fallback_used: boolean;
+            selected_character_ids?: string[];
+            budget_snapshot?: {
+                [key: string]: unknown;
+            };
+            plan_snapshot?: {
+                [key: string]: unknown;
+            };
+            created_by?: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        DirectorStep: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            director_job_id: string;
+            /** Format: uuid */
+            org_id: string;
+            step_key: string;
+            status: string;
+            /** Format: uuid */
+            provider_id?: string | null;
+            /** Format: uuid */
+            job_id?: string | null;
+            input_snapshot?: {
+                [key: string]: unknown;
+            };
+            output_snapshot?: {
+                [key: string]: unknown;
+            };
+            error_code?: string;
+            attempts: number;
+            /** Format: date-time */
+            started_at?: string | null;
+            /** Format: date-time */
+            completed_at?: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        DirectorMetering: {
+            /** Format: int64 */
+            id: number;
+            /** Format: uuid */
+            org_id: string;
+            /** Format: uuid */
+            director_job_id?: string | null;
+            /** Format: uuid */
+            step_id?: string | null;
+            /** Format: uuid */
+            job_id?: string | null;
+            /** Format: uuid */
+            provider_id?: string | null;
+            meter_type: string;
+            units: number;
+            /** Format: int64 */
+            estimated_cents: number;
+            /** Format: int64 */
+            actual_cents: number;
+            /** Format: int64 */
+            credits_delta: number;
+            status: string;
+            usage_json?: {
+                [key: string]: unknown;
+            };
+            /** Format: date-time */
+            created_at: string;
+        };
+        DirectorRunTotals: {
+            metering_events: number;
+            /** Format: int64 */
+            estimated_cents: number;
+            /** Format: int64 */
+            actual_cents: number;
+            /** Format: int64 */
+            credits_delta: number;
+        };
+        DirectorRunResponse: {
+            director_job: components["schemas"]["DirectorJob"];
+            steps: components["schemas"]["DirectorStep"][];
+            metering: components["schemas"]["DirectorMetering"][];
+            totals: components["schemas"]["DirectorRunTotals"];
+        };
         Model: {
             id: string;
             family: string;
@@ -1968,6 +2090,31 @@ export interface operations {
                     "application/json": components["schemas"]["Model"];
                 };
             };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getDirectorRun: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Director run audit trail. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DirectorRunResponse"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
         };
     };

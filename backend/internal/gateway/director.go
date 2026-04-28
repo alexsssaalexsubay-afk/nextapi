@@ -50,6 +50,20 @@ type directorStatusResponse struct {
 	UsageNotice             string                `json:"usage_notice"`
 }
 
+type directorRunResponse struct {
+	DirectorJob domain.DirectorJob        `json:"director_job"`
+	Steps       []domain.DirectorStep     `json:"steps"`
+	Metering    []domain.DirectorMetering `json:"metering"`
+	Totals      directorRunTotals         `json:"totals"`
+}
+
+type directorRunTotals struct {
+	MeteringEvents int   `json:"metering_events"`
+	EstimatedCents int64 `json:"estimated_cents"`
+	ActualCents    int64 `json:"actual_cents"`
+	CreditsDelta   int64 `json:"credits_delta"`
+}
+
 func (h *DirectorHandlers) Status(c *gin.Context) {
 	org := auth.OrgFrom(c)
 	if org == nil {
@@ -62,6 +76,60 @@ func (h *DirectorHandlers) Status(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, status)
+}
+
+func (h *DirectorHandlers) GetRun(c *gin.Context) {
+	org := auth.OrgFrom(c)
+	if org == nil {
+		c.AbortWithStatus(http.StatusUnauthorized)
+		return
+	}
+	if h.DB == nil {
+		httpx.InternalError(c, "director_run_unavailable", "failed to load director run")
+		return
+	}
+	runID := strings.TrimSpace(c.Param("id"))
+	if _, err := uuid.Parse(runID); err != nil {
+		httpx.BadRequest(c, "invalid_request", "invalid director run id")
+		return
+	}
+	var directorJob domain.DirectorJob
+	if err := h.DB.WithContext(c.Request.Context()).First(&directorJob, "id = ? AND org_id = ?", runID, org.ID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			httpx.NotFoundCode(c, "director_run_not_found", "director run not found")
+			return
+		}
+		httpx.InternalError(c, "director_run_unavailable", "failed to load director run")
+		return
+	}
+	var steps []domain.DirectorStep
+	if err := h.DB.WithContext(c.Request.Context()).
+		Where("director_job_id = ? AND org_id = ?", directorJob.ID, org.ID).
+		Order("created_at ASC").
+		Find(&steps).Error; err != nil {
+		httpx.InternalError(c, "director_run_unavailable", "failed to load director run")
+		return
+	}
+	var metering []domain.DirectorMetering
+	if err := h.DB.WithContext(c.Request.Context()).
+		Where("director_job_id = ? AND org_id = ?", directorJob.ID, org.ID).
+		Order("created_at DESC").
+		Find(&metering).Error; err != nil {
+		httpx.InternalError(c, "director_run_unavailable", "failed to load director run")
+		return
+	}
+	totals := directorRunTotals{MeteringEvents: len(metering)}
+	for _, row := range metering {
+		totals.EstimatedCents += row.EstimatedCents
+		totals.ActualCents += row.ActualCents
+		totals.CreditsDelta += row.CreditsDelta
+	}
+	c.JSON(http.StatusOK, directorRunResponse{
+		DirectorJob: directorJob,
+		Steps:       steps,
+		Metering:    metering,
+		Totals:      totals,
+	})
 }
 
 func (h *DirectorHandlers) GenerateShots(c *gin.Context) {

@@ -183,6 +183,28 @@ State requirements:
 - Every transition that bills, reserves credits, refunds credits, or creates external provider tasks must leave an auditable record.
 - Refresh/reload must recover the latest state from backend records, not local component state only.
 
+## Director Run Recovery API
+
+`GET /v1/director/runs/:id` returns one org-scoped Director run from the existing
+NextAPI-owned audit tables:
+
+- `director_jobs`: the durable run envelope, requested story, workflow/run ids,
+  engine evidence, fallback evidence, budget snapshot, and plan snapshot.
+- `director_steps`: ordered step-machine evidence for planning, workflow build,
+  video submit, completion, failure, and future resume checkpoints.
+- `director_metering`: per-step usage/cost records created by the existing
+  provider, workflow, job, and billing paths.
+
+The endpoint is intentionally read-only and additive. It must not create a
+second task system, a second billing path, or a direct ViMax/Seedance credential
+surface. It exists so Dashboard/Canvas/Admin can recover a run after refresh and
+show evidence from platform records instead of local component state.
+
+The response includes aggregate metering totals so UI and support tools can
+show reservation/reconciliation evidence without recalculating from unrelated
+job tables. Org scoping is mandatory; a run owned by another org must behave as
+not found.
+
 ## Historical Assets MVP
 
 Phase 2 starts from explicit user-selected assets, not invisible global memory.
