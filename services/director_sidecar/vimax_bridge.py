@@ -110,7 +110,10 @@ def _load_class(path: Path, class_name: str) -> Any:
     if spec is None or spec.loader is None:
         raise PipelineUnavailable(f"cannot load pipeline module: {path.name}")
     module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
+    try:
+        spec.loader.exec_module(module)
+    except Exception as exc:
+        raise PipelineUnavailable(f"cannot load pipeline module {path.name}: {exc}") from exc
     return getattr(module, class_name)
 
 
