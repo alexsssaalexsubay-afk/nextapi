@@ -117,14 +117,18 @@ export function ModelSelect({
   if (!selected) return null
 
   return (
-    <div ref={rootRef} className="relative">
+    <div ref={rootRef} className="relative min-w-0">
       {label && <div className="mb-1 text-[11px] text-muted-foreground">{label}</div>}
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
-        className="flex h-11 w-full items-center gap-2 rounded-xl border border-border/80 bg-background px-3 text-left text-[13px] shadow-sm transition hover:border-signal/40"
+        aria-expanded={open}
+        className={cn(
+          "flex h-10 w-full items-center gap-2 rounded-2xl border border-border/80 bg-background px-2.5 text-left text-[13px] shadow-sm transition hover:border-signal/40",
+          open && "border-signal/45 ring-4 ring-signal/10",
+        )}
       >
-        <ProviderLogo item={selected} />
+        <ProviderLogo item={selected} className="size-8 rounded-xl" />
         <span className="min-w-0 flex-1">
           <span className="block truncate font-medium text-foreground">{selected.name}</span>
           <span className="block truncate text-[11px] text-muted-foreground">
@@ -135,7 +139,7 @@ export function ModelSelect({
       </button>
       {helper && <div className="mt-1 text-[11px] leading-relaxed text-muted-foreground">{helper}</div>}
       {open && (
-        <div className="absolute left-0 top-full z-50 mt-2 max-h-[20rem] w-full min-w-[18rem] overflow-y-auto rounded-2xl border border-white/12 bg-popover/96 p-2 text-popover-foreground shadow-[0_24px_80px_-45px_rgba(79,70,229,0.45)] backdrop-blur-2xl">
+        <div className="absolute left-0 top-full z-[80] mt-2 max-h-[min(22rem,60vh)] w-full min-w-[18rem] max-w-[calc(100vw-2rem)] overflow-y-auto overscroll-contain rounded-2xl border border-white/12 bg-popover/96 p-2 text-popover-foreground shadow-[0_24px_80px_-45px_rgba(79,70,229,0.45)] backdrop-blur-2xl sm:min-w-[24rem]">
           {items.length > 4 && (
             <label className="mb-2 flex h-9 items-center gap-2 rounded-xl border border-border/70 bg-background/70 px-2.5 text-[12px] text-muted-foreground">
               <Search className="size-3.5" />
@@ -158,7 +162,7 @@ export function ModelSelect({
             </div>
           )}
           {recommendedItems.length > 0 && (
-            <div className="mb-2 rounded-xl border border-signal/20 bg-signal/10 p-1.5">
+            <div className="mb-2 rounded-xl border border-signal/20 bg-signal/10 p-1">
               <div className="flex items-center justify-between px-2 py-1 text-[10px] font-medium uppercase tracking-[0.14em] text-signal">
                 <span>{statusLabels?.recommended ?? "Recommended"}</span>
                 <span>{statusLabels?.bestForFlow ?? "Best fit"}</span>
@@ -221,12 +225,12 @@ function ModelOption({
       disabled={!item.enabled}
       onClick={onPick}
       className={cn(
-        "group flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left transition-all duration-150",
+        "group flex w-full items-center gap-2.5 rounded-xl px-2.5 py-1.5 text-left transition-all duration-150",
         active ? "bg-signal/10 ring-1 ring-signal/25" : "hover:bg-muted/70",
         item.enabled ? "active:scale-[0.99]" : "cursor-not-allowed opacity-55",
       )}
     >
-      <ProviderLogo item={item} className="size-8" />
+      <ProviderLogo item={item} className="size-8 rounded-xl" />
       <span className="min-w-0 flex-1">
         <span className="flex min-w-0 items-center gap-2">
           <span className="truncate text-[13px] font-medium">{item.name}</span>
@@ -241,7 +245,7 @@ function ModelOption({
               {tierLabel(item.tier, statusLabels)}
             </span>
           )}
-          {(item.capabilities ?? []).slice(0, 3).map((capability) => (
+          {(item.capabilities ?? []).slice(0, 2).map((capability) => (
             <span key={capability} className="rounded-full border border-signal/20 bg-signal/10 px-1.5 py-0.5 text-[10px] text-signal">
               {capability.replace("_", " ")}
             </span>

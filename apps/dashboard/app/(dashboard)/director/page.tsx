@@ -265,35 +265,35 @@ export default function DirectorPage() {
   return (
     <DashboardShell activeHref="/director">
       <div className="space-y-4 p-4 sm:p-5">
-        <section className="premium-surface relative overflow-hidden rounded-[24px] p-4 sm:p-5">
-          <div aria-hidden className="pointer-events-none absolute -right-20 -top-28 h-56 w-72 rounded-full bg-fuchsia-500/16 blur-3xl" />
-          <div aria-hidden className="pointer-events-none absolute -bottom-28 left-1/3 h-56 w-96 rounded-full bg-cyan-400/10 blur-3xl" />
+        <section className="premium-surface relative overflow-hidden rounded-[22px] p-3 sm:p-4">
+          <div aria-hidden className="pointer-events-none absolute -right-20 -top-32 h-44 w-64 rounded-full bg-fuchsia-500/14 blur-3xl" />
+          <div aria-hidden className="pointer-events-none absolute -bottom-28 left-1/2 h-40 w-80 rounded-full bg-cyan-400/10 blur-3xl" />
           <div className="relative flex flex-wrap items-center justify-between gap-3">
-            <div className="min-w-[260px] flex-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/12 bg-background/55 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.16em] text-signal shadow-sm backdrop-blur-md">
+            <div className="flex min-w-[260px] flex-1 items-center gap-3">
+              <span className="grid size-10 shrink-0 place-items-center rounded-2xl border border-signal/20 bg-signal/10 text-signal shadow-sm backdrop-blur-md">
+                <Sparkles className="size-4" />
+              </span>
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h1 className="text-base font-semibold tracking-tight text-foreground sm:text-lg">{labels.title}</h1>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/12 bg-background/55 px-2 py-0.5 font-mono text-[9.5px] uppercase tracking-[0.14em] text-signal shadow-sm backdrop-blur-md">
                   <Sparkles className="size-3" />
                   {labels.eyebrow}
                 </span>
-                <span className="text-[12.5px] text-muted-foreground">{labels.title}</span>
-              </div>
-              <h1 className="mt-2 max-w-4xl text-2xl font-semibold tracking-tight text-foreground sm:text-[28px]">
-                {labels.primaryPromise}
-              </h1>
-              {heroExpanded && (
-                <p className="mt-2 max-w-3xl text-[13px] leading-relaxed text-muted-foreground">
-                  {labels.storyHint}
+                </div>
+                <p className="mt-1 max-w-4xl truncate text-[12.5px] text-muted-foreground">
+                  {labels.primaryPromise}
                 </p>
-              )}
+              </div>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <CompactMetric label={labels.estimatedShots} value={`${shotCount}`} />
-              <CompactMetric label={labels.totalRuntime} value={`${totalDuration}s`} />
-              <CompactMetric label={labels.estimatedBudget} value={estimatedBudget} />
+              <CompactMetric label={labels.estimatedShots} value={`${shotCount}`} compact />
+              <CompactMetric label={labels.totalRuntime} value={`${totalDuration}s`} compact />
+              <CompactMetric label={labels.estimatedBudget} value={estimatedBudget} compact />
               <button
                 type="button"
                 onClick={() => setHeroExpanded((value) => !value)}
-                className="inline-flex h-10 items-center gap-1.5 rounded-full border border-white/12 bg-card/55 px-3 text-[12px] text-muted-foreground shadow-sm backdrop-blur-md transition hover:border-signal/35 hover:text-foreground"
+                className="inline-flex h-9 items-center gap-1.5 rounded-full border border-white/12 bg-card/55 px-3 text-[12px] text-muted-foreground shadow-sm backdrop-blur-md transition hover:border-signal/35 hover:text-foreground"
               >
                 <Route className="size-3.5" />
                 {labels.consoleRoute}
@@ -302,19 +302,25 @@ export default function DirectorPage() {
             </div>
           </div>
           {heroExpanded && (
-            <div className="relative mt-4 rounded-2xl border border-white/12 bg-background/50 p-3 shadow-sm backdrop-blur-md">
-              <div className="mb-3 flex items-center justify-between gap-3">
-                <span className="font-mono text-[10.5px] uppercase tracking-[0.18em] text-muted-foreground">
-                  {labels.consoleRoute}
-                </span>
-                {activeBusyLabel ? (
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-signal/30 bg-signal/10 px-2 py-1 text-[11px] text-signal">
-                    <Loader2 className="size-3 animate-spin" />
-                    {activeBusyLabel}
-                  </span>
-                ) : null}
+            <div className="relative mt-3 grid gap-3 rounded-2xl border border-white/12 bg-background/50 p-3 shadow-sm backdrop-blur-md lg:grid-cols-[minmax(0,0.8fr)_minmax(280px,1fr)]">
+              <div>
+                <h2 className="text-xl font-semibold tracking-tight text-foreground">{labels.primaryPromise}</h2>
+                <p className="mt-1 max-w-3xl text-[12.5px] leading-relaxed text-muted-foreground">{labels.storyHint}</p>
               </div>
-              <PipelineStepper steps={pipelineSteps} activeId={activePipelineStep} loading={loading} compact />
+              <div>
+                <div className="mb-2 flex items-center justify-between gap-3">
+                  <span className="font-mono text-[10.5px] uppercase tracking-[0.18em] text-muted-foreground">
+                    {labels.consoleRoute}
+                  </span>
+                  {activeBusyLabel ? (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-signal/30 bg-signal/10 px-2 py-1 text-[11px] text-signal">
+                      <Loader2 className="size-3 animate-spin" />
+                      {activeBusyLabel}
+                    </span>
+                  ) : null}
+                </div>
+                <PipelineStepper steps={pipelineSteps} activeId={activePipelineStep} loading={loading} compact />
+              </div>
             </div>
           )}
         </section>
@@ -881,11 +887,11 @@ function PresetButton({ label, onClick }: { label: string; onClick: () => void }
   )
 }
 
-function CompactMetric({ label, value }: { label: string; value: string }) {
+function CompactMetric({ label, value, compact = false }: { label: string; value: string; compact?: boolean }) {
   return (
-    <div className="min-w-20 rounded-2xl border border-white/12 bg-background/55 px-3 py-2 shadow-sm backdrop-blur-md">
+    <div className={cn("min-w-20 rounded-2xl border border-white/12 bg-background/55 shadow-sm backdrop-blur-md", compact ? "px-2.5 py-1.5" : "px-3 py-2")}>
       <div className="font-mono text-[9.5px] uppercase tracking-[0.12em] text-muted-foreground">{label}</div>
-      <div className="mt-0.5 text-base font-semibold tracking-tight">{value}</div>
+      <div className={cn("mt-0.5 font-semibold tracking-tight", compact ? "text-sm" : "text-base")}>{value}</div>
     </div>
   )
 }
