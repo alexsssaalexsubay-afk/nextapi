@@ -285,6 +285,23 @@ Treat Director Mode as production-ready only after these checks have executable 
 - No silent fallback: acceptance must include a fail-closed run with fallback disabled and a degraded run with fallback enabled. The user-facing response, workflow metadata, admin surface, and logs must all agree on `engine_used` and `fallback_used`.
 - No secret fallback: if a configured provider/model is unavailable, the system may suggest an operator-approved alternative, but it must not bill or launch on a different provider/model unless the user or workflow policy explicitly allowed that route.
 
+Executable smoke proof:
+
+```bash
+NEXTAPI_SMOKE_EMAIL="user@example.com" \
+NEXTAPI_SMOKE_PASSWORD="..." \
+NEXTAPI_BASE_URL="https://api.nextapi.top" \
+pnpm director:smoke -- --require-advanced
+
+# Real queue handoff, may consume credits:
+NEXTAPI_SMOKE_EMAIL="user@example.com" \
+NEXTAPI_SMOKE_PASSWORD="..." \
+NEXTAPI_BASE_URL="https://api.nextapi.top" \
+pnpm director:smoke -- --execute --require-advanced
+```
+
+The smoke script fails rather than reporting success when VIP entitlement, provider configuration, sidecar health, workflow persistence, video node generation, or queue handoff is missing.
+
 # Server Deployment Notes
 
 - Web entry: `app.nextapi.top` dashboard.

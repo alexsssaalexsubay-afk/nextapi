@@ -8,7 +8,8 @@
     "build": "pnpm -r build",
     "lint": "pnpm -r lint",
     "test": "cd backend && go test -race -count=1 ./...",
-    "typecheck": "pnpm -r typecheck"
+    "typecheck": "pnpm -r typecheck",
+    "director:smoke": "node scripts/smoke-director-closed-loop.mjs"
   },
   "engines": {
     "node": ">=20"
