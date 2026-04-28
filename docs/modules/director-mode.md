@@ -234,6 +234,12 @@ images for existing Dashboard reference-image flows, while `kind=video`,
 such as merged `final_asset` videos. Manual permanent library uploads remain
 image-only until storage tiers and retention policy are explicitly expanded.
 
+Recovery queries are indexed for the high-frequency shapes used by Dashboard,
+Admin, and the Step Machine: org-scoped Director run lists, optional status
+filters, final-asset step lookup, per-run metering totals, and asset-library
+kind filters. `final_asset` is constrained to one row per Director job so
+concurrent merge completion cannot create duplicate terminal asset evidence.
+
 New schema anchors added in `00032_director_asset_memory.sql`:
 
 - `director_jobs`: durable Director-level job envelope linking story, workflow, workflow run, batch run, engine evidence, selected characters, plan snapshot, and budget snapshot.
