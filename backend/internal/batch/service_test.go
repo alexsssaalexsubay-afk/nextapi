@@ -152,6 +152,43 @@ func TestBatchCreate_AllShotsEnqueued(t *testing.T) {
 	if br.TotalShots != 5 {
 		t.Fatalf("want total_shots=5, got %d", br.TotalShots)
 	}
+	if br.QueuedCount != 0 || br.RunningCount != 5 {
+		t.Fatalf("want queued=0 running=5 after initial dispatch, got queued=%d running=%d", br.QueuedCount, br.RunningCount)
+	}
+}
+
+func TestBatchCreate_RespectsMaxParallelInitialDispatch(t *testing.T) {
+	db := setupDB(t)
+	seedOrg(t, db, "org1_parallel", 1_000_000)
+
+	q := &fakeQueue{}
+	billSvc := billing.NewService(db)
+	jobSvc := job.NewService(db, billSvc, seedance.NewMock(), q)
+	batchSvc := NewService(db, jobSvc)
+	maxParallel := 2
+
+	result, err := batchSvc.Create(context.Background(), CreateInput{
+		OrgID:       "org1_parallel",
+		MaxParallel: &maxParallel,
+		Shots:       makeShots("org1_parallel", 5),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Accepted != 5 || result.Rejected != 0 {
+		t.Fatalf("want all 5 shots accepted into reserved queue, got accepted=%d rejected=%d", result.Accepted, result.Rejected)
+	}
+	if q.enqueued != 2 {
+		t.Fatalf("want only max_parallel=2 initial enqueues, got %d", q.enqueued)
+	}
+
+	var br domain.BatchRun
+	if err := db.First(&br, "id = ?", result.BatchRunID).Error; err != nil {
+		t.Fatal(err)
+	}
+	if br.QueuedCount != 3 || br.RunningCount != 2 {
+		t.Fatalf("want queued=3 running=2, got queued=%d running=%d", br.QueuedCount, br.RunningCount)
+	}
 }
 
 func TestBatchCreate_JobsLinkedToBatchRun(t *testing.T) {
@@ -336,8 +373,11 @@ func TestBatchGet_StatusSummary_AccurateFromJobRows(t *testing.T) {
 	if summary.Failed != 1 {
 		t.Fatalf("summary.Failed: want 1, got %d", summary.Failed)
 	}
-	if summary.Queued != 1 {
-		t.Fatalf("summary.Queued: want 1 (remaining queued), got %d", summary.Queued)
+	if summary.Queued != 0 {
+		t.Fatalf("summary.Queued: want 0, got %d", summary.Queued)
+	}
+	if summary.Running != 1 {
+		t.Fatalf("summary.Running: want 1 (remaining dispatched job), got %d", summary.Running)
 	}
 	if summary.Total != 4 {
 		t.Fatalf("summary.Total: want 4, got %d", summary.Total)

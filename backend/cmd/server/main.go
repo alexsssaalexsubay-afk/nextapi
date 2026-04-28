@@ -115,7 +115,7 @@ func main() {
 	ah := &gateway.AdminHandlers{DB: gormDB, Billing: billSvc, Spend: spendSvc, Throughput: throughputSvc, Notify: notifier}
 	ph := gateway.NewPaymentHandlers(billSvc, gormDB)
 	ph.Pricing = pricingSvc
-	seedanceWebhook := &gateway.UpTokenWebhookHandlers{DB: gormDB, Spend: spendSvc, Throughput: throughputSvc, Pricing: pricingSvc}
+	seedanceWebhook := &gateway.UpTokenWebhookHandlers{DB: gormDB, Spend: spendSvc, Throughput: throughputSvc, Pricing: pricingSvc, Queue: queue}
 	hook := &gateway.ClerkWebhook{DB: gormDB, Billing: billSvc}
 	models := gateway.ModelsHandlers{}
 	sh := &gateway.SpendHandlers{Svc: spendSvc, DB: gormDB}

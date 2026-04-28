@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/domain"
+	jobdispatcher "github.com/alexsssaalexsubay-afk/nextapi/backend/internal/job"
 	pricingsvc "github.com/alexsssaalexsubay-afk/nextapi/backend/internal/pricing"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/provider"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/provider/seedance"
@@ -32,6 +33,7 @@ type UpTokenWebhookHandlers struct {
 	Spend      *spend.Service
 	Throughput *throughput.Service
 	Pricing    *pricingsvc.Service
+	Queue      jobdispatcher.Enqueuer
 	Secret     string
 }
 
@@ -142,6 +144,7 @@ func (h *UpTokenWebhookHandlers) apply(ctx context.Context, ev uptokenWebhookPay
 	var releaseAPIKeyID *string
 	var releaseJobID string
 	var releaseReserved int64
+	var batchToDispatch *string
 	processed := false
 	now := time.Now()
 
@@ -158,6 +161,7 @@ func (h *UpTokenWebhookHandlers) apply(ctx context.Context, ev uptokenWebhookPay
 		releaseAPIKeyID = jobRow.APIKeyID
 		releaseJobID = jobRow.ID
 		releaseReserved = jobRow.ReservedCredits
+		batchToDispatch = jobRow.BatchRunID
 
 		switch ev.Status {
 		case "succeeded":
@@ -292,6 +296,9 @@ func (h *UpTokenWebhookHandlers) apply(ctx context.Context, ev uptokenWebhookPay
 	}
 	if h.Spend != nil {
 		h.Spend.DecrInflight(ctx, releaseOrgID, releaseReserved)
+	}
+	if batchToDispatch != nil {
+		_, _ = jobdispatcher.DispatchBatch(ctx, h.DB, h.Spend, h.Throughput, h.Queue, *batchToDispatch)
 	}
 	return processed, nil
 }

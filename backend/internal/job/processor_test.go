@@ -494,8 +494,8 @@ func TestBatchWorkflowRunClosesAfterAllJobsSucceed(t *testing.T) {
 	if err := db.First(&br, "id = ?", batchID).Error; err != nil {
 		t.Fatal(err)
 	}
-	if br.Status != "running" || br.QueuedCount != 1 || br.RunningCount != 0 || br.SucceededCount != 1 {
-		t.Fatalf("after first success batch = %#v; want running queued=1 running=0 succeeded=1", br)
+	if br.Status != "running" || br.QueuedCount != 0 || br.RunningCount != 1 || br.SucceededCount != 1 {
+		t.Fatalf("after first success batch = %#v; want running queued=0 running=1 succeeded=1", br)
 	}
 	var run domain.WorkflowRun
 	if err := db.First(&run, "id = ?", "wr_batch_ok").Error; err != nil {

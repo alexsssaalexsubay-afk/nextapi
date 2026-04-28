@@ -310,6 +310,9 @@ func (p *Processor) succeed(ctx context.Context, j *domain.Job, st *provider.Job
 		p.Spend.DecrInflight(ctx, j.OrgID, j.ReservedCredits)
 	}
 	if err == nil {
+		if j.BatchRunID != nil {
+			_, _ = DispatchBatch(ctx, p.DB, p.Spend, p.Throughput, p.Queue, *j.BatchRunID)
+		}
 		p.cleanupTempMedia(ctx, j)
 		metrics.JobsTotal.WithLabelValues(p.Prov.Name(), "succeeded").Inc()
 		if p.Webhooks != nil {
@@ -471,6 +474,9 @@ func (p *Processor) fail(ctx context.Context, j *domain.Job, code, msg string) e
 		p.Spend.DecrInflight(ctx, j.OrgID, j.ReservedCredits)
 	}
 	if err == nil {
+		if j.BatchRunID != nil {
+			_, _ = DispatchBatch(ctx, p.DB, p.Spend, p.Throughput, p.Queue, *j.BatchRunID)
+		}
 		p.cleanupTempMedia(ctx, j)
 		if p.Webhooks != nil {
 			videoID := lookupVideoID(ctx, p.DB, j.ID)

@@ -53,9 +53,10 @@ func NewService(db *gorm.DB, jobSvc *job.Service) *Service {
 func (s *Service) SetThroughput(tp *throughput.Service) { s.throughput = tp }
 
 // Create creates a batch run and submits each accepted shot through the normal
-// job pipeline. That keeps billing, moderation, queue routing, and throughput
-// guards identical to single-video submissions instead of letting batch runs
-// bypass concurrency limits.
+// job pipeline, but dispatches only up to max_parallel initially. Remaining
+// shots stay as reserved queued jobs and are released by the job processor as
+// earlier shots finish. This turns Batch/Director runs into a bounded step
+// machine instead of a bursty "enqueue everything" fan-out.
 func (s *Service) Create(ctx context.Context, in CreateInput) (*CreateResult, error) {
 	totalShots := len(in.Shots)
 	if totalShots == 0 {
@@ -80,6 +81,7 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*CreateResult, er
 	for _, shot := range in.Shots {
 		shot.BatchRunID = &br.ID
 		shot.CreateVideoRecord = true
+		shot.DeferEnqueue = true
 		metadata, _ := json.Marshal(map[string]any{"batch_run_id": br.ID})
 		shot.VideoMetadata = metadata
 		res, err := s.jobSvc.Create(ctx, shot)
@@ -106,6 +108,8 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*CreateResult, er
 		s.db.WithContext(ctx).Model(&domain.BatchRun{}).
 			Where("id = ?", br.ID).
 			Updates(map[string]any{"status": "failed", "completed_at": now})
+	} else if _, err := s.jobSvc.DispatchBatch(ctx, br.ID); err != nil {
+		return nil, fmt.Errorf("dispatch batch jobs: %w", err)
 	}
 
 	return &CreateResult{
@@ -146,9 +150,9 @@ func (s *Service) Get(ctx context.Context, orgID, batchRunID string) (*domain.Ba
 	summary := &domain.BatchStatusSummary{Total: br.TotalShots}
 	for _, c := range counts {
 		switch domain.JobStatus(c.Status) {
-		case domain.JobQueued, domain.JobSubmitting:
+		case domain.JobQueued:
 			summary.Queued += c.Count
-		case domain.JobRunning, domain.JobRetrying:
+		case domain.JobSubmitting, domain.JobRunning, domain.JobRetrying:
 			summary.Running += c.Count
 		case domain.JobSucceeded:
 			summary.Succeeded += c.Count

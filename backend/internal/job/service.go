@@ -54,6 +54,7 @@ type CreateInput struct {
 	APIKeyID          *string
 	BatchRunID        *string
 	SkipThroughput    bool // when true, caller has acquired throughput before enqueue
+	DeferEnqueue      bool // when true, reserve/create now and dispatch later through the batch scheduler
 	CreateVideoRecord bool
 	VideoMetadata     json.RawMessage
 	Request           provider.GenerationRequest
@@ -217,8 +218,22 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*CreateResult, er
 		}()
 	}
 
-	// Throughput: acquire concurrency slot before enqueuing.
-	// Batch submissions handle throughput externally via AcquireBatch.
+	if in.DeferEnqueue {
+		return &CreateResult{
+			JobID:                 job.ID,
+			VideoID:               video.ID,
+			Status:                string(job.Status),
+			EstimatedCredits:      credits,
+			UpstreamEstimateCents: quote.UpstreamCostCents,
+			PricingMarkupBPS:      quote.MarkupBPS,
+			PricingSource:         quote.Source,
+			MarginCents:           quote.MarginCents,
+			PricingApplied:        s.pricing != nil,
+		}, nil
+	}
+
+	// Throughput: acquire a concurrency slot before enqueuing direct jobs.
+	// Deferred batch jobs are dispatched later by DispatchBatch.
 	if s.throughput != nil && !in.SkipThroughput {
 		apiKeyStr := ""
 		if in.APIKeyID != nil {
@@ -235,23 +250,7 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*CreateResult, er
 		}
 	}
 
-	enqOpts := []asynq.Option{
-		asynq.MaxRetry(3),
-		// 15 minutes: enough to cover the provider create call (~15s) plus
-		// the full polling window (MAX_POLL_MINUTES = 15). The old 30s value
-		// would race with a slow upstream create and orphan the job.
-		asynq.Timeout(15 * time.Minute),
-	}
-	if s.throughput != nil {
-		qName := s.throughput.QueueForKey(ctx, in.OrgID, in.APIKeyID)
-		enqOpts = append(enqOpts, asynq.Queue(qName))
-	}
-
-	payload, _ := json.Marshal(map[string]string{"job_id": job.ID})
-	_, enqErr := s.queue.EnqueueContext(ctx,
-		asynq.NewTask(TaskGenerate, payload),
-		enqOpts...,
-	)
+	enqErr := enqueueGenerateTask(ctx, s.queue, buildGenerateEnqueueOptions(ctx, s.throughput, in.OrgID, in.APIKeyID), job.ID)
 	if enqErr != nil {
 		if s.throughput != nil {
 			// Symmetric to AcquireForKey above — without this the per-key
@@ -264,7 +263,7 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*CreateResult, er
 		}
 		cctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		if refundErr := s.failQueuedJobAndRefund(cctx, job, "enqueue_failed", "job queue unavailable", "refund: enqueue failed"); refundErr != nil {
+		if refundErr := failQueuedJobAndRefund(cctx, s.db, job, "enqueue_failed", "job queue unavailable", "refund: enqueue failed"); refundErr != nil {
 			return nil, refundErr
 		}
 		return nil, enqErr
@@ -283,6 +282,147 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*CreateResult, er
 	}, nil
 }
 
+func buildGenerateEnqueueOptions(ctx context.Context, tp *throughput.Service, orgID string, apiKeyID *string) []asynq.Option {
+	enqOpts := []asynq.Option{
+		asynq.MaxRetry(3),
+		// 15 minutes: enough to cover the provider create call (~15s) plus
+		// the full polling window (MAX_POLL_MINUTES = 15). The old 30s value
+		// would race with a slow upstream create and orphan the job.
+		asynq.Timeout(15 * time.Minute),
+	}
+	if tp != nil {
+		enqOpts = append(enqOpts, asynq.Queue(tp.QueueForKey(ctx, orgID, apiKeyID)))
+	}
+	return enqOpts
+}
+
+func enqueueGenerateTask(ctx context.Context, queue Enqueuer, opts []asynq.Option, jobID string) error {
+	if queue == nil {
+		return errors.New("job_queue_unavailable")
+	}
+	payload, _ := json.Marshal(map[string]string{"job_id": jobID})
+	_, err := queue.EnqueueContext(ctx, asynq.NewTask(TaskGenerate, payload), opts...)
+	return err
+}
+
+func (s *Service) DispatchBatch(ctx context.Context, batchID string) (int, error) {
+	return DispatchBatch(ctx, s.db, s.spend, s.throughput, s.queue, batchID)
+}
+
+func (s *Service) DispatchQueued(ctx context.Context, jobID string) error {
+	return DispatchQueued(ctx, s.db, s.spend, s.throughput, s.queue, jobID)
+}
+
+func DispatchBatch(ctx context.Context, db *gorm.DB, sp *spend.Service, tp *throughput.Service, queue Enqueuer, batchID string) (int, error) {
+	const defaultBatchMaxParallel = 5
+	var br domain.BatchRun
+	if err := db.WithContext(ctx).First(&br, "id = ?", batchID).Error; err != nil {
+		return 0, err
+	}
+	if br.Status != "" && br.Status != "running" {
+		return 0, nil
+	}
+	limit := defaultBatchMaxParallel
+	if br.MaxParallel != nil && *br.MaxParallel > 0 {
+		limit = *br.MaxParallel
+	}
+	available := limit - br.RunningCount
+	if available <= 0 {
+		return 0, nil
+	}
+	var rows []struct {
+		ID string
+	}
+	if err := db.WithContext(ctx).
+		Table("jobs").
+		Select("id").
+		Where("batch_run_id = ? AND status = ?", batchID, domain.JobQueued).
+		Order("created_at ASC, id ASC").
+		Limit(available).
+		Scan(&rows).Error; err != nil {
+		return 0, err
+	}
+	dispatched := 0
+	for _, row := range rows {
+		if err := DispatchQueued(ctx, db, sp, tp, queue, row.ID); err != nil {
+			if errors.Is(err, throughput.ErrBurstExceeded) {
+				break
+			}
+			return dispatched, err
+		}
+		dispatched++
+	}
+	return dispatched, nil
+}
+
+func DispatchQueued(ctx context.Context, db *gorm.DB, sp *spend.Service, tp *throughput.Service, queue Enqueuer, jobID string) error {
+	var j domain.Job
+	if err := db.WithContext(ctx).First(&j, "id = ?", jobID).Error; err != nil {
+		return err
+	}
+	if j.Status != domain.JobQueued {
+		return nil
+	}
+	if tp != nil {
+		apiKeyStr := ""
+		if j.APIKeyID != nil {
+			apiKeyStr = *j.APIKeyID
+		}
+		if err := tp.AcquireForKey(ctx, j.OrgID, apiKeyStr, j.ID); err != nil {
+			return err
+		}
+	}
+
+	now := time.Now()
+	res := db.WithContext(ctx).Model(&domain.Job{}).
+		Where("id = ? AND status = ?", j.ID, domain.JobQueued).
+		Updates(map[string]any{
+			"status":        domain.JobSubmitting,
+			"submitting_at": now,
+		})
+	if res.Error != nil {
+		if tp != nil {
+			_ = tp.ReleaseForKey(context.Background(), j.OrgID, j.APIKeyID, j.ID)
+		}
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		if tp != nil {
+			_ = tp.ReleaseForKey(context.Background(), j.OrgID, j.APIKeyID, j.ID)
+		}
+		return nil
+	}
+	if j.BatchRunID != nil {
+		db.WithContext(ctx).Model(&domain.BatchRun{}).Where("id = ?", *j.BatchRunID).
+			Updates(map[string]any{
+				"queued_count":  decrementBatchCounter("queued_count"),
+				"running_count": gorm.Expr("running_count + 1"),
+			})
+	}
+	db.WithContext(ctx).Model(&domain.Video{}).Where("upstream_job_id = ?", j.ID).Updates(map[string]any{
+		"status":     "submitting",
+		"started_at": now,
+	})
+
+	if err := enqueueGenerateTask(ctx, queue, buildGenerateEnqueueOptions(ctx, tp, j.OrgID, j.APIKeyID), j.ID); err != nil {
+		if tp != nil {
+			_ = tp.ReleaseForKey(context.Background(), j.OrgID, j.APIKeyID, j.ID)
+		}
+		if sp != nil {
+			sp.DecrInflight(context.Background(), j.OrgID, j.ReservedCredits)
+		}
+		if refundErr := failQueuedJobAndRefund(ctx, db, j, "enqueue_failed", "job queue unavailable", "refund: deferred enqueue failed"); refundErr != nil {
+			return refundErr
+		}
+		return err
+	}
+	return nil
+}
+
+func decrementBatchCounter(column string) any {
+	return gorm.Expr("CASE WHEN " + column + " > 0 THEN " + column + " - 1 ELSE 0 END")
+}
+
 func (s *Service) quoteEstimate(ctx context.Context, orgID string, upstreamCents int64) (pricingsvc.Quote, error) {
 	if s.pricing == nil {
 		return pricingsvc.Quote{
@@ -297,9 +437,13 @@ func (s *Service) quoteEstimate(ctx context.Context, orgID string, upstreamCents
 }
 
 func (s *Service) failQueuedJobAndRefund(ctx context.Context, j domain.Job, code, msg, note string) error {
-	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	return failQueuedJobAndRefund(ctx, s.db, j, code, msg, note)
+}
+
+func failQueuedJobAndRefund(ctx context.Context, db *gorm.DB, j domain.Job, code, msg, note string) error {
+	return db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var current domain.Job
-		if err := tx.Select("status, reserved_credits").First(&current, "id = ?", j.ID).Error; err != nil {
+		if err := tx.Select("status, reserved_credits, batch_run_id").First(&current, "id = ?", j.ID).Error; err != nil {
 			return err
 		}
 		if current.Status.IsTerminal() {
@@ -315,6 +459,21 @@ func (s *Service) failQueuedJobAndRefund(ctx context.Context, j domain.Job, code
 				"completed_at":  now,
 			}).Error; err != nil {
 			return err
+		}
+		tx.Model(&domain.Video{}).Where("upstream_job_id = ?", j.ID).Updates(map[string]any{
+			"status":        "failed",
+			"error_code":    code,
+			"error_message": msg,
+			"finished_at":   now,
+		})
+		if current.BatchRunID != nil {
+			updates := map[string]any{"failed_count": gorm.Expr("failed_count + 1")}
+			if current.Status == domain.JobQueued {
+				updates["queued_count"] = decrementBatchCounter("queued_count")
+			} else {
+				updates["running_count"] = decrementBatchCounter("running_count")
+			}
+			tx.Model(&domain.BatchRun{}).Where("id = ?", *current.BatchRunID).Updates(updates)
 		}
 		if current.ReservedCredits <= 0 {
 			return nil
