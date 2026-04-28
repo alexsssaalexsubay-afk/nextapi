@@ -139,7 +139,7 @@ func TestRuntimeLogWritesDirectorMetering(t *testing.T) {
 	}
 
 	runtime := NewRuntime(NewService(db))
-	ctx := WithDirectorMetering(WithOrgID(context.Background(), "org1"))
+	ctx := WithDirectorStepID(WithDirectorJobID(WithDirectorMetering(WithOrgID(context.Background(), "org1")), "director_job_1"), "step_1")
 	runtime.log(ctx, &prov, "director request", json.RawMessage(`{"total_tokens":1500}`), nil)
 
 	var row domain.DirectorMetering
@@ -151,6 +151,9 @@ func TestRuntimeLogWritesDirectorMetering(t *testing.T) {
 	}
 	if row.MeterType != string(domain.ReasonTextGeneration) || row.Units != 1500 || row.ActualCents != 300 || row.Status != "rated" {
 		t.Fatalf("bad metering row: %+v", row)
+	}
+	if row.DirectorJobID == nil || *row.DirectorJobID != "director_job_1" || row.StepID == nil || *row.StepID != "step_1" {
+		t.Fatalf("missing director job/step attribution: %+v", row)
 	}
 }
 

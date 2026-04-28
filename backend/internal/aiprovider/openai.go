@@ -398,6 +398,8 @@ func (r *Runtime) logDirectorMetering(ctx context.Context, prov *domain.AIProvid
 	}
 	_ = r.service.db.WithContext(ctx).Create(&domain.DirectorMetering{
 		OrgID:          *orgID,
+		DirectorJobID:  directorJobIDFromContext(ctx),
+		StepID:         directorStepIDFromContext(ctx),
 		ProviderID:     &prov.ID,
 		MeterType:      directorMeterType(prov.Type),
 		Units:          units,

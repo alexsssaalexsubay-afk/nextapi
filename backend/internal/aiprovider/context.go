@@ -8,6 +8,8 @@ const (
 	contextOrgID            contextKey = "nextapi.ai_provider.org_id"
 	contextUserID           contextKey = "nextapi.ai_provider.user_id"
 	contextDirectorMetering contextKey = "nextapi.ai_provider.director_metering"
+	contextDirectorJobID    contextKey = "nextapi.ai_provider.director_job_id"
+	contextDirectorStepID   contextKey = "nextapi.ai_provider.director_step_id"
 )
 
 // WithOrgID annotates provider calls so usage logs can be attributed to an org.
@@ -51,4 +53,34 @@ func WithDirectorMetering(ctx context.Context) context.Context {
 func directorMeteringFromContext(ctx context.Context) bool {
 	value, ok := ctx.Value(contextDirectorMetering).(bool)
 	return ok && value
+}
+
+func WithDirectorJobID(ctx context.Context, directorJobID string) context.Context {
+	if directorJobID == "" {
+		return ctx
+	}
+	return context.WithValue(ctx, contextDirectorJobID, directorJobID)
+}
+
+func directorJobIDFromContext(ctx context.Context) *string {
+	value, ok := ctx.Value(contextDirectorJobID).(string)
+	if !ok || value == "" {
+		return nil
+	}
+	return &value
+}
+
+func WithDirectorStepID(ctx context.Context, directorStepID string) context.Context {
+	if directorStepID == "" {
+		return ctx
+	}
+	return context.WithValue(ctx, contextDirectorStepID, directorStepID)
+}
+
+func directorStepIDFromContext(ctx context.Context) *string {
+	value, ok := ctx.Value(contextDirectorStepID).(string)
+	if !ok || value == "" {
+		return nil
+	}
+	return &value
 }

@@ -153,6 +153,23 @@ func (h *DirectorHandlers) RunDirectorMode(c *gin.Context) {
 	if !h.requireDirectorAccess(c, req.GenerateImages) {
 		return
 	}
+	directorJob, err := h.createDirectorJob(c.Request.Context(), c, org.ID, req.Story, req.Characters, req.Options, req.ShotCount, req.Duration, req.GenerateImages, shouldRunDirectorWorkflow(req.RunWorkflow))
+	if err != nil {
+		httpx.InternalError(c, "director_job_create_failed", "failed to create director job")
+		return
+	}
+	planningStep, err := h.startDirectorStep(c.Request.Context(), org.ID, directorJob, "storyboard", gin.H{
+		"engine":            req.Engine,
+		"genre":             req.Genre,
+		"style":             req.Style,
+		"shot_count":        req.ShotCount,
+		"duration_per_shot": req.Duration,
+		"characters":        req.Characters,
+	})
+	if err != nil {
+		httpx.InternalError(c, "director_step_create_failed", "failed to create director step")
+		return
+	}
 	shotsReq := director.GenerateShotsInput{
 		OrgID:           org.ID,
 		Engine:          req.Engine,
@@ -164,14 +181,33 @@ func (h *DirectorHandlers) RunDirectorMode(c *gin.Context) {
 		Characters:      req.Characters,
 		TextProviderID:  req.TextProviderID,
 	}
-	ctx := aiprovider.WithDirectorMetering(aiprovider.WithOrgID(c.Request.Context(), org.ID))
+	ctx := h.directorMeteringContext(c.Request.Context(), org.ID, directorJob, planningStep)
 	storyboard, err := h.Service.GenerateShots(ctx, shotsReq)
 	if err != nil {
+		h.failDirectorStep(c.Request.Context(), planningStep, "storyboard_failed")
+		h.failDirectorJob(c.Request.Context(), directorJob, "planning_failed")
 		handleDirectorError(c, err)
 		return
 	}
+	h.completeDirectorStep(c.Request.Context(), planningStep, gin.H{
+		"title":         storyboard.Title,
+		"shot_count":    len(storyboard.Shots),
+		"engine_used":   storyboard.EngineUsed,
+		"engine_status": storyboard.EngineStatus,
+	})
 	if req.GenerateImages {
-		generated, imgErr := h.Service.GenerateShotImages(ctx, director.GenerateShotImagesInput{
+		imageStep, stepErr := h.startDirectorStep(c.Request.Context(), org.ID, directorJob, "image_submit", gin.H{
+			"shot_count": len(storyboard.Shots),
+			"style":      req.Style,
+			"resolution": req.Options.Resolution,
+		})
+		if stepErr != nil {
+			h.failDirectorJob(c.Request.Context(), directorJob, "image_step_create_failed")
+			httpx.InternalError(c, "director_step_create_failed", "failed to create director step")
+			return
+		}
+		imageCtx := h.directorMeteringContext(c.Request.Context(), org.ID, directorJob, imageStep)
+		generated, imgErr := h.Service.GenerateShotImages(imageCtx, director.GenerateShotImagesInput{
 			OrgID:           org.ID,
 			ImageProviderID: req.ImageProviderID,
 			Style:           req.Style,
@@ -179,6 +215,8 @@ func (h *DirectorHandlers) RunDirectorMode(c *gin.Context) {
 			Shots:           storyboard.Shots,
 		})
 		if imgErr != nil {
+			h.failDirectorStep(c.Request.Context(), imageStep, "image_generation_failed")
+			h.failDirectorJob(c.Request.Context(), directorJob, "image_generation_failed")
 			handleDirectorError(c, imgErr)
 			return
 		}
@@ -190,6 +228,8 @@ func (h *DirectorHandlers) RunDirectorMode(c *gin.Context) {
 				}
 				id, url, saveErr := h.persistGeneratedImage(ctx, org.ID, storyboard.Shots[i].ReferenceImageURL)
 				if saveErr != nil {
+					h.failDirectorStep(c.Request.Context(), imageStep, "image_persist_failed")
+					h.failDirectorJob(c.Request.Context(), directorJob, "image_persist_failed")
 					handleDirectorError(c, director.ErrImageGenerationFailed)
 					return
 				}
@@ -197,10 +237,27 @@ func (h *DirectorHandlers) RunDirectorMode(c *gin.Context) {
 				storyboard.Shots[i].ReferenceImageURL = url
 			}
 		}
+		h.completeDirectorStep(c.Request.Context(), imageStep, gin.H{"shot_count": len(storyboard.Shots)})
 	}
 	req.Options.EnableMerge = h.WorkflowSvc.MergeEnabled()
+	workflowStep, err := h.startDirectorStep(c.Request.Context(), org.ID, directorJob, "workflow_build", gin.H{
+		"shot_count":     len(storyboard.Shots),
+		"enable_merge":   req.Options.EnableMerge,
+		"max_parallel":   req.Options.MaxParallel,
+		"video_model":    req.Options.Model,
+		"resolution":     req.Options.Resolution,
+		"aspect_ratio":   req.Options.Ratio,
+		"generate_audio": req.Options.GenerateAudio,
+	})
+	if err != nil {
+		h.failDirectorJob(c.Request.Context(), directorJob, "workflow_step_create_failed")
+		httpx.InternalError(c, "director_step_create_failed", "failed to create director step")
+		return
+	}
 	def, err := director.BuildWorkflowFromShots(*storyboard, req.Options)
 	if err != nil {
+		h.failDirectorStep(c.Request.Context(), workflowStep, "workflow_build_failed")
+		h.failDirectorJob(c.Request.Context(), directorJob, "workflow_build_failed")
 		handleDirectorError(c, err)
 		return
 	}
@@ -217,12 +274,25 @@ func (h *DirectorHandlers) RunDirectorMode(c *gin.Context) {
 		WorkflowJSON: json.RawMessage(def),
 	})
 	if err != nil {
+		h.failDirectorStep(c.Request.Context(), workflowStep, "workflow_create_failed")
+		h.failDirectorJob(c.Request.Context(), directorJob, "workflow_create_failed")
 		httpx.InternalError(c, "workflow_create_failed", "failed to create workflow")
 		return
 	}
+	h.completeDirectorStep(c.Request.Context(), workflowStep, gin.H{"workflow_id": row.ID})
 	var runResult *workflow.RunResult
 	shouldRunWorkflow := shouldRunDirectorWorkflow(req.RunWorkflow)
 	if shouldRunWorkflow {
+		executionStep, stepErr := h.startDirectorStep(c.Request.Context(), org.ID, directorJob, "video_submit", gin.H{
+			"workflow_id":  row.ID,
+			"shot_count":   len(storyboard.Shots),
+			"max_parallel": req.Options.MaxParallel,
+		})
+		if stepErr != nil {
+			h.failDirectorJob(c.Request.Context(), directorJob, "video_step_create_failed")
+			httpx.InternalError(c, "director_step_create_failed", "failed to create director step")
+			return
+		}
 		var apiKeyID *string
 		if ak := auth.APIKeyFrom(c); ak != nil {
 			apiKeyID = &ak.ID
@@ -232,9 +302,19 @@ func (h *DirectorHandlers) RunDirectorMode(c *gin.Context) {
 			APIKeyID: apiKeyID,
 		})
 		if err != nil {
+			h.failDirectorStep(c.Request.Context(), executionStep, "workflow_run_failed")
+			h.failDirectorJob(c.Request.Context(), directorJob, "workflow_run_failed")
 			(&WorkflowHandlers{}).handleWorkflowError(c, err)
 			return
 		}
+		h.completeDirectorStep(c.Request.Context(), executionStep, gin.H{
+			"workflow_run_id": runResult.RunID,
+			"batch_run_id":    runResult.BatchRunID,
+			"job_ids":         runResult.JobIDs,
+			"video_ids":       runResult.VideoIDs,
+			"merge_job_id":    runResult.MergeJobID,
+		})
+		h.recordDirectorVideoMetering(c.Request.Context(), org.ID, directorJob, executionStep, runResult.JobIDs)
 		if runResult.TaskID != "" {
 			c.Set("created_job_id", runResult.TaskID)
 		}
@@ -245,18 +325,271 @@ func (h *DirectorHandlers) RunDirectorMode(c *gin.Context) {
 			c.Set("created_batch_run_id", runResult.BatchRunID)
 		}
 	}
+	plan := director.StoryboardToDirectorPlan(*storyboard, shotsReq.Characters)
+	h.finishDirectorJob(c.Request.Context(), directorJob, storyboard, &row.ID, runResult, plan)
 	c.JSON(http.StatusOK, gin.H{
-		"plan":          director.StoryboardToDirectorPlan(*storyboard, shotsReq.Characters),
-		"workflow":      json.RawMessage(def),
-		"record":        row,
-		"run":           runResult,
-		"engine_used":   storyboard.EngineUsed,
-		"engine_status": storyboard.EngineStatus,
+		"director_job":    directorJob,
+		"director_job_id": directorJobID(directorJob),
+		"plan":            plan,
+		"workflow":        json.RawMessage(def),
+		"record":          row,
+		"run":             runResult,
+		"engine_used":     storyboard.EngineUsed,
+		"engine_status":   storyboard.EngineStatus,
 	})
 }
 
 func shouldRunDirectorWorkflow(runWorkflow *bool) bool {
 	return runWorkflow != nil && *runWorkflow
+}
+
+func (h *DirectorHandlers) createDirectorJob(ctx context.Context, c *gin.Context, orgID string, story string, characters []director.CharacterInput, options director.WorkflowOptions, shotCount int, duration int, generateImages bool, runWorkflow bool) (*domain.DirectorJob, error) {
+	if h.DB == nil {
+		return nil, nil
+	}
+	selectedCharacterIDs := make([]string, 0, len(characters))
+	for _, character := range characters {
+		if strings.TrimSpace(character.AssetID) != "" {
+			selectedCharacterIDs = append(selectedCharacterIDs, strings.TrimSpace(character.AssetID))
+		}
+	}
+	createdBy := orgID
+	if ak := auth.APIKeyFrom(c); ak != nil && strings.TrimSpace(ak.ID) != "" {
+		createdBy = ak.ID
+	}
+	row := domain.DirectorJob{
+		ID:                   uuid.NewString(),
+		OrgID:                orgID,
+		Story:                strings.TrimSpace(story),
+		Status:               "planning",
+		SelectedCharacterIDs: snapshotJSON(selectedCharacterIDs),
+		BudgetSnapshot: snapshotJSON(gin.H{
+			"duration_per_shot": duration,
+			"generate_audio":    options.GenerateAudio,
+			"generate_images":   generateImages,
+			"max_parallel":      options.MaxParallel,
+			"model":             options.Model,
+			"ratio":             options.Ratio,
+			"resolution":        options.Resolution,
+			"run_workflow":      runWorkflow,
+			"shot_count":        shotCount,
+		}),
+		PlanSnapshot: snapshotJSON(gin.H{}),
+		CreatedBy:    createdBy,
+	}
+	if err := h.DB.WithContext(ctx).Create(&row).Error; err != nil {
+		if directorAuditUnavailable(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &row, nil
+}
+
+func (h *DirectorHandlers) startDirectorStep(ctx context.Context, orgID string, directorJob *domain.DirectorJob, stepKey string, input any) (*domain.DirectorStep, error) {
+	if h.DB == nil || directorJob == nil {
+		return nil, nil
+	}
+	now := time.Now().UTC()
+	row := domain.DirectorStep{
+		ID:             uuid.NewString(),
+		DirectorJobID:  directorJob.ID,
+		OrgID:          orgID,
+		StepKey:        stepKey,
+		Status:         "running",
+		InputSnapshot:  snapshotJSON(input),
+		OutputSnapshot: snapshotJSON(gin.H{}),
+		Attempts:       1,
+		StartedAt:      &now,
+	}
+	if err := h.DB.WithContext(ctx).Create(&row).Error; err != nil {
+		if directorAuditUnavailable(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &row, nil
+}
+
+func (h *DirectorHandlers) completeDirectorStep(ctx context.Context, step *domain.DirectorStep, output any) {
+	if h.DB == nil || step == nil {
+		return
+	}
+	now := time.Now().UTC()
+	outputSnapshot := snapshotJSON(output)
+	updates := map[string]any{
+		"status":          "succeeded",
+		"output_snapshot": outputSnapshot,
+		"completed_at":    &now,
+		"updated_at":      now,
+	}
+	_ = h.DB.WithContext(ctx).Model(&domain.DirectorStep{}).Where("id = ?", step.ID).Updates(updates).Error
+	step.Status = "succeeded"
+	step.OutputSnapshot = outputSnapshot
+	step.CompletedAt = &now
+	step.UpdatedAt = now
+}
+
+func (h *DirectorHandlers) failDirectorStep(ctx context.Context, step *domain.DirectorStep, errorCode string) {
+	if h.DB == nil || step == nil {
+		return
+	}
+	now := time.Now().UTC()
+	updates := map[string]any{
+		"status":       "failed",
+		"error_code":   errorCode,
+		"completed_at": &now,
+		"updated_at":   now,
+	}
+	_ = h.DB.WithContext(ctx).Model(&domain.DirectorStep{}).Where("id = ?", step.ID).Updates(updates).Error
+	step.Status = "failed"
+	step.ErrorCode = errorCode
+	step.CompletedAt = &now
+	step.UpdatedAt = now
+}
+
+func (h *DirectorHandlers) failDirectorJob(ctx context.Context, directorJob *domain.DirectorJob, errorCode string) {
+	if h.DB == nil || directorJob == nil {
+		return
+	}
+	now := time.Now().UTC()
+	plan := snapshotJSON(gin.H{"error_code": errorCode})
+	updates := map[string]any{
+		"status":        "failed",
+		"plan_snapshot": plan,
+		"updated_at":    now,
+	}
+	_ = h.DB.WithContext(ctx).Model(&domain.DirectorJob{}).Where("id = ?", directorJob.ID).Updates(updates).Error
+	directorJob.Status = "failed"
+	directorJob.PlanSnapshot = plan
+	directorJob.UpdatedAt = now
+}
+
+func (h *DirectorHandlers) finishDirectorJob(ctx context.Context, directorJob *domain.DirectorJob, storyboard *director.Storyboard, workflowID *string, runResult *workflow.RunResult, plan director.DirectorPlan) {
+	if h.DB == nil || directorJob == nil {
+		return
+	}
+	status := "workflow_ready"
+	if runResult != nil {
+		status = "queued"
+		if runResult.BatchRunID != "" || runResult.Status == "running" {
+			status = "running"
+		}
+	}
+	var workflowRunID *string
+	var batchRunID *string
+	if runResult != nil {
+		if runResult.RunID != "" {
+			workflowRunID = &runResult.RunID
+		}
+		if runResult.BatchRunID != "" {
+			batchRunID = &runResult.BatchRunID
+		}
+	}
+	title := ""
+	engineUsed := ""
+	fallbackUsed := false
+	if storyboard != nil {
+		title = storyboard.Title
+		engineUsed = storyboard.EngineUsed
+		fallbackUsed = storyboard.EngineStatus != nil && storyboard.EngineStatus.FallbackUsed
+	}
+	now := time.Now().UTC()
+	planSnapshot := snapshotJSON(plan)
+	updates := map[string]any{
+		"batch_run_id":    batchRunID,
+		"engine_used":     engineUsed,
+		"fallback_used":   fallbackUsed,
+		"plan_snapshot":   planSnapshot,
+		"status":          status,
+		"title":           title,
+		"updated_at":      now,
+		"workflow_id":     workflowID,
+		"workflow_run_id": workflowRunID,
+	}
+	_ = h.DB.WithContext(ctx).Model(&domain.DirectorJob{}).Where("id = ?", directorJob.ID).Updates(updates).Error
+	directorJob.BatchRunID = batchRunID
+	directorJob.EngineUsed = engineUsed
+	directorJob.FallbackUsed = fallbackUsed
+	directorJob.PlanSnapshot = planSnapshot
+	directorJob.Status = status
+	directorJob.Title = title
+	directorJob.UpdatedAt = now
+	directorJob.WorkflowID = workflowID
+	directorJob.WorkflowRunID = workflowRunID
+}
+
+func (h *DirectorHandlers) recordDirectorVideoMetering(ctx context.Context, orgID string, directorJob *domain.DirectorJob, step *domain.DirectorStep, jobIDs []string) {
+	if h.DB == nil || directorJob == nil || step == nil || len(jobIDs) == 0 {
+		return
+	}
+	var rows []domain.Job
+	if err := h.DB.WithContext(ctx).Where("org_id = ? AND id IN ?", orgID, jobIDs).Find(&rows).Error; err != nil {
+		return
+	}
+	for _, row := range rows {
+		cents := row.ReservedCredits
+		if row.CostCredits != nil {
+			cents = *row.CostCredits
+		}
+		metering := domain.DirectorMetering{
+			OrgID:          orgID,
+			DirectorJobID:  &directorJob.ID,
+			StepID:         &step.ID,
+			JobID:          &row.ID,
+			MeterType:      string(domain.ReasonVideoGeneration),
+			Units:          1,
+			EstimatedCents: row.ReservedCredits,
+			ActualCents:    cents,
+			CreditsDelta:   -row.ReservedCredits,
+			Status:         "reserved",
+			UsageJSON: snapshotJSON(gin.H{
+				"job_status": row.Status,
+				"provider":   row.Provider,
+			}),
+		}
+		_ = h.DB.WithContext(ctx).Create(&metering).Error
+	}
+}
+
+func (h *DirectorHandlers) directorMeteringContext(ctx context.Context, orgID string, directorJob *domain.DirectorJob, step *domain.DirectorStep) context.Context {
+	ctx = aiprovider.WithDirectorMetering(aiprovider.WithOrgID(ctx, orgID))
+	if directorJob != nil {
+		ctx = aiprovider.WithDirectorJobID(ctx, directorJob.ID)
+	}
+	if step != nil {
+		ctx = aiprovider.WithDirectorStepID(ctx, step.ID)
+	}
+	return ctx
+}
+
+func directorJobID(directorJob *domain.DirectorJob) string {
+	if directorJob == nil {
+		return ""
+	}
+	return directorJob.ID
+}
+
+func snapshotJSON(value any) json.RawMessage {
+	if value == nil {
+		return json.RawMessage(`{}`)
+	}
+	raw, err := json.Marshal(value)
+	if err != nil || len(raw) == 0 {
+		return json.RawMessage(`{}`)
+	}
+	return raw
+}
+
+func directorAuditUnavailable(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "director_jobs") ||
+		strings.Contains(msg, "director_steps") ||
+		strings.Contains(msg, "director_metering") ||
+		strings.Contains(msg, "no such table")
 }
 
 func (h *DirectorHandlers) GenerateShotImages(c *gin.Context) {
