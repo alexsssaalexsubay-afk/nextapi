@@ -43,6 +43,11 @@ billing, throughput, moderation, and webhook paths.
 - Runtime readiness, engine evidence, memory bindings, and closed-loop proof are
   still visible, but they should not occupy a permanent right column before the
   user has workspace context.
+- The dashboard surfaces recent org-scoped Director runs from
+  `/v1/director/runs` as compact recovery evidence. `final_asset` proof must
+  come from a run that matches the current workflow/run identifiers, or from
+  recent history only when the current workspace has no active draft, so old
+  merged assets do not falsely complete a new story.
 
 ## Rollout
 

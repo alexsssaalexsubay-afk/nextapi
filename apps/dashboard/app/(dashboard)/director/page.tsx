@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { useEffect, useState, type ReactNode } from "react"
+import { useEffect, useRef, useState, type ReactNode } from "react"
 import {
   AlertTriangle,
   ArrowRight,
@@ -26,7 +26,7 @@ import { DashboardShell } from "@/components/dashboard/dashboard-shell"
 import { Slider } from "@/components/ui/slider"
 import { useTranslations } from "@/lib/i18n/context"
 import { useVideoModelCatalog } from "@/lib/use-video-model-catalog"
-import { createDirectorWorkflow, generateDirectorShotImages, generateDirectorShots, getDirectorStatus, listCharacters, runBackendDirectorPipeline, type CharacterRecord, type DirectorCharacterInput, type DirectorEngineStatus, type DirectorShot, type DirectorStatus, type DirectorStoryboard, type WorkflowRunResult } from "@/lib/workflows"
+import { createDirectorWorkflow, generateDirectorShotImages, generateDirectorShots, getDirectorStatus, listCharacters, listDirectorRuns, runBackendDirectorPipeline, type CharacterRecord, type DirectorCharacterInput, type DirectorEngineStatus, type DirectorRunSummary, type DirectorShot, type DirectorStatus, type DirectorStoryboard, type WorkflowRunResult } from "@/lib/workflows"
 import { cn } from "@/lib/utils"
 
 type BusyStage = "shots" | "images" | "workflow" | "director"
@@ -65,6 +65,7 @@ export default function DirectorPage() {
   const [selectedCharacterIDs, setSelectedCharacterIDs] = useState<string[]>([])
   const [workflowID, setWorkflowID] = useState<string | null>(null)
   const [workflowRun, setWorkflowRun] = useState<WorkflowRunResult | null>(null)
+  const [directorRuns, setDirectorRuns] = useState<DirectorRunSummary[]>([])
   const [loading, setLoading] = useState(false)
   const [busyStage, setBusyStage] = useState<BusyStage | null>(null)
   const [workspaceFocus, setWorkspaceFocus] = useState<DirectorWorkspaceFocus>("brief")
@@ -83,6 +84,31 @@ export default function DirectorPage() {
       .then(setCharacters)
       .catch(() => setCharacters([]))
   }, [])
+
+  const nonTerminalStatuses = new Set(["planning", "workflow_ready", "queued", "running", "video_complete"])
+
+  const loadRunsRef = useRef<() => Promise<void>>(async () => {})
+  loadRunsRef.current = async () => {
+    try {
+      const page = await listDirectorRuns(5)
+      setDirectorRuns(page.data ?? [])
+    } catch {
+      // keep previous state on error
+    }
+  }
+
+  useEffect(() => {
+    void loadRunsRef.current()
+  }, [])
+
+  useEffect(() => {
+    const latest = directorRuns[0]
+    if (!latest || !nonTerminalStatuses.has(latest.director_job.status)) return
+    const interval = setInterval(() => {
+      void loadRunsRef.current()
+    }, 5000)
+    return () => clearInterval(interval)
+  }, [directorRuns[0]?.director_job.status])
 
   useEffect(() => {
     if (videoCatalog.state !== "ready" || videoCatalog.modelIds.length === 0) return
@@ -276,6 +302,7 @@ export default function DirectorPage() {
       setWorkspaceFocus("workflow")
       setSelectedShotIndex(0)
       markAction("director", "success")
+      void loadRunsRef.current()
     } catch (e) {
       markAction("director", "error")
       setError(e instanceof Error ? e.message : labels.workflowFailed)
@@ -503,12 +530,14 @@ export default function DirectorPage() {
               <MemoryBindingPanel labels={labels} selectedCharacters={selectedCharacters} />
               <HandoffPanel workflowID={workflowID} run={workflowRun} labels={labels} />
               <EngineEvidenceBanner storyboard={storyboard} status={status} labels={labels} />
+              <RecentRunsPanel runs={directorRuns} labels={labels} />
               <ClosedLoopRail
                 story={story}
                 selectedCharacters={selectedCharacters}
                 storyboard={storyboard}
                 workflowID={workflowID}
                 run={workflowRun}
+                directorRuns={directorRuns}
                 status={status}
                 busyStage={busyStage}
                 labels={labels}
@@ -1601,12 +1630,109 @@ function EngineEvidenceBanner({ storyboard, status, labels }: { storyboard: Dire
   )
 }
 
+function RecentRunsPanel({
+  runs,
+  labels,
+}: {
+  runs: DirectorRunSummary[]
+  labels: ReturnType<typeof useTranslations>["directorPage"]
+}) {
+  if (runs.length === 0) {
+    return (
+      <section className="rounded-lg border border-border bg-background/70 p-3">
+        <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-signal">{labels.recentRunsTitle}</p>
+        <p className="mt-2 text-[11.5px] leading-relaxed text-muted-foreground">{labels.recentRunsEmpty}</p>
+      </section>
+    )
+  }
+  const latest = runs[0]
+  return (
+    <section className="rounded-lg border border-border bg-background/70 p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-signal">{labels.recentRunsTitle}</p>
+        <span className="rounded-md border border-border bg-card px-2 py-0.5 font-mono text-[10px] text-muted-foreground">
+          {labels.recentRunsCount.replace("{count}", String(runs.length))}
+        </span>
+      </div>
+      <div className="mt-3 grid gap-2">
+        {runs.slice(0, 3).map((run) => {
+          const fa = run.final_asset
+          const isLatest = run.director_job.id === latest.director_job.id
+          return (
+            <div
+              key={run.director_job.id}
+              className={cn(
+                "rounded-lg border px-3 py-2 text-[11.5px]",
+                isLatest ? "border-signal/30 bg-signal/5" : "border-border bg-card/50",
+              )}
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="max-w-44 truncate font-medium text-foreground">
+                  {run.director_job.title || run.director_job.id.slice(0, 8)}
+                </span>
+                <span className={cn(
+                  "rounded-md px-1.5 py-0.5 font-mono text-[10px]",
+                  run.director_job.status === "final_asset" || run.director_job.status === "succeeded" ? "bg-status-success/15 text-status-success" :
+                    run.director_job.status === "failed" ? "bg-destructive/15 text-destructive" :
+                      "bg-signal/15 text-signal",
+                )}>
+                  {run.director_job.status}
+                </span>
+              </div>
+              <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-0.5 text-muted-foreground">
+                {run.latest_checkpoint?.checkpoint_key ? (
+                  <span>{labels.recentRunsCheckpoint}: <span className="font-mono text-[10.5px]">{run.latest_checkpoint.checkpoint_key}</span></span>
+                ) : null}
+                <span>{labels.recentRunsSteps}: {run.step_count}</span>
+                <span>{labels.recentRunsCost}: {run.totals.actual_cents > 0 ? `$${(run.totals.actual_cents / 100).toFixed(2)}` : `$${(run.totals.estimated_cents / 100).toFixed(2)}`}</span>
+              </div>
+              {fa ? (
+                <div className={cn(
+                  "mt-2 rounded-md border px-2.5 py-1.5 text-[11px]",
+                  fa.available ? "border-status-success/30 bg-status-success/8" :
+                    fa.step_status === "failed" ? "border-destructive/30 bg-destructive/8" :
+                      "border-border bg-background/60",
+                )}>
+                  {fa.available ? (
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="font-medium text-status-success">{labels.finalAssetReady}</span>
+                      {fa.video_url ? (
+                        <a href={fa.video_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded-md border border-status-success/35 bg-status-success/10 px-2 py-0.5 text-[10px] font-medium text-status-success transition hover:bg-status-success/20">
+                          {labels.recentRunsOpenVideo}
+                        </a>
+                      ) : null}
+                    </div>
+                  ) : fa.step_status === "failed" ? (
+                    <span className="text-destructive">{labels.finalAssetFailed}{fa.error_code ? `: ${fa.error_code}` : ""}</span>
+                  ) : (
+                    <span className="text-muted-foreground">{labels.finalAssetWaiting}</span>
+                  )}
+                  {fa.asset_id ? (
+                    <div className="mt-1 font-mono text-[10px] text-muted-foreground">
+                      {labels.recentRunsAssetID}: {fa.asset_id.slice(0, 12)}...
+                    </div>
+                  ) : null}
+                </div>
+              ) : (
+                <div className="mt-2 rounded-md border border-border bg-background/60 px-2.5 py-1.5 text-[11px] text-muted-foreground">
+                  {labels.finalAssetWaiting}
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </section>
+  )
+}
+
 function ClosedLoopRail({
   story,
   selectedCharacters,
   storyboard,
   workflowID,
   run,
+  directorRuns,
   status,
   busyStage,
   labels,
@@ -1616,6 +1742,7 @@ function ClosedLoopRail({
   storyboard: DirectorStoryboard | null
   workflowID: string | null
   run: WorkflowRunResult | null
+  directorRuns: DirectorRunSummary[]
   status: DirectorStatus | null
   busyStage: BusyStage | null
   labels: ReturnType<typeof useTranslations>["directorPage"]
@@ -1624,8 +1751,16 @@ function ClosedLoopRail({
   const hasTasks = Boolean(run?.batch_run_id || jobCount > 0)
   const mergeEnabled = status?.merge_enabled === true
   const mergeStarted = Boolean(run?.merge_job_id)
-  const finalAssetProven = Boolean(runStringField(run, "final_asset_id") || runStringField(run, "final_asset_url") || runStringField(run, "asset_url"))
-  const libraryProven = Boolean(runStringField(run, "library_asset_id") || runStringField(run, "asset_id"))
+  const matchedDirectorRun = findCurrentDirectorRun(directorRuns, workflowID, run)
+  const canUseLatestHistory = !story.trim() && !storyboard && !workflowID && !run
+  const evidenceDirectorRun = matchedDirectorRun ?? (canUseLatestHistory ? directorRuns[0] : undefined)
+  const runsFinalAssetAvailable = evidenceDirectorRun?.final_asset?.available === true
+  const runsFinalAssetFailed = evidenceDirectorRun?.final_asset?.step_status === "failed"
+  const runsHasFinalAsset = Boolean(evidenceDirectorRun?.final_asset)
+  const runsHasVideo = Boolean(evidenceDirectorRun?.final_asset?.video_url)
+  const runsHasAssetID = Boolean(evidenceDirectorRun?.final_asset?.asset_id)
+  const finalAssetProven = runsFinalAssetAvailable || (runsHasFinalAsset && !runsFinalAssetFailed && (runsHasVideo || runsHasAssetID))
+  const libraryProven = runsFinalAssetAvailable && runsHasAssetID
   const steps: Array<{ key: string; label: string; state: ProofStepState; evidence: string }> = [
     {
       key: "story",
@@ -1672,13 +1807,13 @@ function ClosedLoopRail({
     {
       key: "final_asset",
       label: labels.loopFinalAsset,
-      state: finalAssetProven ? "done" : run ? "active" : "waiting",
-      evidence: finalAssetProven ? labels.loopFinalAssetReady : labels.loopFinalAssetWaiting,
+      state: runsFinalAssetFailed ? "blocked" : finalAssetProven ? "done" : run ? "active" : "waiting",
+      evidence: runsFinalAssetFailed ? labels.finalAssetFailed : finalAssetProven ? labels.loopFinalAssetReady : labels.loopFinalAssetWaiting,
     },
     {
       key: "asset_library",
       label: labels.loopAssetLibrary,
-      state: libraryProven ? "done" : run ? "active" : "waiting",
+      state: runsFinalAssetFailed ? "blocked" : libraryProven ? "done" : run ? "active" : "waiting",
       evidence: libraryProven ? labels.loopAssetLibraryReady : labels.loopAssetLibraryWaiting,
     },
   ]
@@ -2283,10 +2418,19 @@ function proofPathMeta(state: ProofStepState) {
   }
 }
 
-function runStringField(run: WorkflowRunResult | null, key: string) {
-  if (!run) return ""
-  const value = (run as unknown as Record<string, unknown>)[key]
-  return typeof value === "string" ? value : ""
+function findCurrentDirectorRun(
+  runs: DirectorRunSummary[],
+  workflowID: string | null,
+  run: WorkflowRunResult | null,
+) {
+  return runs.find((item) => {
+    const job = item.director_job
+    return Boolean(
+      (run?.run_id && job.workflow_run_id === run.run_id) ||
+        (run?.batch_run_id && job.batch_run_id === run.batch_run_id) ||
+        (workflowID && job.workflow_id === workflowID),
+    )
+  })
 }
 
 function Field({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {

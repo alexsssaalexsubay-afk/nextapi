@@ -372,6 +372,59 @@ export async function getBatchRun(id: string): Promise<BatchRunDetail> {
   return apiFetch(`/v1/batch/runs/${id}`) as Promise<BatchRunDetail>
 }
 
+export type DirectorRunFinalAsset = {
+  available: boolean
+  step_status: string
+  error_code?: string
+  asset_id?: string
+  video_url?: string
+  storage_key?: string
+  merged_at?: string
+}
+
+export type DirectorRunSummary = {
+  director_job: {
+    id: string
+    title: string
+    story: string
+    status: string
+    org_id: string
+    workflow_id?: string
+    workflow_run_id?: string
+    batch_run_id?: string
+    engine_used?: string
+    fallback_used?: boolean
+    created_by?: string
+    created_at?: string
+    updated_at?: string
+  }
+  step_count: number
+  totals: {
+    metering_events: number
+    estimated_cents: number
+    actual_cents: number
+    credits_delta: number
+  }
+  latest_checkpoint?: {
+    id: string
+    director_job_id: string
+    checkpoint_key: string
+    state_snapshot?: unknown
+    created_at?: string
+  }
+  final_asset?: DirectorRunFinalAsset
+}
+
+export type DirectorRunsPage = {
+  data: DirectorRunSummary[]
+  has_more: boolean
+  next_cursor?: string
+}
+
+export async function listDirectorRuns(limit = 5): Promise<DirectorRunsPage> {
+  return apiFetch(`/v1/director/runs?limit=${limit}`) as Promise<DirectorRunsPage>
+}
+
 export async function listCharacters(): Promise<CharacterRecord[]> {
   const res = await apiFetch("/v1/characters") as { data?: CharacterRecord[] }
   return Array.isArray(res.data) ? res.data : []
