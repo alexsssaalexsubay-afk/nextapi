@@ -78,6 +78,8 @@ type aiDirectorJobEvent struct {
 	StepSummary     map[string]int        `json:"step_summary"`
 	RecentSteps     []aiDirectorStepEvent `json:"recent_steps"`
 	MeteringCents   int64                 `json:"metering_cents"`
+	EstimatedCents  int64                 `json:"estimated_cents"`
+	ActualCents     int64                 `json:"actual_cents"`
 	MeteringCalls   int64                 `json:"metering_calls"`
 	SelectedAssetCt int                   `json:"selected_asset_count"`
 }
@@ -256,12 +258,14 @@ func (h *AdminHandlers) directorJobEvent(ctx context.Context, row domain.Directo
 		})
 	}
 	var meter struct {
-		Calls int64
-		Cents int64
+		Calls     int64
+		Estimated int64
+		Actual    int64
 	}
 	_ = h.DB.WithContext(ctx).Raw(`
 		SELECT COUNT(*) AS calls,
-		       COALESCE(SUM(actual_cents), 0) AS cents
+		       COALESCE(SUM(estimated_cents), 0) AS estimated,
+		       COALESCE(SUM(actual_cents), 0) AS actual
 		FROM director_metering
 		WHERE director_job_id = ?`, row.ID).Scan(&meter).Error
 	return aiDirectorJobEvent{
@@ -279,7 +283,9 @@ func (h *AdminHandlers) directorJobEvent(ctx context.Context, row domain.Directo
 		UpdatedAt:       row.UpdatedAt.Format(time.RFC3339),
 		StepSummary:     stepSummary,
 		RecentSteps:     recentSteps,
-		MeteringCents:   meter.Cents,
+		MeteringCents:   meter.Actual,
+		EstimatedCents:  meter.Estimated,
+		ActualCents:     meter.Actual,
 		MeteringCalls:   meter.Calls,
 		SelectedAssetCt: jsonArrayLen(row.SelectedCharacterIDs),
 	}

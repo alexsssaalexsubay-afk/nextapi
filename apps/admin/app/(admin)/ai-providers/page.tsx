@@ -83,6 +83,8 @@ type DirectorJobEvent = {
   step_summary: Record<string, number>
   recent_steps: DirectorStepEvent[]
   metering_cents: number
+  estimated_cents?: number
+  actual_cents?: number
   metering_calls: number
   selected_asset_count: number
 }
@@ -627,7 +629,7 @@ function DirectorJobsPanel({
                 <div className="grid grid-cols-3 gap-2 text-right text-muted-foreground">
                   <div><div>{copy.directorJobSteps}</div><div className="font-mono text-foreground">{job.recent_steps.length}</div></div>
                   <div><div>{copy.directorJobCalls}</div><div className="font-mono text-foreground">{job.metering_calls}</div></div>
-                  <div><div>{copy.directorJobCost}</div><div className="font-mono text-foreground">{formatMoney(job.metering_cents)}</div></div>
+                  <div><div>{copy.directorJobCost}</div><div className="font-mono text-foreground">{formatDirectorJobCost(job, copy.directorJobEstimated)}</div></div>
                 </div>
               </div>
               <div className="mt-3 flex flex-wrap gap-1.5">
@@ -824,6 +826,15 @@ function isAvatarModel(model: string, name: string, config?: Record<string, unkn
 
 function formatMoney(cents: number) {
   return `$${(cents / 100).toFixed(2)}`
+}
+
+function formatDirectorJobCost(job: DirectorJobEvent, estimatedLabel: string) {
+  const actualCents = job.actual_cents ?? job.metering_cents
+  const estimatedCents = job.estimated_cents ?? 0
+  if (estimatedCents > 0 && estimatedCents !== actualCents) {
+    return `${formatMoney(actualCents)} / ${estimatedLabel} ${formatMoney(estimatedCents)}`
+  }
+  return formatMoney(actualCents)
 }
 
 function formatCompactNumber(value: number) {

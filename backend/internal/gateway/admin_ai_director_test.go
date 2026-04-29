@@ -160,3 +160,36 @@ func TestDirectorJobEventIncludesStepInputEvidence(t *testing.T) {
 		t.Fatalf("unexpected run shape evidence: %#v", step)
 	}
 }
+
+func TestDirectorJobEventSeparatesEstimatedAndActualMetering(t *testing.T) {
+	db := setupDirectorRunDB(t)
+	now := time.Date(2026, 4, 29, 11, 0, 0, 0, time.UTC)
+	directorJobID := "45454545-4545-4545-4545-454545454545"
+	if err := db.Create(&domain.DirectorJob{
+		ID:                   directorJobID,
+		OrgID:                "55555555-5555-5555-5555-555555555555",
+		Title:                "Metering evidence",
+		Status:               "workflow_ready",
+		SelectedCharacterIDs: json.RawMessage(`[]`),
+		BudgetSnapshot:       json.RawMessage(`{}`),
+		PlanSnapshot:         json.RawMessage(`{}`),
+		CreatedAt:            now,
+		UpdatedAt:            now,
+	}).Error; err != nil {
+		t.Fatalf("create director job: %v", err)
+	}
+	if err := db.Create(&[]domain.DirectorMetering{
+		{OrgID: "55555555-5555-5555-5555-555555555555", DirectorJobID: &directorJobID, MeterType: "storyboard", Units: 1, EstimatedCents: 12, ActualCents: 10, Status: "succeeded", UsageJSON: json.RawMessage(`{}`), CreatedAt: now},
+		{OrgID: "55555555-5555-5555-5555-555555555555", DirectorJobID: &directorJobID, MeterType: "video", Units: 1, EstimatedCents: 50, ActualCents: 64, Status: "succeeded", UsageJSON: json.RawMessage(`{}`), CreatedAt: now},
+	}).Error; err != nil {
+		t.Fatalf("create director metering: %v", err)
+	}
+
+	event := (&AdminHandlers{DB: db}).directorJobEvent(context.Background(), domain.DirectorJob{ID: directorJobID, CreatedAt: now, UpdatedAt: now})
+	if event.MeteringCalls != 2 {
+		t.Fatalf("metering calls = %d, want 2", event.MeteringCalls)
+	}
+	if event.EstimatedCents != 62 || event.ActualCents != 74 || event.MeteringCents != 74 {
+		t.Fatalf("unexpected metering totals: estimated=%d actual=%d legacy=%d", event.EstimatedCents, event.ActualCents, event.MeteringCents)
+	}
+}

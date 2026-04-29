@@ -61,6 +61,9 @@ policy without leaking operator secrets:
   `text_provider_id`, `image_provider_id`, `video_model`, shot count, and
   parallelism. They must not render provider keys, raw prompts, raw snapshots,
   sidecar URLs, callback URLs, or tokens.
+- Director run ledger cost cells should preserve both estimated and actual
+  metering totals when available. This lets operators compare reservation-style
+  estimates against final reconciliation without recalculating from raw job rows.
 
 ## Invariants
 - Admin actions never bypass the ledger — every change is auditable.

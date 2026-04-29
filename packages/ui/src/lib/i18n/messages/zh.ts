@@ -2267,6 +2267,7 @@ export const zh: Messages = {
       directorJobSteps: "步骤",
       directorJobCalls: "调用",
       directorJobCost: "成本",
+      directorJobEstimated: "预估",
       noDirectorJobs: "暂无 Director 运行记录。真实故事到工作流执行后会出现在这里。",
       untitledDirectorJob: "未命名 Director 运行",
       calls24h: "24 小时调用",

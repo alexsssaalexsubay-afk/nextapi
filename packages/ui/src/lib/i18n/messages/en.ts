@@ -2284,6 +2284,7 @@ export const en = {
       directorJobSteps: "Steps",
       directorJobCalls: "Calls",
       directorJobCost: "Cost",
+      directorJobEstimated: "est.",
       noDirectorJobs: "No Director runs yet. Live story-to-workflow executions will appear here.",
       untitledDirectorJob: "Untitled Director run",
       calls24h: "24h calls",
