@@ -2261,6 +2261,7 @@ export const en = {
       runtimeHint: "Shows the managed advanced runtime policy without exposing sidecar URLs, callback URLs, tokens, provider keys, or upstream branding.",
       runtimeReady: "Sidecar ready",
       runtimeNeedsConfig: "Needs config",
+      runtimeMissing: "Missing setup",
       runtimeSidecar: "Sidecar",
       runtimeSidecarAuth: "Sidecar auth",
       runtimeCallback: "Callback",

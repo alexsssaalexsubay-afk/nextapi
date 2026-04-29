@@ -107,6 +107,7 @@ type aiDirectorRuntimeConfig struct {
 	FallbackEnabled         bool                    `json:"fallback_enabled"`
 	FailClosed              bool                    `json:"fail_closed"`
 	ReadyForSidecar         bool                    `json:"ready_for_sidecar"`
+	MissingRequirements     []string                `json:"missing_requirements"`
 	Policy                  aiDirectorRuntimePolicy `json:"policy"`
 }
 
@@ -407,6 +408,7 @@ func adminDirectorRuntimeConfig() aiDirectorRuntimeConfig {
 	callbackConfigured := strings.TrimSpace(os.Getenv("DIRECTOR_RUNTIME_CALLBACK_URL")) != ""
 	callbackTokenConfigured := strings.TrimSpace(os.Getenv("DIRECTOR_RUNTIME_TOKEN")) != ""
 	fallbackEnabled := adminDirectorRuntimeAllowFallback()
+	missing := adminDirectorRuntimeMissingRequirements(sidecarConfigured, sidecarTokenConfigured, callbackConfigured, callbackTokenConfigured)
 	return aiDirectorRuntimeConfig{
 		SidecarConfigured:       sidecarConfigured,
 		SidecarTokenConfigured:  sidecarTokenConfigured,
@@ -414,7 +416,8 @@ func adminDirectorRuntimeConfig() aiDirectorRuntimeConfig {
 		CallbackTokenConfigured: callbackTokenConfigured,
 		FallbackEnabled:         fallbackEnabled,
 		FailClosed:              !fallbackEnabled,
-		ReadyForSidecar:         sidecarConfigured && sidecarTokenConfigured && callbackConfigured && callbackTokenConfigured,
+		ReadyForSidecar:         len(missing) == 0,
+		MissingRequirements:     missing,
 		Policy: aiDirectorRuntimePolicy{
 			ProductBrand:         "NextAPI Director",
 			PublicEngine:         "advanced",
@@ -426,6 +429,23 @@ func adminDirectorRuntimeConfig() aiDirectorRuntimeConfig {
 			UpstreamExposed:      false,
 		},
 	}
+}
+
+func adminDirectorRuntimeMissingRequirements(sidecarConfigured bool, sidecarTokenConfigured bool, callbackConfigured bool, callbackTokenConfigured bool) []string {
+	missing := make([]string, 0, 4)
+	if !sidecarConfigured {
+		missing = append(missing, "sidecar_endpoint")
+	}
+	if !sidecarTokenConfigured {
+		missing = append(missing, "sidecar_auth")
+	}
+	if !callbackConfigured {
+		missing = append(missing, "callback_endpoint")
+	}
+	if !callbackTokenConfigured {
+		missing = append(missing, "callback_auth")
+	}
+	return missing
 }
 
 func adminDirectorRuntimeAllowFallback() bool {

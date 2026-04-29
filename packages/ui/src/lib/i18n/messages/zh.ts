@@ -2244,6 +2244,7 @@ export const zh: Messages = {
       runtimeHint: "只展示托管高级运行时策略，不暴露 sidecar URL、callback URL、token、Provider Key 或上游品牌。",
       runtimeReady: "Sidecar 就绪",
       runtimeNeedsConfig: "待配置",
+      runtimeMissing: "缺少配置",
       runtimeSidecar: "Sidecar",
       runtimeSidecarAuth: "Sidecar 鉴权",
       runtimeCallback: "Callback",

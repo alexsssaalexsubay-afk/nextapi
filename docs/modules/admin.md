@@ -48,6 +48,9 @@ policy without leaking operator secrets:
 
 - Show whether the internal sidecar is configured, whether callback auth is
   configured, and whether fallback is enabled or fail-closed.
+- When the advanced runtime is not ready, return stable missing-requirement
+  codes such as `sidecar_endpoint` or `callback_auth` so operators know which
+  area is incomplete without exposing environment values.
 - Show only booleans and policy names. Do not return or render sidecar URLs,
   callback URLs, runtime tokens, provider keys, or upstream vendor branding.
 - Keep the public engine label as `advanced` and the product brand as

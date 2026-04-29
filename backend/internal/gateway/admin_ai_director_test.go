@@ -52,6 +52,9 @@ func TestAdminDirectorRuntimeConfigHidesSecretsAndUsesNextAPIPolicy(t *testing.T
 	if !cfg.ReadyForSidecar {
 		t.Fatal("expected sidecar to be ready when sidecar and callback credentials are present")
 	}
+	if len(cfg.MissingRequirements) != 0 {
+		t.Fatalf("ready runtime should not report missing requirements: %#v", cfg.MissingRequirements)
+	}
 	if !cfg.FallbackEnabled || cfg.FailClosed {
 		t.Fatalf("unexpected fallback flags: fallback=%v failClosed=%v", cfg.FallbackEnabled, cfg.FailClosed)
 	}
@@ -73,6 +76,27 @@ func TestAdminDirectorRuntimeConfigHidesSecretsAndUsesNextAPIPolicy(t *testing.T
 		if strings.Contains(payload, secret) {
 			t.Fatalf("runtime config leaked secret or internal URL %q in %s", secret, payload)
 		}
+	}
+}
+
+func TestAdminDirectorRuntimeConfigReportsMissingRequirementsWithoutSecrets(t *testing.T) {
+	t.Setenv("DIRECTOR_SIDECAR_TOKEN", "sidecar-secret")
+	t.Setenv("VIMAX_RUNTIME_ALLOW_FALLBACK", "true")
+
+	cfg := adminDirectorRuntimeConfig()
+	if cfg.ReadyForSidecar {
+		t.Fatal("runtime should not be ready without endpoint and callback config")
+	}
+	want := []string{"sidecar_endpoint", "callback_endpoint", "callback_auth"}
+	if strings.Join(cfg.MissingRequirements, ",") != strings.Join(want, ",") {
+		t.Fatalf("missing requirements = %#v, want %#v", cfg.MissingRequirements, want)
+	}
+	raw, err := json.Marshal(cfg)
+	if err != nil {
+		t.Fatalf("marshal config: %v", err)
+	}
+	if strings.Contains(string(raw), "sidecar-secret") {
+		t.Fatalf("runtime config leaked token in %s", string(raw))
 	}
 }
 

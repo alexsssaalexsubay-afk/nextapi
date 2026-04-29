@@ -112,6 +112,7 @@ type DirectorRuntimeConfig = {
   fallback_enabled: boolean
   fail_closed: boolean
   ready_for_sidecar: boolean
+  missing_requirements?: string[]
   policy: DirectorRuntimePolicy
 }
 
@@ -478,6 +479,16 @@ function DirectorRuntimePanel({
         <RuntimeFlag label={copy.runtimeFallback} active={Boolean(runtime?.fallback_enabled)} copy={copy} enabledTone />
         <RuntimeFlag label={copy.runtimeFailClosed} active={Boolean(runtime?.fail_closed)} copy={copy} enabledTone />
       </div>
+      {!ready && runtime?.missing_requirements && runtime.missing_requirements.length > 0 ? (
+        <div className="mt-3 rounded-lg border border-amber-500/20 bg-amber-500/5 p-2 text-xs">
+          <div className="mb-2 font-medium text-amber-700 dark:text-amber-200">{copy.runtimeMissing}</div>
+          <div className="flex flex-wrap gap-1.5">
+            {runtime.missing_requirements.map((item) => (
+              <span key={item} className="rounded-md border border-amber-500/20 bg-background/70 px-2 py-1 font-mono text-[11px] text-amber-700 dark:text-amber-200">{item}</span>
+            ))}
+          </div>
+        </div>
+      ) : null}
       <div className="mt-3 grid gap-2 text-xs md:grid-cols-2 xl:grid-cols-4">
         <CapabilityLine label={copy.runtimeProduct} value={policy?.product_brand ?? "NextAPI Director"} />
         <CapabilityLine label={copy.runtimeEngine} value={policy?.public_engine ?? "advanced"} mono />
