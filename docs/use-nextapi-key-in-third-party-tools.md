@@ -1,117 +1,115 @@
-# Use your NextAPI key in third-party tools
+# Use your NextAPI key in third-party creation tools
 
-NextAPI sells API access. You can generate videos with our API, and you can also paste your key into
-compatible local tools if you prefer a graphical interface over `curl` or code.
-
-This page explains how to get a key, what API format NextAPI uses, which tools are likely to work,
-and important security rules.
+NextAPI sells API access. Some users will prefer to bring their own creation surface instead of using
+our dashboard. This guide lists concrete third-party/local tools that can accept a NextAPI key directly
+or indirectly, plus the exact configuration pattern.
 
 ## 1. Get your NextAPI key
 
 1. Sign in at [app.nextapi.top](https://app.nextapi.top).
-2. Go to **API Keys** in the sidebar.
-3. Click **Create key**, give it a name (e.g. "my-local-tool"), and copy the `sk_...` value.
-4. The full key is shown **only once**. Store it somewhere safe.
+2. Open **API Keys**.
+3. Click **Create key**, give it a name such as `comfyui-local`, and copy the `sk_...` value.
+4. The full key is shown only once. Store it safely.
 
-Your key is tied to your account credits. Anyone with the key can spend your credits.
+Your key is tied to your account credits. Anyone with the key can spend those credits.
 
-## 2. Universal configuration pattern
+## 2. Universal REST configuration
 
-Most tools that support custom API providers ask for two things:
+Tools that can send arbitrary HTTP requests can drive NextAPI video jobs with this two-step flow.
 
-| Field | Value |
-|-------|-------|
-| **Base URL** | `https://api.nextapi.top/v1` or `https://api.nextapi.top` (try both — tools vary) |
-| **API key** | `sk_...` (the full key from step 1) |
+### Create video
 
-If the tool has a model picker, look for model IDs like `seedance-v2-pro` or `seedance-2.0-pro`.
-These are the models NextAPI currently serves.
+```http
+POST https://api.nextapi.top/v1/videos
+Authorization: Bearer sk_...
+Content-Type: application/json
+```
 
-**Important:** NextAPI is a video-generation API. Text chat and image generation endpoints are not
-currently served. A tool that expects `/v1/chat/completions` will not work with NextAPI unless we
-later add an OpenAI-compatible bridge (see below).
+```json
+{
+  "model": "seedance-2.0-pro",
+  "input": {
+    "prompt": "A cinematic product reveal",
+    "duration_seconds": 5,
+    "resolution": "720p"
+  }
+}
+```
 
-## 3. Tool categories
+### Poll result
 
-### Verified with NextAPI
+```http
+GET https://api.nextapi.top/v1/videos/{id}
+Authorization: Bearer sk_...
+```
 
-*None yet.* We are testing tools one at a time and will list verified configurations here as we
-confirm them. If you successfully connect a tool to NextAPI, tell us and we will verify and add it.
+Poll until `status` is `succeeded` and `output.url` is present. Use a short, low-cost test before
+building a large workflow.
 
-### Likely compatible
+## 3. Tool setup matrix
 
-Tools that support a **custom OpenAI-compatible base URL** *may* work for video generation if they
-also support the `/v1/videos` endpoint pattern. However, most "OpenAI-compatible" tools only
-implement chat and image endpoints. Check the tool's documentation for video API support.
+| Tool | How it can accept NextAPI | Configuration | Status |
+|------|---------------------------|---------------|--------|
+| **ComfyUI** | Through trusted custom HTTP/API request nodes. Core ComfyUI does not currently ship a native NextAPI provider. | Add a custom HTTP/API request node, call `POST /v1/videos` with `Authorization: Bearer sk_...`, then poll `GET /v1/videos/{id}`. | Integration path available; we still need a packaged preset/custom node. |
+| **n8n** | Built-in **HTTP Request** node. | Method `POST`, URL `https://api.nextapi.top/v1/videos`, bearer/header auth, JSON body, then a second HTTP Request node to poll the returned id. | Good fit for automation workflows. |
+| **Make** | Built-in **HTTP** app / "Make a request". | Set URL, method, `Authorization` and `Content-Type` headers, raw JSON body, then chain a polling request. | Good fit for no-code workflows. |
+| **Dify** | Custom tool / OpenAPI schema. | Define `POST /v1/videos` and `GET /v1/videos/{id}` in an OpenAPI tool, then configure bearer-token auth with the NextAPI key. | Good fit for AI app builders; video UX depends on workflow design. |
+| **AI-CanvasPro** | User-installed upstream only; generic OpenAI-compatible provider settings appear available for some model types. | Install from the official GitHub repo. Try base URL `https://api.nextapi.top/v1` and `sk_...` only in local/trusted installs. | NextAPI does not distribute it. Its video adapter is not verified with `/v1/videos` yet. |
+| **Runway / Pika / Luma / Kling / Canva-style hosted editors** | No generic NextAPI key path verified. | Only use if the product exposes custom HTTP, OpenAPI, or OpenAI-compatible provider settings. | Not enough evidence; most hosted editors hardcode their own providers. |
 
-- **Generic OpenAI clients** (any desktop or web client that lets you set a custom base URL) —
-  may work for `/v1/models` listing; video generation depends on whether the client calls
-  `/v1/videos` or only `/v1/chat/completions`.
-- **Local workflow tools** that let you configure a custom HTTP endpoint per node — if a node
-  can POST JSON and poll a URL, it can drive NextAPI video jobs.
-- **[AI-CanvasPro](https://github.com/ashuoAI/AI-CanvasPro)** (user-installed upstream only) —
-  appears to support generic OpenAI-compatible endpoints for some model types. NextAPI does **not**
-  redistribute AI-CanvasPro. Install it yourself from the official repository. We have not verified
-  whether its video node works with the NextAPI `/v1/videos` endpoint; test with a small job first.
+## 4. ComfyUI notes
 
-### Not enough evidence
+ComfyUI is the closest "creative workbench" pattern, but the safe NextAPI path is currently:
 
-Tools that only support their own built-in providers, or that require provider-specific API key
-fields without a custom base URL option, are unlikely to work with NextAPI without modification.
+1. Use a trusted custom node that can make HTTP requests.
+2. Configure the create request:
+   - method: `POST`
+   - URL: `https://api.nextapi.top/v1/videos`
+   - header: `Authorization: Bearer sk_...`
+   - header: `Content-Type: application/json`
+   - body: the JSON payload above
+3. Store the returned `id`.
+4. Use another request node to poll `GET https://api.nextapi.top/v1/videos/{id}`.
+5. Feed `output.url` into the next node once the job succeeds.
 
-Examples: video-specific GUI tools that hardcode provider endpoints; mobile apps that proxy
-requests through their own backend.
+This is not the same as a polished native ComfyUI node. A dedicated NextAPI ComfyUI custom node is a
+good future sales asset, but it should be written by us or built on permissively licensed examples.
 
-## 4. AI-CanvasPro specific note
+## 5. AI-CanvasPro note
 
-AI-CanvasPro is a local node-based AI canvas by 阿硕. It is **Source Available / non-commercial**
-([license](https://github.com/ashuoAI/AI-CanvasPro/blob/main/LICENSE)). Key points:
+AI-CanvasPro is a local node-based AI canvas by 阿硕. It is Source Available / non-commercial:
 
-- **You install it yourself** from [github.com/ashuoAI/AI-CanvasPro](https://github.com/ashuoAI/AI-CanvasPro).
-  NextAPI does not distribute, mirror, or modify it.
-- It supports several providers including a generic OpenAI-compatible endpoint option.
-- We have **not yet verified** that its video generation node works with NextAPI's `/v1/videos`
-  endpoint. If you try it:
-  - Set the base URL to `https://api.nextapi.top/v1` or `https://api.nextapi.top`.
-  - Use a small prompt and minimum duration to limit credit spend during testing.
-  - Report your results so we can update this page.
-- Do **not** use any unofficial hosted mirror of AI-CanvasPro. Only install from the official
-  GitHub repository.
+- Users install it themselves from [github.com/ashuoAI/AI-CanvasPro](https://github.com/ashuoAI/AI-CanvasPro).
+- NextAPI does not distribute, mirror, modify, or white-label it.
+- Do not use unofficial hosted mirrors.
+- Its generic OpenAI-compatible settings may help with some model types, but we have not verified
+  that its video generation node works with NextAPI's `/v1/videos` endpoint.
 
-## 5. Security warnings
+If NextAPI wants to bundle or white-label AI-CanvasPro, get written commercial permission first.
 
-- **Only paste your key into tools you trust.** A malicious tool can steal your key and spend
-  your credits.
-- **Prefer local-only tools.** Tools that run entirely on your machine (Electron apps, localhost
-  web apps, CLI tools) are safer than hosted web apps that proxy your key through someone else's
-  server.
-- **Never paste your key into an unofficial hosted mirror.** If a website claims to be
-  "AI-CanvasPro online" or "NextAPI web client" but is not at `app.nextapi.top`, it is not ours.
-- **Rotate your key if exposed.** Go to app.nextapi.top → API Keys, revoke the old key, and
-  create a new one. All credits and usage stay with your account.
-- **Your key is stored locally** by desktop tools. Anyone with access to your computer may be
-  able to read it. Use a strong device password.
+## 6. Security warnings
 
-## 6. What NextAPI is building
+- Only paste your key into tools you trust.
+- Prefer local-only tools or tools running inside accounts you control.
+- Never paste your key into unofficial hosted mirrors.
+- Rotate the key if exposed: app.nextapi.top -> API Keys -> revoke old key -> create a new key.
+- Start with short/cheap jobs while testing a new tool.
 
-We are building a **Creator Kit** — a minimal local app where you paste your key, write a prompt,
-upload an optional image, and generate a video in two clicks. No `curl`, no code, no configuration.
+## 7. What NextAPI should build next
 
-Until the Creator Kit is ready, this guide is how you use your NextAPI key with tools you already
-have. If a tool works well for you, tell us and we will test and document it.
+- A dedicated **ComfyUI custom node** for NextAPI video jobs.
+- An **n8n workflow template** with create + poll + download steps.
+- A **Make scenario template** with the same two-step video flow.
+- A **Dify OpenAPI tool schema** users can import.
+- Our own **Creator Kit**: fill key, write prompt, upload image, generate video.
 
-## 7. Troubleshooting
+These assets are safer and more useful than promising broad "OpenAI-compatible" support that only
+covers chat clients.
 
-| Symptom | Likely cause | Try |
-|---------|-------------|-----|
-| Tool shows "404 Not Found" | Wrong base URL path | Use `https://api.nextapi.top/v1` or `https://api.nextapi.top` |
-| Tool shows "401 Unauthorized" | Key missing or wrong | Check the key starts with `sk_` and was copied completely |
-| Tool shows "model not found" | Model ID mismatch | Use `seedance-v2-pro` or `seedance-2.0-pro` |
-| Tool only offers chat models | Tool calls `/v1/models` but only parses chat models | Check if the tool has a video or custom node mode |
-| Video job created but no output | Job still processing | Wait 30-120 seconds; check status at `GET /v1/videos/:id` |
+## References
 
----
-
-NextAPI does **not** redistribute, resell, or white-label any third-party tool listed on this page
-without the upstream author's written commercial permission. All tool names and links belong to
-their respective owners.
+- [ComfyUI custom nodes](https://docs.comfy.org/development/core-concepts/custom-nodes)
+- [n8n HTTP Request node](https://docs.n8n.io/integrations/builtin/core-nodes/n8n-nodes-base.httprequest/)
+- [Make HTTP app](https://apps.make.com/http)
+- [Dify workspace tools](https://docs.dify.ai/en/use-dify/workspace/tools)
+- [AI-CanvasPro upstream](https://github.com/ashuoAI/AI-CanvasPro)

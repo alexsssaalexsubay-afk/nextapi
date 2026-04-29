@@ -5,7 +5,7 @@ import { SiteNav } from "@/components/marketing/site-nav"
 import { SiteFooter } from "@/components/marketing/cta-footer"
 import { CodeBlock } from "@/components/nextapi/code-block"
 import { StatusPill } from "@/components/nextapi/status-pill"
-import { ArrowRight, BookOpen, Webhook as WebhookIcon, Zap } from "lucide-react"
+import { ArrowRight, BookOpen, KeyRound, Webhook as WebhookIcon, Zap } from "lucide-react"
 import { useTranslations } from "@/lib/i18n/context"
 
 export default function DocsPage() {
@@ -129,6 +129,31 @@ export default function DocsPage() {
               </div>
             ))}
           </div>
+
+          <section className="mt-6 overflow-hidden rounded-xl border border-indigo-500/25 bg-gradient-to-br from-indigo-500/10 via-card to-card p-5 shadow-[0_18px_70px_-48px_rgba(99,102,241,0.7)]">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex gap-3">
+                <span className="grid size-10 shrink-0 place-items-center rounded-lg border border-indigo-500/25 bg-indigo-500/10 text-indigo-500">
+                  <KeyRound className="size-5" />
+                </span>
+                <div>
+                  <h2 className="text-[16px] font-semibold tracking-[-0.01em] text-foreground">
+                    Use your key in ComfyUI-style tools
+                  </h2>
+                  <p className="mt-1 max-w-[720px] text-[13.5px] leading-relaxed text-muted-foreground">
+                    Prefer ComfyUI, n8n, Make, Dify, or a local canvas? See which tools can accept a third-party API key, which need an HTTP/API node, and how to configure NextAPI endpoints safely.
+                  </p>
+                </div>
+              </div>
+              <Link
+                href="/docs/third-party-tools"
+                className="inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-lg border border-indigo-500/30 bg-indigo-500 px-3 text-[12.5px] font-medium text-white transition-colors hover:bg-indigo-600"
+              >
+                View tool setup guide
+                <ArrowRight className="size-3.5" />
+              </Link>
+            </div>
+          </section>
 
           <section id="auth" className="mt-12 scroll-mt-24">
             <h2 className="text-2xl font-semibold tracking-[-0.02em] text-foreground">
