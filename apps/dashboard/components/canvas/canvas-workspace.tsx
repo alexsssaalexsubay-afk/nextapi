@@ -18,7 +18,7 @@ import {
   useEdgesState,
   useNodesState,
 } from "@xyflow/react"
-import { AlertTriangle, CheckCircle2, Code2, GitBranch, ImageIcon, Loader2, Play, Save, Settings2, Sparkles, Type, Video, Workflow, X } from "lucide-react"
+import { AlertTriangle, CheckCircle2, Code2, GitBranch, ImageIcon, Loader2, Play, Save, Settings2, Sparkles, Type, UploadCloud, Video, Workflow, X } from "lucide-react"
 import { toast } from "sonner"
 import { ModelSelect } from "@/components/ai/model-select"
 import { apiFetch, ApiError } from "@/lib/api"
@@ -602,10 +602,15 @@ function NodeInspector({
   onChangeNode: (nodeId: string, patch: CanvasNodeData) => void
   onClose: () => void
 }) {
+  const [imageDragActive, setImageDragActive] = useState(false)
   if (!selectedNode) {
     return <div className="p-4 text-[12.5px] text-muted-foreground">{labels.selectNode}</div>
   }
   const type = String(selectedNode.data.node_type) as CanvasNodeType
+  const uploadSelectedImage = (file: File | undefined) => {
+    if (!file || !file.type.startsWith("image/")) return
+    void onUploadImage(file)
+  }
   return (
     <div className={cn("max-h-[360px] overflow-y-auto rounded-lg border bg-card/96 p-3 shadow-sm", type === "seedance.video" ? "border-emerald-400/55 shadow-[0_0_0_1px_rgba(52,211,153,0.2)]" : "border-border")}>
       <div className="mb-3 flex items-start justify-between gap-3">
@@ -648,6 +653,47 @@ function NodeInspector({
               <option value="reference">{labels.reference}</option>
             </select>
           </label>
+          <label
+            className={cn(
+              "block cursor-pointer rounded-lg border border-dashed px-3 py-3 text-[12px] transition",
+              imageDragActive ? "border-emerald-400 bg-emerald-400/10" : "border-emerald-400/40 bg-emerald-400/5 hover:border-emerald-400/70 hover:bg-emerald-400/10",
+              uploadingImage && "cursor-wait opacity-70",
+            )}
+            onPointerDown={(event) => event.stopPropagation()}
+            onDragEnter={(event) => {
+              event.preventDefault()
+              event.stopPropagation()
+              setImageDragActive(true)
+            }}
+            onDragOver={(event) => {
+              event.preventDefault()
+              event.stopPropagation()
+              setImageDragActive(true)
+            }}
+            onDragLeave={(event) => {
+              event.preventDefault()
+              event.stopPropagation()
+              setImageDragActive(false)
+            }}
+            onDrop={(event) => {
+              event.preventDefault()
+              event.stopPropagation()
+              setImageDragActive(false)
+              uploadSelectedImage(event.dataTransfer.files?.[0])
+            }}
+          >
+            <span className="flex items-center gap-2 font-medium text-foreground">
+              <span className="grid size-8 place-items-center rounded-md border border-emerald-400/35 bg-emerald-400/10 text-emerald-400">
+                {uploadingImage ? <Loader2 className="size-4 animate-spin" /> : <UploadCloud className="size-4" />}
+              </span>
+              <span>{uploadingImage ? `${labels.uploadImage}...` : labels.uploadImage}</span>
+            </span>
+            <span className="mt-2 block text-[11px] leading-relaxed text-muted-foreground">{labels.uploadImageHint}</span>
+            <input type="file" accept="image/*" disabled={uploadingImage} className="sr-only" onChange={(event) => {
+              uploadSelectedImage(event.target.files?.[0])
+              event.currentTarget.value = ""
+            }} />
+          </label>
           <label className="block">
             <span className="mb-1 block text-[11px] text-muted-foreground">{labels.imageUrl}</span>
             <input value={String(selectedNode.data.image_url || "")} onChange={(e) => onChange({ image_url: e.target.value })} className="h-9 w-full rounded-md border border-border/80 bg-background px-3 font-mono text-[11.5px] focus:outline-none" />
@@ -655,15 +701,6 @@ function NodeInspector({
           <label className="block">
             <span className="mb-1 block text-[11px] text-muted-foreground">{labels.imagePrompt}</span>
             <textarea value={String(selectedNode.data.prompt || "")} onChange={(e) => onChange({ prompt: e.target.value })} rows={4} className="w-full resize-none rounded-md border border-border/80 bg-background px-3 py-2 text-[12.5px] focus:outline-none" />
-          </label>
-          <label className="block rounded-md border border-dashed border-border/80 bg-card/40 px-3 py-2 text-[12px]">
-            <span className="block font-medium">{uploadingImage ? `${labels.uploadImage}...` : labels.uploadImage}</span>
-            <span className="mt-1 block text-[11px] text-muted-foreground">{labels.uploadImageHint}</span>
-            <input type="file" accept="image/*" disabled={uploadingImage} className="mt-2 block w-full text-[11px]" onChange={(event) => {
-              const file = event.target.files?.[0]
-              if (file) void onUploadImage(file)
-              event.currentTarget.value = ""
-            }} />
           </label>
           <div>
             <div className="mb-1 text-[11px] text-muted-foreground">{labels.assetLibrary}</div>

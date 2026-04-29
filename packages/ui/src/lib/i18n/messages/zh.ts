@@ -786,7 +786,7 @@ export const zh: Messages = {
     imageUrl: "图片链接",
     assetLibrary: "素材库",
     uploadImage: "上传本地图片",
-    uploadImageHint: "上传到素材库，并使用可直接给模型调用的 URL。",
+    uploadImageHint: "点击或拖入本地图片；上传到素材库后会自动填入模型可用链接。",
     uploadFailed: "图片上传失败。",
     imagePrompt: "图片提示词",
     modelCatalog: "模型目录",

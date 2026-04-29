@@ -797,7 +797,7 @@ export const en = {
     imageUrl: "Image URL",
     assetLibrary: "Asset library",
     uploadImage: "Upload local image",
-    uploadImageHint: "Uploads to the asset library and uses the provider-ready URL.",
+    uploadImageHint: "Click or drop a local image; it uploads to the asset library and fills the provider-ready URL.",
     uploadFailed: "Image upload failed.",
     imagePrompt: "Image prompt",
     modelCatalog: "Model catalog",
