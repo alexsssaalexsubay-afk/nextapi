@@ -13,7 +13,7 @@
 | 要自己或找人部署上线 | [`SETUP-GUIDE.md`](./SETUP-GUIDE.md) → [`deploy-cloudflare.md`](./deploy-cloudflare.md) → [`OPERATOR-HANDBOOK.md`](./OPERATOR-HANDBOOK.md) |
 | 日常管服务器、跑迁移、应急 | [`OPERATOR-HANDBOOK.md`](./OPERATOR-HANDBOOK.md) |
 | 开发者 / 对接 API | [`sdks/README.md`](../sdks/README.md) → [`backend/api/openapi.yaml`](../backend/api/openapi.yaml) → 根目录 [`README.md`](../README.md) → [`docs/modules/`](./modules/README.md) |
-| 批量视频、ComfyUI、本地工具 | [`toolkit/README.zh.md`](../toolkit/README.zh.md)（中文导读）→ [`toolkit/README.md`](../toolkit/README.md) 及 `toolkit/docs/` |
+| 批量视频、ComfyUI、本地工具 | [`toolkit/README.zh.md`](../toolkit/README.zh.md)（中文导读）→ [`toolkit/README.md`](../toolkit/README.md) 及 `toolkit/docs/`；另见 [`use-nextapi-key-in-third-party-tools.md`](./use-nextapi-key-in-third-party-tools.md)（第三方工具 key 配置指南） |
 
 ---
 
@@ -29,6 +29,7 @@
 | **SETUP-GUIDE.md** | 从 0 部署到生产：DNS、环境变量、systemd、检查清单 |
 | **OPERATOR-HANDBOOK.md** | 运维手册：数据库迁移、管理后台、Seedance 环境变量、应急 |
 | **UPSTREAM-SEEDANCE-RELAY-ZH.md** | Seedance 托管上游接入指南：env、模型映射、任务回调 URL、错误码；与 `docs/modules/seedance-relay-webhook-assets.md` 互补 |
+| **use-nextapi-key-in-third-party-tools.md** | 用户向：如何把 NextAPI key 填入第三方本地工具（AI-CanvasPro、通用 OpenAI 客户端等）；安全警告 |
 | **INTEGRATIONS-GUIDE.md** | 第三方：Resend、Grafana、支付规划等（偏「老板操作」） |
 | **deploy-cloudflare.md** | Cloudflare Pages / Workers 与 GitHub Actions 部署说明 |
 | **modules/** | 各子系统设计（给开发/审代码用） |
