@@ -18,7 +18,7 @@ import {
   useEdgesState,
   useNodesState,
 } from "@xyflow/react"
-import { AlertTriangle, CheckCircle2, Code2, GitBranch, ImageIcon, Loader2, Play, Save, Settings2, Sparkles, Type, Video, Workflow } from "lucide-react"
+import { AlertTriangle, CheckCircle2, Code2, GitBranch, ImageIcon, Loader2, Play, Save, Settings2, Sparkles, Type, Video, Workflow, X } from "lucide-react"
 import { toast } from "sonner"
 import { ModelSelect } from "@/components/ai/model-select"
 import { apiFetch, ApiError } from "@/lib/api"
@@ -60,6 +60,10 @@ type CanvasNodeData = Record<string, unknown> & {
 
 type CanvasNode = Node<CanvasNodeData, "canvas">
 type CanvasEdge = Edge
+type VideoNodeContext = {
+  promptNode: CanvasNode | null
+  paramsNode: CanvasNode | null
+}
 
 type CurrentVideo = {
   id: string
@@ -104,17 +108,20 @@ function FlowNode({ data, type, selected }: NodeProps<CanvasNode>) {
   const status = data.node_status
   return (
     <div
+      data-canvas-node-selected={selected ? "true" : "false"}
       className={cn(
         "min-w-56 overflow-hidden rounded-2xl border bg-card/92 shadow-[0_18px_60px_-44px] backdrop-blur transition-all",
-        selected ? "border-signal shadow-signal/30" : "border-white/12",
+        selected
+          ? "border-emerald-400 shadow-[0_0_0_1px_rgba(52,211,153,0.55),0_18px_70px_-45px_rgba(52,211,153,0.85)]"
+          : "border-white/12",
       )}
     >
-      <Handle type="target" position={Position.Left} className="!bg-signal" />
-      <div className={cn("h-1", nodeAccent(nodeType))} />
+      <Handle type="target" position={Position.Left} className={cn("!border-background", selected ? "!size-3 !bg-emerald-400" : "!bg-signal")} />
+      <div className={cn("h-1", selected ? "bg-emerald-400" : nodeAccent(nodeType))} />
       <div className="px-3 py-2.5">
         <div className="flex items-center gap-2">
-          <span className="flex size-8 items-center justify-center rounded-xl border border-white/12 bg-background/60 shadow-sm">
-            <Icon className="size-3.5 text-signal" />
+          <span className={cn("flex size-8 items-center justify-center rounded-xl border border-white/12 bg-background/60 shadow-sm", selected && "border-emerald-400/50 bg-emerald-400/10")}>
+            <Icon className={cn("size-3.5", selected ? "text-emerald-400" : "text-signal")} />
           </span>
           <div className="min-w-0">
             <div className="truncate text-[12.5px] font-medium">{String(data.label || nodeType)}</div>
@@ -132,7 +139,7 @@ function FlowNode({ data, type, selected }: NodeProps<CanvasNode>) {
           <video src={String(data.video_url)} controls className="mt-3 aspect-video w-full rounded-xl bg-black object-contain" />
         ) : null}
       </div>
-      <Handle type="source" position={Position.Right} className="!bg-signal" />
+      <Handle type="source" position={Position.Right} className={cn("!border-background", selected ? "!size-3 !bg-emerald-400" : "!bg-signal")} />
     </div>
   )
 }
@@ -162,6 +169,7 @@ function NodeStatusBadge({ status }: { status: NonNullable<CanvasNodeData["node_
 }
 
 const nodeTypes = { canvas: FlowNode }
+const flowFitViewOptions = { padding: 0.24, maxZoom: 1 }
 
 export function CanvasWorkspace() {
   const t = useTranslations()
@@ -169,7 +177,8 @@ export function CanvasWorkspace() {
   const searchParams = useSearchParams()
   const [nodes, setNodes, onNodesChange] = useNodesState<CanvasNode>(initialNodes)
   const [edges, setEdges, onEdgesChange] = useEdgesState<CanvasEdge>(initialEdges)
-  const [selectedId, setSelectedId] = useState<string>("node_prompt_1")
+  const [selectedId, setSelectedId] = useState<string>("node_seedance_1")
+  const [inspectorOpen, setInspectorOpen] = useState(true)
   const [workflow, setWorkflow] = useState<WorkflowRecord | null>(null)
   const [name, setName] = useState(labels.defaultName)
   const [saving, setSaving] = useState(false)
@@ -184,6 +193,11 @@ export function CanvasWorkspace() {
   const videoCatalog = useVideoModelCatalog()
 
   const selectedNode = useMemo(() => nodes.find((n) => n.id === selectedId) ?? null, [nodes, selectedId])
+  const renderedNodes = useMemo(() => nodes.map((item) => {
+    const selected = item.id === selectedId
+    return item.selected === selected ? item : { ...item, selected }
+  }), [nodes, selectedId])
+  const selectedVideoContext = useMemo(() => getVideoNodeContext(selectedNode, nodes, edges), [edges, nodes, selectedNode])
   const activeVideoModel = useMemo(() => {
     const selectedModel = selectedNode?.data.node_type === "seedance.video" ? String(selectedNode.data.model || "") : ""
     if (selectedModel) return selectedModel
@@ -219,10 +233,14 @@ export function CanvasWorkspace() {
     [setEdges],
   )
 
+  const updateNodeData = useCallback((nodeId: string, patch: CanvasNodeData) => {
+    setNodes((items) => items.map((item) => item.id === nodeId ? { ...item, data: { ...item.data, ...patch } } : item))
+  }, [setNodes])
+
   const updateSelectedData = useCallback((patch: CanvasNodeData) => {
     if (!selectedId) return
-    setNodes((items) => items.map((item) => item.id === selectedId ? { ...item, data: { ...item.data, ...patch } } : item))
-  }, [selectedId, setNodes])
+    updateNodeData(selectedId, patch)
+  }, [selectedId, updateNodeData])
 
   const uploadImageForSelectedNode = useCallback(async (file: File) => {
     setUploadingImage(true)
@@ -381,25 +399,74 @@ export function CanvasWorkspace() {
   const videoURL = currentVideo?.output?.url || currentVideo?.output?.video_url
 
   return (
-    <div data-canvas-workspace-mode="immersive" className="flex h-[calc(100vh-2.75rem)] min-h-[680px] flex-col overflow-hidden bg-background">
-      <header className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-card/82 px-3 py-2">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="flex size-7 items-center justify-center rounded-lg border border-signal/20 bg-signal/10 text-signal">
-              <Workflow className="size-4" />
-            </span>
-            <div>
-              <h1 className="text-[14px] font-medium tracking-tight">{labels.title}</h1>
-              <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">{nodes.length} {labels.nodes} · {edges.length} {labels.edges}</p>
+    <div data-canvas-workspace-mode="immersive" className="relative h-[calc(100vh-2.75rem)] min-h-[680px] overflow-hidden bg-background">
+      <ReactFlow
+        nodes={renderedNodes}
+        edges={edges}
+        nodeTypes={nodeTypes}
+        onNodesChange={onNodesChange}
+        onEdgesChange={onEdgesChange}
+        onConnect={onConnect}
+        onNodeClick={(_, nodeItem) => {
+          setSelectedId(nodeItem.id)
+          setInspectorOpen(true)
+        }}
+        onPaneClick={() => setInspectorOpen(false)}
+        fitView
+        fitViewOptions={flowFitViewOptions}
+        className="bg-[radial-gradient(circle_at_1px_1px,var(--border)_1px,transparent_0)] [background-size:22px_22px]"
+      >
+        <Background color="color-mix(in oklch, var(--border) 55%, transparent)" gap={22} size={1} />
+        <MiniMap pannable zoomable position="bottom-left" />
+        <Controls position="bottom-left" />
+        {selectedNode && inspectorOpen && attachedInspector ? (
+          <ViewportPortal>
+            <div
+              className="nodrag nopan nowheel pointer-events-auto absolute z-40"
+              style={{
+                transform: `translate(${attachedInspector.x}px, ${attachedInspector.y}px)`,
+                width: attachedInspector.width,
+                pointerEvents: "auto",
+              }}
+              data-canvas-attached-inspector={String(selectedNode.data.node_type || "")}
+            >
+              <NodeInspector
+                node={selectedNode}
+                videoContext={selectedVideoContext}
+                assets={assets}
+                labels={labels}
+                uploadingImage={uploadingImage}
+                durationMin={durationMin}
+                durationMax={durationMax}
+                resolutionOptions={resolutionOptions}
+                ratioOptions={ratioOptions}
+                availableModelIds={videoCatalog.modelIds}
+                onUploadImage={uploadImageForSelectedNode}
+                onChange={updateSelectedData}
+                onChangeNode={updateNodeData}
+                onClose={() => setInspectorOpen(false)}
+              />
             </div>
+          </ViewportPortal>
+        ) : null}
+      </ReactFlow>
+
+      <div className="pointer-events-none absolute inset-x-3 top-3 z-30 flex flex-wrap items-start justify-between gap-2">
+        <div className="pointer-events-auto flex min-w-0 items-center gap-2 rounded-lg border border-border bg-card/92 px-2.5 py-2 shadow-sm">
+          <span className="grid size-8 shrink-0 place-items-center rounded-md border border-signal/20 bg-signal/10 text-signal">
+            <Workflow className="size-4" />
+          </span>
+          <div className="min-w-0">
+            <input
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              className="h-6 w-48 min-w-0 bg-transparent text-[13px] font-medium tracking-tight focus:outline-none sm:w-60"
+              aria-label={labels.title}
+            />
+            <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground">{nodes.length} {labels.nodes} · {edges.length} {labels.edges}</p>
           </div>
         </div>
-        <div className="flex flex-wrap items-center justify-end gap-2">
-          <input
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            className="h-8 w-52 rounded-md border border-border bg-background px-3 text-[12.5px] focus:border-signal/45 focus:outline-none"
-          />
+        <div className="pointer-events-auto flex flex-wrap items-center justify-end gap-2 rounded-lg border border-border bg-card/92 p-1.5 shadow-sm">
           <button type="button" onClick={save} disabled={saving} className="inline-flex h-8 items-center gap-2 rounded-md border border-border bg-background px-3 text-[12px] hover:border-signal/35 disabled:opacity-60">
             {saving ? <Loader2 className="size-3.5 animate-spin" /> : <Save className="size-3.5" />}
             {labels.save}
@@ -417,77 +484,31 @@ export function CanvasWorkspace() {
             {labels.run}
           </button>
         </div>
-      </header>
-      <div className="grid min-h-0 flex-1 grid-cols-[68px_minmax(0,1fr)]">
-        <aside className="border-r border-border bg-card/64 p-2">
-          <div className="mb-2 grid h-9 place-items-center rounded-lg border border-border bg-background font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground" title={labels.nodeLibraryHint}>
-            {labels.nodes}
-          </div>
-          <NodeButton label={labels.imageNode} icon={<ImageIcon className="size-4" />} onClick={() => addNode("image.input")} />
-          <NodeButton label={labels.promptNode} icon={<Type className="size-4" />} onClick={() => addNode("prompt.input")} />
-          <NodeButton label={labels.paramsNode} icon={<Settings2 className="size-4" />} onClick={() => addNode("video.params")} />
-          <NodeButton label={labels.videoNode} icon={<Sparkles className="size-4" />} onClick={() => addNode("seedance.video")} />
-          <NodeButton label={labels.outputNode} icon={<Video className="size-4" />} onClick={() => addNode("output.preview")} />
-        </aside>
-        <main className="relative min-h-0 bg-background/18">
-          <div className="pointer-events-none absolute left-4 top-4 z-10 rounded-md border border-border bg-background/80 px-3 py-1.5 font-mono text-[10.5px] uppercase tracking-[0.14em] text-muted-foreground shadow-sm">
-            {labels.canvasRoute}
-          </div>
-          <ReactFlow
-            nodes={nodes}
-            edges={edges}
-            nodeTypes={nodeTypes}
-            onNodesChange={onNodesChange}
-            onEdgesChange={onEdgesChange}
-            onConnect={onConnect}
-            onNodeClick={(_, nodeItem) => setSelectedId(nodeItem.id)}
-            fitView
-          >
-            <Background />
-            <MiniMap pannable zoomable />
-            <Controls />
-            {selectedNode && attachedInspector ? (
-              <ViewportPortal>
-                <div
-                  className="nodrag nopan absolute z-20"
-                  style={{
-                    transform: `translate(${attachedInspector.x}px, ${attachedInspector.y}px)`,
-                    width: attachedInspector.width,
-                  }}
-                  data-canvas-attached-inspector={String(selectedNode.data.node_type || "")}
-                >
-                  <NodeInspector
-                    node={selectedNode}
-                    assets={assets}
-                    labels={labels}
-                    uploadingImage={uploadingImage}
-                    durationMin={durationMin}
-                    durationMax={durationMax}
-                    resolutionOptions={resolutionOptions}
-                    ratioOptions={ratioOptions}
-                    availableModelIds={videoCatalog.modelIds}
-                    onUploadImage={uploadImageForSelectedNode}
-                    onChange={updateSelectedData}
-                  />
-                </div>
-              </ViewportPortal>
-            ) : null}
-          </ReactFlow>
-          <div className="pointer-events-auto absolute bottom-3 right-3 z-20 w-[min(320px,calc(100vw-7rem))]">
-            <section className="max-h-[42vh] overflow-y-auto rounded-lg border border-border bg-card/94 p-3 shadow-sm">
-              <RunStatusCard currentVideo={currentVideo} videoURL={videoURL} exportResult={exportResult} labels={labels} />
-              {exportResult ? (
-                <div className="mt-3 rounded-lg border border-border bg-background p-3">
-                  <div className="mb-2 text-[12px] font-medium">{labels.exportedApi}</div>
-                  <pre className="max-h-32 overflow-auto whitespace-pre-wrap rounded-md bg-muted/50 p-2 font-mono text-[10.5px] text-muted-foreground">
-                    {exportResult.curl}
-                  </pre>
-                </div>
-              ) : null}
-            </section>
-          </div>
-        </main>
       </div>
+
+      <aside className="absolute left-3 top-24 z-30 rounded-xl border border-border bg-card/92 p-2 shadow-sm" aria-label={labels.nodeLibraryHint}>
+        <NodeButton label={labels.imageNode} icon={<ImageIcon className="size-4" />} onClick={() => addNode("image.input")} />
+        <NodeButton label={labels.promptNode} icon={<Type className="size-4" />} onClick={() => addNode("prompt.input")} />
+        <NodeButton label={labels.paramsNode} icon={<Settings2 className="size-4" />} onClick={() => addNode("video.params")} />
+        <NodeButton label={labels.videoNode} icon={<Sparkles className="size-4" />} onClick={() => addNode("seedance.video")} />
+        <NodeButton label={labels.outputNode} icon={<Video className="size-4" />} onClick={() => addNode("output.preview")} />
+      </aside>
+
+      {currentVideo?.id || videoURL || exportResult ? (
+        <div className="pointer-events-auto absolute bottom-3 right-3 z-10 w-[min(320px,calc(100vw-2rem))]">
+          <section className="max-h-[36vh] overflow-y-auto rounded-lg border border-border bg-card/94 p-3 shadow-sm">
+            <RunStatusCard currentVideo={currentVideo} videoURL={videoURL} exportResult={exportResult} labels={labels} />
+            {exportResult ? (
+              <div className="mt-3 rounded-lg border border-border bg-background p-3">
+                <div className="mb-2 text-[12px] font-medium">{labels.exportedApi}</div>
+                <pre className="max-h-32 overflow-auto whitespace-pre-wrap rounded-md bg-muted/50 p-2 font-mono text-[10.5px] text-muted-foreground">
+                  {exportResult.curl}
+                </pre>
+              </div>
+            ) : null}
+          </section>
+        </div>
+      ) : null}
     </div>
   )
 }
@@ -512,6 +533,19 @@ function RunStatusCard({
   labels: ReturnType<typeof useTranslations>["canvas"]
 }) {
   const status = currentVideo?.status ?? "idle"
+  if (!currentVideo?.id && !videoURL && !exportResult) {
+    return (
+      <section className="rounded-lg border border-border bg-background/80 px-3 py-2 shadow-sm">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <div className="text-[12px] font-medium">{labels.statusTitle}</div>
+            <div className="mt-0.5 font-mono text-[10.5px] text-muted-foreground">{labels.noTask}</div>
+          </div>
+          <NodeStatusBadge status="idle" />
+        </div>
+      </section>
+    )
+  }
   return (
     <section className="rounded-3xl border border-white/12 bg-background/55 p-3 shadow-sm backdrop-blur-md">
       <div className="flex items-center justify-between gap-3">
@@ -539,6 +573,7 @@ function RunStatusCard({
 
 function NodeInspector({
   node: selectedNode,
+  videoContext,
   assets,
   labels,
   uploadingImage,
@@ -549,8 +584,11 @@ function NodeInspector({
   availableModelIds,
   onUploadImage,
   onChange,
+  onChangeNode,
+  onClose,
 }: {
   node: CanvasNode | null
+  videoContext: VideoNodeContext
   assets: LibraryAsset[]
   labels: ReturnType<typeof useTranslations>["canvas"]
   uploadingImage: boolean
@@ -561,26 +599,45 @@ function NodeInspector({
   availableModelIds: string[]
   onUploadImage: (file: File) => Promise<void>
   onChange: (patch: CanvasNodeData) => void
+  onChangeNode: (nodeId: string, patch: CanvasNodeData) => void
+  onClose: () => void
 }) {
   if (!selectedNode) {
     return <div className="p-4 text-[12.5px] text-muted-foreground">{labels.selectNode}</div>
   }
   const type = String(selectedNode.data.node_type) as CanvasNodeType
   return (
-    <div className="max-h-[360px] overflow-y-auto rounded-lg border border-border bg-card/96 p-3 shadow-sm">
+    <div className={cn("max-h-[360px] overflow-y-auto rounded-lg border bg-card/96 p-3 shadow-sm", type === "seedance.video" ? "border-emerald-400/55 shadow-[0_0_0_1px_rgba(52,211,153,0.2)]" : "border-border")}>
       <div className="mb-3 flex items-start justify-between gap-3">
         <div>
-          <div className="text-[12px] font-medium">{labels.inspector}</div>
+          <div className="text-[12px] font-medium">{type === "seedance.video" ? labels.composer : labels.inspector}</div>
           <div className="font-mono text-[10.5px] text-muted-foreground">{type}</div>
         </div>
-        <span className="rounded-md border border-border bg-background px-2 py-1 font-mono text-[9.5px] uppercase tracking-[0.1em] text-muted-foreground">
-          {String(selectedNode.data.label || selectedNode.data.node_type || "node")}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="rounded-md border border-border bg-background px-2 py-1 font-mono text-[9.5px] uppercase tracking-[0.1em] text-muted-foreground">
+            {String(selectedNode.data.label || selectedNode.data.node_type || "node")}
+          </span>
+          <button
+            type="button"
+            onPointerDown={(event) => event.stopPropagation()}
+            onClick={(event) => {
+              event.stopPropagation()
+              onClose()
+            }}
+            className="grid size-7 place-items-center rounded-md border border-border bg-background text-muted-foreground transition hover:border-emerald-400/45 hover:text-foreground"
+            aria-label={labels.closeInspector}
+            title={labels.closeInspector}
+          >
+            <X className="size-3.5" />
+          </button>
+        </div>
       </div>
-      <label className="mb-3 block">
-        <span className="mb-1 block text-[11px] text-muted-foreground">{labels.label}</span>
-        <input value={String(selectedNode.data.label || "")} onChange={(e) => onChange({ label: e.target.value })} className="h-9 w-full rounded-md border border-border/80 bg-background px-3 text-[12.5px] focus:outline-none" />
-      </label>
+      {type === "seedance.video" ? null : (
+        <label className="mb-3 block">
+          <span className="mb-1 block text-[11px] text-muted-foreground">{labels.label}</span>
+          <input value={String(selectedNode.data.label || "")} onChange={(e) => onChange({ label: e.target.value })} className="h-9 w-full rounded-md border border-border/80 bg-background px-3 text-[12.5px] focus:outline-none" />
+        </label>
+      )}
       {type === "image.input" ? (
         <div className="space-y-3">
           <label className="block">
@@ -639,8 +696,79 @@ function NodeInspector({
         </div>
       ) : null}
       {type === "seedance.video" ? (
-        <ModelSelect label={labels.model} value={String(selectedNode.data.model || "seedance-2.0-pro")} onChange={(model) => onChange({ model })} category="video" availableModelIds={availableModelIds} />
+        <VideoComposer
+          node={selectedNode}
+          context={videoContext}
+          labels={labels}
+          durationMin={durationMin}
+          durationMax={durationMax}
+          resolutionOptions={resolutionOptions}
+          ratioOptions={ratioOptions}
+          availableModelIds={availableModelIds}
+          onChangeVideo={onChange}
+          onChangeNode={onChangeNode}
+        />
       ) : null}
+    </div>
+  )
+}
+
+function VideoComposer({
+  node,
+  context,
+  labels,
+  durationMin,
+  durationMax,
+  resolutionOptions,
+  ratioOptions,
+  availableModelIds,
+  onChangeVideo,
+  onChangeNode,
+}: {
+  node: CanvasNode
+  context: VideoNodeContext
+  labels: ReturnType<typeof useTranslations>["canvas"]
+  durationMin: number
+  durationMax: number
+  resolutionOptions: string[]
+  ratioOptions: string[]
+  availableModelIds: string[]
+  onChangeVideo: (patch: CanvasNodeData) => void
+  onChangeNode: (nodeId: string, patch: CanvasNodeData) => void
+}) {
+  const promptNode = context.promptNode
+  const paramsNode = context.paramsNode
+  const params = paramsNode?.data
+
+  return (
+    <div className="space-y-3">
+      <ModelSelect label={labels.model} value={String(node.data.model || "seedance-2.0-pro")} onChange={(model) => onChangeVideo({ model })} category="video" availableModelIds={availableModelIds} />
+      <label className="block">
+        <span className="mb-1 block text-[11px] text-muted-foreground">{labels.prompt}</span>
+        <textarea
+          value={String(promptNode?.data.prompt || "")}
+          onChange={(event) => {
+            if (promptNode) onChangeNode(promptNode.id, { prompt: event.target.value })
+          }}
+          disabled={!promptNode}
+          rows={4}
+          className="w-full resize-none rounded-md border border-border/80 bg-background px-3 py-2 text-[12.5px] focus:border-signal/45 focus:outline-none disabled:opacity-55"
+          placeholder={promptNode ? labels.promptPlaceholder : labels.errorPromptRequired}
+        />
+      </label>
+      {paramsNode && params ? (
+        <div className="grid gap-3 md:grid-cols-2">
+          <RangeField label={labels.duration} value={Number(params.duration || durationMin)} min={durationMin} max={durationMax} onChange={(duration) => onChangeNode(paramsNode.id, { duration })} />
+          <Select label={labels.aspectRatio} value={String(params.aspect_ratio || "9:16")} values={withCurrent(ratioOptions, String(params.aspect_ratio || "9:16"))} onChange={(value) => onChangeNode(paramsNode.id, { aspect_ratio: value })} />
+          <Select label={labels.resolution} value={String(params.resolution || "1080p")} values={withCurrent(resolutionOptions, String(params.resolution || "1080p"))} onChange={(value) => onChangeNode(paramsNode.id, { resolution: value })} />
+          <label className="block">
+            <span className="mb-1 block text-[11px] text-muted-foreground">{labels.seed}</span>
+            <input value={params.seed == null ? "" : String(params.seed)} onChange={(event) => onChangeNode(paramsNode.id, { seed: event.target.value.trim() ? Number(event.target.value) : null })} className="h-9 w-full rounded-md border border-border/80 bg-background px-3 font-mono text-[12px] focus:border-signal/45 focus:outline-none" />
+          </label>
+        </div>
+      ) : (
+        <div className="rounded-md border border-border/80 bg-background px-3 py-2 text-[12px] text-muted-foreground">{labels.paramsNode}</div>
+      )}
     </div>
   )
 }
@@ -653,12 +781,23 @@ function attachedInspectorFrame(node: CanvasNode) {
     nodeType === "prompt.input" ? 520 :
       nodeType === "image.input" ? 420 :
         nodeType === "video.params" ? 360 :
-          nodeType === "seedance.video" ? 380 :
+      nodeType === "seedance.video" ? 480 :
             320
   return {
     x: node.position.x,
     y: node.position.y + height + 16,
     width: Math.max(nodeWidth, preferredWidth),
+  }
+}
+
+function getVideoNodeContext(node: CanvasNode | null, nodes: CanvasNode[], edges: CanvasEdge[]): VideoNodeContext {
+  if (!node || String(node.data.node_type) !== "seedance.video") {
+    return { promptNode: null, paramsNode: null }
+  }
+  const upstreamIds = new Set(edges.filter((edge) => edge.target === node.id).map((edge) => edge.source))
+  return {
+    promptNode: nodes.find((item) => upstreamIds.has(item.id) && String(item.data.node_type) === "prompt.input") ?? null,
+    paramsNode: nodes.find((item) => upstreamIds.has(item.id) && String(item.data.node_type) === "video.params") ?? null,
   }
 }
 
