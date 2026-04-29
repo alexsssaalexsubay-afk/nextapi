@@ -100,15 +100,6 @@ func (h *VideosHandlers) Create(c *gin.Context) {
 		input.DurationSeconds = 5
 	}
 
-	if strings.TrimSpace(input.Prompt) == "" && input.ImageURL == nil &&
-		len(input.ImageURLs) == 0 && len(input.VideoURLs) == 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{
-			"code":    "invalid_request",
-			"message": "prompt or at least one media input is required",
-		}})
-		return
-	}
-
 	// SSRF guard: the worker fetches image_url server-side. Block
 	// the obvious metadata/loopback hosts so a customer can't make the
 	// generation pipeline hit internal networks.
@@ -131,6 +122,20 @@ func (h *VideosHandlers) Create(c *gin.Context) {
 	}
 
 	if err := validateExtendedMediaParams(input.ImageURLs, input.VideoURLs, input.AudioURLs, input.FirstFrameURL, input.LastFrameURL); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{
+			"code":    "invalid_request",
+			"message": err.Error(),
+		}})
+		return
+	}
+	if err := validatePromptOrMediaInput(provider.GenerationRequest{
+		Prompt:        strings.TrimSpace(input.Prompt),
+		ImageURL:      input.ImageURL,
+		ImageURLs:     input.ImageURLs,
+		VideoURLs:     input.VideoURLs,
+		FirstFrameURL: input.FirstFrameURL,
+		LastFrameURL:  input.LastFrameURL,
+	}); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{
 			"code":    "invalid_request",
 			"message": err.Error(),

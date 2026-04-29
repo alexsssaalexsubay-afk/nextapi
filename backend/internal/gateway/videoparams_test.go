@@ -1,6 +1,10 @@
 package gateway
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/provider"
+)
 
 func TestValidateVideoParamsAllowsDefault1080p(t *testing.T) {
 	t.Setenv("UPTOKEN_ALLOWED_RESOLUTIONS", "")
@@ -16,5 +20,18 @@ func TestValidateVideoParamsUsesConfiguredResolutions(t *testing.T) {
 	}
 	if err := validateVideoParams("9:16", 0, 5, "720p"); err != nil {
 		t.Fatalf("expected configured 720p to pass: %v", err)
+	}
+}
+
+func TestValidatePromptOrMediaInput_AllowsFirstFrameWithoutPrompt(t *testing.T) {
+	firstFrame := "https://cdn.example.com/first.png"
+	if err := validatePromptOrMediaInput(provider.GenerationRequest{FirstFrameURL: &firstFrame}); err != nil {
+		t.Fatalf("expected first_frame_url to satisfy prompt-or-media validation: %v", err)
+	}
+}
+
+func TestValidatePromptOrMediaInput_RejectsEmptyPromptWithoutVisualMedia(t *testing.T) {
+	if err := validatePromptOrMediaInput(provider.GenerationRequest{}); err == nil {
+		t.Fatal("expected empty request to be rejected")
 	}
 }

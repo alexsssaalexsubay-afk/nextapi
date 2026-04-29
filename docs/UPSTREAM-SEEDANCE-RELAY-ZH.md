@@ -42,9 +42,11 @@ SEEDANCE_RELAY_ALLOWED_RESOLUTIONS=480p,720p,1080p
 | `input.duration_seconds` | `duration` |
 | `input.resolution` | `resolution` |
 | `input.generate_audio` | `generate_audio` |
-| `input.image_url` | `content[]` reference image |
-| `input.image_urls` / `video_urls` / `audio_urls` | flat media params |
-| `input.first_frame_url` / `last_frame_url` | first / last frame params |
+| `input.prompt` | `content[] text` |
+| `input.image_url` / `input.image_urls[]` | `content[] image_url role=reference_image` |
+| `input.video_urls[]` | `content[] video_url role=reference_video` |
+| `input.audio_urls[]` | `content[] audio_url role=reference_audio` |
+| `input.first_frame_url` / `input.last_frame_url` | `content[] image_url role=first_frame` / `last_frame` |
 
 上游返回 `queued → running → succeeded | failed`。成功时读取 `content.video_url` 和 `usage.total_tokens`；失败时读取 `error.code` / `error.message`。
 
@@ -58,6 +60,7 @@ SEEDANCE_RELAY_ALLOWED_RESOLUTIONS=480p,720p,1080p
 - `video_urls` 最多 3 个。
 - `audio_urls` 最多 3 个，且必须同时提供图片或视频输入。
 - `last_frame_url` 必须和 `first_frame_url` 一起使用。
+- 只要请求里已经有视觉媒体输入，`prompt` 可以为空。
 
 ## 4. 错误码策略
 

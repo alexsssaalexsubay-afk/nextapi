@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/abuse"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/auth"
@@ -25,7 +26,7 @@ type VideoHandlers struct {
 }
 
 type generateReq struct {
-	Prompt          string  `json:"prompt" binding:"required"`
+	Prompt          string  `json:"prompt"`
 	Model           string  `json:"model"`
 	ImageURL        *string `json:"image_url"`
 	DurationSeconds int     `json:"duration_seconds"`
@@ -94,6 +95,21 @@ func (h *VideoHandlers) Generate(c *gin.Context) {
 	}
 
 	if err := validateExtendedMediaParams(req.ImageURLs, req.VideoURLs, req.AudioURLs, req.FirstFrameURL, req.LastFrameURL); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{
+			"code":    "invalid_request",
+			"message": err.Error(),
+		}})
+		return
+	}
+
+	if err := validatePromptOrMediaInput(provider.GenerationRequest{
+		Prompt:        strings.TrimSpace(req.Prompt),
+		ImageURL:      req.ImageURL,
+		ImageURLs:     req.ImageURLs,
+		VideoURLs:     req.VideoURLs,
+		FirstFrameURL: req.FirstFrameURL,
+		LastFrameURL:  req.LastFrameURL,
+	}); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{
 			"code":    "invalid_request",
 			"message": err.Error(),

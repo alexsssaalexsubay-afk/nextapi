@@ -89,24 +89,21 @@ func TestWorkflowToExistingVideoPayload_Validation(t *testing.T) {
 			def:  Definition{Nodes: []Node{node(t, "prompt", NodePromptInput, PromptInputData{Prompt: "x"})}},
 		},
 		{
-			name: "missing prompt connection",
+			name: "missing prompt and visual media",
 			def: Definition{
 				Nodes: []Node{
-					node(t, "image", NodeImageInput, ImageInputData{ImageURL: "https://cdn.nextapi.top/a.png"}),
 					node(t, "video", NodeSeedanceVideo, SeedanceVideoData{}),
 				},
-				Edges: []Edge{{Source: "image", Target: "video"}},
 			},
 		},
 		{
-			name: "blank prompt",
+			name: "blank prompt without visual media",
 			def: Definition{
 				Nodes: []Node{
 					node(t, "prompt", NodePromptInput, PromptInputData{Prompt: "   "}),
-					node(t, "image", NodeImageInput, ImageInputData{ImageURL: "https://cdn.nextapi.top/a.png"}),
 					node(t, "video", NodeSeedanceVideo, SeedanceVideoData{}),
 				},
-				Edges: []Edge{{Source: "prompt", Target: "video"}, {Source: "image", Target: "video"}},
+				Edges: []Edge{{Source: "prompt", Target: "video"}},
 			},
 		},
 	}
@@ -118,6 +115,30 @@ func TestWorkflowToExistingVideoPayload_Validation(t *testing.T) {
 				t.Fatalf("error = %v; want ErrInvalidWorkflow", err)
 			}
 		})
+	}
+}
+
+func TestWorkflowToExistingVideoPayload_AllowsVisualMediaWithoutPromptNode(t *testing.T) {
+	raw := mustJSON(t, Definition{
+		Nodes: []Node{
+			node(t, "img-character", NodeImageInput, ImageInputData{
+				ImageURL:  "https://cdn.nextapi.top/character.png",
+				ImageType: "character",
+			}),
+			node(t, "video", NodeSeedanceVideo, SeedanceVideoData{}),
+		},
+		Edges: []Edge{{Source: "img-character", Target: "video"}},
+	})
+
+	payload, req, _, err := WorkflowToExistingVideoPayload(raw)
+	if err != nil {
+		t.Fatalf("WorkflowToExistingVideoPayload returned error: %v", err)
+	}
+	if payload.Input.Prompt != "" || req.Prompt != "" {
+		t.Fatalf("expected empty prompt, got payload=%q req=%q", payload.Input.Prompt, req.Prompt)
+	}
+	if payload.Input.FirstFrameURL == nil || *payload.Input.FirstFrameURL != "https://cdn.nextapi.top/character.png" {
+		t.Fatalf("first_frame_url = %v", payload.Input.FirstFrameURL)
 	}
 }
 

@@ -103,9 +103,10 @@ func (p *LiveProvider) EstimateCost(req provider.GenerationRequest) (int64, int6
 	return t, c, nil
 }
 
-// Upstream payload shapes. The Seedance relay accepts both flat fields (prompt,
-// image_urls, first_frame_url…) and the content[] array; we use content[]
-// exclusively so there's no risk of hitting error-211 (mixed formats).
+// Upstream payload shapes. The Seedance relay accepts both flat fields
+// (prompt, image_urls, first_frame_url…) and the content[] array; we emit the
+// richer content[] representation exclusively so reference roles stay explicit
+// and we never hit error-211 by mixing formats.
 type uptokenPart struct {
 	Type     string           `json:"type"`
 	Text     string           `json:"text,omitempty"`
@@ -122,13 +123,6 @@ type uptokenMediaURL struct {
 type uptokenCreateReq struct {
 	Model   string        `json:"model"`
 	Content []uptokenPart `json:"content,omitempty"`
-	// Flat-params format (mutually exclusive with content[] — error-211 if mixed).
-	Prompt        string   `json:"prompt,omitempty"`
-	ImageURLs     []string `json:"image_urls,omitempty"`
-	VideoURLs     []string `json:"video_urls,omitempty"`
-	AudioURLs     []string `json:"audio_urls,omitempty"`
-	FirstFrameURL *string  `json:"first_frame_url,omitempty"`
-	LastFrameURL  *string  `json:"last_frame_url,omitempty"`
 	// Shared params.
 	Ratio         string `json:"ratio,omitempty"`
 	Resolution    string `json:"resolution,omitempty"`
@@ -157,51 +151,16 @@ func (p *LiveProvider) GenerateVideo(ctx context.Context, req provider.Generatio
 
 	model := ResolveUpstreamModel(req, p.model)
 
-	// Choose format: flat params vs content[] array.
-	// Upstream rejects mixed formats with error-211, so we pick one.
-	useFlat := len(req.ImageURLs) > 0 || len(req.VideoURLs) > 0 || len(req.AudioURLs) > 0 ||
-		(req.FirstFrameURL != nil && *req.FirstFrameURL != "")
-
-	var body []byte
-	var err error
-	if useFlat {
-		body, err = json.Marshal(uptokenCreateReq{
-			Model:         model,
-			Prompt:        req.Prompt,
-			ImageURLs:     req.ImageURLs,
-			VideoURLs:     req.VideoURLs,
-			AudioURLs:     req.AudioURLs,
-			FirstFrameURL: req.FirstFrameURL,
-			LastFrameURL:  req.LastFrameURL,
-			Ratio:         req.AspectRatio,
-			Resolution:    req.Resolution,
-			Duration:      req.DurationSeconds,
-			GenerateAudio: req.GenerateAudio,
-			Draft:         req.Draft,
-			Seed:          req.Seed,
-		})
-	} else {
-		parts := []uptokenPart{{Type: "text", Text: req.Prompt}}
-		if req.ImageURL != nil {
-			if u := strings.TrimSpace(*req.ImageURL); u != "" {
-				parts = append(parts, uptokenPart{
-					Type:     "image_url",
-					Role:     "reference_image",
-					ImageURL: &uptokenMediaURL{URL: u},
-				})
-			}
-		}
-		body, err = json.Marshal(uptokenCreateReq{
-			Model:         model,
-			Content:       parts,
-			Ratio:         req.AspectRatio,
-			Resolution:    req.Resolution,
-			Duration:      req.DurationSeconds,
-			GenerateAudio: req.GenerateAudio,
-			Draft:         req.Draft,
-			Seed:          req.Seed,
-		})
-	}
+	body, err := json.Marshal(uptokenCreateReq{
+		Model:         model,
+		Content:       buildUpTokenContent(req),
+		Ratio:         req.AspectRatio,
+		Resolution:    req.Resolution,
+		Duration:      req.DurationSeconds,
+		GenerateAudio: req.GenerateAudio,
+		Draft:         req.Draft,
+		Seed:          req.Seed,
+	})
 	if err != nil {
 		return "", fmt.Errorf("seedance relay create marshal: %w", err)
 	}
@@ -226,6 +185,68 @@ func (p *LiveProvider) GenerateVideo(ctx context.Context, req provider.Generatio
 	}
 	p.breaker.recordFailure()
 	return "", lastErr
+}
+
+func buildUpTokenContent(req provider.GenerationRequest) []uptokenPart {
+	parts := make([]uptokenPart, 0, 1+len(req.ImageURLs)+len(req.VideoURLs)+len(req.AudioURLs)+3)
+	if prompt := strings.TrimSpace(req.Prompt); prompt != "" {
+		parts = append(parts, uptokenPart{Type: "text", Text: prompt})
+	}
+	if req.ImageURL != nil {
+		if u := strings.TrimSpace(*req.ImageURL); u != "" {
+			parts = append(parts, uptokenPart{
+				Type:     "image_url",
+				Role:     "reference_image",
+				ImageURL: &uptokenMediaURL{URL: u},
+			})
+		}
+	}
+	for _, raw := range req.ImageURLs {
+		if u := strings.TrimSpace(raw); u != "" {
+			parts = append(parts, uptokenPart{
+				Type:     "image_url",
+				Role:     "reference_image",
+				ImageURL: &uptokenMediaURL{URL: u},
+			})
+		}
+	}
+	if req.FirstFrameURL != nil {
+		if u := strings.TrimSpace(*req.FirstFrameURL); u != "" {
+			parts = append(parts, uptokenPart{
+				Type:     "image_url",
+				Role:     "first_frame",
+				ImageURL: &uptokenMediaURL{URL: u},
+			})
+		}
+	}
+	if req.LastFrameURL != nil {
+		if u := strings.TrimSpace(*req.LastFrameURL); u != "" {
+			parts = append(parts, uptokenPart{
+				Type:     "image_url",
+				Role:     "last_frame",
+				ImageURL: &uptokenMediaURL{URL: u},
+			})
+		}
+	}
+	for _, raw := range req.VideoURLs {
+		if u := strings.TrimSpace(raw); u != "" {
+			parts = append(parts, uptokenPart{
+				Type:     "video_url",
+				Role:     "reference_video",
+				VideoURL: &uptokenMediaURL{URL: u},
+			})
+		}
+	}
+	for _, raw := range req.AudioURLs {
+		if u := strings.TrimSpace(raw); u != "" {
+			parts = append(parts, uptokenPart{
+				Type:     "audio_url",
+				Role:     "reference_audio",
+				AudioURL: &uptokenMediaURL{URL: u},
+			})
+		}
+	}
+	return parts
 }
 
 func (p *LiveProvider) doCreate(ctx context.Context, body []byte) (string, bool, error) {
@@ -380,9 +401,6 @@ func (p *LiveProvider) doStatus(ctx context.Context, providerJobID string) (*pro
 }
 
 func validateUpTokenPayload(req provider.GenerationRequest) error {
-	if strings.TrimSpace(req.Prompt) == "" {
-		return &provider.UpstreamError{Code: "error-202", Message: "prompt is required", Type: "invalid_request"}
-	}
 	if req.Resolution != "" {
 		if _, ok := provider.AllowedResolutions()[strings.TrimSpace(req.Resolution)]; !ok {
 			return &provider.UpstreamError{Code: "error-205", Message: "resolution is not allowed by provider config", Type: "invalid_request"}
@@ -396,7 +414,11 @@ func validateUpTokenPayload(req provider.GenerationRequest) error {
 	if req.DurationSeconds != 0 && (req.DurationSeconds < 4 || req.DurationSeconds > 15) {
 		return &provider.UpstreamError{Code: "error-204", Message: "duration is unsupported", Type: "invalid_request"}
 	}
-	if len(req.ImageURLs) > 9 {
+	referenceImageCount := len(req.ImageURLs)
+	if req.ImageURL != nil && strings.TrimSpace(*req.ImageURL) != "" {
+		referenceImageCount++
+	}
+	if referenceImageCount > 9 {
 		return &provider.UpstreamError{Code: "error-206", Message: "too many image_urls", Type: "invalid_request"}
 	}
 	if len(req.VideoURLs) > 3 {
@@ -406,18 +428,18 @@ func validateUpTokenPayload(req provider.GenerationRequest) error {
 		return &provider.UpstreamError{Code: "error-208", Message: "too many audio_urls", Type: "invalid_request"}
 	}
 	hasFirstFrame := req.FirstFrameURL != nil && strings.TrimSpace(*req.FirstFrameURL) != ""
-	if hasFirstFrame && len(req.ImageURLs) > 0 {
+	hasReferenceImages := referenceImageCount > 0
+	if hasFirstFrame && hasReferenceImages {
 		return &provider.UpstreamError{Code: "error-209", Message: "first_frame_url and image_urls are mutually exclusive", Type: "invalid_request"}
 	}
 	if req.LastFrameURL != nil && strings.TrimSpace(*req.LastFrameURL) != "" && !hasFirstFrame {
 		return &provider.UpstreamError{Code: "error-201", Message: "last_frame_url requires first_frame_url", Type: "invalid_request"}
 	}
-	if len(req.AudioURLs) > 0 && len(req.ImageURLs) == 0 && len(req.VideoURLs) == 0 && !hasFirstFrame {
+	if len(req.AudioURLs) > 0 && !hasReferenceImages && len(req.VideoURLs) == 0 && !hasFirstFrame {
 		return &provider.UpstreamError{Code: "error-210", Message: "audio_urls requires image or video input", Type: "invalid_request"}
 	}
-	if req.ImageURL != nil && strings.TrimSpace(*req.ImageURL) != "" &&
-		(len(req.ImageURLs) > 0 || len(req.VideoURLs) > 0 || len(req.AudioURLs) > 0 || hasFirstFrame) {
-		return &provider.UpstreamError{Code: "error-211", Message: "content and flat params cannot be mixed", Type: "invalid_request"}
+	if strings.TrimSpace(req.Prompt) == "" && !provider.HasVisualInput(req) {
+		return &provider.UpstreamError{Code: "error-202", Message: "prompt or visual media input is required", Type: "invalid_request"}
 	}
 	if err := validateUpTokenMediaURL(req.ImageURL); err != nil {
 		return err

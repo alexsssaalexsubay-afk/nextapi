@@ -105,7 +105,7 @@ func TestLiveProvider_GenerateVideo_SendsAllParamsToUpstream(t *testing.T) {
 	}
 }
 
-func TestLiveProvider_GenerateVideo_FlatParamsDoesNotSendContent(t *testing.T) {
+func TestLiveProvider_GenerateVideo_SendsRichContentArrayWithoutPrompt(t *testing.T) {
 	var captured []byte
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		captured, _ = io.ReadAll(r.Body)
@@ -120,9 +120,12 @@ func TestLiveProvider_GenerateVideo_FlatParamsDoesNotSendContent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewLive: %v", err)
 	}
+	videoURL := "https://cdn.example.com/ref.mp4"
+	audioURL := "https://cdn.example.com/ref.mp3"
 	_, err = p.GenerateVideo(context.Background(), provider.GenerationRequest{
-		Prompt:          "make a video",
 		ImageURLs:       []string{"https://cdn.example.com/ref.png"},
+		VideoURLs:       []string{videoURL},
+		AudioURLs:       []string{audioURL},
 		DurationSeconds: 5,
 		Resolution:      "1080p",
 	})
@@ -133,14 +136,77 @@ func TestLiveProvider_GenerateVideo_FlatParamsDoesNotSendContent(t *testing.T) {
 	if err := json.Unmarshal(captured, &got); err != nil {
 		t.Fatalf("unmarshal captured body: %v", err)
 	}
-	if _, mixed := got["content"]; mixed {
-		t.Fatalf("flat request must not also include content[]: %v", got)
+	if _, mixed := got["prompt"]; mixed {
+		t.Fatalf("content[] request must not also include flat prompt: %v", got)
 	}
-	if got["prompt"] != "make a video" {
-		t.Fatalf("flat prompt missing: %v", got)
+	content, ok := got["content"].([]any)
+	if !ok || len(content) != 3 {
+		t.Fatalf("content shape wrong: %v", got["content"])
 	}
-	if refs, ok := got["image_urls"].([]any); !ok || len(refs) != 1 {
-		t.Fatalf("image_urls shape wrong: %v", got["image_urls"])
+	partsByRole := map[string]map[string]any{}
+	for _, raw := range content {
+		part, _ := raw.(map[string]any)
+		role, _ := part["role"].(string)
+		partsByRole[role] = part
+	}
+	if imgPart := partsByRole["reference_image"]; imgPart == nil {
+		t.Fatalf("missing reference_image part: %v", content)
+	} else if imgObj, _ := imgPart["image_url"].(map[string]any); imgObj == nil || imgObj["url"] != "https://cdn.example.com/ref.png" {
+		t.Fatalf("reference image shape wrong: %v", imgPart)
+	}
+	if videoPart := partsByRole["reference_video"]; videoPart == nil {
+		t.Fatalf("missing reference_video part: %v", content)
+	} else if videoObj, _ := videoPart["video_url"].(map[string]any); videoObj == nil || videoObj["url"] != videoURL {
+		t.Fatalf("reference video shape wrong: %v", videoPart)
+	}
+	if audioPart := partsByRole["reference_audio"]; audioPart == nil {
+		t.Fatalf("missing reference_audio part: %v", content)
+	} else if audioObj, _ := audioPart["audio_url"].(map[string]any); audioObj == nil || audioObj["url"] != audioURL {
+		t.Fatalf("reference audio shape wrong: %v", audioPart)
+	}
+}
+
+func TestLiveProvider_GenerateVideo_SendsFirstAndLastFrameRoles(t *testing.T) {
+	var captured []byte
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		captured, _ = io.ReadAll(r.Body)
+		_, _ = w.Write([]byte(`{"id":"ut-frames"}`))
+	}))
+	defer srv.Close()
+
+	t.Setenv("UPTOKEN_API_KEY", "ut-test")
+	t.Setenv("UPTOKEN_BASE_URL", srv.URL)
+
+	p, err := NewLive()
+	if err != nil {
+		t.Fatalf("NewLive: %v", err)
+	}
+	firstFrame := "https://cdn.example.com/first.png"
+	lastFrame := "https://cdn.example.com/last.png"
+	_, err = p.GenerateVideo(context.Background(), provider.GenerationRequest{
+		FirstFrameURL:   &firstFrame,
+		LastFrameURL:    &lastFrame,
+		DurationSeconds: 5,
+		Resolution:      "720p",
+	})
+	if err != nil {
+		t.Fatalf("GenerateVideo: %v", err)
+	}
+	var got map[string]any
+	if err := json.Unmarshal(captured, &got); err != nil {
+		t.Fatalf("unmarshal captured body: %v", err)
+	}
+	content, ok := got["content"].([]any)
+	if !ok || len(content) != 2 {
+		t.Fatalf("content shape wrong: %v", got["content"])
+	}
+	firstPart, _ := content[0].(map[string]any)
+	lastPart, _ := content[1].(map[string]any)
+	if firstPart["role"] != "first_frame" {
+		t.Fatalf("first frame role wrong: %v", firstPart)
+	}
+	if lastPart["role"] != "last_frame" {
+		t.Fatalf("last frame role wrong: %v", lastPart)
 	}
 }
 
@@ -319,6 +385,40 @@ func TestLiveProvider_ResolutionFollowsProviderConfig(t *testing.T) {
 	var upstreamErr *provider.UpstreamError
 	if !errors.As(err, &upstreamErr) || upstreamErr.Code != "error-205" {
 		t.Fatalf("expected error-205, got %T %v", err, err)
+	}
+}
+
+func TestLiveProvider_EstimateCost_AllowsVisualMediaWithoutPrompt(t *testing.T) {
+	t.Setenv("UPTOKEN_API_KEY", "ut-test")
+
+	p, err := NewLive()
+	if err != nil {
+		t.Fatalf("NewLive: %v", err)
+	}
+	firstFrame := "https://cdn.example.com/first.png"
+	if _, _, err := p.EstimateCost(provider.GenerationRequest{
+		FirstFrameURL:   &firstFrame,
+		DurationSeconds: 5,
+		Resolution:      "720p",
+	}); err != nil {
+		t.Fatalf("EstimateCost should allow visual-only request: %v", err)
+	}
+}
+
+func TestLiveProvider_EstimateCost_RejectsEmptyPromptWithoutVisualMedia(t *testing.T) {
+	t.Setenv("UPTOKEN_API_KEY", "ut-test")
+
+	p, err := NewLive()
+	if err != nil {
+		t.Fatalf("NewLive: %v", err)
+	}
+	_, _, err = p.EstimateCost(provider.GenerationRequest{DurationSeconds: 5, Resolution: "720p"})
+	if err == nil {
+		t.Fatal("expected empty request to be rejected")
+	}
+	var upstreamErr *provider.UpstreamError
+	if !errors.As(err, &upstreamErr) || upstreamErr.Code != "error-202" {
+		t.Fatalf("expected UpstreamError error-202, got %T %v", err, err)
 	}
 }
 

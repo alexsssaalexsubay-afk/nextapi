@@ -58,17 +58,13 @@ func videoNodeToPayload(def Definition, seedance Node) (*ExistingVideoPayload, p
 		return nil, provider.GenerationRequest{}, nil, err
 	}
 
-	promptNode, err := firstConnectedNode(def, seedance.ID, NodePromptInput)
-	if err != nil {
-		return nil, provider.GenerationRequest{}, nil, err
-	}
-	var promptData PromptInputData
-	if err := decodeNodeData(promptNode, &promptData); err != nil {
-		return nil, provider.GenerationRequest{}, nil, err
-	}
-	prompt := strings.TrimSpace(promptData.Prompt)
-	if prompt == "" {
-		return nil, provider.GenerationRequest{}, nil, fmt.Errorf("%w: prompt.input prompt is required", ErrInvalidWorkflow)
+	prompt := ""
+	if promptNode, err := firstConnectedNode(def, seedance.ID, NodePromptInput); err == nil {
+		var promptData PromptInputData
+		if err := decodeNodeData(promptNode, &promptData); err != nil {
+			return nil, provider.GenerationRequest{}, nil, err
+		}
+		prompt = strings.TrimSpace(promptData.Prompt)
 	}
 
 	paramsData := VideoParamsData{
@@ -160,8 +156,18 @@ func videoNodeToPayload(def Definition, seedance Node) (*ExistingVideoPayload, p
 		FirstFrameURL:   input.FirstFrameURL,
 		ImageURLs:       input.ImageURLs,
 	}
+	if err := validateWorkflowPromptOrMedia(req); err != nil {
+		return nil, provider.GenerationRequest{}, nil, err
+	}
 
 	return &payload, req, inputJSON, nil
+}
+
+func validateWorkflowPromptOrMedia(req provider.GenerationRequest) error {
+	if strings.TrimSpace(req.Prompt) != "" || provider.HasVisualInput(req) {
+		return nil
+	}
+	return fmt.Errorf("%w: prompt.input or visual media input is required", ErrInvalidWorkflow)
 }
 
 func singleNode(nodes []Node, typ string) (Node, error) {

@@ -69,3 +69,10 @@ func validateExtendedMediaParams(imageURLs []string, videoURLs []string, audioUR
 	}
 	return nil
 }
+
+func validatePromptOrMediaInput(req provider.GenerationRequest) error {
+	if strings.TrimSpace(req.Prompt) != "" || provider.HasVisualInput(req) {
+		return nil
+	}
+	return errors.New("prompt or at least one visual media input is required")
+}
