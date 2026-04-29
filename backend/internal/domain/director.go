@@ -45,3 +45,14 @@ type DirectorStep struct {
 }
 
 func (DirectorStep) TableName() string { return "director_steps" }
+
+type DirectorCheckpoint struct {
+	ID            string          `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
+	DirectorJobID string          `gorm:"type:uuid;not null;column:director_job_id" json:"director_job_id"`
+	OrgID         string          `gorm:"type:uuid;not null;index" json:"org_id"`
+	CheckpointKey string          `gorm:"type:text;not null;column:checkpoint_key" json:"checkpoint_key"`
+	StateSnapshot json.RawMessage `gorm:"type:jsonb;not null;default:'{}';column:state_snapshot" json:"state_snapshot"`
+	CreatedAt     time.Time       `json:"created_at"`
+}
+
+func (DirectorCheckpoint) TableName() string { return "director_checkpoints" }

@@ -755,6 +755,12 @@ func (h *DirectorHandlers) startDirectorStep(ctx context.Context, orgID string, 
 		}
 		return nil, err
 	}
+	h.recordDirectorCheckpoint(ctx, orgID, directorJob.ID, "step."+stepKey+".running", gin.H{
+		"step_id":  row.ID,
+		"step_key": stepKey,
+		"status":   row.Status,
+		"attempts": row.Attempts,
+	})
 	return &row, nil
 }
 
@@ -775,6 +781,12 @@ func (h *DirectorHandlers) completeDirectorStep(ctx context.Context, step *domai
 	step.OutputSnapshot = outputSnapshot
 	step.CompletedAt = &now
 	step.UpdatedAt = now
+	h.recordDirectorCheckpoint(ctx, step.OrgID, step.DirectorJobID, "step."+step.StepKey+".succeeded", gin.H{
+		"step_id":  step.ID,
+		"step_key": step.StepKey,
+		"status":   step.Status,
+		"attempts": step.Attempts,
+	})
 }
 
 func (h *DirectorHandlers) failDirectorStep(ctx context.Context, step *domain.DirectorStep, errorCode string) {
@@ -793,6 +805,13 @@ func (h *DirectorHandlers) failDirectorStep(ctx context.Context, step *domain.Di
 	step.ErrorCode = errorCode
 	step.CompletedAt = &now
 	step.UpdatedAt = now
+	h.recordDirectorCheckpoint(ctx, step.OrgID, step.DirectorJobID, "step."+step.StepKey+".failed", gin.H{
+		"step_id":    step.ID,
+		"step_key":   step.StepKey,
+		"status":     step.Status,
+		"error_code": errorCode,
+		"attempts":   step.Attempts,
+	})
 }
 
 func (h *DirectorHandlers) failDirectorJob(ctx context.Context, directorJob *domain.DirectorJob, errorCode string) {
@@ -810,6 +829,10 @@ func (h *DirectorHandlers) failDirectorJob(ctx context.Context, directorJob *dom
 	directorJob.Status = "failed"
 	directorJob.PlanSnapshot = plan
 	directorJob.UpdatedAt = now
+	h.recordDirectorCheckpoint(ctx, directorJob.OrgID, directorJob.ID, "job.failed", gin.H{
+		"status":     directorJob.Status,
+		"error_code": errorCode,
+	})
 }
 
 func (h *DirectorHandlers) finishDirectorJob(ctx context.Context, directorJob *domain.DirectorJob, storyboard *director.Storyboard, workflowID *string, runResult *workflow.RunResult, plan director.DirectorPlan) {
@@ -864,6 +887,30 @@ func (h *DirectorHandlers) finishDirectorJob(ctx context.Context, directorJob *d
 	directorJob.UpdatedAt = now
 	directorJob.WorkflowID = workflowID
 	directorJob.WorkflowRunID = workflowRunID
+	h.recordDirectorCheckpoint(ctx, directorJob.OrgID, directorJob.ID, "job."+status, gin.H{
+		"status":          status,
+		"workflow_id":     workflowID,
+		"workflow_run_id": workflowRunID,
+		"batch_run_id":    batchRunID,
+		"engine_used":     engineUsed,
+		"fallback_used":   fallbackUsed,
+	})
+}
+
+func (h *DirectorHandlers) recordDirectorCheckpoint(ctx context.Context, orgID string, directorJobID string, checkpointKey string, state any) {
+	if h.DB == nil || strings.TrimSpace(orgID) == "" || strings.TrimSpace(directorJobID) == "" || strings.TrimSpace(checkpointKey) == "" {
+		return
+	}
+	row := domain.DirectorCheckpoint{
+		ID:            uuid.NewString(),
+		DirectorJobID: directorJobID,
+		OrgID:         orgID,
+		CheckpointKey: strings.TrimSpace(checkpointKey),
+		StateSnapshot: snapshotJSON(state),
+	}
+	if err := h.DB.WithContext(ctx).Create(&row).Error; err != nil && !directorAuditUnavailable(err) {
+		return
+	}
 }
 
 func (h *DirectorHandlers) recordDirectorVideoMetering(ctx context.Context, orgID string, directorJob *domain.DirectorJob, step *domain.DirectorStep, jobIDs []string) {
@@ -935,6 +982,7 @@ func directorAuditUnavailable(err error) bool {
 	msg := strings.ToLower(err.Error())
 	return strings.Contains(msg, "director_jobs") ||
 		strings.Contains(msg, "director_steps") ||
+		strings.Contains(msg, "director_checkpoints") ||
 		strings.Contains(msg, "director_metering") ||
 		strings.Contains(msg, "no such table")
 }

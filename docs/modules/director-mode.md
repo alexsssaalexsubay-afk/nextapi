@@ -250,7 +250,7 @@ New schema anchors added in `00032_director_asset_memory.sql`:
 - `director_jobs`: durable Director-level job envelope linking story, workflow, workflow run, batch run, engine evidence, selected characters, plan snapshot, and budget snapshot.
 - `director_steps`: future Step Machine rows for `story_plan`, `character_plan`, `storyboard`, `image_submit`, `video_submit`, `quality_check`, `merge`, and final asset handoff.
 - `director_metering`: per-step cost/usage rows for text, image, video, merge, and future evaluation calls.
-- `director_checkpoints`: resumable state snapshots so long Director jobs can continue after process restarts.
+- `director_checkpoints`: resumable state snapshots so long Director jobs can continue after process restarts. The backend now writes checkpoints when Director steps start, succeed, or fail, and when the Director job reaches a failed or finished state.
 - `brand_kits`, `scene_assets`, `style_presets`, `prompt_memories`, `asset_embeddings`: asset memory primitives for brand, location, visual style, prompt preference, and similarity retrieval.
 - `generation_feedback`, `agent_prompt_versions`, `model_performance_stats`: controlled self-improvement primitives for feedback, prompt versioning, offline evaluation, and model routing decisions.
 

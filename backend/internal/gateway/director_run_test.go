@@ -1,6 +1,7 @@
 package gateway
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -377,6 +378,58 @@ func TestDirectorFinalAssetFromStepIncludesFailureEvidence(t *testing.T) {
 	}
 }
 
+func TestDirectorStepWritesRecoveryCheckpoints(t *testing.T) {
+	db := setupDirectorRunDB(t)
+	orgID := "12121212-1212-1212-1212-121212121212"
+	runID := "23232323-2323-2323-2323-232323232323"
+	if err := db.Create(&domain.DirectorJob{
+		ID:                   runID,
+		OrgID:                orgID,
+		Status:               "planning_running",
+		SelectedCharacterIDs: json.RawMessage(`[]`),
+		BudgetSnapshot:       json.RawMessage(`{}`),
+		PlanSnapshot:         json.RawMessage(`{}`),
+	}).Error; err != nil {
+		t.Fatalf("create director job: %v", err)
+	}
+	h := &DirectorHandlers{DB: db}
+	step, err := h.startDirectorStep(context.Background(), orgID, &domain.DirectorJob{ID: runID}, "storyboard", map[string]any{"shot_count": 3})
+	if err != nil {
+		t.Fatalf("start director step: %v", err)
+	}
+	h.completeDirectorStep(context.Background(), step, map[string]any{"shot_count": 3})
+	h.failDirectorJob(context.Background(), &domain.DirectorJob{ID: runID, OrgID: orgID}, "storyboard_failed")
+
+	var checkpoints []domain.DirectorCheckpoint
+	if err := db.Order("created_at ASC, checkpoint_key ASC").Find(&checkpoints, "director_job_id = ?", runID).Error; err != nil {
+		t.Fatalf("load checkpoints: %v", err)
+	}
+	if len(checkpoints) != 3 {
+		t.Fatalf("expected 3 checkpoints, got %#v", checkpoints)
+	}
+	wantKeys := map[string]bool{
+		"step.storyboard.running":   false,
+		"step.storyboard.succeeded": false,
+		"job.failed":                false,
+	}
+	for _, checkpoint := range checkpoints {
+		if _, ok := wantKeys[checkpoint.CheckpointKey]; ok {
+			wantKeys[checkpoint.CheckpointKey] = true
+		}
+		if checkpoint.OrgID != orgID || checkpoint.DirectorJobID != runID {
+			t.Fatalf("checkpoint escaped org or run scope: %#v", checkpoint)
+		}
+		if len(checkpoint.StateSnapshot) == 0 || string(checkpoint.StateSnapshot) == "{}" {
+			t.Fatalf("checkpoint missing state snapshot: %#v", checkpoint)
+		}
+	}
+	for key, seen := range wantKeys {
+		if !seen {
+			t.Fatalf("missing checkpoint key %s in %#v", key, checkpoints)
+		}
+	}
+}
+
 func setupDirectorRunDB(t *testing.T) *gorm.DB {
 	t.Helper()
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
@@ -433,6 +486,14 @@ func setupDirectorRunDB(t *testing.T) *gorm.DB {
 			credits_delta BIGINT NOT NULL DEFAULT 0,
 			status TEXT NOT NULL DEFAULT 'recorded',
 			usage_json BLOB NOT NULL DEFAULT '{}',
+			created_at DATETIME
+		)`,
+		`CREATE TABLE director_checkpoints (
+			id TEXT PRIMARY KEY,
+			director_job_id TEXT NOT NULL,
+			org_id TEXT NOT NULL,
+			checkpoint_key TEXT NOT NULL,
+			state_snapshot BLOB NOT NULL DEFAULT '{}',
 			created_at DATETIME
 		)`,
 	}
