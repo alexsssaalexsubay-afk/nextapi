@@ -1,9 +1,13 @@
 package gateway
 
 import (
+	"context"
 	"encoding/json"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/domain"
 )
 
 func TestRuntimeVideoProviderStatusUsesSeedanceRelayEnv(t *testing.T) {
@@ -110,5 +114,49 @@ func TestAdminDirectorRuntimeConfigDisableFallbackWins(t *testing.T) {
 	}
 	if !cfg.FailClosed {
 		t.Fatal("runtime should be fail-closed when fallback is disabled")
+	}
+}
+
+func TestDirectorJobEventIncludesStepInputEvidence(t *testing.T) {
+	db := setupDirectorRunDB(t)
+	now := time.Date(2026, 4, 29, 10, 0, 0, 0, time.UTC)
+	directorJobID := "15151515-1515-1515-1515-151515151515"
+	if err := db.Create(&domain.DirectorJob{
+		ID:                   directorJobID,
+		OrgID:                "25252525-2525-2525-2525-252525252525",
+		Title:                "Provider evidence",
+		Status:               "workflow_ready",
+		SelectedCharacterIDs: json.RawMessage(`[]`),
+		BudgetSnapshot:       json.RawMessage(`{}`),
+		PlanSnapshot:         json.RawMessage(`{}`),
+		CreatedAt:            now,
+		UpdatedAt:            now,
+	}).Error; err != nil {
+		t.Fatalf("create director job: %v", err)
+	}
+	if err := db.Create(&domain.DirectorStep{
+		ID:             "35353535-3535-3535-3535-353535353535",
+		DirectorJobID:  directorJobID,
+		OrgID:          "25252525-2525-2525-2525-252525252525",
+		StepKey:        "storyboard",
+		Status:         "succeeded",
+		InputSnapshot:  json.RawMessage(`{"text_provider_id":" provider_text ","image_provider_id":"provider_image","shot_count":3,"max_parallel":2,"video_model":"seedance"}`),
+		OutputSnapshot: json.RawMessage(`{}`),
+		CreatedAt:      now,
+		UpdatedAt:      now,
+	}).Error; err != nil {
+		t.Fatalf("create director step: %v", err)
+	}
+
+	event := (&AdminHandlers{DB: db}).directorJobEvent(context.Background(), domain.DirectorJob{ID: directorJobID, CreatedAt: now, UpdatedAt: now})
+	if len(event.RecentSteps) != 1 {
+		t.Fatalf("recent steps = %d, want 1", len(event.RecentSteps))
+	}
+	step := event.RecentSteps[0]
+	if step.TextProviderID != "provider_text" || step.ImageProviderID != "provider_image" || step.VideoModel != "seedance" {
+		t.Fatalf("unexpected provider evidence: %#v", step)
+	}
+	if step.ShotCount != 3 || step.MaxParallel != 2 {
+		t.Fatalf("unexpected run shape evidence: %#v", step)
 	}
 }

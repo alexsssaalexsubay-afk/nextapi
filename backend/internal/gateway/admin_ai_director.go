@@ -47,14 +47,19 @@ type aiDirectorMeteringSummary struct {
 }
 
 type aiDirectorStepEvent struct {
-	ID          string  `json:"id"`
-	StepKey     string  `json:"step_key"`
-	Status      string  `json:"status"`
-	ErrorCode   string  `json:"error_code,omitempty"`
-	JobID       *string `json:"job_id,omitempty"`
-	StartedAt   *string `json:"started_at,omitempty"`
-	CompletedAt *string `json:"completed_at,omitempty"`
-	CreatedAt   string  `json:"created_at"`
+	ID              string  `json:"id"`
+	StepKey         string  `json:"step_key"`
+	Status          string  `json:"status"`
+	ErrorCode       string  `json:"error_code,omitempty"`
+	JobID           *string `json:"job_id,omitempty"`
+	TextProviderID  string  `json:"text_provider_id,omitempty"`
+	ImageProviderID string  `json:"image_provider_id,omitempty"`
+	VideoModel      string  `json:"video_model,omitempty"`
+	ShotCount       int     `json:"shot_count,omitempty"`
+	MaxParallel     int     `json:"max_parallel,omitempty"`
+	StartedAt       *string `json:"started_at,omitempty"`
+	CompletedAt     *string `json:"completed_at,omitempty"`
+	CreatedAt       string  `json:"created_at"`
 }
 
 type aiDirectorJobEvent struct {
@@ -233,15 +238,21 @@ func (h *AdminHandlers) directorJobEvent(ctx context.Context, row domain.Directo
 	recentSteps := make([]aiDirectorStepEvent, 0, len(steps))
 	for _, step := range steps {
 		stepSummary[step.Status]++
+		input := directorStepInputSummary(step.InputSnapshot)
 		recentSteps = append(recentSteps, aiDirectorStepEvent{
-			ID:          step.ID,
-			StepKey:     step.StepKey,
-			Status:      step.Status,
-			ErrorCode:   step.ErrorCode,
-			JobID:       step.JobID,
-			StartedAt:   formatOptionalTime(step.StartedAt),
-			CompletedAt: formatOptionalTime(step.CompletedAt),
-			CreatedAt:   step.CreatedAt.Format(time.RFC3339),
+			ID:              step.ID,
+			StepKey:         step.StepKey,
+			Status:          step.Status,
+			ErrorCode:       step.ErrorCode,
+			JobID:           step.JobID,
+			TextProviderID:  input.TextProviderID,
+			ImageProviderID: input.ImageProviderID,
+			VideoModel:      input.VideoModel,
+			ShotCount:       input.ShotCount,
+			MaxParallel:     input.MaxParallel,
+			StartedAt:       formatOptionalTime(step.StartedAt),
+			CompletedAt:     formatOptionalTime(step.CompletedAt),
+			CreatedAt:       step.CreatedAt.Format(time.RFC3339),
 		})
 	}
 	var meter struct {
@@ -271,6 +282,50 @@ func (h *AdminHandlers) directorJobEvent(ctx context.Context, row domain.Directo
 		MeteringCents:   meter.Cents,
 		MeteringCalls:   meter.Calls,
 		SelectedAssetCt: jsonArrayLen(row.SelectedCharacterIDs),
+	}
+}
+
+type aiDirectorStepInputSummary struct {
+	TextProviderID  string
+	ImageProviderID string
+	VideoModel      string
+	ShotCount       int
+	MaxParallel     int
+}
+
+func directorStepInputSummary(raw json.RawMessage) aiDirectorStepInputSummary {
+	if len(raw) == 0 {
+		return aiDirectorStepInputSummary{}
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(raw, &payload); err != nil {
+		return aiDirectorStepInputSummary{}
+	}
+	return aiDirectorStepInputSummary{
+		TextProviderID:  jsonMapString(payload, "text_provider_id"),
+		ImageProviderID: jsonMapString(payload, "image_provider_id"),
+		VideoModel:      jsonMapString(payload, "video_model"),
+		ShotCount:       jsonMapInt(payload, "shot_count"),
+		MaxParallel:     jsonMapInt(payload, "max_parallel"),
+	}
+}
+
+func jsonMapString(payload map[string]any, key string) string {
+	value, ok := payload[key].(string)
+	if !ok {
+		return ""
+	}
+	return strings.TrimSpace(value)
+}
+
+func jsonMapInt(payload map[string]any, key string) int {
+	switch value := payload[key].(type) {
+	case float64:
+		return int(value)
+	case int:
+		return value
+	default:
+		return 0
 	}
 }
 

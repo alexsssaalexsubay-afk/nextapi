@@ -57,6 +57,10 @@ policy without leaking operator secrets:
   `NextAPI Director`.
 - Make the invariant visible: storage uses `nextapi_assets`, task status uses
   `nextapi_workflow_jobs`, and billing uses `nextapi_billing`.
+- Director run ledger step chips may show stable evidence fields such as
+  `text_provider_id`, `image_provider_id`, `video_model`, shot count, and
+  parallelism. They must not render provider keys, raw prompts, raw snapshots,
+  sidecar URLs, callback URLs, or tokens.
 
 ## Invariants
 - Admin actions never bypass the ledger — every change is auditable.

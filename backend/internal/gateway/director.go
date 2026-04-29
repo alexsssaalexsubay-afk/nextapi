@@ -506,6 +506,8 @@ func (h *DirectorHandlers) RunDirectorMode(c *gin.Context) {
 		"style":             req.Style,
 		"shot_count":        req.ShotCount,
 		"duration_per_shot": req.Duration,
+		"text_provider_id":  req.TextProviderID,
+		"image_provider_id": req.ImageProviderID,
 		"characters":        req.Characters,
 	})
 	if err != nil {
@@ -540,9 +542,10 @@ func (h *DirectorHandlers) RunDirectorMode(c *gin.Context) {
 	})
 	if req.GenerateImages {
 		imageStep, stepErr := h.startDirectorStep(c.Request.Context(), org.ID, directorJob, "image_submit", gin.H{
-			"shot_count": len(storyboard.Shots),
-			"style":      req.Style,
-			"resolution": req.Options.Resolution,
+			"shot_count":        len(storyboard.Shots),
+			"style":             req.Style,
+			"resolution":        req.Options.Resolution,
+			"image_provider_id": req.ImageProviderID,
 		})
 		if stepErr != nil {
 			h.failDirectorJob(c.Request.Context(), directorJob, "image_step_create_failed")

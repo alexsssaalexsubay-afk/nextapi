@@ -60,6 +60,11 @@ type DirectorStepEvent = {
   status: string
   error_code?: string
   job_id?: string
+  text_provider_id?: string
+  image_provider_id?: string
+  video_model?: string
+  shot_count?: number
+  max_parallel?: number
   created_at: string
 }
 
@@ -628,7 +633,7 @@ function DirectorJobsPanel({
               <div className="mt-3 flex flex-wrap gap-1.5">
                 {job.recent_steps.slice(0, 6).map((step) => (
                   <span key={step.id} className="rounded-full border border-white/12 bg-background/55 px-2.5 py-1 font-mono text-[10px] text-muted-foreground">
-                    {step.step_key}:{step.status}{step.error_code ? `/${step.error_code}` : ""}
+                    {step.step_key}:{step.status}{step.error_code ? `/${step.error_code}` : ""}{directorStepEvidence(step).map((item) => ` · ${item}`).join("")}
                   </span>
                 ))}
               </div>
@@ -642,6 +647,16 @@ function DirectorJobsPanel({
       )}
     </div>
   )
+}
+
+function directorStepEvidence(step: DirectorStepEvent) {
+  const out: string[] = []
+  if (step.text_provider_id) out.push(`text:${step.text_provider_id}`)
+  if (step.image_provider_id) out.push(`image:${step.image_provider_id}`)
+  if (step.video_model) out.push(`model:${step.video_model}`)
+  if (step.shot_count) out.push(`shots:${step.shot_count}`)
+  if (step.max_parallel) out.push(`parallel:${step.max_parallel}`)
+  return out
 }
 
 function StatusPill({ status }: { status: string }) {
