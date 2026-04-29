@@ -212,7 +212,7 @@ export default function NewJobPage() {
   const reloadLibrary = useCallback(async () => {
     setLibraryLoading(true)
     try {
-      const res = (await apiFetch("/v1/me/library/assets?kind=image")) as { assets?: LibraryAsset[] }
+      const res = (await apiFetch("/v1/me/library/assets?kind=all")) as { assets?: LibraryAsset[] }
       setLibraryAssets(Array.isArray(res?.assets) ? res.assets : [])
     } catch {
       setLibraryAssets([])
@@ -226,10 +226,26 @@ export default function NewJobPage() {
   }, [reloadLibrary])
 
   const attachFromLibrary = (asset: LibraryAsset) => {
-    if (asset.kind !== "image") return
     const generationURL = asset.generation_url || asset.url
+    if (!generationURL) return
+    if (asset.kind === "video") {
+      const existing = parseMediaURLs(referenceVideoURLs)
+      if (existing.includes(generationURL)) return
+      if (existing.length >= 3) {
+        toast.error(t.jobs.new.composer.videoRefFull)
+        return
+      }
+      setReferenceVideoURLs([...existing, generationURL].join("\n"))
+      toast.success(t.jobs.new.form.tempUploadSuccess)
+      return
+    }
+    if (asset.kind === "audio") {
+      toast.error(t.jobs.new.composer.permLibraryAudioUnsupported)
+      return
+    }
     if (mode === "image" && !imageUrl.trim()) {
       setImageUrl(generationURL)
+      toast.success(t.jobs.new.form.tempUploadSuccess)
       return
     }
     setReferenceImageURLs((prev) => {
@@ -662,21 +678,49 @@ export default function NewJobPage() {
                         {t.jobs.new.composer.permLibraryEmpty}
                       </div>
                     ) : (
-                      libraryAssets.map((asset) => (
-                        <button
-                          key={asset.id}
-                          type="button"
-                          onClick={() => attachFromLibrary(asset)}
-                          className="group relative h-20 w-20 shrink-0 overflow-hidden rounded-lg border border-border/70 bg-card/60 transition-all hover:border-foreground"
-                          title={asset.filename || asset.id}
-                        >
-                          {/* eslint-disable-next-line @next/next/no-img-element -- presigned URL */}
-                          <img src={asset.url} alt="" className="absolute inset-0 h-full w-full object-cover" />
-                          <span className="absolute inset-x-0 bottom-0 bg-background/80 px-1 py-0.5 text-[9.5px] text-foreground/80 opacity-0 backdrop-blur transition-opacity group-hover:opacity-100">
-                            +
-                          </span>
-                        </button>
-                      ))
+                      libraryAssets.map((asset) => {
+                        const isImage = asset.kind === "image"
+                        const isVideo = asset.kind === "video"
+                        const Icon = isVideo ? Film : Music
+                        const actionLabel = isImage
+                          ? t.jobs.new.composer.permLibraryAddImage
+                          : isVideo
+                            ? t.jobs.new.composer.permLibraryAddVideo
+                            : t.jobs.new.composer.permLibraryAudioUnsupported
+                        const fileLabel = asset.filename || asset.id
+                        return (
+                          <button
+                            key={asset.id}
+                            type="button"
+                            onClick={() => attachFromLibrary(asset)}
+                            className={cn(
+                              "group relative h-20 w-20 shrink-0 overflow-hidden rounded-lg border border-border/70 bg-card/60 transition-all hover:border-foreground",
+                              isVideo && "bg-foreground text-background",
+                              asset.kind === "audio" && "border-dashed",
+                            )}
+                            title={`${actionLabel}: ${fileLabel}`}
+                          >
+                            {isImage ? (
+                              // eslint-disable-next-line @next/next/no-img-element -- presigned URL
+                              <img src={asset.url} alt="" className="absolute inset-0 h-full w-full object-cover" />
+                            ) : (
+                              <span className="absolute inset-0 flex flex-col items-center justify-center gap-1 px-1 text-center">
+                                <Icon className="size-5 opacity-80" />
+                                <span className="font-mono text-[9px] uppercase tracking-[0.12em] opacity-70">{asset.kind}</span>
+                                <span className="line-clamp-1 max-w-full text-[9.5px] opacity-80">{fileLabel}</span>
+                              </span>
+                            )}
+                            <span
+                              className={cn(
+                                "absolute inset-x-0 bottom-0 bg-background/80 px-1 py-0.5 text-[9.5px] text-foreground/80 opacity-0 backdrop-blur transition-opacity group-hover:opacity-100",
+                                isVideo && "bg-background/95 text-foreground",
+                              )}
+                            >
+                              {actionLabel}
+                            </span>
+                          </button>
+                        )
+                      })
                     )}
                   </div>
                 </div>
