@@ -93,6 +93,149 @@ func TestMediaLibraryListSupportsGeneratedMediaKinds(t *testing.T) {
 	}
 }
 
+func TestMediaLibraryListResponseExcludesSecrets(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	db := setupMediaLibraryDB(t)
+	orgID := "11111111-1111-1111-1111-111111111111"
+	now := time.Date(2026, 4, 29, 10, 0, 0, 0, time.UTC)
+	active := "active"
+	if err := db.Create(&[]domain.MediaAsset{
+		{
+			ID:               "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+			OrgID:            orgID,
+			Kind:             domain.MediaAssetImage,
+			StorageKey:       "library/org/ref.png",
+			ContentType:      "image/png",
+			Filename:         "ref.png",
+			SizeBytes:        100,
+			CreatedAt:        now,
+			UpTokenVirtualID: mediaLibraryStringPtr("seedance-internal-id"),
+			UpTokenAssetURL:  mediaLibraryStringPtr("https://seedance.internal/asset"),
+			UpTokenStatus:    &active,
+		},
+		{
+			ID:          "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+			OrgID:       orgID,
+			Kind:        domain.MediaAssetVideo,
+			StorageKey:  "merges/org/final-merged.mp4",
+			ContentType: "video/mp4",
+			Filename:    "director-merged-xxx.mp4",
+			SizeBytes:   99999,
+			CreatedAt:   now,
+		},
+	}).Error; err != nil {
+		t.Fatalf("create media assets: %v", err)
+	}
+	h := &MediaLibraryHandlers{DB: db, R2: fakeMediaLibraryStorage{}}
+
+	allBody := listMediaLibraryAssetsRaw(t, h, orgID, "all")
+	for i, asset := range allBody.Assets {
+		if asset.StorageKey != "" {
+			t.Errorf("asset[%d] storage_key exposed: %q", i, asset.StorageKey)
+		}
+		if asset.OrgID != "" {
+			t.Errorf("asset[%d] org_id exposed: %q", i, asset.OrgID)
+		}
+		if asset.Kind == "video" {
+			if asset.SeedanceAssetID != nil && *asset.SeedanceAssetID != "" {
+				t.Errorf("video asset[%d] seedance_asset_id should be nil/empty, got %q", i, *asset.SeedanceAssetID)
+			}
+			if asset.SeedanceAssetURL != nil && *asset.SeedanceAssetURL != "" {
+				t.Errorf("video asset[%d] seedance_asset_url should be nil/empty, got %q", i, *asset.SeedanceAssetURL)
+			}
+			if asset.SeedanceAssetStatus != nil && *asset.SeedanceAssetStatus != "" {
+				t.Errorf("video asset[%d] seedance_asset_status should be nil/empty, got %q", i, *asset.SeedanceAssetStatus)
+			}
+		}
+	}
+
+	videoBody := listMediaLibraryAssetsRaw(t, h, orgID, "video")
+	if len(videoBody.Assets) != 1 {
+		t.Fatalf("video list should return 1 asset, got %d", len(videoBody.Assets))
+	}
+	v := videoBody.Assets[0]
+	if v.StorageKey != "" {
+		t.Errorf("video response storage_key exposed: %q", v.StorageKey)
+	}
+	if v.OrgID != "" {
+		t.Errorf("video response org_id exposed: %q", v.OrgID)
+	}
+	if v.URL == "" || !strings.Contains(v.URL, "merges/org/final-merged.mp4") {
+		t.Errorf("video URL should contain merge storage path, got %q", v.URL)
+	}
+}
+
+func TestMediaLibraryListDefaultBackwardCompat(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	db := setupMediaLibraryDB(t)
+	orgID := "11111111-1111-1111-1111-111111111111"
+	now := time.Date(2026, 4, 29, 10, 0, 0, 0, time.UTC)
+	if err := db.Create(&[]domain.MediaAsset{
+		{
+			ID:          "cccccccc-cccc-cccc-cccc-cccccccccccc",
+			OrgID:       orgID,
+			Kind:        domain.MediaAssetImage,
+			StorageKey:  "library/org/img1.png",
+			ContentType: "image/png",
+			Filename:    "img1.png",
+			SizeBytes:   100,
+			CreatedAt:   now,
+		},
+		{
+			ID:          "dddddddd-dddd-dddd-dddd-dddddddddddd",
+			OrgID:       orgID,
+			Kind:        domain.MediaAssetVideo,
+			StorageKey:  "merges/org/final.mp4",
+			ContentType: "video/mp4",
+			Filename:    "final.mp4",
+			SizeBytes:   500,
+			CreatedAt:   now.Add(-1 * time.Minute),
+		},
+		{
+			ID:          "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee",
+			OrgID:       orgID,
+			Kind:        domain.MediaAssetImage,
+			StorageKey:  "library/org/img2.jpg",
+			ContentType: "image/jpeg",
+			Filename:    "img2.jpg",
+			SizeBytes:   200,
+			CreatedAt:   now.Add(-2 * time.Minute),
+		},
+	}).Error; err != nil {
+		t.Fatalf("create media assets: %v", err)
+	}
+	h := &MediaLibraryHandlers{DB: db, R2: fakeMediaLibraryStorage{}}
+
+	noKindBody := listMediaLibraryAssets(t, h, orgID, "")
+	if len(noKindBody.Assets) != 2 {
+		t.Fatalf("default (no kind) should return images only, got %d assets", len(noKindBody.Assets))
+	}
+	for _, a := range noKindBody.Assets {
+		if a.Kind != "image" {
+			t.Errorf("default list should only contain images, got kind=%q", a.Kind)
+		}
+	}
+
+	imageBody := listMediaLibraryAssets(t, h, orgID, "image")
+	if len(imageBody.Assets) != 2 {
+		t.Fatalf("explicit image kind should return 2 images, got %d", len(imageBody.Assets))
+	}
+
+	allBody := listMediaLibraryAssets(t, h, orgID, "all")
+	if len(allBody.Assets) != 3 {
+		t.Fatalf("all kind should return 3 assets (2 images + 1 video), got %d", len(allBody.Assets))
+	}
+	hasVideo := false
+	for _, a := range allBody.Assets {
+		if a.Kind == "video" {
+			hasVideo = true
+		}
+	}
+	if !hasVideo {
+		t.Fatal("all list should include the final_asset video")
+	}
+}
+
 func listMediaLibraryAssets(t *testing.T, h *MediaLibraryHandlers, orgID string, kind string) mediaLibraryListResponse {
 	t.Helper()
 	w := httptest.NewRecorder()
@@ -158,6 +301,48 @@ func setupMediaLibraryDB(t *testing.T) *gorm.DB {
 		t.Fatalf("create media_assets table: %v", err)
 	}
 	return db
+}
+
+type mediaLibraryAssetResponseRaw struct {
+	ID                  string  `json:"id"`
+	Kind                string  `json:"kind"`
+	Filename            string  `json:"filename"`
+	ContentType         string  `json:"content_type"`
+	SizeBytes           int64   `json:"size_bytes"`
+	URL                 string  `json:"url"`
+	GenerationURL       string  `json:"generation_url"`
+	CreatedAt           string  `json:"created_at"`
+	StorageKey          string  `json:"storage_key"`
+	OrgID               string  `json:"org_id"`
+	SeedanceAssetID     *string `json:"seedance_asset_id"`
+	SeedanceAssetURL    *string `json:"seedance_asset_url"`
+	SeedanceAssetStatus *string `json:"seedance_asset_status"`
+}
+
+type mediaLibraryListResponseRaw struct {
+	Assets     []mediaLibraryAssetResponseRaw `json:"assets"`
+	TTLSeconds int                            `json:"ttl_seconds"`
+}
+
+func listMediaLibraryAssetsRaw(t *testing.T, h *MediaLibraryHandlers, orgID string, kind string) mediaLibraryListResponseRaw {
+	t.Helper()
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	target := "/v1/me/library/assets"
+	if kind != "" {
+		target += "?kind=" + kind
+	}
+	c.Request = httptest.NewRequest(http.MethodGet, target, nil)
+	auth.SetOrg(c, &domain.Org{ID: orgID})
+	h.List(c)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	var body mediaLibraryListResponseRaw
+	if err := json.NewDecoder(w.Body).Decode(&body); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	return body
 }
 
 func mediaLibraryStringPtr(value string) *string {
