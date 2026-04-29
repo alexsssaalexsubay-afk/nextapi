@@ -245,9 +245,10 @@ paths:
       operationId: listDirectorRuns
       description: >-
         Lists recent org-scoped Director run envelopes with step counts and
-        aggregate metering totals. Results are ordered by updated_at desc and
-        use a stable cursor so Dashboard/Admin can recover recent run history
-        without a second task or billing system.
+        aggregate metering totals plus the newest recovery checkpoint. Results
+        are ordered by updated_at desc and use a stable cursor so
+        Dashboard/Admin can recover recent run history without a second task or
+        billing system.
       parameters:
         - $ref: '#/components/parameters/Limit'
         - $ref: '#/components/parameters/Cursor'
@@ -271,9 +272,9 @@ paths:
       operationId: getDirectorRun
       description: >-
         Returns the org-scoped Director job envelope, ordered step evidence,
-        metering events, and aggregate cost totals from NextAPI-owned tables.
-        This endpoint is read-only and does not create video tasks, provider
-        calls, or a second billing path.
+        checkpoint snapshots, metering events, and aggregate cost totals from
+        NextAPI-owned tables. This endpoint is read-only and does not create
+        video tasks, provider calls, or a second billing path.
       parameters:
         - name: id
           in: path
@@ -2136,6 +2137,19 @@ components:
           additionalProperties: true
         created_at: { type: string, format: date-time }
 
+    DirectorCheckpoint:
+      type: object
+      required: [id, director_job_id, org_id, checkpoint_key, state_snapshot, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        director_job_id: { type: string, format: uuid }
+        org_id: { type: string, format: uuid }
+        checkpoint_key: { type: string }
+        state_snapshot:
+          type: object
+          additionalProperties: true
+        created_at: { type: string, format: date-time }
+
     DirectorRunTotals:
       type: object
       required: [metering_events, estimated_cents, actual_cents, credits_delta]
@@ -2164,6 +2178,7 @@ components:
         director_job: { $ref: '#/components/schemas/DirectorJob' }
         step_count: { type: integer, format: int64 }
         totals: { $ref: '#/components/schemas/DirectorRunTotals' }
+        latest_checkpoint: { $ref: '#/components/schemas/DirectorCheckpoint' }
         final_asset: { $ref: '#/components/schemas/DirectorRunFinalAsset' }
 
     DirectorRunPage:
@@ -2178,7 +2193,7 @@ components:
 
     DirectorRunResponse:
       type: object
-      required: [director_job, steps, metering, totals]
+      required: [director_job, steps, metering, checkpoints, totals]
       properties:
         director_job: { $ref: '#/components/schemas/DirectorJob' }
         steps:
@@ -2187,6 +2202,9 @@ components:
         metering:
           type: array
           items: { $ref: '#/components/schemas/DirectorMetering' }
+        checkpoints:
+          type: array
+          items: { $ref: '#/components/schemas/DirectorCheckpoint' }
         totals: { $ref: '#/components/schemas/DirectorRunTotals' }
         final_asset: { $ref: '#/components/schemas/DirectorRunFinalAsset' }
 

@@ -181,7 +181,7 @@ export interface paths {
         };
         /**
          * List Director runs
-         * @description Lists recent org-scoped Director run envelopes with step counts and aggregate metering totals. Results are ordered by updated_at desc and use a stable cursor so Dashboard/Admin can recover recent run history without a second task or billing system.
+         * @description Lists recent org-scoped Director run envelopes with step counts and aggregate metering totals plus the newest recovery checkpoint. Results are ordered by updated_at desc and use a stable cursor so Dashboard/Admin can recover recent run history without a second task or billing system.
          */
         get: operations["listDirectorRuns"];
         put?: never;
@@ -201,7 +201,7 @@ export interface paths {
         };
         /**
          * Get Director run audit trail
-         * @description Returns the org-scoped Director job envelope, ordered step evidence, metering events, and aggregate cost totals from NextAPI-owned tables. This endpoint is read-only and does not create video tasks, provider calls, or a second billing path.
+         * @description Returns the org-scoped Director job envelope, ordered step evidence, checkpoint snapshots, metering events, and aggregate cost totals from NextAPI-owned tables. This endpoint is read-only and does not create video tasks, provider calls, or a second billing path.
          */
         get: operations["getDirectorRun"];
         put?: never;
@@ -1528,6 +1528,20 @@ export interface components {
             /** Format: date-time */
             created_at: string;
         };
+        DirectorCheckpoint: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            director_job_id: string;
+            /** Format: uuid */
+            org_id: string;
+            checkpoint_key: string;
+            state_snapshot: {
+                [key: string]: unknown;
+            };
+            /** Format: date-time */
+            created_at: string;
+        };
         DirectorRunTotals: {
             metering_events: number;
             /** Format: int64 */
@@ -1551,6 +1565,7 @@ export interface components {
             /** Format: int64 */
             step_count: number;
             totals: components["schemas"]["DirectorRunTotals"];
+            latest_checkpoint?: components["schemas"]["DirectorCheckpoint"];
             final_asset?: components["schemas"]["DirectorRunFinalAsset"];
         };
         DirectorRunPage: {
@@ -1562,6 +1577,7 @@ export interface components {
             director_job: components["schemas"]["DirectorJob"];
             steps: components["schemas"]["DirectorStep"][];
             metering: components["schemas"]["DirectorMetering"][];
+            checkpoints: components["schemas"]["DirectorCheckpoint"][];
             totals: components["schemas"]["DirectorRunTotals"];
             final_asset?: components["schemas"]["DirectorRunFinalAsset"];
         };

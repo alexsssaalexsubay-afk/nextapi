@@ -53,18 +53,20 @@ type directorStatusResponse struct {
 }
 
 type directorRunResponse struct {
-	DirectorJob domain.DirectorJob        `json:"director_job"`
-	Steps       []domain.DirectorStep     `json:"steps"`
-	Metering    []domain.DirectorMetering `json:"metering"`
-	Totals      directorRunTotals         `json:"totals"`
-	FinalAsset  *directorRunFinalAsset    `json:"final_asset,omitempty"`
+	DirectorJob domain.DirectorJob          `json:"director_job"`
+	Steps       []domain.DirectorStep       `json:"steps"`
+	Metering    []domain.DirectorMetering   `json:"metering"`
+	Checkpoints []domain.DirectorCheckpoint `json:"checkpoints"`
+	Totals      directorRunTotals           `json:"totals"`
+	FinalAsset  *directorRunFinalAsset      `json:"final_asset,omitempty"`
 }
 
 type directorRunSummary struct {
-	DirectorJob domain.DirectorJob     `json:"director_job"`
-	StepCount   int64                  `json:"step_count"`
-	Totals      directorRunTotals      `json:"totals"`
-	FinalAsset  *directorRunFinalAsset `json:"final_asset,omitempty"`
+	DirectorJob      domain.DirectorJob         `json:"director_job"`
+	StepCount        int64                      `json:"step_count"`
+	Totals           directorRunTotals          `json:"totals"`
+	LatestCheckpoint *domain.DirectorCheckpoint `json:"latest_checkpoint,omitempty"`
+	FinalAsset       *directorRunFinalAsset     `json:"final_asset,omitempty"`
 }
 
 type directorRunPage struct {
@@ -208,6 +210,14 @@ func (h *DirectorHandlers) GetRun(c *gin.Context) {
 		httpx.InternalError(c, "director_run_unavailable", "failed to load director run")
 		return
 	}
+	checkpoints := []domain.DirectorCheckpoint{}
+	if err := h.DB.WithContext(c.Request.Context()).
+		Where("director_job_id = ? AND org_id = ?", directorJob.ID, org.ID).
+		Order("created_at ASC, id ASC").
+		Find(&checkpoints).Error; err != nil {
+		httpx.InternalError(c, "director_run_unavailable", "failed to load director run")
+		return
+	}
 	totals := directorRunTotals{MeteringEvents: len(metering)}
 	for _, row := range metering {
 		totals.EstimatedCents += row.EstimatedCents
@@ -218,6 +228,7 @@ func (h *DirectorHandlers) GetRun(c *gin.Context) {
 		DirectorJob: directorJob,
 		Steps:       steps,
 		Metering:    metering,
+		Checkpoints: checkpoints,
 		Totals:      totals,
 		FinalAsset:  directorFinalAssetFromSteps(steps),
 	})
@@ -267,15 +278,42 @@ func (h *DirectorHandlers) directorRunSummaries(ctx context.Context, orgID strin
 	if err != nil {
 		return nil, err
 	}
+	latestCheckpointsByJob, err := h.directorLatestCheckpointsByJob(ctx, orgID, ids)
+	if err != nil {
+		return nil, err
+	}
 	for _, job := range jobs {
 		summaries = append(summaries, directorRunSummary{
-			DirectorJob: job,
-			StepCount:   stepCounts[job.ID],
-			Totals:      totalsByJob[job.ID],
-			FinalAsset:  finalAssetsByJob[job.ID],
+			DirectorJob:      job,
+			StepCount:        stepCounts[job.ID],
+			Totals:           totalsByJob[job.ID],
+			LatestCheckpoint: latestCheckpointsByJob[job.ID],
+			FinalAsset:       finalAssetsByJob[job.ID],
 		})
 	}
 	return summaries, nil
+}
+
+func (h *DirectorHandlers) directorLatestCheckpointsByJob(ctx context.Context, orgID string, jobIDs []string) (map[string]*domain.DirectorCheckpoint, error) {
+	checkpointsByJob := map[string]*domain.DirectorCheckpoint{}
+	if len(jobIDs) == 0 {
+		return checkpointsByJob, nil
+	}
+	var checkpoints []domain.DirectorCheckpoint
+	if err := h.DB.WithContext(ctx).
+		Where("org_id = ? AND director_job_id IN ?", orgID, jobIDs).
+		Order("created_at DESC, id DESC").
+		Find(&checkpoints).Error; err != nil {
+		return nil, err
+	}
+	for i := range checkpoints {
+		checkpoint := checkpoints[i]
+		if _, ok := checkpointsByJob[checkpoint.DirectorJobID]; ok {
+			continue
+		}
+		checkpointsByJob[checkpoint.DirectorJobID] = &checkpoint
+	}
+	return checkpointsByJob, nil
 }
 
 func (h *DirectorHandlers) directorFinalAssetsByJob(ctx context.Context, orgID string, jobIDs []string) (map[string]*directorRunFinalAsset, error) {
@@ -897,7 +935,7 @@ func (h *DirectorHandlers) finishDirectorJob(ctx context.Context, directorJob *d
 	})
 }
 
-func (h *DirectorHandlers) recordDirectorCheckpoint(ctx context.Context, orgID string, directorJobID string, checkpointKey string, state any) {
+func (h *DirectorHandlers) recordDirectorCheckpoint(ctx context.Context, orgID string, directorJobID string, checkpointKey string, state gin.H) {
 	if h.DB == nil || strings.TrimSpace(orgID) == "" || strings.TrimSpace(directorJobID) == "" || strings.TrimSpace(checkpointKey) == "" {
 		return
 	}

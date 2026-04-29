@@ -199,6 +199,9 @@ NextAPI-owned audit tables:
   video submit, completion, failure, and future resume checkpoints.
 - `director_metering`: per-step usage/cost records created by the existing
   provider, workflow, job, and billing paths.
+- `director_checkpoints`: ordered recovery snapshots. List responses expose the
+  newest checkpoint for fast resume cards; detail responses expose the full
+  checkpoint sequence for Step Machine recovery and operator debugging.
 
 These endpoints are intentionally read-only and additive. They must not create a
 second task system, a second billing path, or a direct ViMax/Seedance credential

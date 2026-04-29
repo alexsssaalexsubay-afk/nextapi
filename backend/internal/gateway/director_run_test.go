@@ -146,6 +146,34 @@ func TestDirectorListRunsReturnsPagedOrgScopedSummaries(t *testing.T) {
 	}).Error; err != nil {
 		t.Fatalf("create director metering: %v", err)
 	}
+	if err := db.Create(&[]domain.DirectorCheckpoint{
+		{
+			ID:            "12121212-1212-1212-1212-121212121211",
+			DirectorJobID: newestID,
+			OrgID:         orgID,
+			CheckpointKey: "step.video_submit.succeeded",
+			StateSnapshot: json.RawMessage(`{"status":"succeeded"}`),
+			CreatedAt:     now.Add(-30 * time.Second),
+		},
+		{
+			ID:            "12121212-1212-1212-1212-121212121212",
+			DirectorJobID: newestID,
+			OrgID:         orgID,
+			CheckpointKey: "job.final_asset",
+			StateSnapshot: json.RawMessage(`{"status":"final_asset"}`),
+			CreatedAt:     now.Add(-10 * time.Second),
+		},
+		{
+			ID:            "12121212-1212-1212-1212-121212121213",
+			DirectorJobID: middleID,
+			OrgID:         orgID,
+			CheckpointKey: "job.workflow_ready",
+			StateSnapshot: json.RawMessage(`{"status":"workflow_ready"}`),
+			CreatedAt:     now.Add(-1 * time.Minute),
+		},
+	}).Error; err != nil {
+		t.Fatalf("create director checkpoints: %v", err)
+	}
 	h := &DirectorHandlers{DB: db}
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
@@ -175,6 +203,9 @@ func TestDirectorListRunsReturnsPagedOrgScopedSummaries(t *testing.T) {
 	}
 	if page.Data[0].FinalAsset == nil || !page.Data[0].FinalAsset.Available || page.Data[0].FinalAsset.AssetID != "asset_final_1" || page.Data[0].FinalAsset.VideoURL != "https://cdn.example/final.mp4" {
 		t.Fatalf("unexpected newest final asset: %#v", page.Data[0].FinalAsset)
+	}
+	if page.Data[0].LatestCheckpoint == nil || page.Data[0].LatestCheckpoint.CheckpointKey != "job.final_asset" || page.Data[1].LatestCheckpoint == nil || page.Data[1].LatestCheckpoint.CheckpointKey != "job.workflow_ready" {
+		t.Fatalf("unexpected latest checkpoints: %#v", page.Data)
 	}
 
 	w = httptest.NewRecorder()
@@ -299,6 +330,26 @@ func TestDirectorGetRunReturnsOrgScopedAuditTrail(t *testing.T) {
 	}).Error; err != nil {
 		t.Fatalf("create director metering: %v", err)
 	}
+	if err := db.Create(&[]domain.DirectorCheckpoint{
+		{
+			ID:            "99999999-9999-9999-9999-999999999991",
+			DirectorJobID: runID,
+			OrgID:         orgID,
+			CheckpointKey: "step.storyboard.succeeded",
+			StateSnapshot: json.RawMessage(`{"step_key":"storyboard","status":"succeeded"}`),
+			CreatedAt:     now.Add(-90 * time.Second),
+		},
+		{
+			ID:            "99999999-9999-9999-9999-999999999992",
+			DirectorJobID: runID,
+			OrgID:         orgID,
+			CheckpointKey: "job.final_asset",
+			StateSnapshot: json.RawMessage(`{"status":"final_asset"}`),
+			CreatedAt:     now.Add(-5 * time.Second),
+		},
+	}).Error; err != nil {
+		t.Fatalf("create director checkpoints: %v", err)
+	}
 	h := &DirectorHandlers{DB: db}
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
@@ -323,6 +374,9 @@ func TestDirectorGetRunReturnsOrgScopedAuditTrail(t *testing.T) {
 	}
 	if len(body.Metering) != 2 || body.Metering[0].StepID == nil || *body.Metering[0].StepID != stepTwoID {
 		t.Fatalf("expected newest metering first, got %#v", body.Metering)
+	}
+	if len(body.Checkpoints) != 2 || body.Checkpoints[0].CheckpointKey != "step.storyboard.succeeded" || body.Checkpoints[1].CheckpointKey != "job.final_asset" {
+		t.Fatalf("expected ordered checkpoints, got %#v", body.Checkpoints)
 	}
 	if body.Totals.MeteringEvents != 2 || body.Totals.EstimatedCents != 620 || body.Totals.ActualCents != 618 || body.Totals.CreditsDelta != -620 {
 		t.Fatalf("unexpected totals: %#v", body.Totals)
