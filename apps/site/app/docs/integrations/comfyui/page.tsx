@@ -8,59 +8,42 @@ export default function ComfyUIIntegrationPage() {
       <SiteNav />
       <IntegrationDoc
         name="ComfyUI"
-        intro="Integrate NextAPI video generation into your ComfyUI node-based workflows. Use our custom node or the generic HTTP request node to add text- or image-to-video to any pipeline."
-        configLang="python"
-        configSnippet={`# ComfyUI Custom Node: NextAPI Video Generate
-# Place in ComfyUI/custom_nodes/nextapi_node.py
-
-import os
-import requests
-
-class NextAPIVideoGenerate:
-    @classmethod
-    def INPUT_TYPES(cls):
-        return {
-            "required": {
-                "prompt": ("STRING", {"multiline": True}),
-                "duration_seconds": ("INT", {"default": 6, "min": 1, "max": 30}),
-                "resolution": (["720p", "1080p", "4k"],),
-            }
-        }
-
-    RETURN_TYPES = ("STRING",)
-    RETURN_NAMES = ("video_url",)
-    FUNCTION = "generate"
-    CATEGORY = "NextAPI"
-
-    def generate(self, prompt, duration_seconds, resolution):
-        resp = requests.post(
-            "https://api.nextapi.top/v1/videos",
-            headers={
-                "Authorization": f"Bearer {os.environ.get('NEXTAPI_KEY', '')}",
-                "Content-Type": "application/json",
-            },
-            json={
-                "model": "seedance-2.0-pro",
-                "input": {
-                    "prompt": prompt,
-                    "duration_seconds": duration_seconds,
-                    "resolution": resolution,
-                },
-            },
-        )
-        resp.raise_for_status()
-        data = resp.json()
-        return (data.get("url", ""),)
-
-NODE_CLASS_MAPPINGS = {"NextAPIVideoGenerate": NextAPIVideoGenerate}
-NODE_DISPLAY_NAME_MAPPINGS = {"NextAPIVideoGenerate": "NextAPI Video Generate"}`}
+        intro="Connect ComfyUI to NextAPI using a trusted HTTP/API request custom node. A packaged NextAPI custom node is in development and not yet shipped — the verified path today is through ComfyUI's generic HTTP request nodes."
+        configLang="json"
+        configSnippet={`// ComfyUI HTTP/API Request Node Configuration
+{
+  "create": {
+    "method": "POST",
+    "url": "https://api.nextapi.top/v1/videos",
+    "headers": {
+      "Authorization": "Bearer sk_...",
+      "Content-Type": "application/json"
+    },
+    "body": {
+      "model": "seedance-2.0-pro",
+      "input": {
+        "prompt": "your prompt here",
+        "duration_seconds": 6,
+        "resolution": "1080p"
+      }
+    }
+  },
+  "poll": {
+    "method": "GET",
+    "url": "https://api.nextapi.top/v1/videos/{id}",
+    "headers": {
+      "Authorization": "Bearer sk_..."
+    }
+  }
+}`}
         steps={[
-          "Copy the custom node file to ComfyUI/custom_nodes/nextapi_node.py.",
-          "Set your API key as an environment variable: export NEXTAPI_KEY=your-key-here",
-          "Restart ComfyUI to load the new node.",
-          "Find \"NextAPI Video Generate\" in the node browser under the \"NextAPI\" category.",
-          "Connect a text input to the prompt field and wire the video_url output to your pipeline.",
-          "Execute the workflow — the node will call NextAPI and return the generated video URL.",
+          "Use a local or trusted ComfyUI installation. Do not use unofficial hosted mirrors.",
+          "Install a trusted HTTP/API Request custom node in your ComfyUI.",
+          "Add a create request node: method POST, URL https://api.nextapi.top/v1/videos, headers Authorization: Bearer sk_... and Content-Type: application/json.",
+          "Set the JSON body with model and input (prompt, duration_seconds, resolution).",
+          "Save the returned id from the create response.",
+          "Add a poll request node: method GET, URL https://api.nextapi.top/v1/videos/{id}, same Authorization header.",
+          "When status = succeeded, read output.url or output.video_url as the download address.",
         ]}
         curlTest={`curl -X POST https://api.nextapi.top/v1/videos \\
   -H "Authorization: Bearer $NEXTAPI_KEY" \\
@@ -73,6 +56,15 @@ NODE_DISPLAY_NAME_MAPPINGS = {"NextAPIVideoGenerate": "NextAPI Video Generate"}`
       "resolution": "1080p"
     }
   }'`}
+        footerNote={
+          <div className="rounded-lg border border-amber-400/50 bg-amber-400/10 px-4 py-3 text-[13px] text-amber-700 dark:border-amber-400/40 dark:text-amber-300">
+            A packaged NextAPI ComfyUI custom node is pending. For strict setup instructions and tool-specific details, refer to the{" "}
+            <a href="/docs/third-party-tools" className="font-semibold underline underline-offset-2">
+              third-party tools configuration guide
+            </a>{" "}
+            in the NextAPI documentation.
+          </div>
+        }
       />
       <LandingFooter />
     </div>

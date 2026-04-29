@@ -8,29 +8,23 @@ export default function CursorIntegrationPage() {
       <SiteNav />
       <IntegrationDoc
         name="Cursor"
-        intro="Use NextAPI as a video generation tool inside Cursor IDE agent workflows. Your AI coding assistant can programmatically generate videos through the NextAPI REST endpoint."
-        configLang="json"
-        configSnippet={`// .cursor/mcp.json
-{
-  "mcpServers": {
-    "nextapi": {
-      "command": "npx",
-      "args": ["-y", "@nextapi/mcp-server"],
-      "env": {
-        "NEXTAPI_BASE_URL": "https://api.nextapi.top",
-        "NEXTAPI_API_KEY": "your-api-key-here"
-      }
-    }
-  }
-}`}
+        intro="Use NextAPI from Cursor through the standard REST API. This page describes the verified create-and-poll HTTP flow; a packaged NextAPI MCP server is not claimed here."
+        configLang="md"
+        configSnippet={`# .cursor/rules/nextapi-video.mdc
+When the user asks for AI video generation:
+- Read NEXTAPI_KEY from the local environment.
+- POST https://api.nextapi.top/v1/videos with Authorization: Bearer $NEXTAPI_KEY.
+- Save the returned id.
+- Poll GET https://api.nextapi.top/v1/videos/{id}.
+- Treat the task as complete only when status = succeeded and output.url or output.video_url exists.`}
         steps={[
           "Sign up at app.nextapi.top and create an API key.",
-          "Add the MCP server configuration to your .cursor/mcp.json file.",
-          "Restart Cursor to load the new MCP server.",
-          "Ask your agent to generate a video — it will use the NextAPI tool automatically.",
-          "The generated video URL will be returned in the agent's response.",
+          "Store it outside source control, for example in your shell as NEXTAPI_KEY.",
+          "Add the rule above to your Cursor project so the agent follows the async REST flow.",
+          "Ask your agent to generate a video and have it run the create request.",
+          "Have the agent poll by id and return the final URL only after status is succeeded.",
         ]}
-        curlTest={`curl -X POST https://api.nextapi.top/v1/videos \\
+        curlTest={`CREATE_RESPONSE=$(curl -sS -X POST https://api.nextapi.top/v1/videos \\
   -H "Authorization: Bearer $NEXTAPI_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -40,7 +34,20 @@ export default function CursorIntegrationPage() {
       "duration_seconds": 6,
       "resolution": "1080p"
     }
-  }'`}
+  }')
+
+VIDEO_ID=$(printf '%s' "$CREATE_RESPONSE" | jq -r '.id')
+
+curl -sS "https://api.nextapi.top/v1/videos/$VIDEO_ID" \\
+  -H "Authorization: Bearer $NEXTAPI_KEY"`}
+        footerNote={
+          <div className="rounded-lg border border-amber-400/50 bg-amber-400/10 px-4 py-3 text-[13px] text-amber-700 dark:border-amber-400/40 dark:text-amber-300">
+            Do not commit <code className="font-mono">sk_*</code> keys or local Cursor rules containing secrets. For strict setup details, see the{" "}
+            <a href="/docs/third-party-tools" className="font-semibold underline underline-offset-2">
+              third-party tools configuration guide
+            </a>.
+          </div>
+        }
       />
       <LandingFooter />
     </div>

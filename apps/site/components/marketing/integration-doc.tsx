@@ -2,8 +2,7 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { ArrowLeft, Check, Copy } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { ArrowLeft, Check, Copy, TriangleAlert } from "lucide-react"
 
 interface IntegrationDocProps {
   name: string
@@ -12,9 +11,10 @@ interface IntegrationDocProps {
   configLang: string
   curlTest: string
   steps: string[]
+  footerNote?: React.ReactNode
 }
 
-export function IntegrationDoc({ name, intro, configSnippet, configLang, curlTest, steps }: IntegrationDocProps) {
+export function IntegrationDoc({ name, intro, configSnippet, configLang, curlTest, steps, footerNote }: IntegrationDocProps) {
   return (
     <div className="mx-auto max-w-4xl px-6 py-16 sm:py-24">
       <Link
@@ -59,13 +59,15 @@ export function IntegrationDoc({ name, intro, configSnippet, configLang, curlTes
           <code className="rounded bg-muted px-1 font-mono text-[12px]">sk_live_</code> key:
         </p>
         <div className="mt-3 flex items-center gap-2 rounded-lg border border-amber-400/50 bg-amber-400/10 px-3 py-2 text-[12px] text-amber-700 dark:border-amber-400/40 dark:text-amber-300">
-          <span>⚠</span>
+          <TriangleAlert className="size-3.5 shrink-0" />
           <span>Sample command — replace <code className="font-mono">$NEXTAPI_KEY</code> with your actual key from{" "}
             <a href="https://app.nextapi.top" className="underline underline-offset-2">app.nextapi.top</a>.
           </span>
         </div>
         <CodeBlock lang="bash" code={curlTest} />
       </section>
+
+      {footerNote && <div className="mt-10">{footerNote}</div>}
 
       <section className="mt-12 rounded-xl border border-indigo-500/20 bg-indigo-500/5 p-6">
         <h3 className="text-[15px] font-semibold text-foreground">Need help?</h3>

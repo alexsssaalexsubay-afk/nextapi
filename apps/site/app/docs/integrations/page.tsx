@@ -31,7 +31,7 @@ const INTEGRATIONS = [
   {
     slug: "comfyui",
     name: "ComfyUI",
-    desc: "Integrate NextAPI video generation into your ComfyUI node-based workflows.",
+    desc: "Connect NextAPI to ComfyUI using trusted HTTP/API request custom nodes.",
     color: "from-purple-500 to-pink-500",
   },
   {
