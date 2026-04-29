@@ -8,6 +8,12 @@ This catalog keeps model choice layered instead of dumping every model into the 
 - Image providers call `GenerateImageWithProvider`.
 - Video providers continue to use the existing video task path (`createVideoTask`, Seedance relay, jobs, billing).
 - API keys stay encrypted in `ai_providers`; frontend never receives keys.
+- Native video provider config is normalized as a NextAPI-owned route:
+  `api_style=native_video`, `director_role=video_generation`,
+  `task_status_mode=nextapi_job`, `billing_mode=nextapi_ledger`,
+  `provider_keys_exposed=false`, and `upstream_exposed=false`.
+  Admin must reject native video rows that explicitly set either exposure flag
+  to `true`.
 
 ## Admin Presets
 

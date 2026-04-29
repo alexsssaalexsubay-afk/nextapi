@@ -69,10 +69,13 @@ func (s *Service) Upsert(ctx context.Context, id string, in ProviderInput) (*dom
 	if err := validateInput(in); err != nil {
 		return nil, err
 	}
-	cfg := normalizeJSON(in.ConfigJSON)
+	cfg, err := normalizeProviderConfig(in)
+	if err != nil {
+		return nil, err
+	}
 	now := time.Now()
 	returnVal := &domain.AIProvider{}
-	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var row domain.AIProvider
 		if strings.TrimSpace(id) != "" {
 			err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&row, "id = ?", id).Error
@@ -219,6 +222,69 @@ func normalizeJSON(raw json.RawMessage) json.RawMessage {
 	}
 	b, _ := json.Marshal(v)
 	return b
+}
+
+func normalizeProviderConfig(in ProviderInput) (json.RawMessage, error) {
+	cfg := map[string]any{}
+	normalized := normalizeJSON(in.ConfigJSON)
+	if err := json.Unmarshal(normalized, &cfg); err != nil {
+		cfg = map[string]any{}
+	}
+	if !isNativeVideoProviderConfig(in, cfg) {
+		return normalized, nil
+	}
+	if configBoolTrue(cfg, "provider_keys_exposed") || configBoolTrue(cfg, "upstream_exposed") {
+		return nil, ErrInvalidProvider
+	}
+	cfg["api_style"] = "native_video"
+	setConfigDefault(cfg, "director_role", "video_generation")
+	setConfigDefault(cfg, "task_status_mode", "nextapi_job")
+	setConfigDefault(cfg, "billing_mode", "nextapi_ledger")
+	if _, ok := cfg["provider_keys_exposed"]; !ok {
+		cfg["provider_keys_exposed"] = false
+	}
+	if _, ok := cfg["upstream_exposed"]; !ok {
+		cfg["upstream_exposed"] = false
+	}
+	b, _ := json.Marshal(cfg)
+	return b, nil
+}
+
+func isNativeVideoProviderConfig(in ProviderInput, cfg map[string]any) bool {
+	if strings.TrimSpace(in.Type) != domain.AIProviderTypeVideo {
+		return false
+	}
+	if apiStyle, ok := cfg["api_style"].(string); ok && strings.EqualFold(strings.TrimSpace(apiStyle), "native_video") {
+		return true
+	}
+	return isNativeVideoProvider(in.Provider)
+}
+
+func isNativeVideoProvider(provider string) bool {
+	switch strings.ToLower(strings.TrimSpace(provider)) {
+	case "seedance-relay", "kling", "minimax", "byteplus":
+		return true
+	default:
+		return false
+	}
+}
+
+func configBoolTrue(cfg map[string]any, key string) bool {
+	switch value := cfg[key].(type) {
+	case bool:
+		return value
+	case string:
+		return strings.EqualFold(strings.TrimSpace(value), "true")
+	default:
+		return false
+	}
+}
+
+func setConfigDefault(cfg map[string]any, key string, value string) {
+	if current, ok := cfg[key]; ok && strings.TrimSpace(fmt.Sprint(current)) != "" {
+		return
+	}
+	cfg[key] = value
 }
 
 func sanitizeErr(err error) string {

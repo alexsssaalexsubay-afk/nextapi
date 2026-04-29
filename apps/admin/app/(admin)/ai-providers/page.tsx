@@ -176,6 +176,8 @@ export default function AIProvidersPage() {
   })
   const [vipOrgID, setVipOrgID] = useState("")
   const [vipForm, setVipForm] = useState<AIDirectorEntitlement>({ org_id: "", enabled: true, tier: "vip", expires_at: "", note: "" })
+  const formConfig = parseConfigRecord(form.configJSON)
+  const showNativeVideoGuardrails = form.type === "video" || configString(formConfig, "api_style") === "native_video"
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -238,6 +240,7 @@ export default function AIProvidersPage() {
         api_style: preset.apiStyle,
         capability: preset.capability,
         tier: preset.tier,
+        ...(preset.config ?? {}),
         anthropic_version: preset.apiStyle === "anthropic" ? "2023-06-01" : undefined,
       }, null, 2),
     }))
@@ -379,6 +382,17 @@ export default function AIProvidersPage() {
           <Field label={p.baseURL} value={form.baseUrl} onChange={(v) => setForm((s) => ({ ...s, baseUrl: v }))} />
           <Field label={p.model} value={form.model} onChange={(v) => setForm((s) => ({ ...s, model: v }))} />
           <Field label={p.apiKey} value={form.apiKey} type="password" onChange={(v) => setForm((s) => ({ ...s, apiKey: v }))} />
+          {showNativeVideoGuardrails && (
+            <div className="rounded-2xl border border-signal/20 bg-signal/8 p-3 text-xs text-muted-foreground">
+              <div className="font-medium text-foreground">{p.videoGuardrailTitle}</div>
+              <p className="mt-1 leading-relaxed">{p.videoGuardrailBody}</p>
+              <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                <GuardrailChip label={p.videoGuardrailTask} value={p.videoGuardrailTaskValue} />
+                <GuardrailChip label={p.videoGuardrailBilling} value={p.videoGuardrailBillingValue} />
+                <GuardrailChip label={p.videoGuardrailKeyExposure} value={p.videoGuardrailKeyExposureValue} />
+              </div>
+            </div>
+          )}
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.enabled} onChange={(e) => setForm((s) => ({ ...s, enabled: e.target.checked }))} />{p.enabled}</label>
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.isDefault} onChange={(e) => setForm((s) => ({ ...s, isDefault: e.target.checked, enabled: e.target.checked ? true : s.enabled }))} />{p.defaultProvider}</label>
           <label className="flex flex-col gap-1 text-xs text-muted-foreground">
@@ -839,6 +853,30 @@ function formatDirectorJobCost(job: DirectorJobEvent, estimatedLabel: string) {
 
 function formatCompactNumber(value: number) {
   return new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 }).format(value)
+}
+
+function parseConfigRecord(raw: string) {
+  try {
+    const parsed = JSON.parse(raw) as unknown
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) return parsed as Record<string, unknown>
+  } catch {
+    return {}
+  }
+  return {}
+}
+
+function configString(config: Record<string, unknown>, key: string) {
+  const value = config[key]
+  return typeof value === "string" ? value : ""
+}
+
+function GuardrailChip({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl border border-white/12 bg-background/55 px-3 py-2 shadow-sm">
+      <div className="text-[10px] uppercase text-muted-foreground">{label}</div>
+      <div className="mt-1 font-mono text-[11px] text-foreground">{value}</div>
+    </div>
+  )
 }
 
 function Field({ label, value, type = "text", onChange }: { label: string; value: string; type?: string; onChange: (v: string) => void }) {

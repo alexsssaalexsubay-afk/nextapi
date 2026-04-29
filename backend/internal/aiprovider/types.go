@@ -47,6 +47,11 @@ type ProviderInput struct {
 type ProviderConfig struct {
 	APIStyle              string `json:"api_style,omitempty"`
 	AnthropicVersion      string `json:"anthropic_version,omitempty"`
+	DirectorRole          string `json:"director_role,omitempty"`
+	TaskStatusMode        string `json:"task_status_mode,omitempty"`
+	BillingMode           string `json:"billing_mode,omitempty"`
+	ProviderKeysExposed   *bool  `json:"provider_keys_exposed,omitempty"`
+	UpstreamExposed       *bool  `json:"upstream_exposed,omitempty"`
 	MeterCentsPer1KTokens int64  `json:"meter_cents_per_1k_tokens,omitempty"`
 	MeterCentsPerImage    int64  `json:"meter_cents_per_image,omitempty"`
 }

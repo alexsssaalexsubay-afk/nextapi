@@ -10,7 +10,16 @@ export type AIProviderPreset = {
   apiStyle: "openai_compatible" | "anthropic" | "native_video"
   tier: "primary" | "advanced" | "economy" | "experimental" | "compat"
   capability: string
+  config?: Record<string, unknown>
 }
+
+const NATIVE_VIDEO_PROVIDER_CONFIG = {
+  director_role: "video_generation",
+  task_status_mode: "nextapi_job",
+  billing_mode: "nextapi_ledger",
+  provider_keys_exposed: false,
+  upstream_exposed: false,
+} satisfies Record<string, unknown>
 
 export const AI_PROVIDER_PRESETS: AIProviderPreset[] = [
   { id: "openai-gpt-5-5", label: "OpenAI · GPT-5.5", provider: "openai", type: "text", baseURL: "https://api.openai.com/v1", model: "gpt-5.5", apiStyle: "openai_compatible", tier: "advanced", capability: "剧本、分镜、复杂推理" },
@@ -39,11 +48,11 @@ export const AI_PROVIDER_PRESETS: AIProviderPreset[] = [
   { id: "glm-cogview", label: "Zhipu · CogView 4", provider: "glm", type: "image", baseURL: "https://open.bigmodel.cn/api/paas/v4", model: "cogview-4", apiStyle: "openai_compatible", tier: "primary", capability: "参考图生成" },
   { id: "flux-kontext", label: "Black Forest Labs · FLUX Kontext", provider: "black-forest", type: "image", baseURL: "", model: "flux-kontext", apiStyle: "openai_compatible", tier: "primary", capability: "角色/产品一致性参考图" },
 
-  { id: "seedance-2-pro", label: "BytePlus · Seedance 2.0 Pro", provider: "seedance-relay", type: "video", baseURL: "", model: "seedance-2.0-pro", apiStyle: "native_video", tier: "primary", capability: "主力视频生成" },
-  { id: "seedance-2-fast", label: "BytePlus · Seedance 2.0 Fast", provider: "seedance-relay", type: "video", baseURL: "", model: "seedance-2.0-fast", apiStyle: "native_video", tier: "economy", capability: "快速视频生成" },
-  { id: "kling-video", label: "Kuaishou · Kling Video", provider: "kling", type: "video", baseURL: "", model: "kling-video", apiStyle: "native_video", tier: "experimental", capability: "视频生成预留" },
-  { id: "minimax-video", label: "MiniMax · Video-01", provider: "minimax", type: "video", baseURL: "https://api.minimax.io/v1", model: "video-01", apiStyle: "native_video", tier: "experimental", capability: "视频生成预留" },
-  { id: "omnihuman-15", label: "BytePlus · OmniHuman 1.5", provider: "byteplus", type: "video", baseURL: "https://ark.ap-southeast.bytepluses.com/api/v3", model: "omnihuman-1.5", apiStyle: "native_video", tier: "experimental", capability: "数字人视频预留" },
+  { id: "seedance-2-pro", label: "BytePlus · Seedance 2.0 Pro", provider: "seedance-relay", type: "video", baseURL: "", model: "seedance-2.0-pro", apiStyle: "native_video", tier: "primary", capability: "主力视频生成", config: NATIVE_VIDEO_PROVIDER_CONFIG },
+  { id: "seedance-2-fast", label: "BytePlus · Seedance 2.0 Fast", provider: "seedance-relay", type: "video", baseURL: "", model: "seedance-2.0-fast", apiStyle: "native_video", tier: "economy", capability: "快速视频生成", config: NATIVE_VIDEO_PROVIDER_CONFIG },
+  { id: "kling-video", label: "Kuaishou · Kling Video", provider: "kling", type: "video", baseURL: "", model: "kling-video", apiStyle: "native_video", tier: "experimental", capability: "视频生成预留", config: NATIVE_VIDEO_PROVIDER_CONFIG },
+  { id: "minimax-video", label: "MiniMax · Video-01", provider: "minimax", type: "video", baseURL: "https://api.minimax.io/v1", model: "video-01", apiStyle: "native_video", tier: "experimental", capability: "视频生成预留", config: NATIVE_VIDEO_PROVIDER_CONFIG },
+  { id: "omnihuman-15", label: "BytePlus · OmniHuman 1.5", provider: "byteplus", type: "video", baseURL: "https://ark.ap-southeast.bytepluses.com/api/v3", model: "omnihuman-1.5", apiStyle: "native_video", tier: "experimental", capability: "数字人视频预留", config: NATIVE_VIDEO_PROVIDER_CONFIG },
 ]
 
 export function presetsForType(type: string) {
