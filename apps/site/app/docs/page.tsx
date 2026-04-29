@@ -138,10 +138,10 @@ export default function DocsPage() {
                 </span>
                 <div>
                   <h2 className="text-[16px] font-semibold tracking-[-0.01em] text-foreground">
-                    Use your key in ComfyUI-style tools
+                    {d.thirdPartyTools.title}
                   </h2>
                   <p className="mt-1 max-w-[720px] text-[13.5px] leading-relaxed text-muted-foreground">
-                    Prefer ComfyUI, n8n, Make, Dify, or a local canvas? See which tools can accept a third-party API key, which need an HTTP/API node, and how to configure NextAPI endpoints safely.
+                    {d.thirdPartyTools.body}
                   </p>
                 </div>
               </div>
@@ -149,7 +149,7 @@ export default function DocsPage() {
                 href="/docs/third-party-tools"
                 className="inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-lg border border-indigo-500/30 bg-indigo-500 px-3 text-[12.5px] font-medium text-white transition-colors hover:bg-indigo-600"
               >
-                View tool setup guide
+                {d.thirdPartyTools.cta}
                 <ArrowRight className="size-3.5" />
               </Link>
             </div>

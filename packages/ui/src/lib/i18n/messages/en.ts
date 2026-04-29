@@ -2528,6 +2528,12 @@ export const en = {
       stepWebhook: "3. Receive a webhook",
       stepWebhookDesc: "Signed, replay-protected.",
     },
+    thirdPartyTools: {
+      title: "Use your key in ComfyUI-style tools",
+      body:
+        "Prefer ComfyUI, n8n, Make, Dify, or a local canvas? Follow the bilingual setup guide for exact fields, HTTP flow, polling, and safety checks.",
+      cta: "View tool setup guide",
+    },
     auth: {
       title: "Authentication",
       bodyPrefix: "All requests must include a bearer token. Keys are scoped to environment (",

@@ -2510,6 +2510,12 @@ export const zh: Messages = {
       stepWebhook: "3. 接收 Webhook",
       stepWebhookDesc: "带签名、防重放。",
     },
+    thirdPartyTools: {
+      title: "把 Key 填进 ComfyUI 这类工具",
+      body:
+        "如果你更想用 ComfyUI、n8n、Make、Dify 或本地画布，查看中英双语配置指南：字段怎么填、请求怎么发、结果怎么轮询、密钥怎么保护。",
+      cta: "查看工具配置指南",
+    },
     auth: {
       title: "身份认证",
       bodyPrefix: "所有请求都必须带 bearer token。密钥按环境隔离（",

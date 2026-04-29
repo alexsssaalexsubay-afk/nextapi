@@ -29,7 +29,7 @@
 | **SETUP-GUIDE.md** | 从 0 部署到生产：DNS、环境变量、systemd、检查清单 |
 | **OPERATOR-HANDBOOK.md** | 运维手册：数据库迁移、管理后台、Seedance 环境变量、应急 |
 | **UPSTREAM-SEEDANCE-RELAY-ZH.md** | Seedance 托管上游接入指南：env、模型映射、任务回调 URL、错误码；与 `docs/modules/seedance-relay-webhook-assets.md` 互补 |
-| **use-nextapi-key-in-third-party-tools.md** | 用户向：如何把 NextAPI key 填入第三方本地工具（AI-CanvasPro、通用 OpenAI 客户端等）；安全警告 |
+| **use-nextapi-key-in-third-party-tools.md** | 用户向：如何把 NextAPI key 填入 ComfyUI、n8n、Make、Dify、AI-CanvasPro 等工具；含中文严格配置流程与安全警告 |
 | **INTEGRATIONS-GUIDE.md** | 第三方：Resend、Grafana、支付规划等（偏「老板操作」） |
 | **deploy-cloudflare.md** | Cloudflare Pages / Workers 与 GitHub Actions 部署说明 |
 | **modules/** | 各子系统设计（给开发/审代码用） |
