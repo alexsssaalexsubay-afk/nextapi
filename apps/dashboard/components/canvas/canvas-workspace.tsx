@@ -18,7 +18,7 @@ import {
   useEdgesState,
   useNodesState,
 } from "@xyflow/react"
-import { AlertTriangle, CheckCircle2, Code2, GitBranch, ImageIcon, Loader2, Play, Save, Settings2, Sparkles, Type, UploadCloud, Video, Workflow, X } from "lucide-react"
+import { AlertTriangle, CheckCircle2, ChevronDown, ChevronUp, Code2, GitBranch, ImageIcon, Loader2, Play, Save, Settings2, Sparkles, Type, UploadCloud, Video, Workflow, X } from "lucide-react"
 import { toast } from "sonner"
 import { ModelSelect } from "@/components/ai/model-select"
 import { apiFetch, ApiError } from "@/lib/api"
@@ -408,8 +408,12 @@ export function CanvasWorkspace() {
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
         onNodeClick={(_, nodeItem) => {
-          setSelectedId(nodeItem.id)
-          setInspectorOpen(true)
+          if (selectedId === nodeItem.id) {
+            setInspectorOpen((prev) => !prev)
+          } else {
+            setSelectedId(nodeItem.id)
+            setInspectorOpen(true)
+          }
         }}
         onPaneClick={() => setInspectorOpen(false)}
         fitView
@@ -446,6 +450,28 @@ export function CanvasWorkspace() {
                 onChangeNode={updateNodeData}
                 onClose={() => setInspectorOpen(false)}
               />
+            </div>
+          </ViewportPortal>
+        ) : selectedNode ? (
+          <ViewportPortal>
+            <div
+              className="nodrag nopan nowheel pointer-events-auto absolute z-40"
+              style={{
+                transform: `translate(${selectedNode.position.x + 4}px, ${selectedNode.position.y + (selectedNode.measured?.height ?? selectedNode.height ?? 86) + 8}px)`,
+                pointerEvents: "auto",
+              }}
+              data-canvas-attached-expand="true"
+            >
+              <button
+                type="button"
+                onClick={() => setInspectorOpen(true)}
+                className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/45 bg-card/94 px-2.5 py-1 text-[11px] font-medium text-emerald-400 shadow-sm backdrop-blur transition hover:border-emerald-400/70 hover:bg-emerald-400/10"
+                aria-label={labels.expandInspector}
+                title={labels.expandInspector}
+              >
+                <ChevronUp className="size-3" />
+                <span className="max-w-[100px] truncate">{String(selectedNode.data.label || selectedNode.data.node_type || labels.inspector)}</span>
+              </button>
             </div>
           </ViewportPortal>
         ) : null}
@@ -629,6 +655,19 @@ function NodeInspector({
               event.stopPropagation()
               onClose()
             }}
+            className="grid size-7 place-items-center rounded-md border border-border bg-background text-muted-foreground transition hover:border-amber-400/45 hover:text-foreground"
+            aria-label={labels.collapseInspector}
+            title={labels.collapseInspector}
+          >
+            <ChevronDown className="size-3.5" />
+          </button>
+          <button
+            type="button"
+            onPointerDown={(event) => event.stopPropagation()}
+            onClick={(event) => {
+              event.stopPropagation()
+              onClose()
+            }}
             className="grid size-7 place-items-center rounded-md border border-border bg-background text-muted-foreground transition hover:border-emerald-400/45 hover:text-foreground"
             aria-label={labels.closeInspector}
             title={labels.closeInspector}
@@ -745,6 +784,16 @@ function NodeInspector({
           onChangeVideo={onChange}
           onChangeNode={onChangeNode}
         />
+      ) : null}
+      {type === "output.preview" ? (
+        <div className="space-y-3">
+          {selectedNode.data.node_status ? <NodeStatusBadge status={selectedNode.data.node_status} /> : null}
+          {selectedNode.data.video_url ? (
+            <video src={String(selectedNode.data.video_url)} controls className="aspect-video w-full rounded-xl bg-black object-contain" />
+          ) : (
+            <div className="rounded-lg border border-border/80 bg-background px-3 py-2.5 text-[12px] text-muted-foreground">{labels.noTask}</div>
+          )}
+        </div>
       ) : null}
     </div>
   )

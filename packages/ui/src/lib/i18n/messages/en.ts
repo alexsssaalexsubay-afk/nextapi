@@ -789,6 +789,8 @@ export const en = {
     inspector: "Node inspector",
     composer: "Generation composer",
     closeInspector: "Close node panel",
+    collapseInspector: "Collapse panel",
+    expandInspector: "Open inspector",
     label: "Label",
     imageType: "Image type",
     character: "Character",

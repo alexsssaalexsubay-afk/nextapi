@@ -778,6 +778,8 @@ export const zh: Messages = {
     inspector: "节点参数",
     composer: "生成配置",
     closeInspector: "关闭节点面板",
+    collapseInspector: "收起面板",
+    expandInspector: "展开面板",
     label: "标签",
     imageType: "图片类型",
     character: "人物",
