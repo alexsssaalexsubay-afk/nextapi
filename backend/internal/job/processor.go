@@ -502,14 +502,20 @@ func submitFailureMessage(classified *RetryError) string {
 	if classified == nil {
 		return "video generation failed"
 	}
+	if isStructuredProviderError(classified) {
+		return classified.Msg
+	}
 	if classified.Retryable {
 		return "video generation failed after retries"
 	}
-	lower := strings.ToLower(classified.Msg)
-	if classified.Code == "error-503" && strings.Contains(lower, "same prompt") && strings.Contains(lower, "too many") {
-		return "same prompt submitted too frequently; retry later"
-	}
 	return "video generation request was rejected"
+}
+
+func isStructuredProviderError(classified *RetryError) bool {
+	if classified == nil || strings.TrimSpace(classified.Msg) == "" {
+		return false
+	}
+	return strings.TrimSpace(classified.Type) != "" || strings.HasPrefix(strings.TrimSpace(classified.Code), "error-")
 }
 
 func submitFailureMetadata(providerName string, classified *RetryError, attempt int, exhausted bool) ([]byte, bool) {

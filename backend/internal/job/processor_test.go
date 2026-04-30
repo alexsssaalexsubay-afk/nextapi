@@ -329,7 +329,8 @@ func TestHandleGenerate_DuplicatePromptCooldown_FailsFastWithReadableMessage(t *
 	if j.ErrorCode == nil || *j.ErrorCode != "error-503" {
 		t.Fatalf("want error_code=error-503, got %v", j.ErrorCode)
 	}
-	if j.ErrorMessage == nil || *j.ErrorMessage != "same prompt submitted too frequently; retry later" {
+	wantMsg := "Same prompt submitted too many times in a short period. Please wait before retrying."
+	if j.ErrorMessage == nil || *j.ErrorMessage != wantMsg {
 		t.Fatalf("unexpected error message: %v", j.ErrorMessage)
 	}
 	var meta struct {
@@ -348,6 +349,17 @@ func TestHandleGenerate_DuplicatePromptCooldown_FailsFastWithReadableMessage(t *
 	}
 	if meta.LastProviderError.Code != "error-503" || meta.LastProviderError.Type != "provider_error" || meta.LastProviderError.Retryable {
 		t.Fatalf("unexpected provider metadata: %+v", meta.LastProviderError)
+	}
+}
+
+func TestSubmitFailureMessage_GenericTransportStaysGeneric(t *testing.T) {
+	got := submitFailureMessage(&RetryError{
+		Code:      "network_error",
+		Msg:       "dial tcp 10.0.0.1:443: i/o timeout",
+		Retryable: true,
+	})
+	if got != "video generation failed after retries" {
+		t.Fatalf("generic transport error should stay generic, got %q", got)
 	}
 }
 
