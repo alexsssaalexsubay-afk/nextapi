@@ -273,7 +273,7 @@ func (p *LiveProvider) doCreate(ctx context.Context, body []byte) (string, bool,
 	// double-charge for prompts upstream already rejected.
 	if resp.StatusCode == 408 || resp.StatusCode == 429 || resp.StatusCode >= 500 {
 		if upstreamErr := decodeUpTokenError(raw, resp.StatusCode); upstreamErr != nil {
-			return "", true, upstreamErr
+			return "", upstreamErr.Retryable, upstreamErr
 		}
 		return "", true, fmt.Errorf("seedance relay create http %d: %s", resp.StatusCode, snippet(raw))
 	}
@@ -289,7 +289,7 @@ func (p *LiveProvider) doCreate(ctx context.Context, body []byte) (string, bool,
 		return "", false, fmt.Errorf("seedance relay create decode: %w", err)
 	}
 	if out.Error != nil {
-		retryable := uptokenErrorRetryable(out.Error.Code, resp.StatusCode)
+		retryable := uptokenErrorRetryable(out.Error.Code, out.Error.Message, resp.StatusCode)
 		return "", retryable, &provider.UpstreamError{
 			Code:      out.Error.Code,
 			Message:   out.Error.Message,
@@ -370,7 +370,7 @@ func (p *LiveProvider) doStatus(ctx context.Context, providerJobID string) (*pro
 
 	if resp.StatusCode == 408 || resp.StatusCode == 429 || resp.StatusCode >= 500 {
 		if upstreamErr := decodeUpTokenError(raw, resp.StatusCode); upstreamErr != nil {
-			return nil, true, upstreamErr
+			return nil, upstreamErr.Retryable, upstreamErr
 		}
 		return nil, true, fmt.Errorf("seedance relay status http %d: %s", resp.StatusCode, snippet(raw))
 	}
@@ -510,11 +510,14 @@ func decodeUpTokenError(raw []byte, statusCode int) *provider.UpstreamError {
 		Code:      out.Error.Code,
 		Message:   out.Error.Message,
 		Type:      out.Error.Type,
-		Retryable: uptokenErrorRetryable(out.Error.Code, statusCode),
+		Retryable: uptokenErrorRetryable(out.Error.Code, out.Error.Message, statusCode),
 	}
 }
 
-func uptokenErrorRetryable(code string, statusCode int) bool {
+func uptokenErrorRetryable(code, message string, statusCode int) bool {
+	if isDuplicatePromptCooldown(code, message) {
+		return false
+	}
 	if statusCode == 408 || statusCode == 429 || statusCode >= 500 {
 		return true
 	}
@@ -524,6 +527,14 @@ func uptokenErrorRetryable(code string, statusCode int) bool {
 	default:
 		return false
 	}
+}
+
+func isDuplicatePromptCooldown(code, message string) bool {
+	if strings.TrimSpace(code) != "error-503" {
+		return false
+	}
+	lower := strings.ToLower(message)
+	return strings.Contains(lower, "same prompt") && strings.Contains(lower, "too many")
 }
 
 func isPublicIPLite(ip net.IP) bool {

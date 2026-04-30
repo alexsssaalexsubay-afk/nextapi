@@ -133,7 +133,7 @@ func (p *Processor) HandleGenerate(ctx context.Context, t *asynq.Task) error {
 			p.archiveDLQ(ctx, &j, classified.Code, classified.Msg)
 		}
 		metrics.JobsFailedTotal.WithLabelValues(p.Prov.Name(), classified.Code).Inc()
-		return p.fail(ctx, &j, classified.Code, "video generation failed after retries")
+		return p.fail(ctx, &j, classified.Code, submitFailureMessage(classified))
 	}
 
 	now := time.Now()
@@ -492,6 +492,20 @@ func (p *Processor) fail(ctx context.Context, j *domain.Job, code, msg string) e
 		}
 	}
 	return err
+}
+
+func submitFailureMessage(classified *RetryError) string {
+	if classified == nil {
+		return "video generation failed"
+	}
+	if classified.Retryable {
+		return "video generation failed after retries"
+	}
+	lower := strings.ToLower(classified.Msg)
+	if classified.Code == "error-503" && strings.Contains(lower, "same prompt") && strings.Contains(lower, "too many") {
+		return "same prompt submitted too frequently; retry later"
+	}
+	return "video generation request was rejected"
 }
 
 func (p *Processor) cleanupTempMedia(ctx context.Context, j *domain.Job) {

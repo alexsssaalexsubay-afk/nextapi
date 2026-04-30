@@ -370,6 +370,35 @@ func TestLiveProvider_GenerateVideo_RetryableBodyErrorRetries(t *testing.T) {
 	}
 }
 
+func TestLiveProvider_GenerateVideo_DuplicatePromptCooldownDoesNotRetry(t *testing.T) {
+	hits := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hits++
+		w.WriteHeader(http.StatusServiceUnavailable)
+		_, _ = w.Write([]byte(`{"error":{"code":"error-503","message":"Same prompt submitted too many times in a short period. Please wait before retrying.","type":"provider_error"}}`))
+	}))
+	defer srv.Close()
+
+	t.Setenv("UPTOKEN_API_KEY", "ut-test")
+	t.Setenv("UPTOKEN_BASE_URL", srv.URL)
+
+	p, err := NewLive()
+	if err != nil {
+		t.Fatalf("NewLive: %v", err)
+	}
+	_, err = p.GenerateVideo(context.Background(), provider.GenerationRequest{Prompt: "x", Resolution: "720p"})
+	if err == nil {
+		t.Fatal("expected duplicate prompt cooldown error")
+	}
+	var upstreamErr *provider.UpstreamError
+	if !errors.As(err, &upstreamErr) || upstreamErr.Code != "error-503" || upstreamErr.Retryable {
+		t.Fatalf("expected non-retryable error-503, got %T %v", err, err)
+	}
+	if hits != 1 {
+		t.Fatalf("duplicate prompt cooldown should fail fast, hits=%d", hits)
+	}
+}
+
 func TestLiveProvider_ResolutionFollowsProviderConfig(t *testing.T) {
 	t.Setenv("UPTOKEN_API_KEY", "ut-test")
 	t.Setenv("UPTOKEN_ALLOWED_RESOLUTIONS", "480p,720p")

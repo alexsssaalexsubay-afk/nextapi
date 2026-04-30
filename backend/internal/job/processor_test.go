@@ -302,6 +302,38 @@ func TestHandleGenerate_NonRetryableError_JobFailed_CreditsRefunded(t *testing.T
 	}
 }
 
+func TestHandleGenerate_DuplicatePromptCooldown_FailsFastWithReadableMessage(t *testing.T) {
+	db := setupProcessorDB(t)
+	prov := &controlledProvider{generateError: &provider.UpstreamError{
+		Code:      "error-503",
+		Message:   "Same prompt submitted too many times in a short period. Please wait before retrying.",
+		Type:      "provider_error",
+		Retryable: false,
+	}}
+	proc, _ := newProcessorWithRedis(t, db, prov)
+
+	const orgID = "org3b"
+	const reserved = int64(1_500)
+	jobID := insertQueuedJob(t, db, orgID, reserved)
+
+	err := proc.HandleGenerate(context.Background(), makeGenerateTask(jobID))
+	if err != nil {
+		t.Fatalf("cooldown failure should not propagate asynq retry: %v", err)
+	}
+
+	var j domain.Job
+	db.First(&j, "id = ?", jobID)
+	if j.Status != domain.JobFailed {
+		t.Fatalf("expected failed, got %s", j.Status)
+	}
+	if j.ErrorCode == nil || *j.ErrorCode != "error-503" {
+		t.Fatalf("want error_code=error-503, got %v", j.ErrorCode)
+	}
+	if j.ErrorMessage == nil || *j.ErrorMessage != "same prompt submitted too frequently; retry later" {
+		t.Fatalf("unexpected error message: %v", j.ErrorMessage)
+	}
+}
+
 // ---------------------------------------------------------------------------
 // HandleGenerate — already terminal (idempotency guard)
 // ---------------------------------------------------------------------------
