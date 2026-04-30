@@ -109,11 +109,15 @@ func (p *Processor) HandleGenerate(ctx context.Context, t *asynq.Task) error {
 
 		// Track the attempt on the job row.
 		now := time.Now()
-		p.DB.WithContext(ctx).Model(&j).Updates(map[string]any{
+		errorUpdates := map[string]any{
 			"retry_count":     retryCount + 1,
 			"last_error_code": classified.Code,
 			"last_error_msg":  classified.Msg,
-		})
+		}
+		if meta, ok := submitFailureMetadata(p.Prov.Name(), classified, retryCount+1, isLastAttempt); ok {
+			errorUpdates["exec_metadata"] = meta
+		}
+		p.DB.WithContext(ctx).Model(&j).Updates(errorUpdates)
 
 		if classified.Retryable && !isLastAttempt {
 			// Set retrying status and let Asynq retry.
@@ -506,6 +510,28 @@ func submitFailureMessage(classified *RetryError) string {
 		return "same prompt submitted too frequently; retry later"
 	}
 	return "video generation request was rejected"
+}
+
+func submitFailureMetadata(providerName string, classified *RetryError, attempt int, exhausted bool) ([]byte, bool) {
+	if classified == nil {
+		return nil, false
+	}
+	meta := map[string]any{
+		"last_provider_error": map[string]any{
+			"provider":  providerName,
+			"code":      classified.Code,
+			"message":   classified.Msg,
+			"type":      classified.Type,
+			"retryable": classified.Retryable,
+			"attempt":   attempt,
+			"exhausted": exhausted,
+		},
+	}
+	b, err := json.Marshal(meta)
+	if err != nil {
+		return nil, false
+	}
+	return b, true
 }
 
 func (p *Processor) cleanupTempMedia(ctx context.Context, j *domain.Job) {

@@ -53,6 +53,7 @@ func (p RetryPolicy) DelayFor(attempt int) time.Duration {
 type RetryError struct {
 	Code      string
 	Msg       string
+	Type      string
 	Retryable bool
 }
 
@@ -81,7 +82,12 @@ func ClassifyError(err error) *RetryError {
 		if code == "" {
 			code = "provider_error"
 		}
-		return &RetryError{Code: code, Msg: upstreamErr.Message, Retryable: upstreamErr.Retryable}
+		return &RetryError{
+			Code:      code,
+			Msg:       upstreamErr.Message,
+			Type:      strings.TrimSpace(upstreamErr.Type),
+			Retryable: upstreamErr.Retryable,
+		}
 	}
 	msg := err.Error()
 	lower := strings.ToLower(msg)

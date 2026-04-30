@@ -332,6 +332,23 @@ func TestHandleGenerate_DuplicatePromptCooldown_FailsFastWithReadableMessage(t *
 	if j.ErrorMessage == nil || *j.ErrorMessage != "same prompt submitted too frequently; retry later" {
 		t.Fatalf("unexpected error message: %v", j.ErrorMessage)
 	}
+	var meta struct {
+		LastProviderError struct {
+			Provider  string `json:"provider"`
+			Code      string `json:"code"`
+			Message   string `json:"message"`
+			Type      string `json:"type"`
+			Retryable bool   `json:"retryable"`
+			Attempt   int    `json:"attempt"`
+			Exhausted bool   `json:"exhausted"`
+		} `json:"last_provider_error"`
+	}
+	if err := json.Unmarshal(j.ExecMetadata, &meta); err != nil {
+		t.Fatalf("exec_metadata should contain provider error: %v", err)
+	}
+	if meta.LastProviderError.Code != "error-503" || meta.LastProviderError.Type != "provider_error" || meta.LastProviderError.Retryable {
+		t.Fatalf("unexpected provider metadata: %+v", meta.LastProviderError)
+	}
 }
 
 // ---------------------------------------------------------------------------
