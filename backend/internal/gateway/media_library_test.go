@@ -12,6 +12,7 @@ import (
 
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/auth"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/domain"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/provider/uptoken"
 	"github.com/gin-gonic/gin"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -165,6 +166,62 @@ func TestMediaLibraryListResponseExcludesSecrets(t *testing.T) {
 	}
 }
 
+func TestMediaLibraryListRefreshesProcessingUpTokenAsset(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	db := setupMediaLibraryDB(t)
+	orgID := "11111111-1111-1111-1111-111111111111"
+	processing := "processing"
+	if err := db.Create(&domain.MediaAsset{
+		ID:               "77777777-7777-7777-7777-777777777777",
+		OrgID:            orgID,
+		Kind:             domain.MediaAssetImage,
+		StorageKey:       "library/org/real-person.png",
+		ContentType:      "image/png",
+		Filename:         "real-person.png",
+		SizeBytes:        100,
+		CreatedAt:        time.Date(2026, 4, 30, 6, 0, 0, 0, time.UTC),
+		UpTokenVirtualID: mediaLibraryStringPtr("ut-asset-real-person"),
+		UpTokenStatus:    &processing,
+	}).Error; err != nil {
+		t.Fatalf("create media asset: %v", err)
+	}
+	h := &MediaLibraryHandlers{
+		DB: db,
+		R2: fakeMediaLibraryStorage{},
+		UpTokenAssets: fakeUpTokenAssetProvider{
+			assets: map[string]*uptoken.Asset{
+				"ut-asset-real-person": {
+					VirtualID: "ut-asset-real-person",
+					AssetURL:  "asset://ut-asset-real-person",
+					Status:    "active",
+				},
+			},
+		},
+	}
+
+	body := listMediaLibraryAssets(t, h, orgID, "")
+	if len(body.Assets) != 1 {
+		t.Fatalf("expected one asset, got %#v", body.Assets)
+	}
+	if body.Assets[0].GenerationURL != "asset://ut-asset-real-person" {
+		t.Fatalf("generation_url = %q; want refreshed asset URL", body.Assets[0].GenerationURL)
+	}
+	if body.Assets[0].SeedanceAssetStatus == nil || *body.Assets[0].SeedanceAssetStatus != "active" {
+		t.Fatalf("seedance_asset_status = %+v; want active", body.Assets[0].SeedanceAssetStatus)
+	}
+
+	var row domain.MediaAsset
+	if err := db.First(&row, "id = ?", "77777777-7777-7777-7777-777777777777").Error; err != nil {
+		t.Fatalf("reload row: %v", err)
+	}
+	if row.UpTokenStatus == nil || *row.UpTokenStatus != "active" {
+		t.Fatalf("persisted status = %+v; want active", row.UpTokenStatus)
+	}
+	if row.UpTokenAssetURL == nil || *row.UpTokenAssetURL != "asset://ut-asset-real-person" {
+		t.Fatalf("persisted asset url = %+v; want asset URL", row.UpTokenAssetURL)
+	}
+}
+
 func TestMediaLibraryListDefaultBackwardCompat(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	db := setupMediaLibraryDB(t)
@@ -276,6 +333,22 @@ func (fakeMediaLibraryStorage) Delete(context.Context, string) error {
 
 func (fakeMediaLibraryStorage) PresignGet(_ context.Context, key string, _ time.Duration) (string, error) {
 	return "https://cdn.example/" + key, nil
+}
+
+type fakeUpTokenAssetProvider struct {
+	assets map[string]*uptoken.Asset
+}
+
+func (f fakeUpTokenAssetProvider) UploadAsset(context.Context, string, string, []byte) (*uptoken.Asset, error) {
+	return nil, nil
+}
+
+func (f fakeUpTokenAssetProvider) GetAsset(_ context.Context, virtualID string) (*uptoken.Asset, error) {
+	return f.assets[virtualID], nil
+}
+
+func (f fakeUpTokenAssetProvider) WaitAssetActive(context.Context, string, time.Duration) (*uptoken.Asset, error) {
+	return nil, nil
 }
 
 func setupMediaLibraryDB(t *testing.T) *gorm.DB {

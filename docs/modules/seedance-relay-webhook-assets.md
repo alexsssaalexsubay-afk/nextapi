@@ -39,6 +39,12 @@ media asset row stores the upstream asset ID, `asset://` URL, and current status
 The generation URL in API responses uses the `asset://` URL only when the asset
 is active; otherwise it falls back to the existing R2 HTTPS URL.
 
+Library list responses also refresh non-terminal upstream asset status by
+`virtual_id`. This matters for person-reference photos: an upload may still be
+`processing` when the dashboard first returns, but once UpToken marks it
+`active`, the next library list response persists the active status and switches
+`generation_url` to the upstream asset URL.
+
 ## Verification
 
 - `go test ./...`

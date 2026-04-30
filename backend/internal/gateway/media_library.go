@@ -39,6 +39,7 @@ type mediaLibraryStorage interface {
 
 type UpTokenAssetProvider interface {
 	UploadAsset(ctx context.Context, filename string, contentType string, data []byte) (*uptoken.Asset, error)
+	GetAsset(ctx context.Context, virtualID string) (*uptoken.Asset, error)
 	WaitAssetActive(ctx context.Context, virtualID string, timeout time.Duration) (*uptoken.Asset, error)
 }
 
@@ -104,6 +105,7 @@ func (h *MediaLibraryHandlers) List(c *gin.Context) {
 	out := make([]libraryAssetResponse, 0, len(rows))
 	exp := time.Now().Add(libraryAssetTTL).UTC()
 	for i := range rows {
+		h.refreshUpTokenAsset(c.Request.Context(), &rows[i])
 		url, err := h.R2.PresignGet(c.Request.Context(), rows[i].StorageKey, libraryAssetTTL)
 		if err != nil {
 			// Skip the row rather than failing the whole list — a single
@@ -133,6 +135,43 @@ func (h *MediaLibraryHandlers) List(c *gin.Context) {
 		})
 	}
 	c.JSON(http.StatusOK, gin.H{"assets": out, "ttl_seconds": int(libraryAssetTTL.Seconds())})
+}
+
+func (h *MediaLibraryHandlers) refreshUpTokenAsset(ctx context.Context, row *domain.MediaAsset) {
+	if h.UpTokenAssets == nil || row == nil || row.Kind != domain.MediaAssetImage || row.UpTokenVirtualID == nil {
+		return
+	}
+	if row.UpTokenStatus != nil {
+		status := strings.ToLower(strings.TrimSpace(*row.UpTokenStatus))
+		if status == "active" || status == "failed" {
+			return
+		}
+	}
+	asset, err := h.UpTokenAssets.GetAsset(ctx, *row.UpTokenVirtualID)
+	if err != nil || asset == nil {
+		if err != nil {
+			log.Printf("library: uptoken asset refresh failed asset_id=%s err=%v", *row.UpTokenVirtualID, err)
+		}
+		return
+	}
+	updates := map[string]any{}
+	if asset.Status != "" {
+		row.UpTokenStatus = &asset.Status
+		updates["uptoken_status"] = asset.Status
+	}
+	if assetURL := upTokenGenerationURL(asset); assetURL != "" {
+		row.UpTokenAssetURL = &assetURL
+		updates["uptoken_asset_url"] = assetURL
+	}
+	if len(updates) == 0 {
+		return
+	}
+	if err := h.DB.WithContext(ctx).
+		Model(&domain.MediaAsset{}).
+		Where("id = ? AND org_id = ?", row.ID, row.OrgID).
+		Updates(updates).Error; err != nil {
+		log.Printf("library: uptoken asset refresh persist failed asset_id=%s err=%v", *row.UpTokenVirtualID, err)
+	}
 }
 
 func mediaLibraryKindFilter(raw string) (string, bool) {
@@ -299,8 +338,8 @@ func (h *MediaLibraryHandlers) Create(c *gin.Context) {
 		if upAsset.VirtualID != "" {
 			row.UpTokenVirtualID = &upAsset.VirtualID
 		}
-		if upAsset.AssetURL != "" {
-			row.UpTokenAssetURL = &upAsset.AssetURL
+		if assetURL := upTokenGenerationURL(upAsset); assetURL != "" {
+			row.UpTokenAssetURL = &assetURL
 		}
 		if upAsset.Status != "" {
 			row.UpTokenStatus = &upAsset.Status
@@ -345,6 +384,16 @@ func (h *MediaLibraryHandlers) Create(c *gin.Context) {
 		SeedanceAssetStatus: row.UpTokenStatus,
 	})
 	_ = ct
+}
+
+func upTokenGenerationURL(asset *uptoken.Asset) string {
+	if asset == nil {
+		return ""
+	}
+	if u := strings.TrimSpace(asset.AssetURL); u != "" {
+		return u
+	}
+	return strings.TrimSpace(asset.URL)
 }
 
 // DELETE /v1/me/library/assets/:id
