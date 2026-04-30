@@ -25,6 +25,31 @@ function clearSessionCookie() {
 let cachedKey: string | null = null
 let inflightBootstrap: Promise<string | null> | null = null
 
+const SESSION_EXPIRED_MESSAGE = "Session expired. Please sign in again."
+
+function clearLocalAuthState() {
+  cachedKey = null
+  if (typeof window !== "undefined") {
+    sessionStorage.removeItem(SESSION_KEY)
+    sessionStorage.removeItem(ACCOUNT_SESSION_KEY)
+  }
+  clearSessionCookie()
+}
+
+function redirectToSignIn() {
+  if (typeof window === "undefined") return
+  clearLocalAuthState()
+  if (window.location.pathname.startsWith("/sign-in")) return
+  const next = `${window.location.pathname}${window.location.search}`
+  window.location.assign(`/sign-in?next=${encodeURIComponent(next)}`)
+}
+
+function requireDashboardKey(key: string | null): string {
+  if (key) return key
+  redirectToSignIn()
+  throw new ApiError(SESSION_EXPIRED_MESSAGE, 401, "session_expired")
+}
+
 export function getAccountSessionToken(): string | null {
   if (typeof window === "undefined") return null
   return sessionStorage.getItem(ACCOUNT_SESSION_KEY) || readCookie(ACCOUNT_SESSION_COOKIE)
@@ -41,8 +66,7 @@ async function bootstrap(force = false): Promise<string | null> {
       return stored
     }
   } else {
-    cachedKey = null
-    sessionStorage.removeItem(SESSION_KEY)
+    clearLocalAuthState()
   }
 
   const token = getAccountSessionToken()
@@ -53,7 +77,12 @@ async function bootstrap(force = false): Promise<string | null> {
       method: "GET",
       headers: { "X-NextAPI-Session": token },
     })
-    if (!res.ok) return null
+    if (!res.ok) {
+      if (res.status === 401 || res.status === 403) {
+        clearLocalAuthState()
+      }
+      return null
+    }
     const body = await res.json()
     if (typeof body?.dashboard_key?.secret === "string") {
       cachedKey = body.dashboard_key.secret
@@ -201,10 +230,7 @@ export async function logoutAccount(): Promise<void> {
       headers: { "X-NextAPI-Session": token },
     }).catch(() => undefined)
   }
-  cachedKey = null
-  sessionStorage.removeItem(SESSION_KEY)
-  sessionStorage.removeItem(ACCOUNT_SESSION_KEY)
-  clearSessionCookie()
+  clearLocalAuthState()
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
@@ -230,13 +256,13 @@ export async function apiFetch(path: string, options: RequestInit = {}) {
     return fetch(`${API_URL}${path}`, { ...options, headers })
   }
 
-  let key = await getDashboardKey(false)
+  let key = requireDashboardKey(await getDashboardKey(false))
   let res = await doFetch(key)
 
   // Stale or revoked session key → force re-bootstrap once and retry.
   if (res.status === 401) {
-    key = await getDashboardKey(true)
-    if (key) res = await doFetch(key)
+    key = requireDashboardKey(await getDashboardKey(true))
+    res = await doFetch(key)
   }
 
   // 5xx network errors: retry once with exponential backoff (500ms, 1000ms).
@@ -310,11 +336,11 @@ export async function apiUpload(path: string, formData: FormData) {
     })
   }
 
-  let key = await getDashboardKey(false)
+  let key = requireDashboardKey(await getDashboardKey(false))
   let res = await doUpload(key)
   if (res.status === 401) {
-    key = await getDashboardKey(true)
-    if (key) res = await doUpload(key)
+    key = requireDashboardKey(await getDashboardKey(true))
+    res = await doUpload(key)
   }
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))
