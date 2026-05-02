@@ -1920,9 +1920,17 @@ components:
 
     VideoInput:
       type: object
-      required: [prompt]
+      description: >
+        Video generation input. `prompt` is optional when visual media is
+        provided (`image_url`, `image_urls`, `video_urls`, `first_frame_url`,
+        or `last_frame_url`). The gateway intentionally does not impose a
+        local character-only prompt cap; current upstream Seedance/UpToken
+        guidance is language-aware (EN <=1000 words, ZH <=500 chars), and
+        upstream `error.message` is the source of truth for prompt rejection.
       properties:
-        prompt: { type: string, maxLength: 4000 }
+        prompt:
+          type: string
+          description: "Text prompt. Optional when visual media input exists; no local 2000/4000-character hard cap."
         image_url: { type: string, format: uri, description: "Optional source image for image-to-video." }
         duration_seconds: { type: integer, minimum: 4, maximum: 15 }
         resolution: { $ref: '#/components/schemas/Resolution' }

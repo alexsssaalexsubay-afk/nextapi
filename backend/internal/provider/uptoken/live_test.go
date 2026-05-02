@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/provider"
@@ -239,6 +240,47 @@ func TestLiveProvider_GenerateVideo_OmitsUnsetFields(t *testing.T) {
 		if _, present := got[k]; present {
 			t.Errorf("field %q leaked into upstream body: %v", k, got[k])
 		}
+	}
+}
+
+func TestLiveProvider_GenerateVideo_DoesNotApplyLegacyPromptCharacterLimit(t *testing.T) {
+	var captured []byte
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		captured, _ = io.ReadAll(r.Body)
+		_, _ = w.Write([]byte(`{"id":"ut-long-prompt"}`))
+	}))
+	defer srv.Close()
+
+	t.Setenv("UPTOKEN_API_KEY", "ut-test")
+	t.Setenv("UPTOKEN_BASE_URL", srv.URL)
+
+	p, err := NewLive()
+	if err != nil {
+		t.Fatalf("NewLive: %v", err)
+	}
+	prompt := strings.Repeat("cinematic camera movement ", 160)
+	if len(prompt) <= 2000 {
+		t.Fatalf("test prompt must exceed legacy 2000-character cap, got %d", len(prompt))
+	}
+	id, err := p.GenerateVideo(context.Background(), provider.GenerationRequest{Prompt: prompt})
+	if err != nil {
+		t.Fatalf("GenerateVideo should not enforce a local legacy prompt character cap: %v", err)
+	}
+	if id != "ut-long-prompt" {
+		t.Fatalf("id = %q; want ut-long-prompt", id)
+	}
+
+	var got map[string]any
+	if err := json.Unmarshal(captured, &got); err != nil {
+		t.Fatalf("unmarshal captured body: %v", err)
+	}
+	content, ok := got["content"].([]any)
+	if !ok || len(content) != 1 {
+		t.Fatalf("content shape wrong: %v", got["content"])
+	}
+	textPart, _ := content[0].(map[string]any)
+	if textPart["text"] != strings.TrimSpace(prompt) {
+		t.Fatalf("prompt text not forwarded intact")
 	}
 }
 

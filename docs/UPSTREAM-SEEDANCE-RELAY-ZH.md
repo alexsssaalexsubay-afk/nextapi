@@ -50,6 +50,8 @@ SEEDANCE_RELAY_ALLOWED_RESOLUTIONS=480p,720p,1080p
 
 上游返回 `queued → running → succeeded | failed`。成功时读取 `content.video_url` 和 `usage.total_tokens`；失败时读取 `error.code` / `error.message`。
 
+网关不再设置旧的本地 `prompt` 字符硬上限（例如 2000 / 4000 字符）。当前 UpToken/Seedance 文档的限制是语言感知的：英文 `<=1000 words`，中文 `<=500 chars`；并且在已有图片、视频或首尾帧输入时 `prompt` 可为空。若上游因为 prompt 内容或长度拒绝请求，应把上游返回的 `error.message` 直接透传给用户，不要改写成固定错误表。
+
 ## 3. 视频能力约束
 
 - 模型：`seedance-2.0-pro`、`seedance-2.0-fast`。
@@ -64,12 +66,9 @@ SEEDANCE_RELAY_ALLOWED_RESOLUTIONS=480p,720p,1080p
 
 ## 4. 错误码策略
 
-- `error-1xx`：鉴权 / 余额问题，运维优先检查上游 key 与额度。
-- `error-2xx`：参数错误，通常说明网关校验漏了，应补测试。
-- `error-3xx`：内容审核失败，客户应换提示词或素材。
-- `error-4xx`：素材 URL 不可访问或格式不对，客户应换公网 HTTPS 直链。
-- `error-5xx` / `error-6xx`：限流、容量、模型暂不可用，可退避重试。
-- `error-7xx`：生成失败或超时，建议客户简化提示词后重试。
+- HTTP 状态码先决定处理分支：400/422 让客户修正参数或素材，401 检查 key，402 检查余额，429 退避，502/504 可重试或换模型。
+- `error.message` 是用户排错的第一信息源，提交失败和轮询失败都必须原样展示给用户。
+- `error.code` 只用于日志、粗粒度分组和告警；不要依赖固定错误码清单，因为上游可能返回网关码或模型供应商码。
 
 ## 5. 任务回调（Webhook）
 

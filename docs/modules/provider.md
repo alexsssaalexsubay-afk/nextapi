@@ -54,6 +54,7 @@ type Provider interface {
   - any other ID passes through verbatim.
 - Relay create requests are emitted as upstream `content[]` only; NextAPI does not mix flat media params with `content[]`.
 - Prompt is optional when the request already includes visual media (`image_url`, `image_urls`, `video_urls`, `first_frame_url`).
+- Prompt length is not capped locally by a legacy character limit such as 2000 or 4000 chars. Current UpToken/Seedance guidance is language-aware (EN <=1000 words, ZH <=500 chars), so the gateway forwards valid-shaped requests and surfaces upstream `error.message` when the provider rejects prompt content.
 - Role mapping:
   - `input.image_url` / `input.image_urls[]` → `content[].image_url role=reference_image`
   - `input.first_frame_url` → `content[].image_url role=first_frame`
@@ -61,7 +62,7 @@ type Provider interface {
   - `input.video_urls[]` → `content[].video_url role=reference_video`
   - `input.audio_urls[]` → `content[].audio_url role=reference_audio`
 - Status flow surfaced by `GetJobStatus`: `queued → running → succeeded | failed`. `content.video_url` and `usage.total_tokens` only populate on `succeeded`; `error.{code,message}` only on `failed`.
-- Error code families (surfaced as `JobStatus.ErrorCode`): `error-1xx` auth, `error-2xx` parameter, `error-3xx` content moderation, `error-4xx` media URL, `error-5xx`/`error-6xx` rate limit / capacity, `error-7xx` generation failure. See [docs/UPSTREAM-SEEDANCE-RELAY-ZH.md](../UPSTREAM-SEEDANCE-RELAY-ZH.md) for the full table and retry policy.
+- Error handling: surface upstream `error.message` directly to customers whenever a task or submission fails. Treat `error.code` as logging / coarse grouping only; do not depend on a fixed upstream code list.
 
 ## Shared hardening
 Both live backends share the same resilience envelope:
