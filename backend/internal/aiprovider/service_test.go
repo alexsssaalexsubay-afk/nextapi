@@ -98,6 +98,48 @@ func TestUpsertRejectsDisabledDefaultProvider(t *testing.T) {
 	}
 }
 
+func TestUpsertNewDefaultProviderClearsExistingDefault(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	migrateAIProviderTestTables(t, db)
+	if err := db.Create(&domain.AIProvider{
+		ID:         "provider_old",
+		Name:       "Old default",
+		Type:       domain.AIProviderTypeVideo,
+		Provider:   "seedance-relay",
+		Model:      "seedance-2.0-pro",
+		Enabled:    true,
+		IsDefault:  true,
+		ConfigJSON: json.RawMessage(`{}`),
+	}).Error; err != nil {
+		t.Fatalf("create existing provider: %v", err)
+	}
+
+	row, err := NewService(db).Upsert(context.Background(), "", ProviderInput{
+		Name:      "New default",
+		Type:      domain.AIProviderTypeVideo,
+		Provider:  "seedance-relay",
+		Model:     "seedance-2.0-pro",
+		Enabled:   true,
+		IsDefault: true,
+	})
+	if err != nil {
+		t.Fatalf("new default should save: %v", err)
+	}
+	if !row.IsDefault {
+		t.Fatal("new provider should be default")
+	}
+	var old domain.AIProvider
+	if err := db.First(&old, "id = ?", "provider_old").Error; err != nil {
+		t.Fatalf("reload old provider: %v", err)
+	}
+	if old.IsDefault {
+		t.Fatal("old default should be cleared")
+	}
+}
+
 func TestUpsertAllowsNativeVideoProviderWithoutKeyAndNormalizesGuardrails(t *testing.T) {
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	if err != nil {

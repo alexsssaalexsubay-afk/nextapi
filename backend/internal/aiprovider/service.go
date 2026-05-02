@@ -115,9 +115,11 @@ func (s *Service) Upsert(ctx context.Context, id string, in ProviderInput) (*dom
 			return ErrProviderKeyRequired
 		}
 		if row.IsDefault {
-			if err := tx.Model(&domain.AIProvider{}).
-				Where("type = ? AND id <> ?", row.Type, row.ID).
-				Update("is_default", false).Error; err != nil {
+			q := tx.Model(&domain.AIProvider{}).Where("type = ?", row.Type)
+			if strings.TrimSpace(row.ID) != "" {
+				q = q.Where("id <> ?", row.ID)
+			}
+			if err := q.Update("is_default", false).Error; err != nil {
 				return err
 			}
 		}
