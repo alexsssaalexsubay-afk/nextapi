@@ -246,21 +246,7 @@ func (h *VideoHandlers) Generate(c *gin.Context) {
 		}
 		var upstreamErr *provider.UpstreamError
 		if errors.As(err, &upstreamErr) {
-			status := http.StatusBadRequest
-			message := "invalid video generation request"
-			switch upstreamErr.Code {
-			case "error-104", "402":
-				status = http.StatusPaymentRequired
-				message = "top up to continue"
-			case "error-501":
-				status = http.StatusTooManyRequests
-				message = "rate limited, retry later"
-			}
-			if upstreamErr.Retryable {
-				status = http.StatusServiceUnavailable
-				message = "generation provider unavailable"
-			}
-			c.JSON(status, gin.H{"error": gin.H{"code": upstreamErr.Code, "message": message}})
+			writeUpstreamError(c, upstreamErr)
 			return
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "internal_error"}})

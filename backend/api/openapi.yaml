@@ -2076,6 +2076,9 @@ components:
       description: >
         202 response includes at least id, object, model, status, estimated_cost_cents, created_at.
         GET /videos/{id} adds input, output, error_code, and error_message as applicable.
+        While a job is retrying, last_error_code, last_error_message, and
+        retry_count expose the latest upstream submission failure without
+        marking the terminal error fields.
       required: [id, object, status, model, created_at]
       properties:
         id: { type: string, example: vid_01HXXX }
@@ -2096,6 +2099,15 @@ components:
         actual_cost_cents: { type: [integer, 'null'] }
         error_code: { type: [string, 'null'] }
         error_message: { type: [string, 'null'] }
+        last_error_code:
+          type: [string, 'null']
+          description: Latest retryable upstream/provider error code while the job is non-terminal.
+        last_error_message:
+          type: [string, 'null']
+          description: Latest sanitized upstream/provider error message while the job is non-terminal.
+        retry_count:
+          type: [integer, 'null']
+          description: Number of submit attempts already recorded on the backing job.
         usage: { $ref: '#/components/schemas/VideoUsage' }
         error:
           oneOf:

@@ -22,11 +22,11 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/auth"
+	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/billing"
 	"github.com/alicebob/miniredis/v2"
 	"github.com/gin-gonic/gin"
 	"github.com/hibiken/asynq"
-	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/auth"
-	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/billing"
 
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/domain"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/gateway"
@@ -126,6 +126,7 @@ func buildTestRouter(t *testing.T, db *gorm.DB) *gin.Engine {
 	r.POST("/v1/videos", vh.Create)
 	r.GET("/v1/videos", vh.List)
 	r.GET("/v1/videos/:id", vh.Get)
+	r.GET("/v1/videos/:id/wait", vh.Wait)
 
 	return r
 }
@@ -294,6 +295,46 @@ func TestContract_GetVideo_NotFound_ErrorShape(t *testing.T) {
 	assertErrorShape(t, w.Body.Bytes())
 }
 
+func TestContract_GetVideo_ExposesLatestRetryError(t *testing.T) {
+	db := setupContractDB(t)
+	db.Exec(`INSERT INTO orgs (id, name, owner_user_id, created_at) VALUES ('test-org-id', 'test', 'u', CURRENT_TIMESTAMP)`)
+	db.Exec(`INSERT INTO jobs (
+		id, org_id, provider, request, status, reserved_credits,
+		last_error_code, last_error_msg, retry_count, created_at
+	) VALUES (
+		'job_retry_visible', 'test-org-id', 'seedance-relay', '{}', 'retrying', 0,
+		'InvalidParameter', 'image at position 1 resource download failed.', 2, CURRENT_TIMESTAMP
+	)`)
+	db.Exec(`INSERT INTO videos (
+		id, org_id, model, status, input, metadata, upstream_job_id, created_at
+	) VALUES (
+		'vid_retry_visible', 'test-org-id', 'seedance-2.0-pro', 'retrying', CAST('{}' AS BLOB), CAST('{}' AS BLOB), 'job_retry_visible', CURRENT_TIMESTAMP
+	)`)
+
+	r := buildTestRouter(t, db)
+	w := do(r, "GET", "/v1/videos/vid_retry_visible", nil)
+	if w.Code != http.StatusOK {
+		t.Fatalf("GET retrying video returned %d: %s", w.Code, w.Body.String())
+	}
+
+	var resp map[string]any
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("GET response is not valid JSON: %v", err)
+	}
+	if resp["last_error_code"] != "InvalidParameter" {
+		t.Fatalf("last_error_code = %v", resp["last_error_code"])
+	}
+	if resp["last_error_message"] != "image at position 1 resource download failed." {
+		t.Fatalf("last_error_message = %v", resp["last_error_message"])
+	}
+	if resp["retry_count"] != float64(2) {
+		t.Fatalf("retry_count = %v", resp["retry_count"])
+	}
+	if resp["error_message"] != nil {
+		t.Fatalf("terminal error_message should stay null while retrying, got %v", resp["error_message"])
+	}
+}
+
 // ---------------------------------------------------------------------------
 // GET /v1/videos — list contract
 // ---------------------------------------------------------------------------
@@ -317,6 +358,49 @@ func TestContract_ListVideos_ResponseIsArray(t *testing.T) {
 	// Must have a "data" array at minimum (even if empty).
 	if _, ok := resp["data"]; !ok {
 		t.Errorf("list response missing 'data' field\nfull: %s", w.Body.String())
+	}
+}
+
+func TestContract_ListVideos_ExposesLatestRetryError(t *testing.T) {
+	db := setupContractDB(t)
+	db.Exec(`INSERT INTO orgs (id, name, owner_user_id, created_at) VALUES ('test-org-id', 'test', 'u', CURRENT_TIMESTAMP)`)
+	db.Exec(`INSERT INTO jobs (
+		id, org_id, provider, request, status, reserved_credits,
+		last_error_code, last_error_msg, retry_count, created_at
+	) VALUES (
+		'job_retry_list', 'test-org-id', 'seedance-relay', '{}', 'retrying', 0,
+		'upstream_timeout', 'provider queue timeout', 1, CURRENT_TIMESTAMP
+	)`)
+	db.Exec(`INSERT INTO videos (
+		id, org_id, model, status, input, metadata, upstream_job_id, created_at
+	) VALUES (
+		'vid_retry_list', 'test-org-id', 'seedance-2.0-pro', 'retrying', CAST('{}' AS BLOB), CAST('{}' AS BLOB), 'job_retry_list', CURRENT_TIMESTAMP
+	)`)
+
+	r := buildTestRouter(t, db)
+	w := do(r, "GET", "/v1/videos", nil)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var resp struct {
+		Data []map[string]any `json:"data"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("list response is not valid JSON: %v", err)
+	}
+	if len(resp.Data) != 1 {
+		t.Fatalf("expected one video, got %d", len(resp.Data))
+	}
+	item := resp.Data[0]
+	if item["last_error_code"] != "upstream_timeout" {
+		t.Fatalf("last_error_code = %v", item["last_error_code"])
+	}
+	if item["last_error_message"] != "provider queue timeout" {
+		t.Fatalf("last_error_message = %v", item["last_error_message"])
+	}
+	if item["retry_count"] != float64(1) {
+		t.Fatalf("retry_count = %v", item["retry_count"])
 	}
 }
 

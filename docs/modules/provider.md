@@ -65,6 +65,10 @@ type Provider interface {
   - `input.audio_urls[]` → `content[].audio_url role=reference_audio`
 - Status flow surfaced by `GetJobStatus`: `queued → running → succeeded | failed`. `content.video_url` and `usage.total_tokens` only populate on `succeeded`; `error.{code,message}` only on `failed`.
 - Error handling: surface upstream `error.message` directly to customers whenever a task or submission fails. Treat `error.code` as logging / coarse grouping only; do not depend on a fixed upstream code list.
+- Retry visibility: while a submission is `retrying`, `/v1/videos/:id`,
+  `/v1/videos`, and `/v1/videos/:id/wait` expose `last_error_code`,
+  `last_error_message`, and `retry_count` from the job row. Terminal
+  `failed` responses continue to use `error_code` and `error_message`.
 
 ## Shared hardening
 Both live backends share the same resilience envelope:

@@ -31,9 +31,12 @@ type VideosHandlers struct {
 }
 
 type videoRowWithJoins struct {
-	domain.Video  `gorm:"embedded"`
-	ProviderJobID *string `gorm:"column:provider_job_id"`
-	APIKeyPrefix  *string `gorm:"column:api_key_prefix"`
+	domain.Video     `gorm:"embedded"`
+	ProviderJobID    *string `gorm:"column:provider_job_id"`
+	APIKeyPrefix     *string `gorm:"column:api_key_prefix"`
+	LastErrorCode    *string `gorm:"column:last_error_code"`
+	LastErrorMessage *string `gorm:"column:last_error_msg"`
+	RetryCount       *int    `gorm:"column:retry_count"`
 }
 
 type videoCreateReq struct {
@@ -468,7 +471,7 @@ func (h *VideosHandlers) Get(c *gin.Context) {
 	var v videoRowWithJoins
 	err := h.DB.WithContext(c.Request.Context()).
 		Table("videos v").
-		Select("v.*, j.provider_job_id as provider_job_id, ak.prefix as api_key_prefix").
+		Select("v.*, j.provider_job_id as provider_job_id, j.last_error_code as last_error_code, j.last_error_msg as last_error_msg, j.retry_count as retry_count, ak.prefix as api_key_prefix").
 		// videos.upstream_job_id is TEXT (legacy schema), jobs.id is UUID — cast to compare.
 		Joins("LEFT JOIN jobs j ON CAST(j.id AS TEXT) = v.upstream_job_id").
 		Joins("LEFT JOIN api_keys ak ON ak.id = v.api_key_id").
@@ -492,6 +495,9 @@ func (h *VideosHandlers) Get(c *gin.Context) {
 			"actual_cost_cents":    j.CostCredits,
 			"error_code":           j.ErrorCode,
 			"error_message":        j.ErrorMessage,
+			"last_error_code":      j.LastErrorCode,
+			"last_error_message":   j.LastErrorMsg,
+			"retry_count":          j.RetryCount,
 			"created_at":           j.CreatedAt,
 		}
 		if j.VideoURL != nil {
@@ -543,6 +549,9 @@ func (h *VideosHandlers) Get(c *gin.Context) {
 		"api_key_hint":         v.APIKeyPrefix,
 		"error_code":           v.ErrorCode,
 		"error_message":        v.ErrorMessage,
+		"last_error_code":      v.LastErrorCode,
+		"last_error_message":   v.LastErrorMessage,
+		"retry_count":          v.RetryCount,
 		"created_at":           v.CreatedAt,
 		"started_at":           v.StartedAt,
 		"finished_at":          v.FinishedAt,
@@ -581,7 +590,7 @@ func (h *VideosHandlers) List(c *gin.Context) {
 	var videos []videoRowWithJoins
 	q := h.DB.WithContext(c.Request.Context()).
 		Table("videos v").
-		Select("v.*, j.provider_job_id as provider_job_id, ak.prefix as api_key_prefix").
+		Select("v.*, j.provider_job_id as provider_job_id, j.last_error_code as last_error_code, j.last_error_msg as last_error_msg, j.retry_count as retry_count, ak.prefix as api_key_prefix").
 		// videos.upstream_job_id is TEXT (legacy schema), jobs.id is UUID — cast to compare.
 		Joins("LEFT JOIN jobs j ON CAST(j.id AS TEXT) = v.upstream_job_id").
 		Joins("LEFT JOIN api_keys ak ON ak.id = v.api_key_id").
@@ -631,6 +640,9 @@ func (h *VideosHandlers) List(c *gin.Context) {
 			"api_key_hint":         v.APIKeyPrefix,
 			"error_code":           v.ErrorCode,
 			"error_message":        v.ErrorMessage,
+			"last_error_code":      v.LastErrorCode,
+			"last_error_message":   v.LastErrorMessage,
+			"retry_count":          v.RetryCount,
 			"created_at":           v.CreatedAt,
 			"started_at":           v.StartedAt,
 			"finished_at":          v.FinishedAt,
@@ -778,10 +790,15 @@ func (h *VideosHandlers) Wait(c *gin.Context) {
 	deadline := time.Now().Add(time.Duration(timeoutSec) * time.Second)
 
 	for {
-		var v domain.Video
+		var v videoRowWithJoins
 		err := h.DB.WithContext(ctx).
-			Where("id = ? AND org_id = ?", id, org.ID).First(&v).Error
-		if errors.Is(err, gorm.ErrRecordNotFound) {
+			Table("videos v").
+			Select("v.*, j.last_error_code as last_error_code, j.last_error_msg as last_error_msg, j.retry_count as retry_count").
+			Joins("LEFT JOIN jobs j ON CAST(j.id AS TEXT) = v.upstream_job_id").
+			Where("v.id = ? AND v.org_id = ?", id, org.ID).
+			Limit(1).
+			Scan(&v).Error
+		if errors.Is(err, gorm.ErrRecordNotFound) || (err == nil && v.ID == "") {
 			c.JSON(http.StatusNotFound, gin.H{"error": gin.H{"code": "not_found"}})
 			return
 		}
@@ -792,20 +809,26 @@ func (h *VideosHandlers) Wait(c *gin.Context) {
 
 		if v.Status == "succeeded" || v.Status == "failed" || v.Status == "cancelled" {
 			c.JSON(http.StatusOK, gin.H{
-				"id":            v.ID,
-				"status":        v.Status,
-				"output":        v.Output,
-				"error_code":    v.ErrorCode,
-				"error_message": v.ErrorMessage,
-				"finished_at":   v.FinishedAt,
+				"id":                 v.ID,
+				"status":             v.Status,
+				"output":             v.Output,
+				"error_code":         v.ErrorCode,
+				"error_message":      v.ErrorMessage,
+				"last_error_code":    v.LastErrorCode,
+				"last_error_message": v.LastErrorMessage,
+				"retry_count":        v.RetryCount,
+				"finished_at":        v.FinishedAt,
 			})
 			return
 		}
 
 		if time.Now().After(deadline) {
 			c.JSON(http.StatusOK, gin.H{
-				"id":     v.ID,
-				"status": v.Status,
+				"id":                 v.ID,
+				"status":             v.Status,
+				"last_error_code":    v.LastErrorCode,
+				"last_error_message": v.LastErrorMessage,
+				"retry_count":        v.RetryCount,
 			})
 			return
 		}
@@ -864,21 +887,7 @@ func (h *VideosHandlers) handleJobError(c *gin.Context, err error) {
 	}
 	var upstreamErr *provider.UpstreamError
 	if errors.As(err, &upstreamErr) {
-		status := http.StatusBadRequest
-		message := "invalid video generation request"
-		switch upstreamErr.Code {
-		case "error-104", "402":
-			status = http.StatusPaymentRequired
-			message = "top up to continue"
-		case "error-501":
-			status = http.StatusTooManyRequests
-			message = "rate limited, retry later"
-		}
-		if upstreamErr.Retryable {
-			status = http.StatusServiceUnavailable
-			message = "generation provider unavailable"
-		}
-		c.JSON(status, gin.H{"error": gin.H{"code": upstreamErr.Code, "message": message}})
+		writeUpstreamError(c, upstreamErr)
 		return
 	}
 	c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "internal_error"}})

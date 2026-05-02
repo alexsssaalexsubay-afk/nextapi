@@ -1429,7 +1429,7 @@ export interface components {
             estimated_cost_cents?: number;
             actual_cost_cents?: number | null;
         };
-        /** @description 202 response includes at least id, object, model, status, estimated_cost_cents, created_at. GET /videos/{id} adds input, output, error_code, and error_message as applicable. */
+        /** @description 202 response includes at least id, object, model, status, estimated_cost_cents, created_at. GET /videos/{id} adds input, output, error_code, and error_message as applicable. While a job is retrying, last_error_code, last_error_message, and retry_count expose the latest upstream submission failure without marking the terminal error fields. */
         Video: {
             /** @example vid_01HXXX */
             id: string;
@@ -1451,6 +1451,12 @@ export interface components {
             actual_cost_cents?: number | null;
             error_code?: string | null;
             error_message?: string | null;
+            /** @description Latest retryable upstream/provider error code while the job is non-terminal. */
+            last_error_code?: string | null;
+            /** @description Latest sanitized upstream/provider error message while the job is non-terminal. */
+            last_error_message?: string | null;
+            /** @description Number of submit attempts already recorded on the backing job. */
+            retry_count?: number | null;
             usage?: components["schemas"]["VideoUsage"];
             error?: components["schemas"]["Error"] | null;
             metadata?: {
