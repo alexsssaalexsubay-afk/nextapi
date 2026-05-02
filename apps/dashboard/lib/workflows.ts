@@ -128,8 +128,19 @@ export type LibraryAsset = {
   size_bytes?: number
   url: string
   generation_url?: string
+  seedance_asset_status?: "ready" | "pending" | "active" | "failed" | string
+  seedance_processing_status?: string
+  seedance_rejection_reason?: string
   url_expires_at?: string
   created_at?: string
+}
+
+export function libraryAssetGenerationURL(asset: LibraryAsset): string {
+  const upstreamStatus = asset.seedance_asset_status?.trim().toLowerCase()
+  if (asset.kind === "image" && upstreamStatus && upstreamStatus !== "active" && upstreamStatus !== "ready") {
+    return ""
+  }
+  return asset.generation_url || asset.url || ""
 }
 
 export type TemplateBatchRunResult = {

@@ -26,6 +26,7 @@ import { cn } from "@/lib/utils"
 import { apiFetch, apiUpload, ApiError } from "@/lib/api"
 import { jobApiErrorMessage } from "@/lib/api-error-i18n"
 import { useVideoModelCatalog } from "@/lib/use-video-model-catalog"
+import { libraryAssetGenerationURL } from "@/lib/workflows"
 import { toast } from "sonner"
 
 type Mode = "text" | "image"
@@ -117,6 +118,9 @@ type LibraryAsset = {
   kind: "image" | "video" | "audio"
   url: string
   generation_url?: string
+  seedance_asset_status?: string
+  seedance_processing_status?: string
+  seedance_rejection_reason?: string
   filename?: string
   size_bytes?: number
 }
@@ -226,7 +230,11 @@ export default function NewJobPage() {
   }, [reloadLibrary])
 
   const attachFromLibrary = (asset: LibraryAsset) => {
-    const generationURL = asset.generation_url || asset.url
+    const generationURL = libraryAssetGenerationURL(asset)
+    if (asset.kind === "image" && !generationURL) {
+      toast.error(asset.seedance_rejection_reason || t.library.characterProviderPending)
+      return
+    }
     if (!generationURL) return
     if (asset.kind === "video") {
       const existing = parseMediaURLs(referenceVideoURLs)

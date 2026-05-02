@@ -1635,7 +1635,11 @@ export interface components {
             seedance_asset_id?: string;
             /** Format: uri */
             seedance_asset_url?: string;
-            seedance_asset_status?: string;
+            /** @enum {string} */
+            seedance_asset_status?: "ready" | "pending" | "active" | "failed";
+            seedance_processing_status?: string;
+            /** @description Upstream asset library rejection reason when status is failed. */
+            seedance_rejection_reason?: string;
         };
         LibraryAssetListResponse: {
             assets: components["schemas"]["LibraryAsset"][];

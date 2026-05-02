@@ -19,10 +19,34 @@ type AssetClient struct {
 }
 
 type Asset struct {
-	VirtualID string `json:"virtual_id"`
-	AssetURL  string `json:"asset_url"`
-	URL       string `json:"url"`
-	Status    string `json:"status"`
+	VirtualID        string `json:"virtual_id"`
+	AssetURL         string `json:"asset_url"`
+	URL              string `json:"url"`
+	Status           string `json:"status"`
+	ProcessingStatus string `json:"processing_status"`
+	Filename         string `json:"filename"`
+	SizeBytes        int64  `json:"size_bytes"`
+	RejectionReason  string `json:"rejection_reason"`
+}
+
+type AssetError struct {
+	StatusCode int
+	Code       string
+	Message    string
+	Type       string
+}
+
+func (e *AssetError) Error() string {
+	if e == nil {
+		return ""
+	}
+	if e.Message != "" {
+		return e.Message
+	}
+	if e.Code != "" {
+		return e.Code
+	}
+	return fmt.Sprintf("uptoken asset http %d", e.StatusCode)
 }
 
 func NewAssetClientFromEnv() (*AssetClient, error) {
@@ -106,6 +130,9 @@ func (c *AssetClient) doAsset(req *http.Request) (*Asset, error) {
 		return nil, fmt.Errorf("uptoken asset read: %w", err)
 	}
 	if resp.StatusCode >= 400 {
+		if upstreamErr := decodeAssetError(raw, resp.StatusCode); upstreamErr != nil {
+			return nil, upstreamErr
+		}
 		return nil, fmt.Errorf("uptoken asset http %d: %s", resp.StatusCode, snippet(raw))
 	}
 	var asset Asset
@@ -116,4 +143,23 @@ func (c *AssetClient) doAsset(req *http.Request) (*Asset, error) {
 		return nil, fmt.Errorf("uptoken asset missing virtual_id")
 	}
 	return &asset, nil
+}
+
+func decodeAssetError(raw []byte, statusCode int) *AssetError {
+	var out struct {
+		Error *struct {
+			Code    string `json:"code"`
+			Message string `json:"message"`
+			Type    string `json:"type"`
+		} `json:"error"`
+	}
+	if err := json.Unmarshal(raw, &out); err != nil || out.Error == nil {
+		return nil
+	}
+	return &AssetError{
+		StatusCode: statusCode,
+		Code:       out.Error.Code,
+		Message:    out.Error.Message,
+		Type:       out.Error.Type,
+	}
 }

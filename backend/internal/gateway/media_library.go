@@ -55,18 +55,20 @@ const libraryAssetTTL = 7 * 24 * time.Hour
 const libraryMaxAssetsPerOrg = 250
 
 type libraryAssetResponse struct {
-	ID                  string    `json:"id"`
-	Kind                string    `json:"kind"`
-	Filename            string    `json:"filename"`
-	ContentType         string    `json:"content_type"`
-	SizeBytes           int64     `json:"size_bytes"`
-	URL                 string    `json:"url"`
-	GenerationURL       string    `json:"generation_url"`
-	URLExpires          time.Time `json:"url_expires_at"`
-	CreatedAt           time.Time `json:"created_at"`
-	SeedanceAssetID     *string   `json:"seedance_asset_id,omitempty"`
-	SeedanceAssetURL    *string   `json:"seedance_asset_url,omitempty"`
-	SeedanceAssetStatus *string   `json:"seedance_asset_status,omitempty"`
+	ID                       string    `json:"id"`
+	Kind                     string    `json:"kind"`
+	Filename                 string    `json:"filename"`
+	ContentType              string    `json:"content_type"`
+	SizeBytes                int64     `json:"size_bytes"`
+	URL                      string    `json:"url"`
+	GenerationURL            string    `json:"generation_url"`
+	URLExpires               time.Time `json:"url_expires_at"`
+	CreatedAt                time.Time `json:"created_at"`
+	SeedanceAssetID          *string   `json:"seedance_asset_id,omitempty"`
+	SeedanceAssetURL         *string   `json:"seedance_asset_url,omitempty"`
+	SeedanceAssetStatus      *string   `json:"seedance_asset_status,omitempty"`
+	SeedanceProcessingStatus *string   `json:"seedance_processing_status,omitempty"`
+	SeedanceRejectionReason  *string   `json:"seedance_rejection_reason,omitempty"`
 }
 
 // GET /v1/me/library/assets
@@ -115,23 +117,25 @@ func (h *MediaLibraryHandlers) List(c *gin.Context) {
 			continue
 		}
 		generationURL := url
-		if rows[i].UpTokenStatus != nil && *rows[i].UpTokenStatus == "active" &&
+		if upTokenAssetStatusUsable(rows[i].UpTokenStatus) &&
 			rows[i].UpTokenAssetURL != nil && *rows[i].UpTokenAssetURL != "" {
 			generationURL = *rows[i].UpTokenAssetURL
 		}
 		out = append(out, libraryAssetResponse{
-			ID:                  rows[i].ID,
-			Kind:                string(rows[i].Kind),
-			Filename:            rows[i].Filename,
-			ContentType:         rows[i].ContentType,
-			SizeBytes:           rows[i].SizeBytes,
-			URL:                 url,
-			GenerationURL:       generationURL,
-			URLExpires:          exp,
-			CreatedAt:           rows[i].CreatedAt,
-			SeedanceAssetID:     rows[i].UpTokenVirtualID,
-			SeedanceAssetURL:    rows[i].UpTokenAssetURL,
-			SeedanceAssetStatus: rows[i].UpTokenStatus,
+			ID:                       rows[i].ID,
+			Kind:                     string(rows[i].Kind),
+			Filename:                 rows[i].Filename,
+			ContentType:              rows[i].ContentType,
+			SizeBytes:                rows[i].SizeBytes,
+			URL:                      url,
+			GenerationURL:            generationURL,
+			URLExpires:               exp,
+			CreatedAt:                rows[i].CreatedAt,
+			SeedanceAssetID:          rows[i].UpTokenVirtualID,
+			SeedanceAssetURL:         rows[i].UpTokenAssetURL,
+			SeedanceAssetStatus:      rows[i].UpTokenStatus,
+			SeedanceProcessingStatus: rows[i].UpTokenProcessingStatus,
+			SeedanceRejectionReason:  rows[i].UpTokenRejectionReason,
 		})
 	}
 	c.JSON(http.StatusOK, gin.H{"assets": out, "ttl_seconds": int(libraryAssetTTL.Seconds())})
@@ -143,7 +147,10 @@ func (h *MediaLibraryHandlers) refreshUpTokenAsset(ctx context.Context, row *dom
 	}
 	if row.UpTokenStatus != nil {
 		status := strings.ToLower(strings.TrimSpace(*row.UpTokenStatus))
-		if status == "active" || status == "failed" {
+		if status == "active" || status == "ready" {
+			return
+		}
+		if status == "failed" && row.UpTokenRejectionReason != nil && strings.TrimSpace(*row.UpTokenRejectionReason) != "" {
 			return
 		}
 	}
@@ -158,6 +165,14 @@ func (h *MediaLibraryHandlers) refreshUpTokenAsset(ctx context.Context, row *dom
 	if asset.Status != "" {
 		row.UpTokenStatus = &asset.Status
 		updates["uptoken_status"] = asset.Status
+	}
+	if asset.ProcessingStatus != "" {
+		row.UpTokenProcessingStatus = &asset.ProcessingStatus
+		updates["uptoken_processing_status"] = asset.ProcessingStatus
+	}
+	if asset.RejectionReason != "" {
+		row.UpTokenRejectionReason = &asset.RejectionReason
+		updates["uptoken_rejection_reason"] = asset.RejectionReason
 	}
 	if assetURL := upTokenGenerationURL(asset); assetURL != "" {
 		row.UpTokenAssetURL = &assetURL
@@ -320,8 +335,16 @@ func (h *MediaLibraryHandlers) Create(c *gin.Context) {
 			}
 		} else if upErr != nil {
 			log.Printf("library: uptoken asset upload failed filename=%s err=%v", fh.Filename, upErr)
+			var assetErr *uptoken.AssetError
+			rejectionReason := ""
+			if errors.As(upErr, &assetErr) {
+				rejectionReason = strings.TrimSpace(assetErr.Message)
+				if rejectionReason == "" {
+					rejectionReason = strings.TrimSpace(assetErr.Code)
+				}
+			}
 			status := "failed"
-			upAsset = &uptoken.Asset{Status: status}
+			upAsset = &uptoken.Asset{Status: status, ProcessingStatus: status, RejectionReason: rejectionReason}
 		}
 	}
 
@@ -344,6 +367,12 @@ func (h *MediaLibraryHandlers) Create(c *gin.Context) {
 		if upAsset.Status != "" {
 			row.UpTokenStatus = &upAsset.Status
 		}
+		if upAsset.ProcessingStatus != "" {
+			row.UpTokenProcessingStatus = &upAsset.ProcessingStatus
+		}
+		if upAsset.RejectionReason != "" {
+			row.UpTokenRejectionReason = &upAsset.RejectionReason
+		}
 	}
 	if err := h.DB.WithContext(c.Request.Context()).Create(&row).Error; err != nil {
 		// Best-effort cleanup of the orphan R2 object — better to leak a few
@@ -365,25 +394,39 @@ func (h *MediaLibraryHandlers) Create(c *gin.Context) {
 		return
 	}
 	generationURL := url
-	if row.UpTokenStatus != nil && *row.UpTokenStatus == "active" &&
+	if upTokenAssetStatusUsable(row.UpTokenStatus) &&
 		row.UpTokenAssetURL != nil && *row.UpTokenAssetURL != "" {
 		generationURL = *row.UpTokenAssetURL
 	}
 	c.JSON(http.StatusCreated, libraryAssetResponse{
-		ID:                  row.ID,
-		Kind:                string(row.Kind),
-		Filename:            row.Filename,
-		ContentType:         row.ContentType,
-		SizeBytes:           row.SizeBytes,
-		URL:                 url,
-		GenerationURL:       generationURL,
-		URLExpires:          time.Now().Add(libraryAssetTTL).UTC(),
-		CreatedAt:           row.CreatedAt,
-		SeedanceAssetID:     row.UpTokenVirtualID,
-		SeedanceAssetURL:    row.UpTokenAssetURL,
-		SeedanceAssetStatus: row.UpTokenStatus,
+		ID:                       row.ID,
+		Kind:                     string(row.Kind),
+		Filename:                 row.Filename,
+		ContentType:              row.ContentType,
+		SizeBytes:                row.SizeBytes,
+		URL:                      url,
+		GenerationURL:            generationURL,
+		URLExpires:               time.Now().Add(libraryAssetTTL).UTC(),
+		CreatedAt:                row.CreatedAt,
+		SeedanceAssetID:          row.UpTokenVirtualID,
+		SeedanceAssetURL:         row.UpTokenAssetURL,
+		SeedanceAssetStatus:      row.UpTokenStatus,
+		SeedanceProcessingStatus: row.UpTokenProcessingStatus,
+		SeedanceRejectionReason:  row.UpTokenRejectionReason,
 	})
 	_ = ct
+}
+
+func upTokenAssetStatusUsable(status *string) bool {
+	if status == nil {
+		return false
+	}
+	switch strings.ToLower(strings.TrimSpace(*status)) {
+	case "active", "ready":
+		return true
+	default:
+		return false
+	}
 }
 
 func upTokenGenerationURL(asset *uptoken.Asset) string {

@@ -191,9 +191,10 @@ func TestMediaLibraryListRefreshesProcessingUpTokenAsset(t *testing.T) {
 		UpTokenAssets: fakeUpTokenAssetProvider{
 			assets: map[string]*uptoken.Asset{
 				"ut-asset-real-person": {
-					VirtualID: "ut-asset-real-person",
-					AssetURL:  "asset://ut-asset-real-person",
-					Status:    "active",
+					VirtualID:        "ut-asset-real-person",
+					AssetURL:         "asset://ut-asset-real-person",
+					Status:           "active",
+					ProcessingStatus: "Active",
 				},
 			},
 		},
@@ -209,6 +210,9 @@ func TestMediaLibraryListRefreshesProcessingUpTokenAsset(t *testing.T) {
 	if body.Assets[0].SeedanceAssetStatus == nil || *body.Assets[0].SeedanceAssetStatus != "active" {
 		t.Fatalf("seedance_asset_status = %+v; want active", body.Assets[0].SeedanceAssetStatus)
 	}
+	if body.Assets[0].SeedanceProcessingStatus == nil || *body.Assets[0].SeedanceProcessingStatus != "Active" {
+		t.Fatalf("seedance_processing_status = %+v; want Active", body.Assets[0].SeedanceProcessingStatus)
+	}
 
 	var row domain.MediaAsset
 	if err := db.First(&row, "id = ?", "77777777-7777-7777-7777-777777777777").Error; err != nil {
@@ -219,6 +223,67 @@ func TestMediaLibraryListRefreshesProcessingUpTokenAsset(t *testing.T) {
 	}
 	if row.UpTokenAssetURL == nil || *row.UpTokenAssetURL != "asset://ut-asset-real-person" {
 		t.Fatalf("persisted asset url = %+v; want asset URL", row.UpTokenAssetURL)
+	}
+	if row.UpTokenProcessingStatus == nil || *row.UpTokenProcessingStatus != "Active" {
+		t.Fatalf("persisted processing status = %+v; want Active", row.UpTokenProcessingStatus)
+	}
+}
+
+func TestMediaLibraryListRefreshesFailedUpTokenAssetReason(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	db := setupMediaLibraryDB(t)
+	orgID := "11111111-1111-1111-1111-111111111111"
+	pending := "pending"
+	if err := db.Create(&domain.MediaAsset{
+		ID:               "88888888-8888-8888-8888-888888888888",
+		OrgID:            orgID,
+		Kind:             domain.MediaAssetImage,
+		StorageKey:       "library/org/rejected-person.png",
+		ContentType:      "image/png",
+		Filename:         "rejected-person.png",
+		SizeBytes:        100,
+		CreatedAt:        time.Date(2026, 4, 30, 7, 0, 0, 0, time.UTC),
+		UpTokenVirtualID: mediaLibraryStringPtr("ut-asset-rejected-person"),
+		UpTokenStatus:    &pending,
+	}).Error; err != nil {
+		t.Fatalf("create media asset: %v", err)
+	}
+	h := &MediaLibraryHandlers{
+		DB: db,
+		R2: fakeMediaLibraryStorage{},
+		UpTokenAssets: fakeUpTokenAssetProvider{
+			assets: map[string]*uptoken.Asset{
+				"ut-asset-rejected-person": {
+					VirtualID:        "ut-asset-rejected-person",
+					Status:           "failed",
+					ProcessingStatus: "Rejected",
+					RejectionReason:  "The uploaded portrait was not approved for real-person reference use.",
+				},
+			},
+		},
+	}
+
+	body := listMediaLibraryAssets(t, h, orgID, "")
+	if len(body.Assets) != 1 {
+		t.Fatalf("expected one asset, got %#v", body.Assets)
+	}
+	asset := body.Assets[0]
+	if asset.GenerationURL != "https://cdn.example/library/org/rejected-person.png" {
+		t.Fatalf("generation_url = %q; want preview fallback", asset.GenerationURL)
+	}
+	if asset.SeedanceAssetStatus == nil || *asset.SeedanceAssetStatus != "failed" {
+		t.Fatalf("seedance_asset_status = %+v; want failed", asset.SeedanceAssetStatus)
+	}
+	if asset.SeedanceRejectionReason == nil || *asset.SeedanceRejectionReason == "" {
+		t.Fatalf("seedance_rejection_reason missing: %#v", asset)
+	}
+
+	var row domain.MediaAsset
+	if err := db.First(&row, "id = ?", "88888888-8888-8888-8888-888888888888").Error; err != nil {
+		t.Fatalf("reload row: %v", err)
+	}
+	if row.UpTokenRejectionReason == nil || *row.UpTokenRejectionReason != "The uploaded portrait was not approved for real-person reference use." {
+		t.Fatalf("persisted rejection reason = %+v", row.UpTokenRejectionReason)
 	}
 }
 
@@ -368,7 +433,9 @@ func setupMediaLibraryDB(t *testing.T) *gorm.DB {
 		created_at DATETIME,
 		uptoken_virtual_id TEXT,
 		uptoken_asset_url TEXT,
-		uptoken_status TEXT
+		uptoken_status TEXT,
+		uptoken_processing_status TEXT,
+		uptoken_rejection_reason TEXT
 	)`
 	if err := db.Exec(stmt).Error; err != nil {
 		t.Fatalf("create media_assets table: %v", err)
@@ -377,19 +444,21 @@ func setupMediaLibraryDB(t *testing.T) *gorm.DB {
 }
 
 type mediaLibraryAssetResponseRaw struct {
-	ID                  string  `json:"id"`
-	Kind                string  `json:"kind"`
-	Filename            string  `json:"filename"`
-	ContentType         string  `json:"content_type"`
-	SizeBytes           int64   `json:"size_bytes"`
-	URL                 string  `json:"url"`
-	GenerationURL       string  `json:"generation_url"`
-	CreatedAt           string  `json:"created_at"`
-	StorageKey          string  `json:"storage_key"`
-	OrgID               string  `json:"org_id"`
-	SeedanceAssetID     *string `json:"seedance_asset_id"`
-	SeedanceAssetURL    *string `json:"seedance_asset_url"`
-	SeedanceAssetStatus *string `json:"seedance_asset_status"`
+	ID                       string  `json:"id"`
+	Kind                     string  `json:"kind"`
+	Filename                 string  `json:"filename"`
+	ContentType              string  `json:"content_type"`
+	SizeBytes                int64   `json:"size_bytes"`
+	URL                      string  `json:"url"`
+	GenerationURL            string  `json:"generation_url"`
+	CreatedAt                string  `json:"created_at"`
+	StorageKey               string  `json:"storage_key"`
+	OrgID                    string  `json:"org_id"`
+	SeedanceAssetID          *string `json:"seedance_asset_id"`
+	SeedanceAssetURL         *string `json:"seedance_asset_url"`
+	SeedanceAssetStatus      *string `json:"seedance_asset_status"`
+	SeedanceProcessingStatus *string `json:"seedance_processing_status"`
+	SeedanceRejectionReason  *string `json:"seedance_rejection_reason"`
 }
 
 type mediaLibraryListResponseRaw struct {

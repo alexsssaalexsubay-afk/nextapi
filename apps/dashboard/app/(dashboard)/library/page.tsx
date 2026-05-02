@@ -30,6 +30,8 @@ type LibraryAsset = {
   url: string
   generation_url?: string
   seedance_asset_status?: string
+  seedance_processing_status?: string
+  seedance_rejection_reason?: string
   url_expires_at: string
   created_at: string
 }
@@ -394,6 +396,7 @@ function AssetCard({
   const created = new Date(asset.created_at).toLocaleDateString()
   const Icon = asset.kind === "video" ? Video : asset.kind === "audio" ? Music : ImageIcon
   const canSaveCharacter = isProviderReadyAsset(asset)
+  const reviewState = providerReviewState(asset, labels)
 
   return (
     <div className="group flex flex-col overflow-hidden rounded-[18px] border border-border/80 bg-card/40 transition-shadow hover:shadow-lg">
@@ -433,6 +436,19 @@ function AssetCard({
             <span>·</span>
             <span>{created}</span>
           </div>
+          {reviewState ? (
+            <div
+              className={cn(
+                "mt-1 max-w-full truncate text-[10.5px]",
+                reviewState.tone === "ok" && "text-status-succeeded",
+                reviewState.tone === "warn" && "text-amber-500",
+                reviewState.tone === "bad" && "text-status-failed",
+              )}
+              title={reviewState.title}
+            >
+              {reviewState.label}
+            </div>
+          ) : null}
         </div>
         <button
           type="button"
@@ -480,5 +496,34 @@ function AssetCard({
 }
 
 function isProviderReadyAsset(asset: LibraryAsset): asset is LibraryAsset & { generation_url: string } {
-  return asset.kind === "image" && asset.seedance_asset_status === "active" && Boolean(asset.generation_url)
+  const status = asset.seedance_asset_status?.trim().toLowerCase()
+  return asset.kind === "image" && status === "active" && Boolean(asset.generation_url)
+}
+
+function providerReviewState(
+  asset: LibraryAsset,
+  labels: ReturnType<typeof useTranslations>["library"],
+): { label: string; title: string; tone: "ok" | "warn" | "bad" } | null {
+  if (asset.kind !== "image" || !asset.seedance_asset_status) return null
+  const status = asset.seedance_asset_status.trim().toLowerCase()
+  if (status === "active") {
+    return { label: labels.providerStatusActive, title: labels.providerStatusActive, tone: "ok" }
+  }
+  if (status === "ready") {
+    return { label: labels.providerStatusReady, title: labels.providerStatusReady, tone: "ok" }
+  }
+  if (status === "failed") {
+    const reason = asset.seedance_rejection_reason?.trim()
+    return {
+      label: reason || labels.providerStatusFailed,
+      title: reason || labels.providerStatusFailed,
+      tone: "bad",
+    }
+  }
+  const processing = asset.seedance_processing_status?.trim()
+  return {
+    label: processing || labels.providerStatusPending,
+    title: processing || labels.providerStatusPending,
+    tone: "warn",
+  }
 }

@@ -27,6 +27,7 @@ import {
   createWorkflow,
   exportWorkflowAPI,
   getWorkflow,
+  libraryAssetGenerationURL,
   listLibraryAssets,
   runWorkflow,
   saveWorkflowAsTemplate,
@@ -247,7 +248,12 @@ export function CanvasWorkspace() {
     try {
       const asset = await uploadLibraryImage(file)
       setAssets((items) => [asset, ...items.filter((item) => item.id !== asset.id)])
-      updateSelectedData({ image_url: asset.generation_url || asset.url, preview_url: asset.url, asset_id: asset.id })
+      const generationURL = libraryAssetGenerationURL(asset)
+      if (!generationURL) {
+        toast.error(asset.seedance_rejection_reason || labels.uploadFailed)
+        return
+      }
+      updateSelectedData({ image_url: generationURL, preview_url: asset.url, asset_id: asset.id })
     } catch {
       toast.error(labels.uploadFailed)
     } finally {
@@ -745,7 +751,14 @@ function NodeInspector({
             <div className="mb-1 text-[11px] text-muted-foreground">{labels.assetLibrary}</div>
             <div className="grid grid-cols-3 gap-2">
               {assets.slice(0, 9).map((asset) => (
-                <button key={asset.id} type="button" onClick={() => onChange({ image_url: asset.generation_url || asset.url, preview_url: asset.url, asset_id: asset.id })} className="overflow-hidden rounded-md border border-border/70">
+                <button key={asset.id} type="button" onClick={() => {
+                  const generationURL = libraryAssetGenerationURL(asset)
+                  if (!generationURL) {
+                    toast.error(asset.seedance_rejection_reason || labels.uploadFailed)
+                    return
+                  }
+                  onChange({ image_url: generationURL, preview_url: asset.url, asset_id: asset.id })
+                }} className="overflow-hidden rounded-md border border-border/70">
                   {/* eslint-disable-next-line @next/next/no-img-element -- presigned URL */}
                   <img src={asset.url} alt={asset.filename || asset.id} className="aspect-square w-full object-cover" />
                 </button>

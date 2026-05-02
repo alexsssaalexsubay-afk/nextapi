@@ -71,6 +71,7 @@ SEEDANCE_RELAY_ALLOWED_RESOLUTIONS=480p,720p,1080p
 - `last_frame_url` 必须和 `first_frame_url` 一起使用。
 - 只要请求里已经有视觉媒体输入，`prompt` 可以为空。
 - `content[]` 里的 `image_url` 支持 `reference_image`、`first_frame`、`last_frame`；`video_url` 支持 `reference_video`；`audio_url` 支持 `reference_audio`。上传真人肖像时，应先通过素材库拿到 `asset://ut-asset-*`，等状态为 `active` 后再作为引用传入。
+- 素材库同步字段必须覆盖上游返回的 `virtual_id`、`asset_url`、`status`、`processing_status`、`filename`、`size_bytes`、`rejection_reason`。NextAPI 的媒体库已有本地 `filename/size_bytes`，但对用户排错最关键的是状态流 `ready | pending | active | failed` 和 `failed` 时的 `rejection_reason`；这些需要在后台刷新和 Dashboard 响应中保留。
 
 ## 4. 错误码策略
 

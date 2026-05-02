@@ -2287,7 +2287,13 @@ components:
         created_at: { type: string, format: date-time }
         seedance_asset_id: { type: string }
         seedance_asset_url: { type: string, format: uri }
-        seedance_asset_status: { type: string }
+        seedance_asset_status:
+          type: string
+          enum: [ready, pending, active, failed]
+        seedance_processing_status: { type: string }
+        seedance_rejection_reason:
+          type: string
+          description: Upstream asset library rejection reason when status is failed.
 
     LibraryAssetListResponse:
       type: object
