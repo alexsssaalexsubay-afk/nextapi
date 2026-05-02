@@ -37,6 +37,7 @@ type generateReq struct {
 	// optional. Validation lives in gateway/videoparams.go so both
 	// this legacy endpoint and the new /v1/videos surface agree.
 	AspectRatio   string `json:"aspect_ratio"`
+	Ratio         string `json:"ratio"`
 	FPS           int    `json:"fps"`
 	GenerateAudio *bool  `json:"generate_audio"`
 	Watermark     *bool  `json:"watermark"`
@@ -44,12 +45,13 @@ type generateReq struct {
 	CameraFixed   *bool  `json:"camera_fixed"`
 
 	// Extended media inputs (Seedance multi-modal).
-	Draft         *bool    `json:"draft"`
-	ImageURLs     []string `json:"image_urls"`
-	VideoURLs     []string `json:"video_urls"`
-	AudioURLs     []string `json:"audio_urls"`
-	FirstFrameURL *string  `json:"first_frame_url"`
-	LastFrameURL  *string  `json:"last_frame_url"`
+	Draft         *bool              `json:"draft"`
+	ImageURLs     []string           `json:"image_urls"`
+	VideoURLs     []string           `json:"video_urls"`
+	AudioURLs     []string           `json:"audio_urls"`
+	FirstFrameURL *string            `json:"first_frame_url"`
+	LastFrameURL  *string            `json:"last_frame_url"`
+	Content       []videoContentPart `json:"content"`
 }
 
 func (h *VideoHandlers) Generate(c *gin.Context) {
@@ -71,6 +73,13 @@ func (h *VideoHandlers) Generate(c *gin.Context) {
 	}
 	if req.DurationSeconds <= 0 {
 		req.DurationSeconds = 5
+	}
+	if err := normalizeGenerateReq(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{
+			"code":    "invalid_request",
+			"message": err.Error(),
+		}})
+		return
 	}
 
 	// Vendor-SSRF guard, mirrors the new /v1/videos surface.

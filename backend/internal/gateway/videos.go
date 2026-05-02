@@ -55,6 +55,7 @@ type videoInput struct {
 	// (so we don't force-disable audio for a customer who just
 	// didn't pass the field).
 	AspectRatio   string `json:"aspect_ratio"`
+	Ratio         string `json:"ratio"`
 	FPS           int    `json:"fps"`
 	GenerateAudio *bool  `json:"generate_audio"`
 	Watermark     *bool  `json:"watermark"`
@@ -62,13 +63,14 @@ type videoInput struct {
 	CameraFixed   *bool  `json:"camera_fixed"`
 
 	// Extended media inputs (Seedance multi-modal).
-	Draft         *bool    `json:"draft"`
-	ImageURLs     []string `json:"image_urls"`
-	VideoURLs     []string `json:"video_urls"`
-	AudioURLs     []string `json:"audio_urls"`
-	FirstFrameURL *string  `json:"first_frame_url"`
-	LastFrameURL  *string  `json:"last_frame_url"`
-	TempMediaKeys []string `json:"temp_media_keys"`
+	Draft         *bool              `json:"draft"`
+	ImageURLs     []string           `json:"image_urls"`
+	VideoURLs     []string           `json:"video_urls"`
+	AudioURLs     []string           `json:"audio_urls"`
+	FirstFrameURL *string            `json:"first_frame_url"`
+	LastFrameURL  *string            `json:"last_frame_url"`
+	TempMediaKeys []string           `json:"temp_media_keys"`
+	Content       []videoContentPart `json:"content"`
 }
 
 // Create handles POST /v1/videos — new B2B surface.
@@ -98,6 +100,13 @@ func (h *VideosHandlers) Create(c *gin.Context) {
 	}
 	if input.DurationSeconds <= 0 {
 		input.DurationSeconds = 5
+	}
+	if err := normalizeVideoInput(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{
+			"code":    "invalid_request",
+			"message": err.Error(),
+		}})
+		return
 	}
 
 	// SSRF guard: the worker fetches image_url server-side. Block
@@ -324,6 +333,10 @@ func (h *VideosHandlers) Retry(c *gin.Context) {
 			"code":    "temporary_media_not_retryable",
 			"message": "this job used temporary uploaded media that may have been deleted; upload the media again and submit a new task",
 		}})
+		return
+	}
+	if err := normalizeVideoInput(&input); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "invalid_original_input", "message": "original video input could not be normalized"}})
 		return
 	}
 
@@ -626,21 +639,33 @@ func (h *VideosHandlers) List(c *gin.Context) {
 		// dashboard list view can show the prompt without a per-row lookup.
 		if len(v.Input) > 0 {
 			var inp struct {
-				Prompt          string `json:"prompt"`
-				DurationSeconds int    `json:"duration_seconds"`
-				Resolution      string `json:"resolution"`
-				AspectRatio     string `json:"aspect_ratio"`
+				Prompt          string             `json:"prompt"`
+				DurationSeconds int                `json:"duration_seconds"`
+				Resolution      string             `json:"resolution"`
+				AspectRatio     string             `json:"aspect_ratio"`
+				Ratio           string             `json:"ratio"`
+				Content         []videoContentPart `json:"content"`
 			}
 			if err := json.Unmarshal(v.Input, &inp); err == nil {
-				item["prompt"] = inp.Prompt
+				prompt := inp.Prompt
+				if strings.TrimSpace(prompt) == "" && len(inp.Content) > 0 {
+					if fields, fieldsErr := videoContentFieldsFromParts(inp.Content); fieldsErr == nil {
+						prompt = fields.Prompt
+					}
+				}
+				item["prompt"] = prompt
 				if inp.DurationSeconds > 0 {
 					item["duration_seconds"] = inp.DurationSeconds
 				}
 				if inp.Resolution != "" {
 					item["resolution"] = inp.Resolution
 				}
-				if inp.AspectRatio != "" {
-					item["ratio"] = inp.AspectRatio
+				ratio := inp.AspectRatio
+				if ratio == "" {
+					ratio = inp.Ratio
+				}
+				if ratio != "" {
+					item["ratio"] = ratio
 				}
 			}
 		}

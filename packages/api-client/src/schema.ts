@@ -283,7 +283,7 @@ export interface paths {
         /**
          * Create video (legacy)
          * @deprecated
-         * @description Legacy endpoint retained for backwards compatibility. Prefer POST /videos. Accepts the same body as VideoCreateRequest and returns a Video object.
+         * @description Legacy endpoint retained for backwards compatibility. Prefer POST /videos. Accepts model plus the same fields as VideoInput at the top level.
          */
         post: operations["createVideoLegacy"];
         delete?: never;
@@ -1292,6 +1292,25 @@ export interface components {
             /** Format: uri */
             url: string;
         };
+        VideoContentMediaURL: {
+            /** @description Public HTTPS URL or approved asset://ut-asset-* URL. */
+            url: string;
+        };
+        /** @description UpToken-compatible content[] part. Shared generation params such as duration_seconds, resolution, ratio/aspect_ratio, generate_audio, draft, and seed remain top-level input fields. */
+        VideoContentPart: {
+            /** @enum {string} */
+            type: "text" | "image_url" | "video_url" | "audio_url";
+            /** @description Text prompt part. Multiple text parts are joined in order. */
+            text?: string;
+            /**
+             * @description Required for explicit media roles; omitted image/video/audio roles default to their reference role.
+             * @enum {string}
+             */
+            role?: "reference_image" | "first_frame" | "last_frame" | "reference_video" | "reference_audio";
+            image_url?: components["schemas"]["VideoContentMediaURL"];
+            video_url?: components["schemas"]["VideoContentMediaURL"];
+            audio_url?: components["schemas"]["VideoContentMediaURL"];
+        };
         /** @description Customer-facing body for POST /v1/videos. `input` carries generation parameters (see VideoInput). Top-level `model`, `webhook_url`, and `idempotency_key` are gateway-level fields. */
         VideoCreateRequest: {
             /**
@@ -1304,8 +1323,17 @@ export interface components {
             webhook_url?: string;
             idempotency_key?: string;
         };
+        LegacyVideoCreateRequest: components["schemas"]["VideoInput"] & {
+            /**
+             * @description Public NextAPI model ID.
+             * @example seedance-2.0-pro
+             */
+            model: string;
+        };
+        /** @description Video generation input. `prompt` is optional when visual media is provided (`image_url`, `image_urls`, `video_urls`, `first_frame_url`, or `last_frame_url`). The gateway intentionally does not impose a local character-only prompt cap; current upstream Seedance/UpToken guidance is language-aware (EN <=1000 words, ZH <=500 chars), and upstream `error.message` is the source of truth for prompt rejection. */
         VideoInput: {
-            prompt: string;
+            /** @description Text prompt. Optional when visual media input exists; no local 2000/4000-character hard cap. */
+            prompt?: string;
             /**
              * Format: uri
              * @description Optional source image for image-to-video.
@@ -1319,6 +1347,8 @@ export interface components {
              */
             mode: "fast" | "normal";
             aspect_ratio?: components["schemas"]["AspectRatio"];
+            /** @description Alias for aspect_ratio. If both are provided, they must match. */
+            ratio?: components["schemas"]["AspectRatio"];
             /** @enum {integer} */
             fps?: 24 | 30;
             /** @description When true, request an audio track with the video (model-dependent). */
@@ -1346,6 +1376,8 @@ export interface components {
              * @description Last frame image (requires first_frame_url).
              */
             last_frame_url?: string;
+            /** @description UpToken-compatible content[] alternative for prompt/media inputs. Mutually exclusive with prompt, image_url, image_urls, video_urls, audio_urls, first_frame_url, and last_frame_url. */
+            content?: components["schemas"]["VideoContentPart"][];
             references?: components["schemas"]["ReferenceItem"][];
         };
         /** @description Server echoes the resolved input back so clients can confirm what was applied. */
@@ -1355,6 +1387,7 @@ export interface components {
             /** Format: uri */
             image_url?: string;
             aspect_ratio?: components["schemas"]["AspectRatio"];
+            ratio?: components["schemas"]["AspectRatio"];
             resolution?: components["schemas"]["Resolution"];
             duration_seconds?: number;
             fps?: number;
@@ -1372,6 +1405,7 @@ export interface components {
             first_frame_url?: string;
             /** Format: uri */
             last_frame_url?: string;
+            content?: components["schemas"]["VideoContentPart"][];
             references?: components["schemas"]["ReferenceItem"][];
         };
         VideoOutput: {
@@ -2409,7 +2443,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["VideoCreateRequest"];
+                "application/json": components["schemas"]["LegacyVideoCreateRequest"];
             };
         };
         responses: {

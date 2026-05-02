@@ -53,6 +53,8 @@ type Provider interface {
   - `seedance-1.0-pro-fast` / `seedance-1.0-lite` → `seedance-2.0-fast`
   - any other ID passes through verbatim.
 - Relay create requests are emitted as upstream `content[]` only; NextAPI does not mix flat media params with `content[]`.
+- Public requests may use either NextAPI flat media fields or UpToken-style `input.content[]`. The gateway normalizes both into the same `GenerationRequest`, so billing, moderation, jobs, retries, and webhooks stay on one path.
+- `input.ratio` is accepted as an alias for `input.aspect_ratio`; if both are present they must match. The relay always sends the upstream field as `ratio`.
 - Prompt is optional when the request already includes visual media (`image_url`, `image_urls`, `video_urls`, `first_frame_url`).
 - Prompt length is not capped locally by a legacy character limit such as 2000 or 4000 chars. Current UpToken/Seedance guidance is language-aware (EN <=1000 words, ZH <=500 chars), so the gateway forwards valid-shaped requests and surfaces upstream `error.message` when the provider rejects prompt content.
 - Role mapping:
@@ -75,4 +77,3 @@ Both live backends share the same resilience envelope:
 ## Out of scope (v1)
 - Multi-provider routing / failover within a single request.
 - Kling / Zhipu real impl (stubs only).
-- Asset Library upload (`POST /v1/assets`) — relay-specific; not exposed through the NextAPI gateway yet. Customers currently pass public HTTPS URLs for reference media.

@@ -409,14 +409,14 @@ paths:
       deprecated: true
       description: >-
         Legacy endpoint retained for backwards compatibility. Prefer POST /videos.
-        Accepts the same body as VideoCreateRequest and returns a Video object.
+        Accepts model plus the same fields as VideoInput at the top level.
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
         required: true
         content:
           application/json:
-            schema: { $ref: '#/components/schemas/VideoCreateRequest' }
+            schema: { $ref: '#/components/schemas/LegacyVideoCreateRequest' }
       responses:
         '202':
           description: Accepted.
@@ -1898,6 +1898,34 @@ components:
           enum: [subject, environment, first_frame, last_frame, reference_video, audio, style]
         url: { type: string, format: uri }
 
+    VideoContentMediaURL:
+      type: object
+      required: [url]
+      properties:
+        url:
+          type: string
+          description: Public HTTPS URL or approved asset://ut-asset-* URL.
+
+    VideoContentPart:
+      type: object
+      required: [type]
+      description: >
+        UpToken-compatible content[] part. Shared generation params such as
+        duration_seconds, resolution, ratio/aspect_ratio, generate_audio,
+        draft, and seed remain top-level input fields.
+      properties:
+        type: { type: string, enum: [text, image_url, video_url, audio_url] }
+        text:
+          type: string
+          description: Text prompt part. Multiple text parts are joined in order.
+        role:
+          type: string
+          enum: [reference_image, first_frame, last_frame, reference_video, reference_audio]
+          description: Required for explicit media roles; omitted image/video/audio roles default to their reference role.
+        image_url: { $ref: '#/components/schemas/VideoContentMediaURL' }
+        video_url: { $ref: '#/components/schemas/VideoContentMediaURL' }
+        audio_url: { $ref: '#/components/schemas/VideoContentMediaURL' }
+
     VideoCreateRequest:
       type: object
       required: [model, input]
@@ -1918,6 +1946,17 @@ components:
         webhook_url: { type: string, format: uri }
         idempotency_key: { type: string, maxLength: 255 }
 
+    LegacyVideoCreateRequest:
+      allOf:
+        - $ref: '#/components/schemas/VideoInput'
+        - type: object
+          required: [model]
+          properties:
+            model:
+              type: string
+              description: Public NextAPI model ID.
+              example: seedance-2.0-pro
+
     VideoInput:
       type: object
       description: >
@@ -1936,6 +1975,10 @@ components:
         resolution: { $ref: '#/components/schemas/Resolution' }
         mode: { type: string, enum: [fast, normal], default: normal }
         aspect_ratio: { $ref: '#/components/schemas/AspectRatio' }
+        ratio:
+          allOf:
+            - $ref: '#/components/schemas/AspectRatio'
+          description: "Alias for aspect_ratio. If both are provided, they must match."
         fps: { type: integer, enum: [24, 30] }
         generate_audio: { type: boolean, description: "When true, request an audio track with the video (model-dependent)." }
         watermark: { type: boolean }
@@ -1959,6 +2002,13 @@ components:
           description: "Reference audio clips (requires image or video input)."
         first_frame_url: { type: string, format: uri, description: "First frame image (mutually exclusive with image_urls)." }
         last_frame_url: { type: string, format: uri, description: "Last frame image (requires first_frame_url)." }
+        content:
+          type: array
+          items: { $ref: '#/components/schemas/VideoContentPart' }
+          description: >
+            UpToken-compatible content[] alternative for prompt/media inputs.
+            Mutually exclusive with prompt, image_url, image_urls, video_urls,
+            audio_urls, first_frame_url, and last_frame_url.
         references:
           type: array
           maxItems: 12
@@ -1972,6 +2022,7 @@ components:
         prompt: { type: string }
         image_url: { type: string, format: uri }
         aspect_ratio: { $ref: '#/components/schemas/AspectRatio' }
+        ratio: { $ref: '#/components/schemas/AspectRatio' }
         resolution: { $ref: '#/components/schemas/Resolution' }
         duration_seconds: { type: integer }
         fps: { type: integer }
@@ -1992,6 +2043,9 @@ components:
           items: { type: string, format: uri }
         first_frame_url: { type: string, format: uri }
         last_frame_url: { type: string, format: uri }
+        content:
+          type: array
+          items: { $ref: '#/components/schemas/VideoContentPart' }
         references:
           type: array
           items: { $ref: '#/components/schemas/ReferenceItem' }

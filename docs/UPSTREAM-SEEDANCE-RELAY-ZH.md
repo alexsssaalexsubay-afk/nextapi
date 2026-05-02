@@ -38,7 +38,7 @@ SEEDANCE_RELAY_ALLOWED_RESOLUTIONS=480p,720p,1080p
 | `POST /v1/videos` | `POST /v1/video/generations` |
 | `GET /v1/videos/:id` | `GET /v1/video/generations/:task_id` |
 | `Authorization: Bearer sk_*` | `Authorization: Bearer <server-side relay key>` |
-| `input.aspect_ratio` | `ratio` |
+| `input.aspect_ratio` / `input.ratio` | `ratio` |
 | `input.duration_seconds` | `duration` |
 | `input.resolution` | `resolution` |
 | `input.generate_audio` | `generate_audio` |
@@ -52,17 +52,25 @@ SEEDANCE_RELAY_ALLOWED_RESOLUTIONS=480p,720p,1080p
 
 网关不再设置旧的本地 `prompt` 字符硬上限（例如 2000 / 4000 字符）。当前 UpToken/Seedance 文档的限制是语言感知的：英文 `<=1000 words`，中文 `<=500 chars`；并且在已有图片、视频或首尾帧输入时 `prompt` 可为空。若上游因为 prompt 内容或长度拒绝请求，应把上游返回的 `error.message` 直接透传给用户，不要改写成固定错误表。
 
+对外 API 同时支持两种输入形态：
+
+- **NextAPI flat fields**：`prompt`、`image_urls`、`first_frame_url`、`video_urls`、`audio_urls` 等。
+- **UpToken content[]**：`content: [{ type: "text" }, { type: "image_url", role: "reference_image" }, ...]`。
+
+这两种形态互斥：一旦传了 `content[]`，就不要再同时传 `prompt`、`image_url(s)`、`video_url(s)`、`audio_url(s)`、`first_frame_url` 或 `last_frame_url`。共享参数（`duration_seconds`、`resolution`、`ratio/aspect_ratio`、`generate_audio`、`draft`、`seed`）仍然放在 `input` 顶层。`ratio` 是 `aspect_ratio` 的别名；两者同时出现时必须一致。
+
 ## 3. 视频能力约束
 
 - 模型：`seedance-2.0-pro`、`seedance-2.0-fast`。
 - 时长：默认 5 秒；**对外 API 与网关校验为 4–15 秒**（与 Seedance 能力一致）。
 - 分辨率：`480p`、`720p`、`1080p`。
-- 画幅：`16:9`、`9:16`、`1:1`、`4:3`、`3:4`、`21:9`、`adaptive`。
+- 画幅：`16:9`、`9:16`、`1:1`、`4:3`、`3:4`、`21:9`、`adaptive`；对外可传 `aspect_ratio` 或上游别名 `ratio`。
 - `image_urls` 最多 9 个，且不能和 `first_frame_url` 同时使用。
 - `video_urls` 最多 3 个。
 - `audio_urls` 最多 3 个，且必须同时提供图片或视频输入。
 - `last_frame_url` 必须和 `first_frame_url` 一起使用。
 - 只要请求里已经有视觉媒体输入，`prompt` 可以为空。
+- `content[]` 里的 `image_url` 支持 `reference_image`、`first_frame`、`last_frame`；`video_url` 支持 `reference_video`；`audio_url` 支持 `reference_audio`。上传真人肖像时，应先通过素材库拿到 `asset://ut-asset-*`，等状态为 `active` 后再作为引用传入。
 
 ## 4. 错误码策略
 
