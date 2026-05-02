@@ -38,20 +38,30 @@ type EngineStatus struct {
 	Reason            string `json:"reason,omitempty"`
 }
 
+type PromptEnhancement struct {
+	Continuity      string   `json:"continuity,omitempty"`
+	CameraPlan      string   `json:"camera_plan,omitempty"`
+	SubjectLock     string   `json:"subject_lock,omitempty"`
+	ReferencePolicy string   `json:"reference_policy,omitempty"`
+	QualityTerms    []string `json:"quality_terms,omitempty"`
+	AudioCue        string   `json:"audio_cue,omitempty"`
+}
+
 type Shot struct {
-	ShotIndex             int      `json:"shotIndex"`
-	Title                 string   `json:"title"`
-	Duration              int      `json:"duration"`
-	Scene                 string   `json:"scene"`
-	Camera                string   `json:"camera"`
-	Emotion               string   `json:"emotion"`
-	Action                string   `json:"action"`
-	VideoPrompt           string   `json:"videoPrompt"`
-	ImagePrompt           string   `json:"imagePrompt"`
-	NegativePrompt        string   `json:"negativePrompt"`
-	ReferenceAssets       []string `json:"referenceAssets"`
-	ReferenceImageAssetID string   `json:"referenceImageAssetId,omitempty"`
-	ReferenceImageURL     string   `json:"referenceImageUrl,omitempty"`
+	ShotIndex             int                `json:"shotIndex"`
+	Title                 string             `json:"title"`
+	Duration              int                `json:"duration"`
+	Scene                 string             `json:"scene"`
+	Camera                string             `json:"camera"`
+	Emotion               string             `json:"emotion"`
+	Action                string             `json:"action"`
+	VideoPrompt           string             `json:"videoPrompt"`
+	ImagePrompt           string             `json:"imagePrompt"`
+	NegativePrompt        string             `json:"negativePrompt"`
+	PromptEnhancement     *PromptEnhancement `json:"promptEnhancement,omitempty"`
+	ReferenceAssets       []string           `json:"referenceAssets"`
+	ReferenceImageAssetID string             `json:"referenceImageAssetId,omitempty"`
+	ReferenceImageURL     string             `json:"referenceImageUrl,omitempty"`
 }
 
 type Storyboard struct {

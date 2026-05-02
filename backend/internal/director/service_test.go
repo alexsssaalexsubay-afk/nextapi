@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/aiprovider"
@@ -74,6 +75,38 @@ func TestGenerateShotsValidatesAndRepairs(t *testing.T) {
 	if len(out.Shots) != 1 || out.Shots[0].VideoPrompt == "founder in studio" {
 		t.Fatalf("shot was not validated/enriched: %+v", out.Shots)
 	}
+	if out.Shots[0].PromptEnhancement == nil || out.Shots[0].PromptEnhancement.CameraPlan == "" {
+		t.Fatalf("prompt enhancement missing: %+v", out.Shots[0])
+	}
+}
+
+func TestGenerateShotsAddsDirectorPromptEnhancement(t *testing.T) {
+	valid := `{"title":"Portrait","summary":"A short portrait","shots":[{"shotIndex":1,"title":"Open","duration":5,"scene":"forest","camera":"slow push-in","emotion":"quiet confidence","action":"Lin walks toward camera","videoPrompt":"Lin walks through the forest","imagePrompt":"Lin portrait in forest","referenceAssets":["asset://ut-asset-approved"]}]}`
+	svc := NewService(&fakeText{responses: []string{valid}})
+	out, err := svc.GenerateShots(context.Background(), GenerateShotsInput{
+		Story:           "Lin walks through a forest",
+		Scene:           "sunlit forest",
+		Style:           "cinematic realistic",
+		ShotCount:       1,
+		DurationPerShot: 5,
+		Characters:      []CharacterInput{{Name: "Lin", AssetID: "lin", ReferenceImages: []string{"asset://ut-asset-approved"}}},
+	})
+	if err != nil {
+		t.Fatalf("GenerateShots: %v", err)
+	}
+	shot := out.Shots[0]
+	if shot.NegativePrompt == "" {
+		t.Fatal("negative prompt was not filled")
+	}
+	if shot.PromptEnhancement == nil {
+		t.Fatalf("prompt enhancement missing: %+v", shot)
+	}
+	if shot.PromptEnhancement.SubjectLock == "" || shot.PromptEnhancement.ReferencePolicy == "" || len(shot.PromptEnhancement.QualityTerms) == 0 {
+		t.Fatalf("prompt enhancement incomplete: %+v", shot.PromptEnhancement)
+	}
+	if !strings.Contains(shot.VideoPrompt, "camera plan: slow push-in") || !strings.Contains(shot.VideoPrompt, "same character") {
+		t.Fatalf("video prompt was not director-enriched: %q", shot.VideoPrompt)
+	}
 }
 
 func TestGenerateShotsProviderFailure(t *testing.T) {
@@ -120,7 +153,7 @@ func TestGenerateShotImagesReturnsProviderError(t *testing.T) {
 }
 
 func TestBuildWorkflowFromShots(t *testing.T) {
-	def, err := BuildWorkflowFromShots(Storyboard{Title: "T", Shots: []Shot{{ShotIndex: 1, Title: "A", Duration: 4, VideoPrompt: "p", NegativePrompt: "n", ReferenceAssets: []string{"https://cdn.nextapi.test/ref.png"}}}}, WorkflowOptions{})
+	def, err := BuildWorkflowFromShots(Storyboard{Title: "T", Shots: []Shot{{ShotIndex: 1, Title: "A", Duration: 4, VideoPrompt: "p", NegativePrompt: "n", PromptEnhancement: &PromptEnhancement{CameraPlan: "push"}, ReferenceAssets: []string{"https://cdn.nextapi.test/ref.png"}}}}, WorkflowOptions{})
 	if err != nil {
 		t.Fatalf("BuildWorkflowFromShots: %v", err)
 	}
@@ -129,22 +162,36 @@ func TestBuildWorkflowFromShots(t *testing.T) {
 			MaxParallel int `json:"max_parallel"`
 		} `json:"metadata"`
 		Nodes []struct {
-			Type string `json:"type"`
+			Type string          `json:"type"`
+			Data json.RawMessage `json:"data"`
 		} `json:"nodes"`
 		Edges []json.RawMessage `json:"edges"`
 	}
 	if err := json.Unmarshal(def, &parsed); err != nil {
 		t.Fatalf("json: %v", err)
 	}
-	foundVideo, foundOutput, foundMerge, foundImage := false, false, false, false
+	foundVideo, foundOutput, foundMerge, foundImage, foundPromptEnhancement := false, false, false, false, false
 	for _, n := range parsed.Nodes {
 		foundVideo = foundVideo || n.Type == "seedance.video"
 		foundOutput = foundOutput || n.Type == "output.preview"
 		foundMerge = foundMerge || n.Type == "video.merge"
 		foundImage = foundImage || n.Type == "image.input"
+		if n.Type == "prompt.input" {
+			var data struct {
+				NegativePrompt    string             `json:"negative_prompt"`
+				PromptEnhancement *PromptEnhancement `json:"prompt_enhancement"`
+			}
+			if err := json.Unmarshal(n.Data, &data); err != nil {
+				t.Fatalf("prompt node data: %v", err)
+			}
+			foundPromptEnhancement = data.NegativePrompt == "n" && data.PromptEnhancement != nil
+		}
 	}
 	if !foundVideo || !foundOutput || foundMerge || !foundImage || len(parsed.Edges) == 0 {
 		t.Fatalf("missing expected workflow nodes/edges: %+v", parsed)
+	}
+	if !foundPromptEnhancement {
+		t.Fatalf("prompt enhancement not embedded in prompt node: %+v", parsed.Nodes)
 	}
 	if parsed.Metadata.MaxParallel != 1 {
 		t.Fatalf("max_parallel=%d want 1", parsed.Metadata.MaxParallel)

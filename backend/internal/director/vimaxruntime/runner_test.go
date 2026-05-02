@@ -83,6 +83,9 @@ func TestRunnerSendsManagedCallbackAndToken(t *testing.T) {
 	if out.EngineUsed != director.EngineAdvancedSidecar || out.EngineStatus == nil || out.EngineStatus.FallbackUsed {
 		t.Fatalf("sidecar engine status not exposed: used=%q status=%+v", out.EngineUsed, out.EngineStatus)
 	}
+	if out.Shots[0].PromptEnhancement == nil || out.Shots[0].PromptEnhancement.SubjectLock == "" {
+		t.Fatalf("sidecar storyboard was not normalized with director prompt enhancement: %+v", out.Shots[0])
+	}
 }
 
 func TestRunnerMarksFallbackWhenSidecarMissing(t *testing.T) {
@@ -99,6 +102,9 @@ func TestRunnerMarksFallbackWhenSidecarMissing(t *testing.T) {
 	}
 	if out.EngineUsed != director.EngineAdvancedFallback || out.EngineStatus == nil || !out.EngineStatus.FallbackUsed || out.EngineStatus.Reason != "sidecar_not_configured" {
 		t.Fatalf("fallback engine status not exposed: used=%q status=%+v", out.EngineUsed, out.EngineStatus)
+	}
+	if out.Shots[0].PromptEnhancement == nil || out.Shots[0].NegativePrompt == "" || out.Shots[0].PromptEnhancement.CameraPlan == "" {
+		t.Fatalf("fallback storyboard was not enriched: %+v", out.Shots[0])
 	}
 }
 

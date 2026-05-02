@@ -218,6 +218,31 @@ show reservation/reconciliation evidence without recalculating from unrelated
 job tables. Org scoping is mandatory; a run owned by another org must behave as
 not found.
 
+## NextAPI Director Intelligence Contract
+
+The advanced runtime is useful only when its creative capabilities become
+NextAPI-owned execution evidence. Every storyboard shot must therefore carry a
+normalized `promptEnhancement` object before it is converted to workflow JSON:
+
+- `continuity`: how this shot preserves timeline, scene, wardrobe, and emotion
+  from the surrounding shots.
+- `camera_plan`: the cinematic movement and framing instruction used by the
+  video model.
+- `subject_lock`: the identity, body, face, and wardrobe consistency instruction.
+- `reference_policy`: how uploaded/approved assets should be referenced without
+  bypassing the NextAPI asset library.
+- `quality_terms`: deterministic video-quality and anti-deformation terms added
+  by the backend.
+- `audio_cue`: the intended audio/dialogue/sound direction when audio generation
+  is enabled.
+
+The sidecar may provide richer versions of these fields, but the Go backend must
+fill any missing fields deterministically. This keeps `advanced_sidecar`,
+`advanced_fallback`, and `nextapi` plans compatible with Canvas and with the
+existing workflow/job/billing path. It also prevents upstream project terms,
+keys, task queues, direct storage, or direct billing semantics from leaking into
+public API responses.
+
 When a run reaches `director_steps.step_key = "final_asset"`, both list and
 detail responses expose a compact `final_asset` evidence object derived from
 that existing step output. The object is read-only and may include the merged

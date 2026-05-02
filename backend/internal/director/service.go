@@ -143,7 +143,16 @@ func BuildWorkflowFromShots(storyboard Storyboard, options WorkflowOptions) (jso
 		promptID := fmt.Sprintf("shot_%d_prompt", shot.ShotIndex)
 		paramsID := fmt.Sprintf("shot_%d_params", shot.ShotIndex)
 		videoID := fmt.Sprintf("shot_%d_video", shot.ShotIndex)
-		promptData, _ := json.Marshal(map[string]any{"label": shot.Title, "prompt": shot.VideoPrompt})
+		promptData, _ := json.Marshal(map[string]any{
+			"label":              shot.Title,
+			"prompt":             shot.VideoPrompt,
+			"scene":              shot.Scene,
+			"camera":             shot.Camera,
+			"emotion":            shot.Emotion,
+			"action":             shot.Action,
+			"negative_prompt":    shot.NegativePrompt,
+			"prompt_enhancement": shot.PromptEnhancement,
+		})
 		paramsData, _ := json.Marshal(map[string]any{"label": "Video params", "duration": shot.Duration, "aspect_ratio": ratio, "resolution": resolution, "generate_audio": options.GenerateAudio, "negative_prompt": shot.NegativePrompt})
 		videoData, _ := json.Marshal(map[string]any{"label": "Seedance video", "model": model})
 		nodes = append(nodes,
@@ -411,20 +420,193 @@ func parseStoryboard(raw string, in GenerateShotsInput) (*Storyboard, error) {
 		if strings.TrimSpace(out.Shots[i].VideoPrompt) == "" || strings.TrimSpace(out.Shots[i].ImagePrompt) == "" {
 			return nil, ErrInvalidStoryboard
 		}
-		out.Shots[i].VideoPrompt = ensurePromptTerms(out.Shots[i].VideoPrompt)
-		if out.Shots[i].ReferenceAssets == nil {
-			out.Shots[i].ReferenceAssets = []string{}
-		}
+		EnrichShotForGeneration(&out.Shots[i], in)
 	}
 	return &out, nil
 }
 
-func ensurePromptTerms(prompt string) string {
-	required := "cinematic quality, stable face, same character, consistent clothing, natural body proportions, no distortion, stable camera movement"
-	if strings.Contains(prompt, "stable face") {
+var directorQualityTerms = []string{
+	"cinematic quality",
+	"clear facial features",
+	"stable face",
+	"same character",
+	"consistent clothing",
+	"natural body proportions",
+	"normal body proportions",
+	"natural body structure",
+	"no distortion",
+	"no deformation",
+	"stable camera movement",
+	"smooth and fluid footage",
+	"sharp details",
+}
+
+const defaultDirectorNegativePrompt = "cartoon, anime, fake face, plastic skin, over smooth skin, face distortion, unstable identity, extra fingers, blurry, low quality, text, subtitles, watermark"
+
+func EnrichShotForGeneration(shot *Shot, in GenerateShotsInput) {
+	if shot == nil {
+		return
+	}
+	shot.VideoPrompt = ensurePromptTerms(shot.VideoPrompt, shot, in)
+	shot.ImagePrompt = ensureImagePromptTerms(shot.ImagePrompt, shot, in)
+	if strings.TrimSpace(shot.NegativePrompt) == "" {
+		shot.NegativePrompt = defaultDirectorNegativePrompt
+	}
+	shot.PromptEnhancement = normalizePromptEnhancement(shot.PromptEnhancement, *shot, in)
+	if shot.ReferenceAssets == nil {
+		shot.ReferenceAssets = []string{}
+	}
+}
+
+func normalizePromptEnhancement(current *PromptEnhancement, shot Shot, in GenerateShotsInput) *PromptEnhancement {
+	out := &PromptEnhancement{}
+	if current != nil {
+		*out = *current
+	}
+	if strings.TrimSpace(out.Continuity) == "" {
+		out.Continuity = continuityInstruction(shot, in)
+	}
+	if strings.TrimSpace(out.CameraPlan) == "" {
+		out.CameraPlan = cameraInstruction(shot)
+	}
+	if strings.TrimSpace(out.SubjectLock) == "" {
+		out.SubjectLock = subjectLockInstruction(in)
+	}
+	if strings.TrimSpace(out.ReferencePolicy) == "" {
+		out.ReferencePolicy = referencePolicyInstruction(shot, in)
+	}
+	if strings.TrimSpace(out.AudioCue) == "" {
+		out.AudioCue = audioCueInstruction(shot)
+	}
+	out.QualityTerms = mergeQualityTerms(out.QualityTerms)
+	return out
+}
+
+func ensurePromptTerms(prompt string, shot *Shot, in GenerateShotsInput) string {
+	out := strings.TrimSpace(prompt)
+	out = appendPromptClause(out, sceneInstruction(*shot, in))
+	out = appendPromptClause(out, cameraInstruction(*shot))
+	out = appendPromptClause(out, continuityInstruction(*shot, in))
+	out = appendPromptClause(out, subjectLockInstruction(in))
+	out = appendPromptClause(out, strings.Join(directorQualityTerms, ", "))
+	return out
+}
+
+func ensureImagePromptTerms(prompt string, shot *Shot, in GenerateShotsInput) string {
+	out := strings.TrimSpace(prompt)
+	out = appendPromptClause(out, sceneInstruction(*shot, in))
+	out = appendPromptClause(out, subjectLockInstruction(in))
+	out = appendPromptClause(out, "high resolution reference frame, consistent wardrobe, clean composition, sharp details")
+	return out
+}
+
+func appendPromptClause(prompt string, clause string) string {
+	clause = strings.TrimSpace(clause)
+	if clause == "" {
 		return prompt
 	}
-	return strings.TrimSpace(prompt) + ", " + required
+	if prompt == "" {
+		return clause
+	}
+	if strings.Contains(strings.ToLower(prompt), strings.ToLower(clause)) {
+		return prompt
+	}
+	return prompt + ", " + clause
+}
+
+func sceneInstruction(shot Shot, in GenerateShotsInput) string {
+	parts := make([]string, 0, 3)
+	if v := strings.TrimSpace(shot.Scene); v != "" {
+		parts = append(parts, "scene: "+v)
+	} else if v := strings.TrimSpace(in.Scene); v != "" {
+		parts = append(parts, "scene: "+v)
+	}
+	if v := strings.TrimSpace(in.Style); v != "" {
+		parts = append(parts, "visual style: "+v)
+	}
+	if v := strings.TrimSpace(shot.Action); v != "" {
+		parts = append(parts, "action: "+v)
+	}
+	return strings.Join(parts, ", ")
+}
+
+func cameraInstruction(shot Shot) string {
+	camera := strings.TrimSpace(shot.Camera)
+	if camera == "" {
+		camera = "controlled cinematic framing with stable movement"
+	}
+	return "camera plan: " + camera
+}
+
+func continuityInstruction(shot Shot, in GenerateShotsInput) string {
+	parts := []string{"maintain timeline continuity"}
+	if v := strings.TrimSpace(in.Scene); v != "" {
+		parts = append(parts, "same world and location logic: "+v)
+	}
+	if v := strings.TrimSpace(shot.Emotion); v != "" {
+		parts = append(parts, "emotion progression: "+v)
+	}
+	return strings.Join(parts, ", ")
+}
+
+func subjectLockInstruction(in GenerateShotsInput) string {
+	names := make([]string, 0, len(in.Characters))
+	for _, character := range in.Characters {
+		if name := strings.TrimSpace(character.Name); name != "" {
+			names = append(names, name)
+		}
+	}
+	if len(names) == 0 {
+		return "keep identity, face, body structure, wardrobe, and proportions consistent across shots"
+	}
+	return "keep " + strings.Join(names, ", ") + " identity, face, body structure, wardrobe, and proportions consistent across shots"
+}
+
+func referencePolicyInstruction(shot Shot, in GenerateShotsInput) string {
+	if len(shot.ReferenceAssets) > 0 || shot.ReferenceImageURL != "" || hasCharacterReferences(in.Characters) {
+		return "use approved NextAPI asset-library references in order; describe them as Image 1, Image 2, and never bypass asset review for real portraits"
+	}
+	return "no external media required; if portraits are added later, use approved NextAPI asset-library references before video generation"
+}
+
+func audioCueInstruction(shot Shot) string {
+	if emotion := strings.TrimSpace(shot.Emotion); emotion != "" {
+		return "sound should support the " + emotion + " emotional beat without overpowering dialogue"
+	}
+	return "natural ambience and restrained cinematic sound design"
+}
+
+func hasCharacterReferences(characters []CharacterInput) bool {
+	for _, character := range characters {
+		if len(character.ReferenceImages) > 0 || strings.TrimSpace(character.AssetID) != "" {
+			return true
+		}
+	}
+	return false
+}
+
+func mergeQualityTerms(existing []string) []string {
+	out := make([]string, 0, len(existing)+len(directorQualityTerms))
+	seen := map[string]struct{}{}
+	add := func(term string) {
+		term = strings.TrimSpace(term)
+		if term == "" {
+			return
+		}
+		key := strings.ToLower(term)
+		if _, ok := seen[key]; ok {
+			return
+		}
+		seen[key] = struct{}{}
+		out = append(out, term)
+	}
+	for _, term := range existing {
+		add(term)
+	}
+	for _, term := range directorQualityTerms {
+		add(term)
+	}
+	return out
 }
 
 func userPrompt(in GenerateShotsInput) string {
@@ -439,6 +621,7 @@ const systemPrompt = `你是一个专业短剧导演、分镜师和 AI 视频提
 你要保证角色一致性、服装一致性、场景连续性、情绪递进。
 每个 videoPrompt 应该适合 Seedance/UpToken 视频生成，包含 cinematic quality, stable face, same character, consistent clothing, natural body proportions, no distortion, stable camera movement。
 每个 imagePrompt 应该适合图像生成，作为该镜头的高清参考图。
+每个镜头都要给 promptEnhancement，说明连续性、镜头计划、主体锁定、参考素材策略、质量词和音频意图。
 
 输出 JSON schema：
 {
@@ -456,6 +639,14 @@ const systemPrompt = `你是一个专业短剧导演、分镜师和 AI 视频提
       "videoPrompt": string,
       "imagePrompt": string,
       "negativePrompt": string,
+      "promptEnhancement": {
+        "continuity": string,
+        "camera_plan": string,
+        "subject_lock": string,
+        "reference_policy": string,
+        "quality_terms": string[],
+        "audio_cue": string
+      },
       "referenceAssets": string[]
     }
   ]
