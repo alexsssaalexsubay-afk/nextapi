@@ -73,6 +73,24 @@ Confirmed direct-call exits:
 
 Integration decision: reuse the director/screenwriter/storyboard call graph, but block the direct image/video tools for production. The sidecar currently uses the text-model planning modules to produce storyboard JSON; image generation, video generation, task status, storage, and billing remain inside NextAPI-owned systems.
 
+The sidecar planning chain should execute the reusable creative modules in this
+order:
+
+1. `screenwriter.develop_story` expands the user's idea into a coherent story.
+2. `screenwriter.write_script_based_on_story` divides the story into scene scripts.
+3. `script_enhancer.enhance_script` tightens continuity, sensory detail,
+   dialogue, and scene transitions without changing the plot.
+4. `character_extractor.extract_characters` extracts identity, static features,
+   and dynamic wardrobe/prop details from the enhanced script.
+5. `storyboard_artist.design_storyboard` creates per-scene shot briefs.
+6. `storyboard_artist.decompose_visual_description` turns each brief into first
+   frame, last frame, motion, and variation evidence.
+
+Only text-provider calls may execute inside this chain, and every call must go
+through the NextAPI runtime callback. Image generation, video generation, asset
+review, task status, metering, and billing still belong to the Go backend and
+existing workflow/job pipeline.
+
 # Integration Plan
 
 ## Adapter Design

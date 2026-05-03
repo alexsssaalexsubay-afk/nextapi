@@ -70,6 +70,24 @@ def _response_for(prompt: str) -> str:
                 },
             ],
         })
+    if "dissect and rewrite" in lowered or "first frame description" in lowered:
+        return json.dumps({
+            "ff_desc": "Wide first frame of <Lin> at the left edge of a neon rain street, facing forward.",
+            "ff_vis_char_idxs": [0],
+            "lf_desc": "Last frame holds on <Lin> centered in the rain street, glowing card raised near chest level.",
+            "lf_vis_char_idxs": [0],
+            "motion_desc": "Slow push-in with rain reflections moving across the foreground while Lin raises the glowing card.",
+            "variation_type": "small",
+            "variation_reason": "The same character and location remain visible while pose and framing change.",
+        })
+    if "enhance a planned narrative script" in lowered or "planned_script_start" in lowered:
+        return json.dumps({
+            "enhanced_script": (
+                "EXT. NEON STREET - NIGHT. Lin, a young creator in a silver jacket and black trousers, "
+                "steps through steady rain while holding a glowing card. The wet pavement reflects green "
+                "and blue signs. Lin says: \"We start now.\""
+            ),
+        })
     if "adapt the user's input story" in lowered or "write_script_based_on_story" in lowered:
         return json.dumps({
             "script": [
@@ -107,7 +125,7 @@ async def _run_smoke() -> dict[str, Any]:
         audit = result.get("audit", {})
         if len(shots) != 2:
             raise RuntimeError(f"expected 2 shots, got {len(shots)}")
-        if len(_FakeProviderHandler.calls) < 3:
+        if len(_FakeProviderHandler.calls) < 6:
             raise RuntimeError(f"expected provider callback calls, got {len(_FakeProviderHandler.calls)}")
         if audit.get("source") != "vendored_director_pipeline":
             raise RuntimeError(f"unexpected source: {audit.get('source')}")
@@ -115,6 +133,8 @@ async def _run_smoke() -> dict[str, Any]:
             raise RuntimeError("text provider exit was not replaced by NextAPI")
         if any(not shot.get("videoPrompt") or not shot.get("imagePrompt") for shot in shots):
             raise RuntimeError("all shots must include videoPrompt and imagePrompt")
+        if any(not shot.get("promptEnhancement", {}).get("camera_plan") for shot in shots):
+            raise RuntimeError("all shots must include promptEnhancement.camera_plan")
         return {
             "status": "ok",
             "provider_callback_calls": len(_FakeProviderHandler.calls),

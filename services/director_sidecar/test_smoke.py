@@ -19,9 +19,11 @@ class DirectorSidecarSmokeTest(unittest.TestCase):
         self.assertEqual(result["status"], "ok")
         self.assertEqual(result["source"], "vendored_director_pipeline")
         self.assertEqual(result["shot_count"], 2)
-        self.assertGreaterEqual(result["provider_callback_calls"], 3)
+        self.assertGreaterEqual(result["provider_callback_calls"], 6)
         self.assertIn("screenwriter.develop_story", result["reusable_modules"])
+        self.assertIn("script_enhancer.enhance_script", result["reusable_modules"])
         self.assertIn("storyboard_artist.design_storyboard", result["reusable_modules"])
+        self.assertIn("storyboard_artist.decompose_visual_description", result["reusable_modules"])
         self.assertIn("chat_model.ainvoke -> NextAPI textProvider", result["replaced_model_exits"])
 
 

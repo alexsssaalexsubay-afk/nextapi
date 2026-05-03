@@ -14,6 +14,7 @@ class CharacterInput(BaseModel):
     name: str = ""
     description: str = ""
     asset_id: str = ""
+    reference_images: list[str] = Field(default_factory=list)
 
 
 class ProviderPolicy(BaseModel):

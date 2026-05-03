@@ -1,9 +1,15 @@
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass
 from typing import Any
 
 import httpx
+
+try:
+    from langchain_core.runnables import Runnable
+except ModuleNotFoundError:  # pragma: no cover - sidecar deps are optional for local compile checks.
+    Runnable = object
 
 
 @dataclass
@@ -15,7 +21,7 @@ class NextAPIProviderError(RuntimeError):
     pass
 
 
-class NextAPIChatModel:
+class NextAPIChatModel(Runnable):
     """Small LangChain-compatible adapter backed by the Go Provider runtime."""
 
     def __init__(
@@ -36,9 +42,17 @@ class NextAPIChatModel:
     def __or__(self, parser: Any) -> "_ProviderParserChain":
         return _ProviderParserChain(self, parser)
 
-    async def ainvoke(self, messages: Any) -> ProviderMessage:
+    def invoke(self, messages: Any, config: Any | None = None, **kwargs: Any) -> ProviderMessage | str:
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            return asyncio.run(self.ainvoke(messages, config=config, **kwargs))
+        raise NextAPIProviderError("sync invoke is not supported inside a running event loop")
+
+    async def ainvoke(self, messages: Any, config: Any | None = None, **kwargs: Any) -> ProviderMessage | str:
         if not self.callback_base_url or not self.callback_token:
             raise NextAPIProviderError("director runtime callback is not configured")
+        return_text = hasattr(messages, "to_messages")
         payload = {
             "provider_id": self.provider_id,
             "org_id": self.org_id,
@@ -59,6 +73,8 @@ class NextAPIChatModel:
         text = str(data.get("text") or "").strip()
         if not text:
             raise NextAPIProviderError("text provider returned an empty response")
+        if return_text:
+            return text
         return ProviderMessage(content=text)
 
 
@@ -79,6 +95,8 @@ class _ProviderParserChain:
 def _normalize_messages(messages: Any) -> list[dict[str, str]]:
     if messages is None:
         return []
+    if hasattr(messages, "to_messages"):
+        messages = messages.to_messages()
     if not isinstance(messages, list):
         messages = [messages]
     out: list[dict[str, str]] = []
