@@ -21,8 +21,13 @@ class TestNextAPIDirectorPlan(unittest.TestCase):
         self.assertEqual(len(plan["shots"]), 2)
         self.assertEqual(plan["shots"][0]["content"][0]["type"], "text")
         self.assertEqual(plan["shots"][0]["content"][1]["image_url"]["url"], "asset://ut-asset-hero")
+        self.assertEqual(plan["workbench"]["schema"], "nextapi.director_workbench.v1")
+        self.assertIn("composition", plan["shots"][0])
+        self.assertIn("timeline", plan["shots"][0])
         self.assertEqual(plan["workflow"]["nodes"][2]["type"], "NextAPIGenerateVideo")
+        self.assertEqual(plan["workflow"]["nodes"][2]["params"]["shot_id"], plan["shots"][0]["id"])
         self.assertIn("storyboard_artist.design_storyboard", plan["agent_chain"])
+        self.assertIn("cinematography_shot_agent.refine_shot", plan["agent_chain"])
 
     def test_rejects_empty_script(self):
         with self.assertRaises(ValueError):

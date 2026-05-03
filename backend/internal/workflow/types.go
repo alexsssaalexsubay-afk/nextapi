@@ -6,6 +6,7 @@ const (
 	NodeImageInput    = "image.input"
 	NodePromptInput   = "prompt.input"
 	NodeVideoParams   = "video.params"
+	NodeDirectorLLM   = "director.llm"
 	NodeSeedanceVideo = "seedance.video"
 	NodeVideoMerge    = "video.merge"
 	NodeOutputPreview = "output.preview"

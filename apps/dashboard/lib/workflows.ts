@@ -17,6 +17,7 @@ export type CanvasNodeType =
   | "image.input"
   | "prompt.input"
   | "video.params"
+  | "director.llm"
   | "seedance.video"
   | "video.merge"
   | "output.preview"

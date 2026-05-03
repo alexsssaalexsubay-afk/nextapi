@@ -1,19 +1,30 @@
 """NextAPI-facing director adapter for the vendored ViMax project.
 
 This module keeps the ViMax side responsible for story/shot planning while
-emitting a payload that ComfyUI and NextAPI can consume directly. It is local
-and deterministic by default so the customer toolkit can run without model keys.
-
-TODO(nextapi): Replace the deterministic planner with the real ViMax agent chain:
-Screenwriter -> ScriptEnhancer -> CharacterExtractor -> StoryboardArtist.
+emitting a payload that ComfyUI and NextAPI can consume directly. It can run the
+real ViMax agent chain when a LangChain-compatible chat model is provided, and
+keeps a deterministic fallback for offline ComfyUI/client use.
 """
 
 from __future__ import annotations
 
 import json
 import re
+import importlib.util
 from dataclasses import asdict, dataclass
+from pathlib import Path
 from typing import Any
+
+try:
+    from agents.cinematography_shot_agent import deterministic_cinematography_plan
+except ModuleNotFoundError:
+    _cinema_path = Path(__file__).resolve().parent / "agents" / "cinematography_shot_agent.py"
+    _cinema_spec = importlib.util.spec_from_file_location("_nextapi_vimax_cinematography", _cinema_path)
+    if _cinema_spec is None or _cinema_spec.loader is None:
+        raise
+    _cinema_module = importlib.util.module_from_spec(_cinema_spec)
+    _cinema_spec.loader.exec_module(_cinema_module)
+    deterministic_cinematography_plan = _cinema_module.deterministic_cinematography_plan
 
 
 AGENT_CHAIN = [
@@ -23,6 +34,7 @@ AGENT_CHAIN = [
     "character_extractor.extract_characters",
     "storyboard_artist.design_storyboard",
     "storyboard_artist.decompose_visual_description",
+    "cinematography_shot_agent.refine_shot",
 ]
 
 QUALITY_TERMS = (
@@ -54,11 +66,14 @@ class DirectorShot:
     aspect_ratio: str
     camera: str
     motion: str
+    composition: str
+    edit_intent: str
     prompt: str
     negative_prompt: str
     continuity_group: str
     content: list[dict[str, Any]]
     references: dict[str, str]
+    timeline: dict[str, Any]
 
 
 def build_nextapi_director_plan(
@@ -113,6 +128,139 @@ def build_nextapi_director_plan(
         "shots": [asdict(shot) for shot in shots],
     }
     plan["workflow"] = build_comfyui_workflow(plan)
+    plan["workbench"] = build_workbench_payload(plan)
+    return plan
+
+
+async def build_nextapi_director_plan_with_agents(
+    chat_model: Any,
+    script_text: str,
+    *,
+    shot_count: int = 3,
+    duration: int = 5,
+    aspect_ratio: str = "16:9",
+    style: str = "cinematic realistic",
+    character_refs: str = "",
+    title: str = "",
+    user_requirement: str = "",
+) -> dict[str, Any]:
+    """Run the real ViMax director agents and emit the shared NextAPI plan.
+
+    This is the production-facing path used by the sidecar/client runtime. The
+    sync `build_nextapi_director_plan` remains as a no-key local fallback.
+    """
+
+    script = _clean(script_text)
+    if not script:
+        raise ValueError("script_text is empty")
+    shot_count = max(1, min(int(shot_count), 24))
+    duration = max(4, min(int(duration), 15))
+
+    from agents.character_extractor import CharacterExtractor
+    from agents.cinematography_shot_agent import CinematographyShotAgent
+    from agents.screenwriter import Screenwriter
+    from agents.script_enhancer import ScriptEnhancer
+    from agents.storyboard_artist import StoryboardArtist
+
+    requirement = _agent_requirement(
+        shot_count=shot_count,
+        duration=duration,
+        aspect_ratio=aspect_ratio,
+        style=style,
+        user_requirement=user_requirement,
+    )
+    screenwriter = Screenwriter(chat_model)
+    story = await screenwriter.develop_story(script, requirement)
+    scene_scripts = await screenwriter.write_script_based_on_story(story, requirement)
+    if not scene_scripts:
+        scene_scripts = [story]
+
+    script_enhancer = ScriptEnhancer.__new__(ScriptEnhancer)
+    script_enhancer.chat_model = chat_model
+    enhanced_scripts: list[str] = []
+    for scene_script in scene_scripts:
+        enhanced = await script_enhancer.enhance_script(scene_script)
+        enhanced_scripts.append(str(enhanced).strip() or scene_script)
+    scene_scripts = enhanced_scripts or scene_scripts
+
+    full_script = "\n\n".join(scene_scripts)
+    characters = await CharacterExtractor(chat_model).extract_characters(full_script)
+    storyboard_artist = StoryboardArtist(chat_model)
+    cinematographer = CinematographyShotAgent(chat_model)
+    refs = _parse_refs(character_refs)
+
+    scenes: list[DirectorScene] = []
+    shots: list[DirectorShot] = []
+    for scene_index, scene_script in enumerate(scene_scripts):
+        if len(shots) >= shot_count:
+            break
+        scene = DirectorScene(
+            id=f"scene_{scene_index + 1:02d}",
+            index=scene_index + 1,
+            title=f"Scene {scene_index + 1}",
+            description=scene_script,
+        )
+        scenes.append(scene)
+        remaining = shot_count - len(shots)
+        scene_requirement = f"{requirement}\nPlan no more than {remaining} remaining shots."
+        brief_shots = await storyboard_artist.design_storyboard(scene_script, characters, scene_requirement)
+        for brief in brief_shots:
+            if len(shots) >= shot_count:
+                break
+            decomposed = await storyboard_artist.decompose_visual_description(brief, characters)
+            try:
+                cinema = await cinematographer.refine_shot(
+                    shot=decomposed,
+                    scene=scene_script,
+                    characters=characters,
+                    style=style,
+                )
+            except Exception:
+                cinema = deterministic_cinematography_plan(
+                    visual=str(getattr(decomposed, "visual_desc", "") or ""),
+                    motion=str(getattr(decomposed, "motion_desc", "") or ""),
+                    scene=scene_script,
+                    characters=characters,
+                    style=style,
+                    shot_index=len(shots),
+                )
+            shots.append(
+                _build_shot_from_agent(
+                    scene=scene,
+                    raw_shot=decomposed,
+                    cinema=cinema,
+                    global_index=len(shots),
+                    local_index=len([s for s in shots if s.scene_id == scene.id]),
+                    duration=duration,
+                    aspect_ratio=aspect_ratio,
+                    refs=refs,
+                )
+            )
+
+    if not shots:
+        return build_nextapi_director_plan(
+            script,
+            shot_count=shot_count,
+            duration=duration,
+            aspect_ratio=aspect_ratio,
+            style=style,
+            character_refs=character_refs,
+            title=title,
+        )
+
+    summary = _summary(story)
+    resolved_title = title.strip() or _title(summary)
+    plan = {
+        "schema": "nextapi.director_plan.v1",
+        "source": "vimax.agent_chain",
+        "title": resolved_title,
+        "summary": summary,
+        "agent_chain": AGENT_CHAIN,
+        "scenes": [asdict(scene) for scene in scenes],
+        "shots": [asdict(shot) for shot in shots],
+    }
+    plan["workflow"] = build_comfyui_workflow(plan)
+    plan["workbench"] = build_workbench_payload(plan)
     return plan
 
 
@@ -159,6 +307,44 @@ def build_comfyui_workflow(plan: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def build_workbench_payload(plan: dict[str, Any]) -> dict[str, Any]:
+    """Emit a compact client-workbench model beside the ComfyUI graph."""
+
+    shots = plan.get("shots") or []
+    return {
+        "schema": "nextapi.director_workbench.v1",
+        "selected_shot_id": shots[0].get("id", "") if shots else "",
+        "timeline": [
+            {
+                "id": shot.get("id", ""),
+                "scene_id": shot.get("scene_id", ""),
+                "title": shot.get("title", ""),
+                "duration": shot.get("duration", 5),
+                "camera": shot.get("camera", ""),
+                "motion": shot.get("motion", ""),
+                "edit_intent": shot.get("edit_intent", ""),
+                "prompt": shot.get("prompt", ""),
+            }
+            for shot in shots
+        ],
+        "canvas_nodes": [
+            {
+                "id": shot.get("id", ""),
+                "type": "seedance_video",
+                "label": shot.get("title", ""),
+                "selected": index == 0,
+                "params": {
+                    "prompt": shot.get("prompt", ""),
+                    "duration": shot.get("duration", 5),
+                    "aspect_ratio": shot.get("aspect_ratio", "16:9"),
+                    "references": shot.get("references", {}),
+                },
+            }
+            for index, shot in enumerate(shots)
+        ],
+    }
+
+
 def plan_to_json(plan: dict[str, Any]) -> str:
     return json.dumps(plan, ensure_ascii=False, indent=2)
 
@@ -188,16 +374,21 @@ def _build_shot(
     style: str,
     refs: list[str],
 ) -> DirectorShot:
-    camera = _camera_for(global_index)
-    motion = _motion_for(global_index)
+    cinema = deterministic_cinematography_plan(
+        visual=scene.description,
+        motion="",
+        scene=scene.description,
+        characters=[],
+        style=style,
+        shot_index=global_index,
+    )
+    camera = cinema.camera
+    motion = cinema.motion
     reference_text = _reference_text(refs)
     prompt = ", ".join(
         part
         for part in [
-            scene.description,
-            f"visual style: {style}",
-            camera,
-            motion,
+            cinema.prompt,
             reference_text,
             QUALITY_TERMS,
         ]
@@ -215,11 +406,80 @@ def _build_shot(
         aspect_ratio=aspect_ratio,
         camera=camera,
         motion=motion,
+        composition=cinema.composition,
+        edit_intent=cinema.edit_intent,
         prompt=prompt,
         negative_prompt=NEGATIVE_PROMPT,
         continuity_group=f"{scene.id}_continuity",
         content=content,
         references=_refs_dict(refs),
+        timeline={
+            "start": global_index * duration,
+            "end": (global_index + 1) * duration,
+            "edit_intent": cinema.edit_intent,
+        },
+    )
+
+
+def _build_shot_from_agent(
+    *,
+    scene: DirectorScene,
+    raw_shot: Any,
+    cinema: Any,
+    global_index: int,
+    local_index: int,
+    duration: int,
+    aspect_ratio: str,
+    refs: list[str],
+) -> DirectorShot:
+    visual = str(getattr(raw_shot, "visual_desc", "") or "").strip()
+    audio = str(getattr(raw_shot, "audio_desc", "") or "").strip()
+    first_frame = str(getattr(raw_shot, "ff_desc", "") or "").strip()
+    last_frame = str(getattr(raw_shot, "lf_desc", "") or "").strip()
+    camera = str(getattr(cinema, "camera", "") or "").strip()
+    motion = str(getattr(cinema, "motion", "") or "").strip()
+    composition = str(getattr(cinema, "composition", "") or "").strip()
+    edit_intent = str(getattr(cinema, "edit_intent", "") or "").strip()
+    base_prompt = str(getattr(cinema, "prompt", "") or visual).strip()
+    reference_text = _reference_text(refs)
+    prompt = ", ".join(
+        part
+        for part in [
+            base_prompt,
+            f"first frame: {first_frame}" if first_frame else "",
+            f"last frame: {last_frame}" if last_frame else "",
+            f"audio cue: {audio}" if audio else "",
+            reference_text,
+            QUALITY_TERMS,
+        ]
+        if part
+    )
+    content: list[dict[str, Any]] = [{"type": "text", "text": prompt}]
+    for ref in refs[:9]:
+        content.append({"type": "image_url", "image_url": {"url": ref}, "role": "reference_image"})
+    return DirectorShot(
+        id=f"{scene.id}_shot_{local_index + 1:02d}",
+        scene_id=scene.id,
+        index=global_index + 1,
+        title=f"{scene.title} Shot {local_index + 1}",
+        duration=duration,
+        aspect_ratio=aspect_ratio,
+        camera=camera,
+        motion=motion,
+        composition=composition,
+        edit_intent=edit_intent,
+        prompt=prompt,
+        negative_prompt=NEGATIVE_PROMPT,
+        continuity_group=f"{scene.id}_continuity",
+        content=content,
+        references=_refs_dict(refs),
+        timeline={
+            "start": global_index * duration,
+            "end": (global_index + 1) * duration,
+            "edit_intent": edit_intent,
+            "first_frame": first_frame,
+            "last_frame": last_frame,
+        },
     )
 
 
@@ -283,3 +543,25 @@ def _title(summary: str) -> str:
 
 def _clean(value: str) -> str:
     return re.sub(r"[ \t]+", " ", (value or "").strip())
+
+
+def _agent_requirement(
+    *,
+    shot_count: int,
+    duration: int,
+    aspect_ratio: str,
+    style: str,
+    user_requirement: str,
+) -> str:
+    parts = [
+        "Create a production-ready AI video director plan.",
+        f"Target shots: {shot_count}.",
+        f"Duration per shot: {duration}s.",
+        f"Aspect ratio: {aspect_ratio}.",
+        f"Visual style: {style}.",
+        "Optimize for a node canvas, timeline editor, and Seedance-compatible content[] requests.",
+        "Preserve character identity, wardrobe, props, and scene continuity.",
+    ]
+    if user_requirement.strip():
+        parts.append(user_requirement.strip())
+    return "\n".join(parts)

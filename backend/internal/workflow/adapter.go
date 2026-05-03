@@ -11,8 +11,9 @@ import (
 )
 
 var (
-	ErrInvalidWorkflow  = errors.New("invalid_workflow")
-	ErrWorkflowNotFound = errors.New("workflow_not_found")
+	ErrInvalidWorkflow             = errors.New("invalid_workflow")
+	ErrWorkflowNotFound            = errors.New("workflow_not_found")
+	ErrDirectorEntitlementRequired = errors.New("ai_director_entitlement_required")
 )
 
 func WorkflowToExistingVideoPayload(raw json.RawMessage) (*ExistingVideoPayload, provider.GenerationRequest, json.RawMessage, error) {
@@ -50,6 +51,29 @@ func WorkflowToGenerationRequests(raw json.RawMessage) ([]ExistingVideoPayload, 
 		inputs = append(inputs, inputJSON)
 	}
 	return payloads, requests, inputs, nil
+}
+
+func WorkflowRequiresDirectorEntitlement(raw json.RawMessage) bool {
+	var def Definition
+	if err := json.Unmarshal(raw, &def); err != nil {
+		return false
+	}
+	var metadata map[string]any
+	if len(def.Metadata) > 0 && json.Unmarshal(def.Metadata, &metadata) == nil {
+		if metadata["requires_director_entitlement"] == true {
+			return true
+		}
+	}
+	for _, node := range def.Nodes {
+		if node.Type == NodeDirectorLLM {
+			return true
+		}
+		var data map[string]any
+		if len(node.Data) > 0 && json.Unmarshal(node.Data, &data) == nil && data["requires_director_entitlement"] == true {
+			return true
+		}
+	}
+	return false
 }
 
 func videoNodeToPayload(def Definition, seedance Node) (*ExistingVideoPayload, provider.GenerationRequest, json.RawMessage, error) {

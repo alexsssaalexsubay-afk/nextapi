@@ -22,10 +22,12 @@ import { AlertTriangle, CheckCircle2, ChevronDown, ChevronUp, Code2, GitBranch, 
 import { toast } from "sonner"
 import { ModelSelect } from "@/components/ai/model-select"
 import { apiFetch, ApiError } from "@/lib/api"
+import { importWorkflowJSON } from "@/lib/comfyui-import"
 import { useVideoModelCatalog } from "@/lib/use-video-model-catalog"
 import {
   createWorkflow,
   exportWorkflowAPI,
+  getDirectorStatus,
   getWorkflow,
   libraryAssetGenerationURL,
   listLibraryAssets,
@@ -49,6 +51,11 @@ type CanvasNodeData = Record<string, unknown> & {
   image_url?: string
   preview_url?: string
   image_type?: "character" | "scene" | "reference"
+  script?: string
+  style?: string
+  character_refs?: string
+  shot_count?: number
+  requires_director_entitlement?: boolean
   duration?: number
   aspect_ratio?: string
   resolution?: string
@@ -101,11 +108,12 @@ function FlowNode({ data, type, selected }: NodeProps<CanvasNode>) {
   const nodeType = String(data.node_type || type)
   const Icon =
     nodeType === "image.input" ? ImageIcon :
-      nodeType === "prompt.input" ? Type :
-        nodeType === "video.params" ? Settings2 :
-          nodeType === "seedance.video" ? Sparkles :
-            nodeType === "video.merge" ? GitBranch :
-            Video
+          nodeType === "prompt.input" ? Type :
+            nodeType === "video.params" ? Settings2 :
+              nodeType === "director.llm" ? Sparkles :
+                nodeType === "seedance.video" ? Sparkles :
+                  nodeType === "video.merge" ? GitBranch :
+                  Video
   const status = data.node_status
   return (
     <div
@@ -149,6 +157,7 @@ function nodeAccent(nodeType: string) {
   if (nodeType === "image.input") return "bg-cyan-400/70"
   if (nodeType === "prompt.input") return "bg-violet-400/70"
   if (nodeType === "video.params") return "bg-amber-400/70"
+  if (nodeType === "director.llm") return "bg-emerald-400/70"
   if (nodeType === "seedance.video") return "bg-fuchsia-500/70"
   if (nodeType === "video.merge") return "bg-emerald-400/70"
   return "bg-signal/70"
@@ -181,6 +190,7 @@ export function CanvasWorkspace() {
   const [selectedId, setSelectedId] = useState<string>("node_seedance_1")
   const [inspectorOpen, setInspectorOpen] = useState(true)
   const [workflow, setWorkflow] = useState<WorkflowRecord | null>(null)
+  const [workflowMetadata, setWorkflowMetadata] = useState<Record<string, unknown>>({})
   const [name, setName] = useState(labels.defaultName)
   const [saving, setSaving] = useState(false)
   const [running, setRunning] = useState(false)
@@ -191,6 +201,7 @@ export function CanvasWorkspace() {
   const [assets, setAssets] = useState<LibraryAsset[]>([])
   const [uploadingImage, setUploadingImage] = useState(false)
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const workflowImportInputRef = useRef<HTMLInputElement | null>(null)
   const videoCatalog = useVideoModelCatalog()
 
   const selectedNode = useMemo(() => nodes.find((n) => n.id === selectedId) ?? null, [nodes, selectedId])
@@ -223,6 +234,7 @@ export function CanvasWorkspace() {
     if (!id) return
     getWorkflow(id).then((row) => {
       setWorkflow(row)
+      setWorkflowMetadata(row.workflow_json.metadata || {})
       setName(row.name)
       setNodes(row.workflow_json.nodes.map((n) => ({ id: n.id, type: "canvas", position: n.position ?? { x: 0, y: 0 }, data: { ...n.data, node_type: n.type } })))
       setEdges(row.workflow_json.edges.map((edge) => ({ id: edge.id ?? `edge_${edge.source}_${edge.target}`, source: edge.source, target: edge.target })))
@@ -267,7 +279,8 @@ export function CanvasWorkspace() {
       type === "image.input" ? { label: labels.imageNode, image_type: "reference", image_url: "" } :
         type === "prompt.input" ? { label: labels.promptNode, prompt: "" } :
           type === "video.params" ? { label: labels.paramsNode, duration: 5, aspect_ratio: "9:16", resolution: "1080p", seed: null } :
-            type === "seedance.video" ? { label: labels.videoNode, model: "seedance-2.0-pro" } :
+            type === "director.llm" ? { label: labels.directorNode, script: "", style: "cinematic realistic", shot_count: 3, duration: 5, aspect_ratio: "9:16", requires_director_entitlement: true } :
+              type === "seedance.video" ? { label: labels.videoNode, model: "seedance-2.0-pro" } :
               type === "video.merge" ? { label: labels.mergeNode } :
                 { label: labels.outputNode }
     setNodes((items) => [...items, { id, type: "canvas", position: { x: 180 + items.length * 24, y: 120 + items.length * 16 }, data: { ...data, node_type: type } }])
@@ -277,6 +290,7 @@ export function CanvasWorkspace() {
   const toWorkflowJSON = useCallback((): WorkflowJSON => ({
     name,
     model: seedanceModel(nodes),
+    metadata: workflowMetadata,
     nodes: nodes.map((n) => ({
       id: n.id,
       type: String(n.data.node_type) as CanvasNodeType,
@@ -284,7 +298,7 @@ export function CanvasWorkspace() {
       data: stripRuntimeData(n.data),
     })),
     edges: edges.map((edge) => ({ id: edge.id, source: edge.source, target: edge.target })),
-  }), [edges, name, nodes])
+  }), [edges, name, nodes, workflowMetadata])
 
   const validateClient = (json: WorkflowJSON): string | null => {
     const seedance = json.nodes.filter((n) => n.type === "seedance.video")
@@ -325,6 +339,32 @@ export function CanvasWorkspace() {
     }
   }
 
+  const importWorkflowFile = async (file: File | undefined) => {
+    if (!file) return
+    try {
+      const text = await file.text()
+      const imported = importWorkflowJSON(JSON.parse(text))
+      setWorkflow(null)
+      setName(imported.name || labels.defaultName)
+      setWorkflowMetadata(imported.metadata || {})
+      setNodes(imported.nodes.map((n) => ({ id: n.id, type: "canvas", position: n.position ?? { x: 0, y: 0 }, data: { ...n.data, node_type: n.type } })))
+      setEdges(imported.edges.map((edge) => ({ id: edge.id ?? `edge_${edge.source}_${edge.target}`, source: edge.source, target: edge.target })))
+      setSelectedId(imported.nodes[0]?.id || "")
+      setInspectorOpen(true)
+      toast.success(labels.imported)
+    } catch {
+      toast.error(labels.importFailed)
+    }
+  }
+
+  const ensureDirectorEntitlement = async (json: WorkflowJSON) => {
+    if (!requiresDirectorEntitlement(json)) return true
+    const status = await getDirectorStatus()
+    if (status.available) return true
+    toast.error(status.blocking_reason === "vip_required" ? labels.directorVipRequired : labels.directorUnavailable)
+    return false
+  }
+
   const refreshVideo = useCallback(async (id: string) => {
     const video = await apiFetch(`/v1/videos/${id}`) as CurrentVideo
     setCurrentVideo(video)
@@ -358,6 +398,8 @@ export function CanvasWorkspace() {
     if (running) return
     setRunning(true)
     try {
+      const json = toWorkflowJSON()
+      if (!await ensureDirectorEntitlement(json)) return
       const saved = workflow ?? await save()
       if (!saved) return
       setNodes((items) => items.map((item) => String(item.data.node_type) === "seedance.video" ? { ...item, data: { ...item.data, node_status: "running", error_message: undefined } } : item))
@@ -390,6 +432,8 @@ export function CanvasWorkspace() {
   const exportAPI = async () => {
     setExporting(true)
     try {
+      const json = toWorkflowJSON()
+      if (!await ensureDirectorEntitlement(json)) return
       const saved = workflow ?? await save()
       if (!saved) return
       const result = await exportWorkflowAPI(saved.id)
@@ -503,6 +547,10 @@ export function CanvasWorkspace() {
             {saving ? <Loader2 className="size-3.5 animate-spin" /> : <Save className="size-3.5" />}
             {labels.save}
           </button>
+          <button type="button" onClick={() => workflowImportInputRef.current?.click()} className="inline-flex h-8 items-center gap-2 rounded-md border border-border bg-background px-3 text-[12px] hover:border-signal/35">
+            <UploadCloud className="size-3.5" />
+            {labels.importJson}
+          </button>
           <button type="button" onClick={saveTemplate} disabled={templateSaving} className="inline-flex h-8 items-center gap-2 rounded-md border border-border bg-background px-3 text-[12px] hover:border-signal/35 disabled:opacity-60">
             {templateSaving ? <Loader2 className="size-3.5 animate-spin" /> : <Sparkles className="size-3.5" />}
             {labels.saveTemplate}
@@ -518,10 +566,22 @@ export function CanvasWorkspace() {
         </div>
       </div>
 
+      <input
+        ref={workflowImportInputRef}
+        type="file"
+        accept="application/json,.json"
+        className="sr-only"
+        onChange={(event) => {
+          void importWorkflowFile(event.target.files?.[0])
+          event.currentTarget.value = ""
+        }}
+      />
+
       <aside className="absolute left-3 top-24 z-30 rounded-xl border border-border bg-card/92 p-2 shadow-sm" aria-label={labels.nodeLibraryHint}>
         <NodeButton label={labels.imageNode} icon={<ImageIcon className="size-4" />} onClick={() => addNode("image.input")} />
         <NodeButton label={labels.promptNode} icon={<Type className="size-4" />} onClick={() => addNode("prompt.input")} />
         <NodeButton label={labels.paramsNode} icon={<Settings2 className="size-4" />} onClick={() => addNode("video.params")} />
+        <NodeButton label={labels.directorNode} icon={<Sparkles className="size-4" />} onClick={() => addNode("director.llm")} />
         <NodeButton label={labels.videoNode} icon={<Sparkles className="size-4" />} onClick={() => addNode("seedance.video")} />
         <NodeButton label={labels.outputNode} icon={<Video className="size-4" />} onClick={() => addNode("output.preview")} />
       </aside>
@@ -784,6 +844,30 @@ function NodeInspector({
           </label>
         </div>
       ) : null}
+      {type === "director.llm" ? (
+        <div className="space-y-3">
+          <div className="rounded-lg border border-emerald-400/30 bg-emerald-400/10 px-3 py-2 text-[11.5px] text-emerald-500">
+            {labels.directorLockedHint}
+          </div>
+          <label className="block">
+            <span className="mb-1 block text-[11px] text-muted-foreground">{labels.story}</span>
+            <textarea value={String(selectedNode.data.script || "")} onChange={(event) => onChange({ script: event.target.value })} rows={5} className="w-full resize-none rounded-md border border-border/80 bg-background px-3 py-2 text-[12.5px] focus:outline-none" />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-[11px] text-muted-foreground">{labels.style}</span>
+            <input value={String(selectedNode.data.style || "")} onChange={(event) => onChange({ style: event.target.value })} className="h-9 w-full rounded-md border border-border/80 bg-background px-3 text-[12.5px] focus:outline-none" />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-[11px] text-muted-foreground">{labels.characterRefs}</span>
+            <textarea value={String(selectedNode.data.character_refs || "")} onChange={(event) => onChange({ character_refs: event.target.value })} rows={3} className="w-full resize-none rounded-md border border-border/80 bg-background px-3 py-2 font-mono text-[11.5px] focus:outline-none" />
+          </label>
+          <div className="grid gap-3 md:grid-cols-2">
+            <RangeField label={labels.shotCount} value={Number(selectedNode.data.shot_count || 3)} min={1} max={12} onChange={(shot_count) => onChange({ shot_count })} />
+            <RangeField label={labels.duration} value={Number(selectedNode.data.duration || durationMin)} min={durationMin} max={durationMax} onChange={(duration) => onChange({ duration })} />
+          </div>
+          <Select label={labels.aspectRatio} value={String(selectedNode.data.aspect_ratio || "9:16")} values={withCurrent(ratioOptions, String(selectedNode.data.aspect_ratio || "9:16"))} onChange={(value) => onChange({ aspect_ratio: value })} />
+        </div>
+      ) : null}
       {type === "seedance.video" ? (
         <VideoComposer
           node={selectedNode}
@@ -936,6 +1020,11 @@ function stripRuntimeData(data: CanvasNodeData): Record<string, unknown> {
 function seedanceModel(nodes: CanvasNode[]): string {
   const seedance = nodes.find((n) => String(n.data.node_type) === "seedance.video")
   return String(seedance?.data.model || "seedance-2.0-pro")
+}
+
+function requiresDirectorEntitlement(json: WorkflowJSON): boolean {
+  if (json.metadata?.requires_director_entitlement === true) return true
+  return json.nodes.some((item) => item.type === "director.llm" || item.data?.requires_director_entitlement === true)
 }
 
 function taskStatusToNodeStatus(status: string): NonNullable<CanvasNodeData["node_status"]> {

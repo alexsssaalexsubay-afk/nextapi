@@ -211,6 +211,9 @@ func (s *Service) Run(ctx context.Context, workflowID string, in RunInput) (*Run
 	if err != nil {
 		return nil, err
 	}
+	if err := s.ensureDirectorEntitlement(ctx, in.OrgID, row.WorkflowJSON); err != nil {
+		return nil, err
+	}
 	payloads, requests, inputs, multiErr := WorkflowToGenerationRequests(row.WorkflowJSON)
 	if multiErr == nil && len(requests) > 1 {
 		return s.runBatch(ctx, row, in, payloads, requests, inputs)
@@ -270,6 +273,38 @@ func (s *Service) Run(ctx context.Context, workflowID string, in RunInput) (*Run
 		EstimatedCostCents: res.EstimatedCredits,
 		JobIDs:             []string{res.JobID},
 	}, nil
+}
+
+func (s *Service) aiDirectorEntitled(ctx context.Context, orgID string) (bool, error) {
+	if s == nil || s.db == nil {
+		return false, nil
+	}
+	var row domain.AIDirectorEntitlement
+	err := s.db.WithContext(ctx).First(&row, "org_id = ?", orgID).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	if !row.Enabled {
+		return false, nil
+	}
+	return row.ExpiresAt == nil || row.ExpiresAt.After(time.Now()), nil
+}
+
+func (s *Service) ensureDirectorEntitlement(ctx context.Context, orgID string, raw json.RawMessage) error {
+	if !WorkflowRequiresDirectorEntitlement(raw) {
+		return nil
+	}
+	entitled, err := s.aiDirectorEntitled(ctx, orgID)
+	if err != nil {
+		return err
+	}
+	if !entitled {
+		return ErrDirectorEntitlementRequired
+	}
+	return nil
 }
 
 func (s *Service) runBatch(ctx context.Context, row *domain.Workflow, in RunInput, payloads []ExistingVideoPayload, requests []provider.GenerationRequest, inputs []json.RawMessage) (*RunResult, error) {
@@ -588,6 +623,9 @@ func (s *Service) RunTemplateBatch(ctx context.Context, templateID string, in Te
 func (s *Service) ExportAPI(ctx context.Context, orgID, workflowID string) (*ExportResult, error) {
 	row, err := s.Get(ctx, orgID, workflowID)
 	if err != nil {
+		return nil, err
+	}
+	if err := s.ensureDirectorEntitlement(ctx, orgID, row.WorkflowJSON); err != nil {
 		return nil, err
 	}
 	payload, _, _, err := WorkflowToExistingVideoPayload(row.WorkflowJSON)

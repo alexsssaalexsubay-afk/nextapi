@@ -118,6 +118,9 @@ def _load_director_module(vimax_root: str):
 
 
 def _load_module(path: Path):
+    root = str(path.parent)
+    if root not in sys.path:
+        sys.path.insert(0, root)
     spec = importlib.util.spec_from_file_location("_nextapi_vimax_director", path)
     if spec is None or spec.loader is None:
         raise RuntimeError(f"cannot load ViMax director module: {path}")

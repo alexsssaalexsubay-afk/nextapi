@@ -256,6 +256,10 @@ func (h *WorkflowHandlers) handleWorkflowError(c *gin.Context, err error) {
 		httpx.BadRequest(c, "invalid_workflow", "workflow is invalid")
 		return
 	}
+	if errors.Is(err, workflowsvc.ErrDirectorEntitlementRequired) {
+		httpx.PaymentRequired(c, "ai_director_entitlement_required", "AI Director membership is required to run Director or LLM workflow nodes")
+		return
+	}
 	if errors.Is(err, job.ErrInsufficient) || errors.Is(err, spend.ErrInsufficientBalance) {
 		httpx.PaymentRequired(c, "insufficient_quota.balance", "top up to continue")
 		return

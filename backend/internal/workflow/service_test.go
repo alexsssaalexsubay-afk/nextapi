@@ -3,6 +3,7 @@ package workflow
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"strings"
 	"testing"
 
@@ -59,6 +60,45 @@ func TestWorkflowBatchMaxParallelClampsUnsafeValues(t *testing.T) {
 	got := workflowBatchMaxParallel(raw)
 	if got == nil || *got != 20 {
 		t.Fatalf("max_parallel=%v want 20", got)
+	}
+}
+
+func TestWorkflowRequiresDirectorEntitlement(t *testing.T) {
+	raw := mustJSON(t, Definition{
+		Metadata: json.RawMessage(`{"source":"comfyui_import","requires_director_entitlement":true}`),
+		Nodes: []Node{
+			node(t, "director", NodeDirectorLLM, map[string]any{"script": "story"}),
+			node(t, "prompt", NodePromptInput, PromptInputData{Prompt: "prompt"}),
+			node(t, "params", NodeVideoParams, VideoParamsData{Duration: 5, AspectRatio: "16:9", Resolution: "1080p"}),
+			node(t, "video", NodeSeedanceVideo, SeedanceVideoData{}),
+		},
+		Edges: []Edge{{Source: "prompt", Target: "video"}, {Source: "params", Target: "video"}},
+	})
+	if !WorkflowRequiresDirectorEntitlement(raw) {
+		t.Fatal("imported Director workflow should require AI Director entitlement")
+	}
+}
+
+func TestServiceRunBlocksDirectorWorkflowWithoutEntitlement(t *testing.T) {
+	db := setupServiceTestDB(t)
+	svc := NewService(db, nil)
+	ctx := context.Background()
+	raw := mustJSON(t, Definition{
+		Metadata: json.RawMessage(`{"requires_director_entitlement":true}`),
+		Nodes: []Node{
+			node(t, "director", NodeDirectorLLM, map[string]any{"script": "story"}),
+			node(t, "prompt", NodePromptInput, PromptInputData{Prompt: "prompt"}),
+			node(t, "params", NodeVideoParams, VideoParamsData{Duration: 5, AspectRatio: "16:9", Resolution: "1080p"}),
+			node(t, "video", NodeSeedanceVideo, SeedanceVideoData{}),
+		},
+		Edges: []Edge{{Source: "prompt", Target: "video"}, {Source: "params", Target: "video"}},
+	})
+	row, err := svc.Create(ctx, CreateInput{OrgID: "org_1", Name: "Imported Director", WorkflowJSON: raw})
+	if err != nil {
+		t.Fatalf("Create returned error: %v", err)
+	}
+	if _, err := svc.Run(ctx, row.ID, RunInput{OrgID: "org_1"}); !errors.Is(err, ErrDirectorEntitlementRequired) {
+		t.Fatalf("Run error = %v; want ErrDirectorEntitlementRequired", err)
 	}
 }
 
@@ -319,6 +359,16 @@ func setupServiceTestDB(t *testing.T) *gorm.DB {
 			preview_video_url TEXT,
 			estimated_cost_cents INTEGER,
 			usage_count INTEGER NOT NULL DEFAULT 0,
+			created_at DATETIME,
+			updated_at DATETIME
+		)`,
+		`CREATE TABLE ai_director_entitlements (
+			org_id TEXT PRIMARY KEY,
+			tier TEXT NOT NULL DEFAULT 'vip',
+			enabled BOOLEAN NOT NULL DEFAULT true,
+			expires_at DATETIME,
+			note TEXT NOT NULL DEFAULT '',
+			updated_by TEXT NOT NULL DEFAULT '',
 			created_at DATETIME,
 			updated_at DATETIME
 		)`,
