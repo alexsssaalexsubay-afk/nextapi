@@ -5,8 +5,11 @@ import os
 from pathlib import Path
 
 from fastapi import FastAPI, Header, HTTPException
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
+from .local_client import router as local_client_router
 from .vimax_bridge import ManagedDirectorBridge, PipelineUnavailable
 
 
@@ -52,6 +55,15 @@ class StoryboardRequest(BaseModel):
 
 
 app = FastAPI(title="NextAPI Director Runtime", version="0.1.0")
+app.include_router(local_client_router)
+
+_CLIENT_DIR = Path(__file__).resolve().parent / "client"
+app.mount("/client/assets", StaticFiles(directory=_CLIENT_DIR), name="director-studio-assets")
+
+
+@app.get("/client", include_in_schema=False)
+async def local_client() -> FileResponse:
+    return FileResponse(_CLIENT_DIR / "index.html")
 
 
 @app.get("/health")

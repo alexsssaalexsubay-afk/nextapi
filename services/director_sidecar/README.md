@@ -29,6 +29,25 @@ python -m services.director_sidecar.smoke
 
 This starts a fake internal text-provider callback and verifies that the vendored screenwriter, character extractor, and storyboard artist execute without any external model keys.
 
+Local client:
+
+```bash
+export NEXTAPI_PUBLIC_API_BASE="https://api.nextapi.top"
+uvicorn services.director_sidecar.app:app --host 127.0.0.1 --port 8091
+open http://127.0.0.1:8091/client
+```
+
+`/client` serves `NextAPI Director Studio`, a local shell for users who want to
+paste a NextAPI API key and run Director from their own machine. It calls the
+public NextAPI API through `/client/api/director/run`, so browser CORS and
+provider secrets do not become part of the client. The key stays in the local
+browser session unless the user explicitly enables the remember toggle.
+
+The local prompt refinement endpoint (`/client/api/prompt/refine`) is
+deterministic and does not call another model. It converts a rough idea into a
+director-ready prompt with subject, action, scene, camera, continuity, reference,
+quality, and negative-prompt fields.
+
 Backend env:
 
 ```bash

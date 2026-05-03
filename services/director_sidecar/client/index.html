@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>NextAPI Director Studio</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2306080a'/%3E%3Cpath d='M17 45V19l30 26V19' fill='none' stroke='%2300d6a3' stroke-width='8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
+    <link rel="stylesheet" href="/client/assets/styles.css" />
+  </head>
+  <body>
+    <main class="studio-shell">
+      <header class="topbar">
+        <div class="brand">
+          <span class="mark">N</span>
+          <div>
+            <strong>NextAPI Director Studio</strong>
+            <span>local client</span>
+          </div>
+        </div>
+        <form class="status-strip" autocomplete="off">
+          <label class="key-field">
+            <span>API key</span>
+            <input id="apiKey" type="password" autocomplete="off" placeholder="sk_..." />
+          </label>
+          <label class="remember">
+            <input id="rememberKey" type="checkbox" />
+            <span>记住</span>
+          </label>
+          <button id="clearKey" class="ghost" type="button">清除</button>
+        </form>
+      </header>
+
+      <section class="workspace">
+        <aside class="rail" aria-label="Director tools">
+          <button class="rail-action active" type="button" title="Director">✦</button>
+          <button class="rail-action" type="button" title="Prompt">T</button>
+          <button class="rail-action" type="button" title="Assets">@</button>
+        </aside>
+
+        <section class="board" aria-label="Director workspace">
+          <div class="node input-node selected">
+            <div class="node-icon">T</div>
+            <div>
+              <strong>Story input</strong>
+              <span>director.story</span>
+            </div>
+          </div>
+
+          <svg class="edge" viewBox="0 0 680 220" aria-hidden="true">
+            <path d="M70 110 C210 18 310 192 430 110 S600 110 650 110" />
+            <circle cx="430" cy="110" r="10" />
+          </svg>
+
+          <div class="node output-node">
+            <div class="node-icon">▶</div>
+            <div>
+              <strong>Director run</strong>
+              <span>workflow.ready</span>
+            </div>
+          </div>
+
+          <form id="directorForm" class="composer">
+            <textarea
+              id="story"
+              rows="5"
+              placeholder="一句故事、产品镜头或角色动作。支持先点“精修”，再提交 Director。"
+            ></textarea>
+            <div class="composer-bottom">
+              <select id="genre" aria-label="genre">
+                <option value="short drama">短剧</option>
+                <option value="product showcase">产品片</option>
+                <option value="music video">音乐视频</option>
+                <option value="reference edit">参考改片</option>
+              </select>
+              <select id="style" aria-label="style">
+                <option value="cinematic realistic">cinematic realistic</option>
+                <option value="commercial premium">commercial premium</option>
+                <option value="documentary natural">documentary natural</option>
+                <option value="neon sci-fi">neon sci-fi</option>
+              </select>
+              <select id="ratio" aria-label="ratio">
+                <option value="9:16">9:16</option>
+                <option value="16:9">16:9</option>
+                <option value="1:1">1:1</option>
+                <option value="adaptive">adaptive</option>
+              </select>
+              <label class="compact-field">
+                <span>镜头</span>
+                <input id="shotCount" type="number" min="1" max="12" value="3" />
+              </label>
+              <label class="compact-field">
+                <span>秒</span>
+                <input id="duration" type="number" min="4" max="15" value="5" />
+              </label>
+              <button id="refineBtn" class="secondary" type="button">精修</button>
+              <button id="runBtn" class="primary" type="submit">运行</button>
+            </div>
+          </form>
+        </section>
+
+        <aside class="panel" aria-label="Run output">
+          <div class="panel-head">
+            <strong>Output</strong>
+            <span id="runState">idle</span>
+          </div>
+          <section class="mini-card">
+            <span>Refined prompt</span>
+            <pre id="refinedPrompt">等待输入</pre>
+          </section>
+          <section class="mini-card">
+            <span>Director response</span>
+            <pre id="directorOutput">{}</pre>
+          </section>
+        </aside>
+      </section>
+    </main>
+    <script src="/client/assets/app.js" type="module"></script>
+  </body>
+</html>

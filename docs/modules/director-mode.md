@@ -403,6 +403,34 @@ pnpm director:smoke -- --execute --require-advanced
 
 The smoke script fails rather than reporting success when VIP entitlement, provider configuration, sidecar health, workflow persistence, video node generation, or queue handoff is missing.
 
+# Local Director Studio
+
+The vendored advanced-director runtime also ships a local client shell branded as
+`NextAPI Director Studio`. It is a local operator/user utility, not a second
+cloud product and not a second billing path.
+
+Local entry:
+
+- `GET /client` serves a compact dark workspace from the sidecar.
+- `POST /client/api/director/run` proxies to the public NextAPI backend using a
+  user-supplied NextAPI API key.
+- `POST /client/api/prompt/refine` runs a deterministic local prompt refinement
+  pass before submission.
+
+The local client intentionally avoids upstream project names, provider keys,
+large introduction cards, and separate task state. Users paste a NextAPI API key
+locally; the sidecar forwards only the current request to `NEXTAPI_PUBLIC_API_BASE`
+(default `https://api.nextapi.top`) with `Authorization: Bearer <key>`. The key
+is never written to repo files, logged by the sidecar, or converted into an
+upstream provider credential.
+
+Prompt refinement is inspired by open prompt-optimization systems such as
+PromptWizard, prompt-ops, and Automatic Prompt Engineer: it separates subject,
+action, scene, camera, continuity, quality, and negative constraints into a
+repeatable prompt contract. This slice keeps the optimizer deterministic and
+local; it does not add another LLM dependency, another provider key, or an
+unreviewed autonomous prompt mutation loop.
+
 # Server Deployment Notes
 
 - Web entry: `app.nextapi.top` dashboard.
