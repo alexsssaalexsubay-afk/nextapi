@@ -1,6 +1,6 @@
 # ComfyUI-NextAPI
 
-Production ComfyUI custom node package for the NextAPI / Seedance video generation API. Five opinionated nodes wire end-to-end into any existing ComfyUI graph: **Auth → Asset Resolver → Generate Video → Poll Job → Download Result**.
+Production ComfyUI custom node package for the NextAPI / Seedance video generation API. Six opinionated nodes wire end-to-end into any existing ComfyUI graph: **Auth → Director Plan / Asset Resolver → Generate Video → Poll Job → Download Result**.
 
 ## Install
 
@@ -20,12 +20,15 @@ Restart ComfyUI. The new nodes appear under the **NextAPI** category in the righ
 | Node | Inputs | Outputs | Notes |
 |------|--------|---------|-------|
 | **NextAPI · Auth** | `base_url`, `api_key`, `request_timeout_seconds`, `max_retries` | `auth` (NEXTAPI_AUTH) | Required upstream of every other node. Reads `NEXTAPI_BASE_URL` / `NEXTAPI_KEY` env defaults. |
+| **NextAPI · Director Plan** | `script_text`, `shot_count`, `duration`, `aspect_ratio`, `style`, optional `character_refs` / `title` / `vimax_root` | `plan_json`, `workflow_json`, first-shot prompt fields | Loads the vendored ViMax `nextapi_director.py` adapter and converts a script into NextAPI-ready shot prompts. Use `asset://...` refs from the NextAPI asset library for authorized portraits. |
 | **NextAPI · Asset Resolver** | `character_ref`, `outfit_ref`, `scene_ref`, `reference_video`, optional `upload_url` + `upload_api_key` | four `STRING` URLs | Pass-through if value is already an `https://` URL. If a local file path is given **and** `upload_url` is set, posts the file as multipart/form-data and expects `{"url": "..."}`. |
 | **NextAPI · Generate Video** | `auth`, `prompt`, `duration`, `aspect_ratio`, optional refs / camera / motion / continuity_group / shot_id | `job_id`, `estimated_credits`, `status` | Submits `POST /v1/video/generations`. |
 | **NextAPI · Poll Job** | `auth`, `job_id`, `polling_interval_seconds`, `max_wait_minutes` | `status`, `video_url`, `error_code`, `error_message` | Blocks until the job reaches `succeeded` / `failed` or the timeout fires. |
 | **NextAPI · Download Result** | `video_url`, optional `filename_prefix` / `shot_id` / `output_subdir` | `local_file_path` | Streams the MP4 into `ComfyUI/output/<output_subdir>/`. |
 
 ## Example workflows
+
+`example_workflows/director_plan_first_shot.json` — script-to-first-shot workflow. The Director Plan node calls the vendored ViMax adapter, emits a full plan JSON, and wires the first shot into **Generate → Poll → Download**.
 
 `example_workflows/short_drama_consistent_character.json` — single shot wired to keep one character + outfit + scene consistent across an episode. Duplicate the **Generate → Poll → Download** chain (or use a Workflow → For Each loop) to fan out across a `continuity_group`.
 
@@ -35,9 +38,10 @@ To use:
 
 1. ComfyUI → **Load** → pick a JSON from `example_workflows/`.
 2. Open **NextAPI · Auth** and paste your `sk_live_…` key.
-3. Open **NextAPI · Asset Resolver** and replace the placeholder URLs with your hosted refs (or use the upload path).
-4. Tweak prompts on the **Generate Video** node(s).
-5. **Queue Prompt** — generation typically takes 30–90 s per shot.
+3. For Director workflows, paste the script into **NextAPI · Director Plan** and add approved `asset://...` references when preserving a real person.
+4. For manual workflows, open **NextAPI · Asset Resolver** and replace placeholder URLs with hosted refs or an upload path.
+5. Tweak prompts on the **Generate Video** node(s).
+6. **Queue Prompt** — generation typically takes 30–90 s per shot.
 
 ## Reference assets
 
@@ -69,6 +73,7 @@ A typical 100-shot batch via ComfyUI:
 | `NEXTAPI_KEY` | Auth | Default API key |
 | `NEXTAPI_UPLOAD_URL` | Asset Resolver | Upload endpoint for local file refs |
 | `NEXTAPI_UPLOAD_KEY` | Asset Resolver | Bearer token for the upload endpoint |
+| `NEXTAPI_VIMAX_ROOT` | Director Plan | Path to the vendored ViMax folder when it is not beside this toolkit |
 
 ## License
 
