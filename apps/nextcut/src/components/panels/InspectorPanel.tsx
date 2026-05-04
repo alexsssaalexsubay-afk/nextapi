@@ -16,9 +16,20 @@ const TABS: { id: Tab; label: string }[] = [
 export function InspectorPanel() {
   const [tab, setTab] = useState<Tab>("properties");
   const selectedShotId = useAppStore((s) => s.selectedShotId);
-  const { shots, updateShot, isRunning, pipeline, aspectRatio } = useDirectorStore();
+  const {
+    shots,
+    updateShot,
+    isRunning,
+    pipeline,
+    aspectRatio,
+    productionBible,
+    shotGenerationCards,
+    promptReview,
+  } = useDirectorStore();
 
   const selectedShot = shots.find((s) => s.id === selectedShotId);
+  const selectedCard = shotGenerationCards.find((c) => c.shot_id === selectedShotId);
+  const selectedFindings = promptReview?.findings.filter((f) => f.shot_id === selectedShotId) || [];
   const completedShots = shots.filter((s) => s.status === "succeeded" || s.video_url);
 
   const [editingPrompt, setEditingPrompt] = useState("");
@@ -249,6 +260,66 @@ export function InspectorPanel() {
                     >
                       Cancel
                     </button>
+                  </div>
+                )}
+                <div className="grid gap-2 md:grid-cols-[1fr_1fr]">
+                  {selectedCard && (
+                    <div className="rounded-[var(--radius-md)] border border-nc-border bg-nc-panel/70 p-2">
+                      <div className="mb-1 flex items-center justify-between gap-2">
+                        <span className="text-[9px] font-semibold uppercase tracking-[0.12em] text-nc-text-ghost">
+                          Generation card
+                        </span>
+                        {selectedCard.risk_flags.length > 0 && (
+                          <span className="rounded-full bg-nc-warning/15 px-1.5 py-0.5 text-[8px] text-nc-warning">
+                            {selectedCard.risk_flags.length} risks
+                          </span>
+                        )}
+                      </div>
+                      <p className="line-clamp-2 text-[10px] leading-relaxed text-nc-text-tertiary">
+                        {selectedCard.motion_contract || "One subject action"} · {selectedCard.camera_contract || selectedShot.camera}
+                      </p>
+                      <p className="mt-1 line-clamp-2 text-[9px] leading-relaxed text-nc-text-ghost">
+                        {selectedCard.reference_contract}
+                      </p>
+                    </div>
+                  )}
+
+                  {(selectedShot.generationParams || productionBible) && (
+                    <div className="rounded-[var(--radius-md)] border border-nc-border bg-nc-panel/70 p-2">
+                      <span className="text-[9px] font-semibold uppercase tracking-[0.12em] text-nc-text-ghost">
+                        Render contract
+                      </span>
+                      <p className="mt-1 line-clamp-2 text-[10px] leading-relaxed text-nc-text-tertiary">
+                        {selectedShot.generationParams?.constraints ||
+                          productionBible?.reference_policy ||
+                          "No render contract yet"}
+                      </p>
+                      {selectedShot.generationParams?.reference_instructions?.length ? (
+                        <p className="mt-1 truncate text-[9px] text-nc-accent">
+                          {selectedShot.generationParams.reference_instructions.join(" · ")}
+                        </p>
+                      ) : null}
+                    </div>
+                  )}
+                </div>
+
+                {selectedFindings.length > 0 && (
+                  <div className="flex flex-col gap-1">
+                    {selectedFindings.map((finding) => (
+                      <div
+                        key={`${finding.code}-${finding.severity}`}
+                        className={cn(
+                          "rounded-[var(--radius-sm)] border px-2 py-1 text-[9px] leading-relaxed",
+                          finding.severity === "critical"
+                            ? "border-nc-error/30 bg-nc-error/8 text-nc-error"
+                            : finding.severity === "warning"
+                              ? "border-nc-warning/30 bg-nc-warning/8 text-nc-warning"
+                              : "border-nc-border bg-nc-panel text-nc-text-ghost"
+                        )}
+                      >
+                        {finding.message} {finding.suggestion}
+                      </div>
+                    ))}
                   </div>
                 )}
               </>

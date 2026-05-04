@@ -95,7 +95,11 @@ class OptimizedPrompt(BaseModel):
 class PromptOptimizer(BaseAgent):
 
     async def optimize(
-        self, shot: DirectorShot, references: list[ReferenceAsset], target_model: str = "seedance-2.0"
+        self,
+        shot: DirectorShot,
+        references: list[ReferenceAsset],
+        target_model: str = "seedance-2.0",
+        project_context: str = "",
     ) -> OptimizedPrompt:
         ref_desc = ""
         if references:
@@ -166,6 +170,7 @@ class PromptOptimizer(BaseAgent):
             f"Transition: {shot.edit.transition_type}\n"
             f"Color grade: {shot.edit.color_grade}\n\n"
             f"=== REFERENCES ===\n{ref_desc}\n"
+            f"{project_context}\n\n"
             f"{dialogue_info}"
             f"{audio_info}\n\n"
             f"=== MASSIVE KNOWLEDGE BASE CONTEXT (RAG) ===\n"

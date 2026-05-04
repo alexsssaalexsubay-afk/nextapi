@@ -45,6 +45,13 @@ from director_engine.interfaces.models import (
     VideoGenerationParams,
 )
 from director_engine.tools.identity_anchor import IdentityManager
+from director_engine.tools.production_bible import (
+    bible_context_for_prompt,
+    build_production_bible,
+    build_shot_generation_card,
+    prompt_review_summary,
+    review_generation_prompt,
+)
 from director_engine.tools.provider_scorer import score_providers
 
 ProgressCallback = Callable[[str, str, float, dict[str, Any]], Awaitable[None]]
@@ -236,8 +243,24 @@ class DirectorPipeline:
         # 6. Prompt Optimizer (Shot-Script + Reference Instructions + Constraints)
         await self._emit("prompt_optimizer", "running", 0.80)
         target_model = self.config.video_provider.model
+        resolved_title = title or story.title or _title_from(story.story)
+        production_bible = build_production_bible(
+            title=resolved_title,
+            style=style,
+            aspect_ratio=aspect_ratio,
+            duration=duration,
+            scenes=scenes,
+            characters=characters,
+            references=references,
+        )
         for i, shot in enumerate(shots):
-            optimized = await self.prompt_optimizer.optimize(shot, shot.references, target_model)
+            project_context = bible_context_for_prompt(production_bible, shot)
+            optimized = await self.prompt_optimizer.optimize(
+                shot,
+                shot.references,
+                target_model,
+                project_context=project_context,
+            )
             shot.prompt = optimized.prompt
             shot.negative_prompt = optimized.negative_prompt
             shot.generation_params = VideoGenerationParams(
@@ -288,8 +311,13 @@ class DirectorPipeline:
         else:
             await self._emit("consistency_checker", "skipped", 0.95)
 
+        prompt_findings = []
+        shot_generation_cards = []
+        for shot in shots:
+            prompt_findings.extend(review_generation_prompt(shot))
+            shot_generation_cards.append(build_shot_generation_card(shot, production_bible))
+
         # 8. Build final plan
-        resolved_title = title or story.title or _title_from(story.story)
         plan = DirectorPlan(
             title=resolved_title,
             summary=story.logline or story.story[:220],
@@ -304,10 +332,13 @@ class DirectorPipeline:
             pipeline_config=self.config,
             provider_recommendation=provider_recommendation,
             workflow=_build_comfyui_workflow(resolved_title, shots),
-            workbench=_build_workbench(shots),
+            workbench=_build_workbench(shots, production_bible, shot_generation_cards),
             metadata={
                 **consistency_meta,
                 "story": story.model_dump(),
+                "production_bible": production_bible.model_dump(),
+                "shot_generation_cards": [card.model_dump() for card in shot_generation_cards],
+                "prompt_review": prompt_review_summary(prompt_findings),
                 "identity_anchors": {
                     name: {
                         "master_reference": a.master_reference,
@@ -377,9 +408,15 @@ def _build_comfyui_workflow(title: str, shots: list[DirectorShot]) -> dict[str, 
     }
 
 
-def _build_workbench(shots: list[DirectorShot]) -> dict[str, Any]:
+def _build_workbench(
+    shots: list[DirectorShot],
+    production_bible,
+    shot_generation_cards,
+) -> dict[str, Any]:
     return {
         "schema": "nextcut.workbench.v1",
+        "production_bible": production_bible.model_dump(),
+        "shot_generation_cards": [card.model_dump() for card in shot_generation_cards],
         "selected_shot_id": shots[0].id if shots else "",
         "timeline": [
             {

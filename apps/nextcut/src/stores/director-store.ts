@@ -152,6 +152,18 @@ export interface ShotAudio {
   sfx: string;
 }
 
+export interface ShotGenerationParams {
+  shot_script?: string;
+  constraints?: string;
+  audio_cues?: string[];
+  reference_instructions?: string[];
+  image_urls?: string[];
+  video_urls?: string[];
+  audio_urls?: string[];
+  provider_score?: number;
+  provider_reason?: string;
+}
+
 export interface Shot {
   id: string;
   scene_id: string;
@@ -165,7 +177,41 @@ export interface Shot {
   thumbnail_url: string;
   camera: string;
   audio?: ShotAudio;
+  generationParams?: ShotGenerationParams;
   qualityScore: QualityScore | null;
+}
+
+export interface ProductionBible {
+  schema_version: string;
+  title: string;
+  style_contract: string;
+  format_contract: string;
+  reference_policy: string;
+  prompt_rules: string[];
+  render_checks: string[];
+}
+
+export interface ShotGenerationCard {
+  shot_id: string;
+  prompt_role: string;
+  motion_contract: string;
+  camera_contract: string;
+  reference_contract: string;
+  risk_flags: string[];
+  edit_note: string;
+}
+
+export interface PromptReviewSummary {
+  critical: number;
+  warning: number;
+  info: number;
+  findings: Array<{
+    shot_id: string;
+    severity: string;
+    code: string;
+    message: string;
+    suggestion: string;
+  }>;
 }
 
 export interface AgentProgress {
@@ -583,6 +629,13 @@ interface DirectorState {
   overallQuality: QualityScore | null;
   setOverallQuality: (q: QualityScore | null) => void;
 
+  productionBible: ProductionBible | null;
+  setProductionBible: (b: ProductionBible | null) => void;
+  shotGenerationCards: ShotGenerationCard[];
+  setShotGenerationCards: (cards: ShotGenerationCard[]) => void;
+  promptReview: PromptReviewSummary | null;
+  setPromptReview: (summary: PromptReviewSummary | null) => void;
+
   savedTemplates: WorkflowTemplate[];
   addSavedTemplate: (t: WorkflowTemplate) => void;
   removeSavedTemplate: (id: string) => void;
@@ -727,6 +780,13 @@ export const useDirectorStore = create<DirectorState>()(
 
       overallQuality: null,
       setOverallQuality: (q) => set({ overallQuality: q }),
+
+      productionBible: null,
+      setProductionBible: (productionBible) => set({ productionBible }),
+      shotGenerationCards: [],
+      setShotGenerationCards: (shotGenerationCards) => set({ shotGenerationCards }),
+      promptReview: null,
+      setPromptReview: (promptReview) => set({ promptReview }),
 
       savedTemplates: [],
       addSavedTemplate: (t) =>

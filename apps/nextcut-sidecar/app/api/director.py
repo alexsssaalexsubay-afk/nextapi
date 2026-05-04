@@ -229,6 +229,8 @@ async def _run_pipeline(plan_id: str, request: DirectorPlanRequest) -> None:
         _plans[plan_id]["quality_scores"] = shot_quality_scores
         _plans[plan_id]["scenes"] = [s.model_dump() for s in plan.scenes]
         _plans[plan_id]["characters"] = [c.model_dump() for c in plan.characters]
+        _plans[plan_id]["workbench"] = plan.workbench
+        _plans[plan_id]["metadata"] = plan.metadata
 
         await event_bus.publish(Event(
             type=EventType.PLAN_CREATED,
@@ -238,6 +240,7 @@ async def _run_pipeline(plan_id: str, request: DirectorPlanRequest) -> None:
                 "shots": len(plan.shots),
                 "quality_scores": shot_quality_scores,
                 "scenes": [{"id": s.id, "title": s.title, "description": s.description, "characters": s.characters} for s in plan.scenes],
+                "prompt_review": plan.metadata.get("prompt_review", {}),
             },
         ))
     except Exception as e:

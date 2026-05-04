@@ -1,5 +1,13 @@
 import { useCallback, useRef } from "react";
-import { useDirectorStore, type Shot, type QualityScore } from "@/stores/director-store";
+import {
+  useDirectorStore,
+  type CharacterProfile,
+  type PromptReviewSummary,
+  type ProductionBible,
+  type QualityScore,
+  type Shot,
+  type ShotGenerationCard,
+} from "@/stores/director-store";
 import { useAuthStore } from "@/stores/auth-store";
 import { sidecarFetch, SidecarError } from "@/lib/sidecar";
 
@@ -23,6 +31,7 @@ interface PlanPollResult {
     thumbnail_url?: string;
     camera?: { camera?: string };
     audio?: { dialogue?: string; lip_sync?: string; music?: string; sfx?: string };
+    generation_params?: Shot["generationParams"];
   }>;
   scenes?: Array<{
     id: string;
@@ -37,6 +46,22 @@ interface PlanPollResult {
     prompt_quality: number;
     style_coherence: number;
   }>;
+  characters?: Array<{
+    name: string;
+    appearance?: string;
+    personality?: string;
+    voice?: string;
+    reference_images?: string[];
+  }>;
+  workbench?: {
+    production_bible?: ProductionBible;
+    shot_generation_cards?: ShotGenerationCard[];
+  };
+  metadata?: {
+    production_bible?: ProductionBible;
+    shot_generation_cards?: ShotGenerationCard[];
+    prompt_review?: PromptReviewSummary;
+  };
 }
 
 function mapShots(
@@ -74,7 +99,22 @@ function mapShots(
       music: s.audio.music || "",
       sfx: s.audio.sfx || ""
     } : undefined,
+    generationParams: s.generation_params,
     qualityScore: qMap.get(s.id) || null,
+  }));
+}
+
+function mapCharacters(raw: PlanPollResult["characters"]): CharacterProfile[] {
+  if (!raw) return [];
+  return raw.map((c, index) => ({
+    id: `character_${index + 1}`,
+    name: c.name || `Character ${index + 1}`,
+    appearance: c.appearance || "",
+    personality: c.personality || "",
+    voice: c.voice || "",
+    referenceImages: c.reference_images || [],
+    color: ["#42d392", "#7c5cff", "#ffb86b", "#4cc9f0", "#ff6b9d"][index % 5],
+    locked: true,
   }));
 }
 
@@ -108,6 +148,10 @@ export function useDirector() {
     store.setLastError(null);
     store.setShots([]);
     store.setSceneOutlines([]);
+    store.setCharacters([]);
+    store.setProductionBible(null);
+    store.setShotGenerationCards([]);
+    store.setPromptReview(null);
     store.setPipelineStep("planning");
 
     try {
@@ -166,6 +210,14 @@ export function useDirector() {
         if (res.status === "completed") {
           const shots = mapShots(res.shots, res.quality_scores);
           store.setShots(shots);
+          store.setCharacters(mapCharacters(res.characters));
+
+          const bible = res.workbench?.production_bible || res.metadata?.production_bible || null;
+          store.setProductionBible(bible);
+          store.setShotGenerationCards(
+            res.workbench?.shot_generation_cards || res.metadata?.shot_generation_cards || []
+          );
+          store.setPromptReview(res.metadata?.prompt_review || null);
 
           if (res.scenes) {
             store.setSceneOutlines(
