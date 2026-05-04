@@ -1,8 +1,8 @@
 """RenderBackend: config-driven factory for image and video generators.
 
 Reads the ``image_generator`` and ``video_generator`` sections from a
-ViMax YAML config, instantiates the concrete classes via *class_path*,
-and wires up rate limiters.
+Director Engine YAML config, instantiates the concrete classes via
+*class_path*, and wires up rate limiters.
 
 Usage::
 

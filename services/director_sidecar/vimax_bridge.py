@@ -211,9 +211,7 @@ def _map_shot(raw_shot: Any, index: int, scene_index: int, request: Any, charact
 
 
 def _new_component_with_chat_model(component_cls: Any, chat_model: Any) -> Any:
-    instance = component_cls.__new__(component_cls)
-    instance.chat_model = chat_model
-    return instance
+    return component_cls(chat_model)
 
 
 def _camera_plan(camera_idx: Any, motion: str) -> str:

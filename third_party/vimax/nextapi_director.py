@@ -1,30 +1,38 @@
-"""NextAPI-facing director adapter for the vendored ViMax project.
+"""NextAPI-facing director adapter for the Director Engine.
 
-This module keeps the ViMax side responsible for story/shot planning while
+This module keeps the Director Engine responsible for story/shot planning while
 emitting a payload that ComfyUI and NextAPI can consume directly. It can run the
-real ViMax agent chain when a LangChain-compatible chat model is provided, and
-keeps a deterministic fallback for offline ComfyUI/client use.
+real Director Engine agent chain when a LangChain-compatible chat model is
+provided, and keeps a deterministic fallback for offline ComfyUI/client use.
 """
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import re
-import importlib.util
+import sys
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
-try:
-    from agents.cinematography_shot_agent import deterministic_cinematography_plan
-except ModuleNotFoundError:
-    _cinema_path = Path(__file__).resolve().parent / "agents" / "cinematography_shot_agent.py"
-    _cinema_spec = importlib.util.spec_from_file_location("_nextapi_vimax_cinematography", _cinema_path)
-    if _cinema_spec is None or _cinema_spec.loader is None:
-        raise
-    _cinema_module = importlib.util.module_from_spec(_cinema_spec)
-    _cinema_spec.loader.exec_module(_cinema_module)
-    deterministic_cinematography_plan = _cinema_module.deterministic_cinematography_plan
+_VIMAX_ROOT = Path(__file__).resolve().parent
+
+# Load cinematography without importing `agents` package __init__ (avoids pulling
+# langchain) so the sync fallback plan works in minimal environments.
+_cinema_path = _VIMAX_ROOT / "agents" / "cinematography_shot_agent.py"
+_cinema_spec = importlib.util.spec_from_file_location("_vimax_cinematography_shot_agent", _cinema_path)
+if _cinema_spec is None or _cinema_spec.loader is None:
+    raise ImportError(f"cannot load cinematography module from {_cinema_path}")
+_cinema_module = importlib.util.module_from_spec(_cinema_spec)
+_cinema_spec.loader.exec_module(_cinema_module)
+deterministic_cinematography_plan = _cinema_module.deterministic_cinematography_plan
+
+
+def _ensure_vimax_on_path() -> None:
+    root = str(_VIMAX_ROOT)
+    if root not in sys.path:
+        sys.path.insert(0, root)
 
 
 AGENT_CHAIN = [
@@ -86,7 +94,7 @@ def build_nextapi_director_plan(
     character_refs: str = "",
     title: str = "",
 ) -> dict[str, Any]:
-    """Return a ViMax-derived plan for NextAPI and ComfyUI workflows.
+    """Return a Director Engine-derived plan for NextAPI and ComfyUI workflows.
 
     `character_refs` accepts newline/comma separated URL or asset:// references.
     Approved `asset://` references are preserved so real-person portrait material
@@ -144,7 +152,7 @@ async def build_nextapi_director_plan_with_agents(
     title: str = "",
     user_requirement: str = "",
 ) -> dict[str, Any]:
-    """Run the real ViMax director agents and emit the shared NextAPI plan.
+    """Run the real Director Engine agents and emit the shared NextAPI plan.
 
     This is the production-facing path used by the sidecar/client runtime. The
     sync `build_nextapi_director_plan` remains as a no-key local fallback.
@@ -156,6 +164,7 @@ async def build_nextapi_director_plan_with_agents(
     shot_count = max(1, min(int(shot_count), 24))
     duration = max(4, min(int(duration), 15))
 
+    _ensure_vimax_on_path()
     from agents.character_extractor import CharacterExtractor
     from agents.cinematography_shot_agent import CinematographyShotAgent
     from agents.screenwriter import Screenwriter
@@ -175,8 +184,7 @@ async def build_nextapi_director_plan_with_agents(
     if not scene_scripts:
         scene_scripts = [story]
 
-    script_enhancer = ScriptEnhancer.__new__(ScriptEnhancer)
-    script_enhancer.chat_model = chat_model
+    script_enhancer = ScriptEnhancer(chat_model)
     enhanced_scripts: list[str] = []
     for scene_script in scene_scripts:
         enhanced = await script_enhancer.enhance_script(scene_script)
@@ -252,7 +260,7 @@ async def build_nextapi_director_plan_with_agents(
     resolved_title = title.strip() or _title(summary)
     plan = {
         "schema": "nextapi.director_plan.v1",
-        "source": "vimax.agent_chain",
+        "source": "vimax.nextapi_director.agent_chain",
         "title": resolved_title,
         "summary": summary,
         "agent_chain": AGENT_CHAIN,

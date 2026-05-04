@@ -33,6 +33,10 @@ coverage.out
 __pycache__/
 *.py[cod]
 .venv-director/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
 
 # Editor / tools
 .vscode/
@@ -57,3 +61,18 @@ logs/
 
 # Local MCP / browser artifacts
 .playwright-mcp/
+.cursorindexingignore
+
+# NextCut local build artifacts
+apps/nextcut/dist/
+apps/nextcut/node_modules/
+apps/nextcut/src-tauri/target/
+apps/nextcut/tsconfig.tsbuildinfo
+apps/nextcut-sidecar/.venv/
+apps/nextcut-sidecar/venv/
+apps/nextcut-sidecar/**/__pycache__/
+apps/nextcut-sidecar/.pytest_cache/
+apps/nextcut-sidecar/.mypy_cache/
+apps/nextcut-sidecar/build/
+apps/nextcut-sidecar/dist/
+.cursorignore

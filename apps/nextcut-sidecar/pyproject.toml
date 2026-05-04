@@ -1,0 +1,44 @@
+[project]
+name = "nextcut-sidecar"
+version = "0.1.0"
+description = "NextCut AI Video Director — Python Sidecar"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.34.0",
+    "websockets>=15.0",
+    "pydantic>=2.10.0",
+    "pydantic-settings>=2.7.0",
+    "langchain>=0.3.0",
+    "langchain-openai>=0.3.0",
+    "langchain-community>=0.3.0",
+    "openai>=1.60.0",
+    "httpx>=0.28.0",
+    "aiofiles>=24.0.0",
+    "python-multipart>=0.0.20",
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.24.0",
+    "ruff>=0.9.0",
+]
+build = [
+    "pyinstaller>=6.0",
+]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["app", "director_engine"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

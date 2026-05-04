@@ -1,4 +1,4 @@
-"""Tests for the NextAPI-facing ViMax director adapter."""
+"""Tests for the NextAPI-facing Director Engine adapter."""
 
 import unittest
 from pathlib import Path

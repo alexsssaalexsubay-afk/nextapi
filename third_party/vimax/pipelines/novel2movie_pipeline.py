@@ -13,13 +13,11 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import FAISS
 from PIL import Image
 
-from components.event import Event
-from components.scene import Scene
-from components.character import CharacterInScene, CharacterInNovel, CharacterInEvent
-from pipelines.base import BasePipeline
+from interfaces import Event, Scene
+from interfaces import CharacterInScene, CharacterInNovel, CharacterInEvent
 from tenacity import retry
 
-class Novel2MoviePipeline(BasePipeline):
+class Novel2MoviePipeline:
 
     async def __call__(
         self,

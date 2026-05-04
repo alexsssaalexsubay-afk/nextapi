@@ -329,17 +329,20 @@ class PlannedScriptResponse(BaseModel):
 class ScriptPlanner:
     def __init__(
         self,
-        chat_model: str,
-        base_url: str,
-        api_key: str,
+        chat_model,
+        base_url: str = "",
+        api_key: str = "",
         model_provider: str = "openai",
     ):
-        self.chat_model = init_chat_model(
-            model=chat_model,
-            model_provider=model_provider,
-            base_url=base_url,
-            api_key=api_key,
-        )
+        if isinstance(chat_model, str):
+            self.chat_model = init_chat_model(
+                model=chat_model,
+                model_provider=model_provider,
+                base_url=base_url,
+                api_key=api_key,
+            )
+        else:
+            self.chat_model = chat_model
 
     @retry
     def plan_script(

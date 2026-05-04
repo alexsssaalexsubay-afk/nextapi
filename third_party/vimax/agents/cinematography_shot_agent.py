@@ -1,6 +1,6 @@
 """Cinematography shot agent for NextAPI Director plans.
 
-The original ViMax storyboard agent decomposes shots into first frame, last
+The Director Engine storyboard agent decomposes shots into first frame, last
 frame, and motion. This agent adds a production-workbench layer on top:
 camera language, edit intent, model-ready prompt text, and UI timeline notes.
 """

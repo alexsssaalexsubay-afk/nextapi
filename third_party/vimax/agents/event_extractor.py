@@ -79,16 +79,19 @@ human_prompt_template_extract_next_event = \
 class EventExtractor:
     def __init__(
         self,
-        api_key: str,
-        base_url: str,
-        chat_model: str,
+        chat_model,
+        base_url: str = "",
+        api_key: str = "",
     ):
-        self.chat_model = init_chat_model(
-            model=chat_model,
-            model_provider="openai",
-            api_key=api_key,
-            base_url=base_url,
-        )
+        if isinstance(chat_model, str):
+            self.chat_model = init_chat_model(
+                model=chat_model,
+                model_provider="openai",
+                api_key=api_key,
+                base_url=base_url,
+            )
+        else:
+            self.chat_model = chat_model
         self.parser = PydanticOutputParser(pydantic_object=Event)
 
 

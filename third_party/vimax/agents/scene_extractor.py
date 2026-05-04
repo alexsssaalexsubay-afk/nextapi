@@ -61,16 +61,19 @@ human_prompt_template_get_next_scene = \
 class SceneExtractor:
     def __init__(
         self,
-        api_key,
-        base_url,
         chat_model,
+        base_url: str = "",
+        api_key: str = "",
     ):
-        self.chat_model = init_chat_model(
-            model=chat_model,
-            api_key=api_key,
-            base_url=base_url,
-            model_provider="openai",
-        )
+        if isinstance(chat_model, str):
+            self.chat_model = init_chat_model(
+                model=chat_model,
+                api_key=api_key,
+                base_url=base_url,
+                model_provider="openai",
+            )
+        else:
+            self.chat_model = chat_model
 
     @retry(
         stop=stop_after_attempt(5),

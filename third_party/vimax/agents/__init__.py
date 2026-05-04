@@ -5,6 +5,7 @@ from .character_extractor import CharacterExtractor
 from .character_portraits_generator import CharacterPortraitsGenerator
 from .cinematography_shot_agent import CinematographyShotAgent
 from .reference_image_selector import ReferenceImageSelector
+from .script_enhancer import ScriptEnhancer
 
 __all__ = [
     "Screenwriter",
@@ -14,4 +15,5 @@ __all__ = [
     "CharacterPortraitsGenerator",
     "CinematographyShotAgent",
     "ReferenceImageSelector",
+    "ScriptEnhancer",
 ]

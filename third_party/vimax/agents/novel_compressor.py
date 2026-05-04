@@ -80,18 +80,21 @@ human_prompt_template_aggregate = \
 class NovelCompressor:
     def __init__(
         self,
-        api_key: str,
-        base_url: str,
-        chat_model: str,
+        chat_model,
+        base_url: str = "",
+        api_key: str = "",
         chunk_size: int = 65536,
         chunk_overlap: int = 8192,
     ):
-        self.chat_model = init_chat_model(
-            model=chat_model,
-            api_key=api_key,
-            base_url=base_url,
-            model_provider="openai",
-        )
+        if isinstance(chat_model, str):
+            self.chat_model = init_chat_model(
+                model=chat_model,
+                api_key=api_key,
+                base_url=base_url,
+                model_provider="openai",
+            )
+        else:
+            self.chat_model = chat_model
 
         self.splitter = RecursiveCharacterTextSplitter(
             chunk_size=chunk_size,

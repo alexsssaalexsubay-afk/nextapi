@@ -1,9 +1,9 @@
 """
-Provider preset system for ViMax chat model configuration.
+Provider preset system for Director Engine chat model configuration.
 
 Supports auto-detection and resolution of LLM provider settings,
-allowing users to specify a provider name (e.g., ``minimax``) instead
-of manually configuring base_url and model details.
+allowing users to specify a provider name (e.g., ``minimax``, ``deepseek``)
+instead of manually configuring base_url and model details.
 """
 
 import os
@@ -21,13 +21,36 @@ PROVIDER_PRESETS: Dict[str, Dict[str, Any]] = {
         "base_url": "https://api.minimax.io/v1",
         "env_key": "MINIMAX_API_KEY",
         "default_model": "MiniMax-M2.7",
-        "models": [
-            "MiniMax-M2.7",
-            "MiniMax-M2.7-highspeed",
-            "MiniMax-M2.5",
-            "MiniMax-M2.5-highspeed",
-        ],
+        "models": ["MiniMax-M2.7", "MiniMax-M2.7-highspeed", "MiniMax-M2.5"],
         "temperature_range": (0.0, 1.0),
+    },
+    "deepseek": {
+        "base_url": "https://api.deepseek.com",
+        "env_key": "DEEPSEEK_API_KEY",
+        "default_model": "deepseek-chat",
+        "models": ["deepseek-chat", "deepseek-reasoner"],
+        "temperature_range": (0.0, 2.0),
+    },
+    "qwen": {
+        "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+        "env_key": "DASHSCOPE_API_KEY",
+        "default_model": "qwen-max",
+        "models": ["qwen-max", "qwen-plus", "qwen-turbo", "qwen-long"],
+        "temperature_range": (0.0, 2.0),
+    },
+    "zhipu": {
+        "base_url": "https://open.bigmodel.cn/api/paas/v4",
+        "env_key": "ZHIPU_API_KEY",
+        "default_model": "glm-4-plus",
+        "models": ["glm-4-plus", "glm-4-flash", "glm-4-long"],
+        "temperature_range": (0.0, 1.0),
+    },
+    "siliconflow": {
+        "base_url": "https://api.siliconflow.cn/v1",
+        "env_key": "SILICONFLOW_API_KEY",
+        "default_model": "Qwen/Qwen2.5-72B-Instruct",
+        "models": ["Qwen/Qwen2.5-72B-Instruct", "deepseek-ai/DeepSeek-V3"],
+        "temperature_range": (0.0, 2.0),
     },
 }
 
