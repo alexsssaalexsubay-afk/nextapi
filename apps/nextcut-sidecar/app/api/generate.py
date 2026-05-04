@@ -15,6 +15,9 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
+import uuid
+import httpx
+from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, BackgroundTasks
@@ -317,11 +320,7 @@ class ExportRequest(BaseModel):
 
 @router.post("/export")
 async def export_assembly(req: ExportRequest):
-    """Assemble multiple shot videos into a single exported video.
-
-    Collects video URLs for the requested shot_ids in order,
-    then delegates to ffmpeg (or returns the manifest for client-side assembly).
-    """
+    """Assemble multiple shot videos into a single exported video using FFmpeg."""
     urls: list[dict[str, Any]] = []
     missing: list[str] = []
     for sid in req.shot_ids:
@@ -341,15 +340,68 @@ async def export_assembly(req: ExportRequest):
             "missing": missing,
             "message": f"{len(missing)} shots not yet generated",
         }
+        
+    export_dir = Path("exports")
+    export_dir.mkdir(exist_ok=True)
+    export_id = str(uuid.uuid4())[:8]
+    output_filename = f"export_{export_id}.mp4"
+    output_path = export_dir / output_filename
+    
+    async def download_video(url: str, index: int) -> Path:
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(url, timeout=60.0)
+            filepath = export_dir / f"temp_{export_id}_{index}.mp4"
+            filepath.write_bytes(resp.content)
+            return filepath
 
-    return {
-        "status": "ready",
-        "shots": urls,
-        "format": req.format,
-        "transition": req.transition,
-        "transition_duration_ms": req.transition_duration_ms,
-        "total_duration": sum(s["duration"] for s in urls),
-    }
+    try:
+        # 1. Download all videos in parallel
+        tasks = [download_video(s["video_url"], i) for i, s in enumerate(urls)]
+        temp_files = await asyncio.gather(*tasks)
+        
+        # 2. Create concat manifest for ffmpeg
+        concat_file = export_dir / f"concat_{export_id}.txt"
+        with open(concat_file, "w") as f:
+            for tf in temp_files:
+                f.write(f"file '{tf.name}'\n")
+                
+        # 3. Run FFmpeg to concatenate videos
+        cmd = [
+            "ffmpeg", "-y", "-f", "concat", "-safe", "0", 
+            "-i", concat_file.name, 
+            "-c", "copy", output_filename
+        ]
+        
+        process = await asyncio.create_subprocess_exec(
+            *cmd,
+            cwd=str(export_dir),
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
+        )
+        stdout, stderr = await process.communicate()
+        
+        if process.returncode != 0:
+            logger.error(f"FFmpeg error: {stderr.decode()}")
+            return {"status": "error", "message": "Failed to compile video with FFmpeg"}
+            
+        # 4. Clean up temporary files
+        concat_file.unlink(missing_ok=True)
+        for tf in temp_files:
+            tf.unlink(missing_ok=True)
+            
+        export_url = f"http://127.0.0.1:8765/exports/{output_filename}"
+            
+        return {
+            "status": "ready",
+            "shots": urls,
+            "format": req.format,
+            "transition": req.transition,
+            "export_url": export_url,
+            "total_duration": sum(s["duration"] for s in urls),
+        }
+    except Exception as e:
+        logger.error(f"Export error: {e}")
+        return {"status": "error", "message": str(e)}
 
 
 async def _run_batch(shots: list[GenerateRequest], sequential: bool) -> None:

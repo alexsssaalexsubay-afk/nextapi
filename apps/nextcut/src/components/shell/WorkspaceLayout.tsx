@@ -171,7 +171,7 @@ export function WorkspaceLayout() {
     );
   }
 
-  // Library view (default workspace)
+  // Default fallback for "workspace" or any unhandled sidebar page
   return (
     <div
       data-workspace

@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-export type SidebarPage = "home" | "projects" | "agents" | "library" | "templates" | "edit" | "settings";
+export type SidebarPage = "home" | "projects" | "agents" | "library" | "templates" | "edit" | "settings" | "workspace";
 export type ConnectionStatus = "connected" | "connecting" | "disconnected";
 export type WorkspaceView = "storyboard" | "canvas" | "split";
 
@@ -31,7 +31,7 @@ interface AppState {
 }
 
 export const useAppStore = create<AppState>((set) => ({
-  sidebarPage: "home",
+  sidebarPage: "workspace",
   setSidebarPage: (page) => set({ sidebarPage: page }),
 
   workspaceView: "storyboard",

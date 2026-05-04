@@ -6,12 +6,6 @@ import { sidecarFetch } from "@/lib/sidecar";
 
 type Tab = "properties" | "prompt" | "extend" | "export";
 
-type ExportResponse = {
-  status: string;
-  total_duration: number;
-  shots: Array<{ id: string }>;
-};
-
 const TABS: { id: Tab; label: string }[] = [
   { id: "properties", label: "Properties" },
   { id: "prompt", label: "Prompt" },
@@ -331,7 +325,7 @@ export function InspectorPanel() {
                   <button
                     onClick={async () => {
                       try {
-                        const res = await sidecarFetch<ExportResponse>("/generate/export", {
+                        const res = await sidecarFetch<any>("/generate/export", {
                           method: "POST",
                           body: JSON.stringify({
                             shot_ids: shots.map((s) => s.id),
@@ -339,8 +333,16 @@ export function InspectorPanel() {
                             transition: "cut",
                           }),
                         });
-                        if (res.status === "ready") {
-                          alert(`Export ready: ${res.total_duration}s video with ${res.shots.length} shots`);
+                        if (res.status === "ready" && res.export_url) {
+                          const a = document.createElement("a");
+                          a.href = res.export_url;
+                          a.download = "nextcut_export.mp4";
+                          a.target = "_blank";
+                          a.click();
+                        } else if (res.status === "incomplete") {
+                          alert(`Cannot export yet: ${res.message}`);
+                        } else {
+                          alert("Export failed: " + (res.message || "Unknown error"));
                         }
                       } catch { /* toast */ }
                     }}

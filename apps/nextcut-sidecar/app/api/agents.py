@@ -175,25 +175,32 @@ class PortraitRequest(BaseModel):
 async def generate_portrait(req: PortraitRequest):
     """Generate a character reference portrait using AI image generation.
 
-    Delegates to ViMax CharacterPortraitsGenerator when available,
-    falls back to Seedance image generation.
+    Uses DALL-E 3 via OpenAI API to ensure high-quality character references
+    for identity anchoring in Seedance.
     """
     try:
         from app.core.config import settings
-        from director_engine.providers.seedance import SeedanceProvider
-        from director_engine.interfaces.models import ProviderConfig
-
-        prompt = f"Portrait of {req.name}: {req.appearance}. {req.style} style, facing camera, clean background, studio lighting, high detail"
-
-        config = ProviderConfig(
-            api_key=settings.video_api_key,
-            base_url=settings.video_base_url,
-            model="seedance-v2-pro",
+        from openai import AsyncOpenAI
+        
+        client = AsyncOpenAI(api_key=settings.openai_api_key, base_url=settings.openai_base_url or None)
+        
+        prompt = (
+            f"A high-quality character reference sheet for {req.name}. "
+            f"Appearance: {req.appearance}. "
+            f"Style: {req.style}. "
+            f"The character is facing forward, standing against a pure white background, studio lighting. "
+            f"Perfect for character consistency reference."
         )
-        provider = SeedanceProvider(config)
-        result = await provider.generate(prompt=prompt, duration=0, quality="720p")
 
-        return {"image_url": result.get("image_url", ""), "status": "ok"}
+        response = await client.images.generate(
+            model="dall-e-3",
+            prompt=prompt,
+            size="1024x1024",
+            quality="standard",
+            n=1,
+        )
+
+        return {"image_url": response.data[0].url, "status": "ok"}
     except Exception as e:
         logger.error("Portrait generation failed: %s", e)
         return {"image_url": "", "status": "error", "message": "Generation failed"}

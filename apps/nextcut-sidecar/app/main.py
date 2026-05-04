@@ -2,8 +2,10 @@ import asyncio
 from contextlib import asynccontextmanager
 from collections.abc import AsyncGenerator
 
+import os
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.core.config import settings
 from app.core.events import event_bus, Event, EventType
@@ -50,6 +52,9 @@ app.include_router(auth_router, prefix="/auth", tags=["auth"])
 app.include_router(setup_router, prefix="/setup", tags=["setup"])
 app.include_router(quickcreate_router, prefix="/quickcreate", tags=["quickcreate"])
 app.include_router(generate_router, prefix="/generate", tags=["generate"])
+
+os.makedirs("exports", exist_ok=True)
+app.mount("/exports", StaticFiles(directory="exports"), name="exports")
 
 
 @app.get("/health")

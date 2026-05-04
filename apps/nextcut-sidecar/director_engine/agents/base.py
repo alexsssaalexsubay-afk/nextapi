@@ -40,7 +40,7 @@ class BaseAgent:
         self.client = create_llm_client(config)
         self.model = config.model
 
-    async def _complete(self, system: str, user: str, **kwargs: Any) -> str:
+    async def _complete(self, system: str, user: str | list[Any], **kwargs: Any) -> str:
         resp = await self.client.chat.completions.create(
             model=self.model,
             messages=[
@@ -52,7 +52,7 @@ class BaseAgent:
         )
         return resp.choices[0].message.content or ""
 
-    async def _complete_json(self, system: str, user: str, schema: type[T], **kwargs: Any) -> T:
+    async def _complete_json(self, system: str, user: str | list[Any], schema: type[T], **kwargs: Any) -> T:
         schema_json = json.dumps(schema.model_json_schema(), indent=2)
         system_with_format = (
             f"{system}\n\n"

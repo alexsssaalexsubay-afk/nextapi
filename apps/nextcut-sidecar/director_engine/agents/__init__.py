@@ -7,6 +7,7 @@ from .audio_director import AudioDirector
 from .editing_agent import EditingAgent
 from .consistency_checker import ConsistencyChecker
 from .prompt_optimizer import PromptOptimizer
+from .art_director import ArtDirector
 
 __all__ = [
     "BaseAgent",
@@ -19,4 +20,5 @@ __all__ = [
     "EditingAgent",
     "ConsistencyChecker",
     "PromptOptimizer",
+    "ArtDirector",
 ]

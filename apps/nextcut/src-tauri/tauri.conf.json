@@ -10,7 +10,6 @@
     "beforeBuildCommand": "pnpm build"
   },
   "app": {
-    "title": "NextCut — AI Video Director Studio",
     "windows": [
       {
         "title": "NextCut",

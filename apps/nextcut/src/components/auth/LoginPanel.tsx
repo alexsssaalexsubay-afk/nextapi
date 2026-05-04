@@ -1,11 +1,55 @@
 import { useState } from "react";
 import { cn } from "@/lib/cn";
+import { useAuthStore } from "@/stores/auth-store";
+import { useAppStore } from "@/stores/app-store";
 
 type AuthTab = "login" | "license";
 
 export function LoginPanel() {
   const [tab, setTab] = useState<AuthTab>("login");
   const [licenseKey, setLicenseKey] = useState("");
+  
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  
+  const { loginWithPassword, isLoading, error, clearError, user } = useAuthStore();
+  const { setSidebarPage } = useAppStore();
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email || !password) return;
+    
+    try {
+      await loginWithPassword(email, password);
+      // Optional: Redirect to workspace on success
+      setSidebarPage("workspace");
+    } catch (err) {
+      // Error is handled in the store
+    }
+  };
+
+  if (user) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center p-8">
+        <div className="w-full max-w-sm text-center">
+          <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-full bg-nc-accent/10 text-nc-accent">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+              <circle cx="12" cy="7" r="4"></circle>
+            </svg>
+          </div>
+          <h2 className="mb-2 text-lg font-semibold text-nc-text">Signed In</h2>
+          <p className="mb-8 text-sm text-nc-text-tertiary">{user.email}</p>
+          <button 
+            onClick={() => setSidebarPage("workspace")}
+            className="h-10 w-full rounded-[var(--radius-md)] bg-nc-accent text-sm font-semibold text-nc-bg hover:bg-nc-accent-hover"
+          >
+            Go to Workspace
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-full flex-col items-center justify-center p-8">
@@ -26,7 +70,7 @@ export function LoginPanel() {
           {(["login", "license"] as AuthTab[]).map((t) => (
             <button
               key={t}
-              onClick={() => setTab(t)}
+              onClick={() => { setTab(t); clearError(); }}
               className={cn(
                 "h-7 flex-1 rounded-[var(--radius-sm)] text-[11px] font-medium",
                 tab === t ? "bg-nc-panel-active text-nc-text" : "text-nc-text-ghost hover:text-nc-text-tertiary"
@@ -38,17 +82,51 @@ export function LoginPanel() {
         </div>
 
         {tab === "login" ? (
-          <div className="flex flex-col gap-3">
-            <p className="text-[12px] leading-relaxed text-nc-text-tertiary">
+          <form onSubmit={handleLogin} className="flex flex-col gap-3">
+            <p className="mb-2 text-[12px] leading-relaxed text-nc-text-tertiary">
               Sign in to unlock Seedance 2.0, unlimited projects, and Pro features.
             </p>
-            <button className="h-9 rounded-[var(--radius-md)] bg-nc-accent text-[12px] font-semibold text-nc-bg hover:bg-nc-accent-hover">
-              Sign in with NextAPI
+            
+            {error && (
+              <div className="rounded-[var(--radius-sm)] bg-red-500/10 px-3 py-2 text-[12px] text-red-500">
+                {error}
+              </div>
+            )}
+
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="Email address"
+              className="h-9 rounded-[var(--radius-sm)] border border-nc-border bg-nc-panel px-3 text-[12px] text-nc-text outline-none placeholder:text-nc-text-ghost focus:border-nc-accent/40 focus:ring-1 focus:ring-nc-accent/10"
+              required
+            />
+            
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Password"
+              className="h-9 rounded-[var(--radius-sm)] border border-nc-border bg-nc-panel px-3 text-[12px] text-nc-text outline-none placeholder:text-nc-text-ghost focus:border-nc-accent/40 focus:ring-1 focus:ring-nc-accent/10"
+              required
+            />
+
+            <button 
+              type="submit"
+              disabled={isLoading || !email || !password}
+              className={cn(
+                "mt-2 h-9 rounded-[var(--radius-md)] text-[12px] font-semibold transition-colors",
+                isLoading || !email || !password 
+                  ? "bg-nc-panel text-nc-text-ghost cursor-not-allowed" 
+                  : "bg-nc-accent text-nc-bg hover:bg-nc-accent-hover"
+              )}
+            >
+              {isLoading ? "Signing in..." : "Sign in with NextAPI"}
             </button>
-            <div className="text-center text-[10px] text-nc-text-ghost">
+            <div className="mt-2 text-center text-[10px] text-nc-text-ghost">
               or continue with free tier
             </div>
-          </div>
+          </form>
         ) : (
           <div className="flex flex-col gap-3">
             <p className="text-[12px] leading-relaxed text-nc-text-tertiary">

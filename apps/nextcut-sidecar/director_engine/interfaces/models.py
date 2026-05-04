@@ -155,6 +155,7 @@ class EditPlan(BaseModel):
     rhythm: str = "moderate"
     transition_type: str = "cut"
     pacing: str = "natural"
+    duration_seconds: int = Field(default=5, description="Calculated duration for this shot in seconds based on narrative tension")
     color_grade: str = ""
     notes: str = ""
 
@@ -205,6 +206,14 @@ class VideoGenerationParams(BaseModel):
     image_urls: list[str] = Field(default_factory=list)
     video_urls: list[str] = Field(default_factory=list)
     audio_urls: list[str] = Field(default_factory=list)
+    
+    # Advanced ControlNet / IP-Adapter Parameters
+    controlnet_depth: float = Field(default=0.0, description="Weight for depth map control (0.0 to 1.0)")
+    controlnet_scribble: float = Field(default=0.0, description="Weight for scribble/sketch control (0.0 to 1.0)")
+    face_id_weight: float = Field(default=0.0, description="Strength of IP-Adapter FaceID consistency (0.0 to 1.0)")
+    scribble_image_url: str = Field(default="", description="URL or base64 of the user's scribble/sketch")
+    depth_image_url: str = Field(default="", description="URL or base64 of the depth map")
+
     provider_score: float = 0.0
     provider_reason: str = ""
 

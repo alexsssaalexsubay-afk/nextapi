@@ -228,6 +228,9 @@ class DirectorPipeline:
             for i, ep in enumerate(edit_plans):
                 if i < len(shots):
                     shots[i].edit = ep
+                    # Override default duration with editor's calculated dynamic rhythm
+                    if getattr(ep, "duration_seconds", None):
+                        shots[i].duration = ep.duration_seconds
         await self._emit("editing_agent", "complete", 0.78)
 
         # 6. Prompt Optimizer (Shot-Script + Reference Instructions + Constraints)
@@ -252,6 +255,12 @@ class DirectorPipeline:
                 image_urls=[r.url for r in shot.references if r.type == "image"][:9],
                 video_urls=[r.url for r in shot.references if r.type == "video"][:3],
                 audio_urls=[r.url for r in shot.references if r.type == "audio"][:3],
+                # Pass ControlNet / Consistency advanced params defaults
+                controlnet_depth=0.0,
+                controlnet_scribble=0.0,
+                face_id_weight=0.8 if self.identity_manager.get_references_for_shot([c.name for c in characters]) else 0.0,
+                scribble_image_url="",
+                depth_image_url="",
                 provider_score=provider_recommendation.total_score,
                 provider_reason=provider_recommendation.reason,
             )

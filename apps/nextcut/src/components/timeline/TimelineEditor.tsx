@@ -234,33 +234,51 @@ export const TimelineEditor = memo(function TimelineEditor() {
           </div>
 
           {/* Audio track */}
-          <div className="relative ml-12 flex items-center gap-[2px] border-t border-nc-border/40 px-1 py-1">
+          <div className="relative ml-12 flex flex-col gap-[2px] border-t border-nc-border/40 px-1 py-1">
             <div className="absolute -left-12 top-0 flex h-full w-12 items-center justify-center border-r border-nc-border bg-nc-surface">
               <span className="text-[8px] font-medium uppercase tracking-widest text-nc-text-ghost" style={{ writingMode: "vertical-lr", transform: "rotate(180deg)" }}>
                 Audio
               </span>
             </div>
-            {directorShots.map((shot, i) => {
-              const width = shot.duration * pxPerSec;
-              return (
-                <div
-                  key={`audio-${shot.id}`}
-                  className="relative flex h-6 items-end overflow-hidden rounded-[var(--radius-sm)] bg-nc-success/10 border border-nc-success/15"
-                  style={{ width: `${width}px` }}
-                >
-                  {Array.from({ length: Math.max(4, Math.floor(width / 3)) }, (_, j) => (
-                    <div
-                      key={j}
-                      className="w-[2px] shrink-0 rounded-t-full bg-nc-success/40"
-                      style={{
-                        height: `${20 + Math.sin((j + i * 7) * 0.7) * 40 + Math.random() * 20}%`,
-                        marginLeft: "1px",
-                      }}
-                    />
-                  ))}
-                </div>
-              );
-            })}
+            <div className="flex items-center gap-[2px]">
+              {directorShots.map((shot, i) => {
+                const width = shot.duration * pxPerSec;
+                const hasDialogue = !!shot.audio?.dialogue;
+                return (
+                  <div
+                    key={`audio-${shot.id}`}
+                    className={cn(
+                      "relative flex flex-col justify-end overflow-hidden rounded-[var(--radius-sm)] border px-1 pb-1 transition-colors",
+                      hasDialogue 
+                        ? "bg-nc-info/10 border-nc-info/20 hover:border-nc-info/40 min-h-[48px]" 
+                        : "bg-nc-success/10 border-nc-success/15 h-6"
+                    )}
+                    style={{ width: `${width}px` }}
+                    title={shot.audio?.dialogue || "Ambient"}
+                  >
+                    {hasDialogue && (
+                      <div className="absolute top-1 left-1.5 right-1 text-[8px] font-medium leading-tight text-nc-info truncate opacity-90">
+                        "{shot.audio?.dialogue}"
+                      </div>
+                    )}
+                    <div className="flex items-end gap-[1px] opacity-70">
+                      {Array.from({ length: Math.max(4, Math.floor(width / 4)) }, (_, j) => (
+                        <div
+                          key={j}
+                          className={cn(
+                            "w-[2px] shrink-0 rounded-t-full",
+                            hasDialogue ? "bg-nc-info/40" : "bg-nc-success/40"
+                          )}
+                          style={{
+                            height: `${(hasDialogue ? 10 : 20) + Math.sin((j + i * 7) * 0.7) * (hasDialogue ? 30 : 40) + Math.random() * 20}px`,
+                          }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
 
           {/* Playhead */}

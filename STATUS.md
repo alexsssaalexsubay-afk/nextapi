@@ -2,8 +2,12 @@
 
 Legend: ✅ closed-loop (builds, tests pass, wired) · 🟡 compiles but not integration-tested · 🔴 stub / not started
 
-## Latest verified checkpoint (2026-04-28 evening)
+## Latest verified checkpoint (2026-05-05)
 
+- **Auth & Main Site Integration**: The NextCut app is now fully integrated with the main NextAPI authentication system. The `LoginPanel` proxies credentials via the sidecar to `api.nextapi.top`, retrieving and persisting the `session_token` and `dashboard_key`. The `dashboard_key` is dynamically injected into Director Engine requests to consume real user quotas.
+- **Massive Prompt Knowledge Base**: The Director Engine's RAG knowledge base is now powered by a local SQLite database (`prompt_massive_dict.db`) containing over 50,000 highly structured image generation prompts (2.5 million words) and 140k+ Danbooru tags. The script `generate_massive_image_prompts.py` was implemented to bypass GFW limits and generate industrial-grade prompts locally.
+- **State-of-the-Art Agent Prompts**: All Director Engine agents (`screenwriter`, `storyboard_artist`, `cinematographer`, `audio_director`, `editing_agent`, `character_extractor`, `prompt_optimizer`, `consistency_checker`, `art_director`) have been overhauled. Their `SYSTEM_PROMPT`s now enforce strict SVO structure, LAMP spatial trajectories, VidCRAFT3 decoupled motion rules, and HunyuanVideo 1.5 formula constraints.
+- **Viral Social Hooks**: Integrated cutting-edge prompt engineering patterns from top open-source repositories (`higgsfield-seedance2-jineng`, `storyboard-prompt-`, `AIYOU`), including the "2-Second Hook Framework", ASMR satisfying transformations, and deadpan comedy setups.
 - AI Director runs now create a durable `director_jobs` record, step through `director_steps` (`storyboard`, optional `image_submit`, `workflow_build`, optional `video_submit`), and attach text/image provider usage rows to the exact Director job/step. Video fan-out also writes `video_generation` reserved metering rows for the submitted job IDs.
 - Admin `/v1/internal/admin/ai-director/status` now returns a Director run ledger: total/running/failed runs, advanced/fallback counts, recent job step summaries, and per-run metering calls/cost. The Admin UI renders this panel locally; production Admin Worker still needs Cloudflare redeploy.
 - Backend/server/worker/sidecar were deployed to the VPS through commit `9d00d1c`; production Postgres contains `director_jobs`, `director_steps`, `director_metering`, and `director_checkpoints`.

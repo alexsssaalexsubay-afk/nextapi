@@ -1,10 +1,12 @@
 import { cn } from "@/lib/cn";
 import { useAppStore, type SidebarPage } from "@/stores/app-store";
+import { useI18nStore } from "@/stores/i18n-store";
+import { useAuthStore } from "@/stores/auth-store";
 
-const NAV_ITEMS: { id: SidebarPage; label: string; icon: (active: boolean) => React.ReactNode }[] = [
+const NAV_ITEMS: { id: SidebarPage; labelKey: string; icon: (active: boolean) => React.ReactNode }[] = [
   {
     id: "home",
-    label: "Create",
+    labelKey: "nav.create",
     icon: (a) => (
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={a ? "1.8" : "1.4"} strokeLinecap="round" strokeLinejoin="round">
         <polygon points="5,3 17,10 5,17" />
@@ -13,7 +15,7 @@ const NAV_ITEMS: { id: SidebarPage; label: string; icon: (active: boolean) => Re
   },
   {
     id: "projects",
-    label: "Projects",
+    labelKey: "nav.projects",
     icon: (a) => (
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={a ? "1.8" : "1.4"} strokeLinecap="round" strokeLinejoin="round">
         <rect x="3" y="4" width="14" height="12" rx="2" />
@@ -24,7 +26,7 @@ const NAV_ITEMS: { id: SidebarPage; label: string; icon: (active: boolean) => Re
   },
   {
     id: "agents",
-    label: "Director",
+    labelKey: "nav.director",
     icon: (a) => (
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={a ? "1.8" : "1.4"} strokeLinecap="round" strokeLinejoin="round">
         <path d="M3 7l7-4 7 4v6l-7 4-7-4V7z" />
@@ -35,7 +37,7 @@ const NAV_ITEMS: { id: SidebarPage; label: string; icon: (active: boolean) => Re
   },
   {
     id: "library",
-    label: "Library",
+    labelKey: "nav.library",
     icon: (a) => (
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={a ? "1.8" : "1.4"} strokeLinecap="round" strokeLinejoin="round">
         <rect x="3" y="3" width="6" height="6" rx="1" />
@@ -47,7 +49,7 @@ const NAV_ITEMS: { id: SidebarPage; label: string; icon: (active: boolean) => Re
   },
   {
     id: "templates",
-    label: "Templates",
+    labelKey: "nav.templates",
     icon: (a) => (
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={a ? "1.8" : "1.4"} strokeLinecap="round" strokeLinejoin="round">
         <rect x="3" y="3" width="14" height="14" rx="2" />
@@ -58,7 +60,7 @@ const NAV_ITEMS: { id: SidebarPage; label: string; icon: (active: boolean) => Re
   },
   {
     id: "edit",
-    label: "Edit",
+    labelKey: "nav.edit",
     icon: (a) => (
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={a ? "1.8" : "1.4"} strokeLinecap="round" strokeLinejoin="round">
         <path d="M14 3l3 3L7 16H4v-3L14 3z" />
@@ -67,8 +69,18 @@ const NAV_ITEMS: { id: SidebarPage; label: string; icon: (active: boolean) => Re
     ),
   },
   {
+    id: "workspace",
+    labelKey: "nav.workspace",
+    icon: (a) => (
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={a ? "1.8" : "1.4"} strokeLinecap="round" strokeLinejoin="round">
+        <rect x="3" y="3" width="14" height="14" rx="2" />
+        <path d="M3 14l4-4 4 4 6-6" />
+      </svg>
+    ),
+  },
+  {
     id: "settings",
-    label: "Settings",
+    labelKey: "nav.settings",
     icon: (a) => (
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={a ? "1.8" : "1.4"} strokeLinecap="round" strokeLinejoin="round">
         <circle cx="10" cy="10" r="3" />
@@ -79,8 +91,10 @@ const NAV_ITEMS: { id: SidebarPage; label: string; icon: (active: boolean) => Re
   },
 ];
 
-export function Sidebar() {
+    export function Sidebar() {
   const { sidebarPage, setSidebarPage } = useAppStore();
+  const { t, lang, setLang } = useI18nStore();
+  const { user, logout } = useAuthStore();
 
   return (
     <div className="flex w-[60px] shrink-0 flex-col items-center border-r border-nc-border bg-nc-sidebar">
@@ -96,6 +110,7 @@ export function Sidebar() {
       <div className="flex flex-1 flex-col items-center gap-0.5 py-1">
         {NAV_ITEMS.map((item) => {
           const isActive = sidebarPage === item.id;
+          const label = t(item.labelKey);
           return (
             <button
               key={item.id}
@@ -106,7 +121,7 @@ export function Sidebar() {
                   ? "bg-nc-accent-dim text-nc-accent"
                   : "text-nc-text-tertiary hover:bg-nc-panel-hover hover:text-nc-text-secondary"
               )}
-              title={item.label}
+              title={label}
             >
               {isActive && (
                 <div className="absolute left-0 top-1/2 h-4 w-[2px] -translate-y-1/2 rounded-r-full bg-nc-accent" />
@@ -114,22 +129,49 @@ export function Sidebar() {
               {item.icon(isActive)}
 
               {/* Tooltip */}
-              <div className="pointer-events-none absolute left-full ml-2 rounded-[var(--radius-sm)] bg-nc-elevated px-2 py-1 text-[10px] font-medium text-nc-text opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
-                {item.label}
+              <div className="pointer-events-none absolute left-full ml-2 whitespace-nowrap rounded-[var(--radius-sm)] bg-nc-elevated px-2 py-1 text-[11px] font-medium text-nc-text opacity-0 shadow-lg transition-opacity group-hover:opacity-100 z-50">
+                {label}
               </div>
             </button>
           );
         })}
       </div>
 
-      {/* Bottom: account */}
-      <div className="flex flex-col items-center gap-1 pb-3">
+      {/* Bottom: account / language */}
+      <div className="flex flex-col items-center gap-2 pb-3">
         <button
-          className="group relative flex h-8 w-8 items-center justify-center rounded-full bg-nc-panel-hover text-[11px] font-medium text-nc-text-secondary transition-all hover:bg-nc-panel-active hover:ring-1 hover:ring-nc-accent/20"
-          title="Account"
+          onClick={() => setLang(lang === "en" ? "zh" : "en")}
+          className="flex h-8 w-8 items-center justify-center rounded-full text-[10px] font-bold uppercase text-nc-text-tertiary hover:bg-nc-panel-hover hover:text-nc-text-secondary"
+          title="Toggle Language"
         >
-          U
+          {lang}
         </button>
+        
+        {user ? (
+          <button
+            onClick={logout}
+            className="group relative flex h-8 w-8 items-center justify-center rounded-full bg-nc-accent/20 text-[11px] font-medium text-nc-accent transition-all hover:bg-red-500/20 hover:text-red-500 hover:ring-1 hover:ring-red-500/30"
+            title={`Logout (${user.email})`}
+          >
+            <span className="group-hover:hidden">{user.email.charAt(0).toUpperCase()}</span>
+            <svg className="hidden h-3.5 w-3.5 group-hover:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+              <polyline points="16 17 21 12 16 7"></polyline>
+              <line x1="21" y1="12" x2="9" y2="12"></line>
+            </svg>
+          </button>
+        ) : (
+          <button
+            onClick={() => setSidebarPage("settings")}
+            className="group relative flex h-8 w-8 items-center justify-center rounded-full bg-nc-panel-hover text-[11px] font-medium text-nc-text-secondary transition-all hover:bg-nc-panel-active hover:ring-1 hover:ring-nc-accent/20"
+            title="Sign In"
+          >
+            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+              <circle cx="12" cy="7" r="4"></circle>
+            </svg>
+          </button>
+        )}
       </div>
     </div>
   );

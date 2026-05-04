@@ -1,5 +1,6 @@
 import { useCallback, useRef } from "react";
 import { useDirectorStore, type Shot, type QualityScore } from "@/stores/director-store";
+import { useAuthStore } from "@/stores/auth-store";
 import { sidecarFetch, SidecarError } from "@/lib/sidecar";
 
 const POLL_INTERVAL = 2000;
@@ -21,6 +22,7 @@ interface PlanPollResult {
     video_url?: string;
     thumbnail_url?: string;
     camera?: { camera?: string };
+    audio?: { dialogue?: string; lip_sync?: string; music?: string; sfx?: string };
   }>;
   scenes?: Array<{
     id: string;
@@ -66,12 +68,19 @@ function mapShots(
     video_url: s.video_url || "",
     thumbnail_url: s.thumbnail_url || "",
     camera: s.camera?.camera || "",
+    audio: s.audio ? {
+      dialogue: s.audio.dialogue || "",
+      lip_sync: s.audio.lip_sync || "",
+      music: s.audio.music || "",
+      sfx: s.audio.sfx || ""
+    } : undefined,
     qualityScore: qMap.get(s.id) || null,
   }));
 }
 
 export function useDirector() {
   const store = useDirectorStore();
+  const authStore = useAuthStore();
   const abortRef = useRef<AbortController | null>(null);
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -102,6 +111,12 @@ export function useDirector() {
     store.setPipelineStep("planning");
 
     try {
+      // Inject user's API key if logged in
+      const pipelineConfig = { ...store.pipeline };
+      if (authStore.user?.dashboardKey) {
+        pipelineConfig.video_api_key = authStore.user.dashboardKey;
+      }
+
       const res = await sidecarFetch<{ id: string; status: string }>(
         "/director/plan",
         {
@@ -114,7 +129,7 @@ export function useDirector() {
             aspect_ratio: store.aspectRatio,
             workflow: store.selectedWorkflow,
             references: store.references,
-            pipeline: store.pipeline,
+            pipeline: pipelineConfig,
           }),
           signal: controller.signal,
         },
