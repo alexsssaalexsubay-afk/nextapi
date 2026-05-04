@@ -94,6 +94,28 @@ func TestMinors_AlwaysBlocked(t *testing.T) {
 	}
 }
 
+func TestBalanced_DoesNotTreatKidnappingAsMinorContent(t *testing.T) {
+	db := setupDB(t)
+	svc := NewService(db)
+	ctx := context.Background()
+
+	_, err := svc.Check(ctx, CheckInput{OrgID: "org1", Prompt: "a tense kidnapping thriller in a subway tunnel"})
+	if err != nil {
+		t.Fatalf("kidnapping should not be treated as minors content, got %v", err)
+	}
+}
+
+func TestBalanced_DoesNotTreatAsexualAsNSFW(t *testing.T) {
+	db := setupDB(t)
+	svc := NewService(db)
+	ctx := context.Background()
+
+	_, err := svc.Check(ctx, CheckInput{OrgID: "org1", Prompt: "a calm documentary about asexual identity and friendship"})
+	if err != nil {
+		t.Fatalf("asexual should not trip the sexual keyword block, got %v", err)
+	}
+}
+
 func TestPerKeyOverride(t *testing.T) {
 	db := setupDB(t)
 	svc := NewService(db)

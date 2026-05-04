@@ -6,6 +6,8 @@ import (
 	"errors"
 	"strings"
 	"time"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/domain"
 	"gorm.io/gorm"
@@ -120,7 +122,7 @@ func (s *Service) evaluate(profile, prompt string) *Verdict {
 
 	// Minors always blocked regardless of profile.
 	for _, kw := range minorsKeywords {
-		if strings.Contains(lower, kw) {
+		if containsStandaloneKeyword(lower, kw) {
 			return &Verdict{Decision: "block", Reason: "minors_content"}
 		}
 	}
@@ -128,14 +130,14 @@ func (s *Service) evaluate(profile, prompt string) *Verdict {
 	switch profile {
 	case "strict":
 		for _, kw := range nsfwKeywords {
-			if strings.Contains(lower, kw) {
+			if containsStandaloneKeyword(lower, kw) {
 				return &Verdict{Decision: "block", Reason: "nsfw_content"}
 			}
 		}
 		return &Verdict{Decision: "allow", Reason: ""}
 	case "balanced":
 		for _, kw := range nsfwKeywords {
-			if strings.Contains(lower, kw) {
+			if containsStandaloneKeyword(lower, kw) {
 				return &Verdict{Decision: "block", Reason: "nsfw_content"}
 			}
 		}
@@ -147,6 +149,33 @@ func (s *Service) evaluate(profile, prompt string) *Verdict {
 	default:
 		return &Verdict{Decision: "allow", Reason: ""}
 	}
+}
+
+func containsStandaloneKeyword(text, keyword string) bool {
+	if keyword == "" {
+		return false
+	}
+	start := 0
+	for {
+		index := strings.Index(text[start:], keyword)
+		if index < 0 {
+			return false
+		}
+		index += start
+		beforeRune, _ := utf8.DecodeLastRuneInString(text[:index])
+		beforeOK := index == 0 || !isWordRune(beforeRune)
+		afterIndex := index + len(keyword)
+		afterRune, _ := utf8.DecodeRuneInString(text[afterIndex:])
+		afterOK := afterIndex == len(text) || !isWordRune(afterRune)
+		if beforeOK && afterOK {
+			return true
+		}
+		start = index + len(keyword)
+	}
+}
+
+func isWordRune(r rune) bool {
+	return unicode.IsLetter(r) || unicode.IsDigit(r)
 }
 
 func (s *Service) ListEvents(ctx context.Context, orgID string, limit, offset int) ([]domain.ModerationEvent, error) {
