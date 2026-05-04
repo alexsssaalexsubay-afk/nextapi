@@ -89,7 +89,6 @@ func main() {
 	modSvc := moderation.NewService(gormDB)
 	jobSvc.SetSpend(spendSvc)
 	jobSvc.SetThroughput(throughputSvc)
-	jobSvc.SetModeration(modSvc)
 	jobSvc.SetPricing(pricingSvc)
 	workflowSvc := workflowsvc.NewService(gormDB, jobSvc)
 	workflowSvc.SetThroughput(throughputSvc)

@@ -8,7 +8,6 @@ import (
 
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/billing"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/domain"
-	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/moderation"
 	pricingsvc "github.com/alexsssaalexsubay-afk/nextapi/backend/internal/pricing"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/provider"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/spend"
@@ -34,7 +33,6 @@ type Service struct {
 	billing    *billing.Service
 	spend      *spend.Service
 	throughput *throughput.Service
-	moderation *moderation.Service
 	pricing    *pricingsvc.Service
 	prov       provider.Provider
 	queue      Enqueuer
@@ -46,7 +44,6 @@ func NewService(db *gorm.DB, b *billing.Service, p provider.Provider, q Enqueuer
 
 func (s *Service) SetSpend(sp *spend.Service)           { s.spend = sp }
 func (s *Service) SetThroughput(tp *throughput.Service) { s.throughput = tp }
-func (s *Service) SetModeration(ms *moderation.Service) { s.moderation = ms }
 func (s *Service) SetPricing(ps *pricingsvc.Service)    { s.pricing = ps }
 
 type CreateInput struct {
@@ -83,19 +80,6 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*CreateResult, er
 		return nil, err
 	}
 	credits := quote.CustomerChargeCents
-
-	// Moderation check before any billing.
-	if s.moderation != nil {
-		_, modErr := s.moderation.Check(ctx, moderation.CheckInput{
-			OrgID:    in.OrgID,
-			APIKeyID: in.APIKeyID,
-			Prompt:   in.Request.Prompt,
-			ImageURL: in.Request.ImageURL,
-		})
-		if modErr != nil {
-			return nil, modErr
-		}
-	}
 
 	reqJSON, _ := json.Marshal(in.Request)
 

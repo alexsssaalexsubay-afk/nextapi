@@ -149,6 +149,29 @@ func TestCreate_ReservesCreditsAndEnqueues(t *testing.T) {
 	}
 }
 
+func TestCreate_DoesNotLocallyRejectPromptContent(t *testing.T) {
+	db := setupDB(t)
+	seedOrgWithCredits(t, db, "org1", 1_000_000)
+	q := &fakeQueue{}
+	svc := NewService(db, billing.NewService(db), seedance.NewMock(), q)
+
+	req := makeReq()
+	req.Prompt = "explicit nude scene with __test_poll_failed"
+
+	res, err := svc.Create(context.Background(), CreateInput{
+		OrgID: "org1", Request: req,
+	})
+	if err != nil {
+		t.Fatalf("job creation should not locally reject prompt content, got %v", err)
+	}
+	if res.JobID == "" {
+		t.Fatal("expected job id")
+	}
+	if q.enqueued != 1 {
+		t.Fatalf("want 1 enqueue, got %d", q.enqueued)
+	}
+}
+
 // The critical bug we just fixed: if enqueue fails, reservation must be
 // refunded and job marked failed — not left hanging with customer's credits gone.
 func TestCreate_EnqueueFailure_RefundsReservation(t *testing.T) {
