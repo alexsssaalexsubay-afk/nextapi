@@ -68,7 +68,75 @@ class ScriptOutput(BaseModel):
     scenes: list[SceneScript] = Field(default_factory=list, description="Ordered list of scene scripts")
 
 
+class CharacterBio(BaseModel):
+    name: str = Field(description="Character name")
+    role: str = Field(description="Role in the story")
+    appearance: str = Field(description="Detailed physical description")
+    personality: str = Field(description="Personality traits")
+
+
+class EpisodeOutline(BaseModel):
+    episode_number: int = Field(description="Episode number")
+    title: str = Field(description="Episode title")
+    logline: str = Field(description="One-sentence plot summary for this episode, ending in a hook")
+
+
+class SeriesOutline(BaseModel):
+    series_title: str = Field(description="Title of the series")
+    logline: str = Field(description="Series logline")
+    genre: str = Field(description="Genre and theme")
+    visual_style: str = Field(description="Visual style and aesthetic")
+    main_characters: list[CharacterBio] = Field(default_factory=list)
+    episodes: list[EpisodeOutline] = Field(default_factory=list)
+
+
+class EpisodeScriptOutput(BaseModel):
+    episode_number: int
+    title: str
+    scenes: list[SceneScript] = Field(default_factory=list, description="Ordered list of scene scripts for this episode")
+
+
 class Screenwriter(BaseAgent):
+
+    async def plan_series_from_novel(self, novel_text: str, total_episodes: int = 5, requirements: str = "") -> SeriesOutline:
+        user_prompt = (
+            f"You are adapting a novel/story into a short drama series.\n"
+            f"Create a complete Series Outline for exactly {total_episodes} episodes based on this text:\n\n"
+            f"{novel_text[:12000]}\n\n"
+            f"Requirements:\n"
+            f"- Extract the core plot and divide it into {total_episodes} gripping episodes.\n"
+            f"- Each episode must end with a hook or cliffhanger (2-Second Hook principle for the next episode).\n"
+            f"- Define the visual style and extract the main characters with highly specific physical details.\n"
+        )
+        if requirements:
+            user_prompt += f"\nAdditional requirements:\n{requirements}"
+            
+        return await self._complete_json(SYSTEM_PROMPT, user_prompt, SeriesOutline)
+
+    async def write_episode_script(self, series: SeriesOutline, episode_number: int, requirements: str = "") -> EpisodeScriptOutput:
+        episode = next((e for e in series.episodes if e.episode_number == episode_number), None)
+        if not episode:
+            raise ValueError(f"Episode {episode_number} not found in series outline")
+            
+        chars_text = "\n".join(f"- {c.name}: {c.appearance}" for c in series.main_characters)
+        
+        user_prompt = (
+            f"Write the detailed Scene Scripts for Episode {episode_number}: {episode.title}\n\n"
+            f"Series Context:\n"
+            f"Title: {series.series_title}\n"
+            f"Style: {series.visual_style}\n"
+            f"Episode Logline: {episode.logline}\n\n"
+            f"Main Characters (Anchor Appearance):\n{chars_text}\n\n"
+            f"Requirements:\n"
+            f"- Break the episode down into 3-6 distinct, visually striking scenes.\n"
+            f"- Use SVO structure, present tense, physical details.\n"
+            f"- Ensure character continuity using the provided appearance anchors.\n"
+            f"- Build tension towards the end of the episode.\n"
+        )
+        if requirements:
+            user_prompt += f"\nAdditional constraints:\n{requirements}"
+            
+        return await self._complete_json(SYSTEM_PROMPT, user_prompt, EpisodeScriptOutput)
 
     async def develop_story(self, idea: str, requirements: str = "") -> StoryOutput:
         user_prompt = f"Create a story from this idea/brief:\n{idea}"
