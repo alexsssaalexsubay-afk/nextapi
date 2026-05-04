@@ -4,6 +4,7 @@ import * as React from "react"
 import Link from "next/link"
 import { ArrowUpRight, ChevronDown, Copy, Download, RefreshCcw } from "lucide-react"
 import { StatusPill, type JobStatus } from "@/components/nextapi/status-pill"
+import { describeJobError } from "@/lib/api-error-i18n"
 import { useTranslations } from "@/lib/i18n/context"
 import { apiFetch } from "@/lib/api"
 import { cn } from "@/lib/utils"
@@ -79,6 +80,7 @@ export function JobsTable({
             {rows.map((r) => {
               const expanded = expandedId === r.id && !compact
               const canRetry = r.rawStatus === "failed" || r.rawStatus === "timed_out" || r.status === "failed"
+              const errorCopy = describeJobError(t, r.errorCode, r.errorMessage)
               return (
                 <React.Fragment key={r.id}>
                   <tr
@@ -165,7 +167,8 @@ export function JobsTable({
                             {(r.errorCode || r.errorMessage) && (
                               <div className="rounded-lg border border-status-failed/25 bg-status-failed-dim/10 p-3 text-[12.5px] text-status-failed">
                                 <span className="font-mono">{r.errorCode || "failed"}</span>
-                                {r.errorMessage ? <span className="ml-2 text-foreground/80">{r.errorMessage}</span> : null}
+                                <div className="mt-1 text-foreground/90">{errorCopy.summary}</div>
+                                {errorCopy.detail ? <div className="mt-1 text-foreground/70">{t.jobs.errors.upstream_original}: {errorCopy.detail}</div> : null}
                               </div>
                             )}
                             <div className="flex flex-wrap items-center gap-2">

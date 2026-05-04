@@ -9,7 +9,6 @@ import (
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/idempotency"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/infra/httpx"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/job"
-	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/moderation"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/spend"
 	tmplsvc "github.com/alexsssaalexsubay-afk/nextapi/backend/internal/template"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/throughput"
@@ -316,14 +315,6 @@ func handleTemplateWorkflowError(c *gin.Context, err error) {
 	if errors.Is(err, throughput.ErrBurstExceeded) {
 		c.Header("Retry-After", "5")
 		httpx.TooManyRequests(c, "rate_limited.burst_exceeded", "concurrency limit reached")
-		return
-	}
-	if errors.Is(err, moderation.ErrBlocked) {
-		httpx.WriteError(c, http.StatusUnprocessableEntity, "content_moderation.blocked", "content rejected")
-		return
-	}
-	if errors.Is(err, moderation.ErrReviewRequired) {
-		httpx.WriteError(c, http.StatusUnprocessableEntity, "content_moderation.review_required", "queued for review")
 		return
 	}
 	httpx.InternalError(c, "template_run_failed", "failed to run template")

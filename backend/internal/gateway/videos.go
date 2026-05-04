@@ -15,7 +15,6 @@ import (
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/domain"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/idempotency"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/job"
-	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/moderation"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/provider"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/spend"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/throughput"
@@ -870,18 +869,6 @@ func (h *VideosHandlers) handleJobError(c *gin.Context, err error) {
 		c.Header("Retry-After", "5")
 		c.JSON(http.StatusTooManyRequests, gin.H{
 			"error": gin.H{"code": "rate_limited.burst_exceeded", "message": "concurrency limit reached"},
-		})
-		return
-	}
-	if errors.Is(err, moderation.ErrBlocked) {
-		c.JSON(http.StatusUnprocessableEntity, gin.H{
-			"error": gin.H{"code": "content_moderation.blocked", "message": "content rejected"},
-		})
-		return
-	}
-	if errors.Is(err, moderation.ErrReviewRequired) {
-		c.JSON(http.StatusUnprocessableEntity, gin.H{
-			"error": gin.H{"code": "content_moderation.review_required", "message": "queued for review"},
 		})
 		return
 	}

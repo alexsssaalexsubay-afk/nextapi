@@ -17,6 +17,7 @@ import { CodeBlock } from "@/components/nextapi/code-block"
 import { cn } from "@/lib/utils"
 import { useTranslations } from "@/lib/i18n/context"
 import { apiFetch } from "@/lib/api"
+import { describeJobError } from "@/lib/api-error-i18n"
 
 // Shape returned by GET /v1/videos/:id
 type VideoDetail = {
@@ -242,6 +243,7 @@ export function JobDetail({ jobId }: { jobId: string }) {
           <UpstreamPanel
             state={state}
             errorCode={video.error_code}
+            errorMessage={video.error_message}
             model={video.model}
           />
         </div>
@@ -430,6 +432,7 @@ function EventsPanel({
 }) {
   const t = useTranslations()
   const e = t.jobs.detail.events
+  const errorCopy = describeJobError(t, errorCode, errorMessage)
 
   const rows = [
     { ev: "job.submitted", note: e.notes.submitted, color: "queued" },
@@ -450,8 +453,8 @@ function EventsPanel({
     },
     state === "failed" && {
       ev: "job.failed",
-      note: errorCode
-        ? `${errorCode}${errorMessage ? ": " + errorMessage : ""}`
+      note: errorCode || errorMessage
+        ? `${errorCode || "upstream_error"}: ${errorCopy.summary}${errorCopy.detail ? ` | ${errorCopy.detail}` : ""}`
         : e.notes.failedDefault,
       color: "failed",
     },
@@ -675,14 +678,17 @@ function Line({
 function UpstreamPanel({
   state,
   errorCode,
+  errorMessage,
   model,
 }: {
   state: JobStatus
   errorCode?: string
+  errorMessage?: string
   model?: string
 }) {
   const t = useTranslations()
   const u = t.jobs.detail.upstreamPanel
+  const errorCopy = describeJobError(t, errorCode, errorMessage)
 
   return (
     <section className="rounded-xl border border-border/80 bg-card/40 p-5">
@@ -695,6 +701,12 @@ function UpstreamPanel({
           <Line label={u.errorCode} value={errorCode} highlight />
         )}
       </dl>
+      {state === "failed" && (errorCode || errorMessage) ? (
+        <div className="mt-4 rounded-lg border border-status-failed/25 bg-status-failed-dim/10 p-3 text-[12px] text-status-failed">
+          <div className="text-foreground/90">{errorCopy.summary}</div>
+          {errorCopy.detail ? <div className="mt-1 text-foreground/70">{t.jobs.errors.upstream_original}: {errorCopy.detail}</div> : null}
+        </div>
+      ) : null}
     </section>
   )
 }

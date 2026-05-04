@@ -24,7 +24,7 @@ import { StatusPill, type JobStatus } from "@/components/nextapi/status-pill"
 import { useTranslations } from "@/lib/i18n/context"
 import { cn } from "@/lib/utils"
 import { apiFetch, apiUpload, ApiError } from "@/lib/api"
-import { jobApiErrorMessage } from "@/lib/api-error-i18n"
+import { describeJobError, jobApiErrorMessage } from "@/lib/api-error-i18n"
 import { useVideoModelCatalog } from "@/lib/use-video-model-catalog"
 import { libraryAssetGenerationURL } from "@/lib/workflows"
 import { toast } from "sonner"
@@ -980,6 +980,7 @@ export default function NewJobPage() {
             retrying={retrying}
             onRetry={retryCurrentVideo}
             logs={eventLog}
+            t={t}
             labels={t.jobs.new.task}
           />
         </aside>
@@ -1227,12 +1228,14 @@ function CurrentTaskCard({
   retrying,
   onRetry,
   logs,
+  t,
   labels,
 }: {
   video: CurrentVideo | null
   retrying: boolean
   onRetry: () => void
   logs: string[]
+  t: ReturnType<typeof useTranslations>
   labels: {
     title: string
     idleDescription: string
@@ -1271,6 +1274,7 @@ function CurrentTaskCard({
   const active = ACTIVE_STATUSES.has(video.status)
   const videoURL = video.output?.url || video.output?.video_url
   const cost = video.actual_cost_cents ?? video.estimated_cost_cents
+  const errorCopy = describeJobError(t, video.error_code, video.error_message)
   const onDownload = async () => {
     if (!videoURL || downloading) return
     setDownloading(true)
@@ -1336,7 +1340,8 @@ function CurrentTaskCard({
       {(video.error_code || video.error_message) && (
         <div className="mt-3 rounded-lg border border-status-failed/25 bg-status-failed-dim/10 p-3 text-[12.5px] text-status-failed">
           <span className="font-mono">{video.error_code || "failed"}</span>
-          {video.error_message ? <span className="ml-2 text-foreground/80">{video.error_message}</span> : null}
+          <div className="mt-1 text-foreground/90">{errorCopy.summary}</div>
+          {errorCopy.detail ? <div className="mt-1 text-foreground/70">{t.jobs.errors.upstream_original}: {errorCopy.detail}</div> : null}
         </div>
       )}
 

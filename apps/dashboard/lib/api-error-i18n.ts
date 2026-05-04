@@ -37,6 +37,95 @@ const ERROR_CODE_TO_I18N_KEY: Record<string, string> = {
 
 type JobsErrors = Record<string, string>
 
+export type JobErrorCopy = {
+  summary: string
+  detail?: string
+}
+
+function explainUpstreamError(
+  t: { jobs: { errors: JobsErrors } },
+  code?: string | null,
+  message?: string | null,
+): string {
+  const lower = `${code || ""} ${message || ""}`.toLowerCase()
+  if (
+    lower.includes("resource download failed") ||
+    lower.includes("could not download") ||
+    lower.includes("download failed")
+  ) {
+    return t.jobs.errors.upstream_media_download_failed
+  }
+  if (
+    lower.includes("real person") ||
+    lower.includes("real human") ||
+    lower.includes("portrait was not approved") ||
+    lower.includes("asset library") ||
+    lower.includes("face-consistency")
+  ) {
+    return t.jobs.errors.upstream_real_person_asset_required
+  }
+  if (
+    lower.includes("rate limit") ||
+    lower.includes("rate limited") ||
+    lower.includes("too many requests")
+  ) {
+    return t.jobs.errors.upstream_rate_limited
+  }
+  if (
+    lower.includes("service unavailable") ||
+    lower.includes("temporarily unavailable") ||
+    lower.includes("provider error") ||
+    lower.includes("bad gateway") ||
+    lower.includes("overloaded")
+  ) {
+    return t.jobs.errors.upstream_service_unavailable
+  }
+  if (lower.includes("timed out") || lower.includes("timeout")) {
+    return t.jobs.errors.upstream_timeout
+  }
+  if (lower.includes("insufficient balance")) {
+    return t.jobs.errors.upstream_insufficient_balance
+  }
+  if (
+    lower.includes("invalidparameter") ||
+    lower.includes("invalid parameter") ||
+    lower.includes("invalid request") ||
+    lower.includes("unprocessable") ||
+    lower.includes("mutually exclusive") ||
+    lower.includes("too many video_urls") ||
+    lower.includes("too many image_urls")
+  ) {
+    return t.jobs.errors.upstream_invalid_request
+  }
+  return t.jobs.errors.upstream_rejected
+}
+
+export function describeJobError(
+  t: { jobs: { errors: JobsErrors } },
+  code?: string | null,
+  message?: string | null,
+): JobErrorCopy {
+  const normalizedCode = code?.trim() || ""
+  const raw = message?.trim() || ""
+  if (normalizedCode) {
+    const i18nKey = ERROR_CODE_TO_I18N_KEY[normalizedCode] ?? normalizedCode.replace(/\./g, "_")
+    const mapped = t.jobs.errors[i18nKey]
+    if (mapped) {
+      return {
+        summary: mapped,
+        detail: raw && raw !== mapped ? raw : undefined,
+      }
+    }
+  }
+  if (raw) {
+    return {
+      summary: explainUpstreamError(t, normalizedCode || undefined, raw),
+      detail: raw,
+    }
+  }
+  return { summary: t.jobs.errors.unknown }
+}
+
 /**
  * User-facing copy for API failures (locale from `t`).
  */
@@ -44,14 +133,8 @@ export function jobApiErrorMessage(
   t: { jobs: { errors: JobsErrors } },
   err: unknown,
 ): string {
-  if (!(err instanceof ApiError)) {
-    return t.jobs.errors.unknown
-  }
-  const raw = err.code?.trim()
-  if (raw) {
-    const i18nKey = ERROR_CODE_TO_I18N_KEY[raw] ?? raw.replace(/\./g, "_")
-    const msg = t.jobs.errors[i18nKey]
-    if (msg) return msg
-  }
-  return t.jobs.errors.unknown
+  const copy = err instanceof ApiError
+    ? describeJobError(t, err.code, err.message)
+    : { summary: t.jobs.errors.unknown }
+  return copy.detail ? `${copy.summary} ${t.jobs.errors.upstream_original}: ${copy.detail}` : copy.summary
 }

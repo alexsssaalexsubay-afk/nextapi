@@ -22,6 +22,7 @@ import { AlertTriangle, CheckCircle2, ChevronDown, ChevronUp, Code2, GitBranch, 
 import { toast } from "sonner"
 import { ModelSelect } from "@/components/ai/model-select"
 import { apiFetch, ApiError } from "@/lib/api"
+import { describeJobError, jobApiErrorMessage } from "@/lib/api-error-i18n"
 import { importWorkflowJSON } from "@/lib/comfyui-import"
 import { useVideoModelCatalog } from "@/lib/use-video-model-catalog"
 import {
@@ -332,7 +333,7 @@ export function CanvasWorkspace() {
       toast.success(labels.saved)
       return saved
     } catch (e) {
-      toast.error(e instanceof ApiError ? e.message : labels.saveFailed)
+      toast.error(e instanceof ApiError ? jobApiErrorMessage(t, e) : labels.saveFailed)
       return null
     } finally {
       setSaving(false)
@@ -408,7 +409,7 @@ export function CanvasWorkspace() {
       setCurrentVideo({ id: result.task_id, status: result.status })
       void refreshVideo(result.task_id).catch(() => undefined)
     } catch (e) {
-      toast.error(e instanceof ApiError ? e.message : labels.runFailed)
+      toast.error(e instanceof ApiError ? jobApiErrorMessage(t, e) : labels.runFailed)
       setNodes((items) => items.map((item) => String(item.data.node_type) === "seedance.video" ? { ...item, data: { ...item.data, node_status: "failed" } } : item))
     } finally {
       setRunning(false)
@@ -423,7 +424,7 @@ export function CanvasWorkspace() {
       await saveWorkflowAsTemplate(saved.id, { name, category: "canvas" })
       toast.success(labels.templateSaved)
     } catch (e) {
-      toast.error(e instanceof ApiError ? e.message : labels.templateSaveFailed)
+      toast.error(e instanceof ApiError ? jobApiErrorMessage(t, e) : labels.templateSaveFailed)
     } finally {
       setTemplateSaving(false)
     }
@@ -440,7 +441,7 @@ export function CanvasWorkspace() {
       setExportResult(result)
       toast.success(labels.exportReady)
     } catch (e) {
-      toast.error(e instanceof ApiError ? e.message : labels.exportFailed)
+      toast.error(e instanceof ApiError ? jobApiErrorMessage(t, e) : labels.exportFailed)
     } finally {
       setExporting(false)
     }
@@ -624,7 +625,9 @@ function RunStatusCard({
   exportResult: ExportAPIResult | null
   labels: ReturnType<typeof useTranslations>["canvas"]
 }) {
+  const t = useTranslations()
   const status = currentVideo?.status ?? "idle"
+  const errorCopy = describeJobError(t, currentVideo?.error_code, currentVideo?.error_message)
   if (!currentVideo?.id && !videoURL && !exportResult) {
     return (
       <section className="rounded-lg border border-border bg-background/80 px-3 py-2 shadow-sm">
@@ -658,7 +661,13 @@ function RunStatusCard({
         </div>
       </div>
       {videoURL ? <video src={videoURL} controls className="mt-3 aspect-video w-full rounded-2xl bg-black object-contain" /> : null}
-      {currentVideo?.error_code ? <div className="mt-2 rounded-2xl border border-status-failed/30 bg-status-failed/10 px-3 py-2 text-[12px] text-status-failed">{currentVideo.error_code}</div> : null}
+      {currentVideo?.error_code || currentVideo?.error_message ? (
+        <div className="mt-2 rounded-2xl border border-status-failed/30 bg-status-failed/10 px-3 py-2 text-[12px] text-status-failed">
+          <div className="font-mono">{currentVideo?.error_code || "upstream_error"}</div>
+          <div className="mt-1 text-foreground/90">{errorCopy.summary}</div>
+          {errorCopy.detail ? <div className="mt-1 text-foreground/70">{t.jobs.errors.upstream_original}: {errorCopy.detail}</div> : null}
+        </div>
+      ) : null}
     </section>
   )
 }
