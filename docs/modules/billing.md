@@ -6,7 +6,7 @@ Credits ledger for NextAPI. Balance is always computed from ledger, never cached
 ## Invariants
 - Balance = `SUM(delta_credits) WHERE org_id = X`. No separate balance column.
 - Every credit change = one new row (append-only ledger).
-- Signup bonus = +500 credits, reason=signup_bonus.
+- Signup bonus = +500 cents ($5.00), reason=signup_bonus.
 - Job reservation = negative delta, reason=reservation.
 - Job completion = reason=reconciliation (delta = actual - reserved).
 - Job failure = reason=refund (delta = +reserved amount).
