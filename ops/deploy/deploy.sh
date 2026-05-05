@@ -19,6 +19,7 @@ if [[ -f docker-compose.override.yml ]]; then
 fi
 
 docker compose "${COMPOSE_ARGS[@]}" pull backend worker
+docker compose "${COMPOSE_ARGS[@]}" build director-sidecar
 docker compose "${COMPOSE_ARGS[@]}" up -d --remove-orphans
 
 # Run migrations inside the fresh image.
