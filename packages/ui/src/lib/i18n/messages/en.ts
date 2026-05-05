@@ -1181,6 +1181,7 @@ export const en = {
       invalid_first_frame_url: "Invalid first frame URL. / 首帧链接无效。",
       invalid_last_frame_url: "Invalid last frame URL. / 尾帧链接无效。",
       upstream_invalid_request: "Upstream rejected the request parameters or media combination. / 上游判定这次请求参数或素材组合不合法，请检查提示词、素材链接和配置。",
+      upstream_prompt_too_long_public_api: "The upstream public API rejected an overlong prompt; this is not a local NextAPI validation. Long Chinese prompts can hit this limit earlier than expected. / 上游公共 API 拒绝了过长提示词；这不是 NextAPI 本地校验，长中文提示词通常会更早触发该限制。",
       upstream_media_download_failed: "Upstream could not download the referenced media. / 上游无法下载你提供的素材，请确认链接可公网访问、未过期，并且文件本身可用。",
       upstream_real_person_asset_required: "Real-person media must be approved through the asset library first. / 上游不接受直接上传的真人素材，请先走素材库审核，或改用已通过审核的参考素材。",
       upstream_rate_limited: "Upstream rate limited the request. / 上游当前较忙，请稍后重试。",

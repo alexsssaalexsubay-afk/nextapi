@@ -49,6 +49,12 @@ function explainUpstreamError(
 ): string {
   const lower = `${code || ""} ${message || ""}`.toLowerCase()
   if (
+    lower.includes("prompt too long") ||
+    (lower.includes("max 2000") && lower.includes("prompt"))
+  ) {
+    return t.jobs.errors.upstream_prompt_too_long_public_api
+  }
+  if (
     lower.includes("resource download failed") ||
     lower.includes("could not download") ||
     lower.includes("download failed")
