@@ -106,6 +106,11 @@ func (p *Processor) HandleGenerate(ctx context.Context, t *asynq.Task) error {
 
 	if err != nil {
 		classified := ClassifyError(err)
+		p.recordUpstreamObservability(ctx, j.ID, &provider.JobStatus{
+			Status:       "failed",
+			ErrorCode:    &classified.Code,
+			ErrorMessage: &classified.Msg,
+		}, "server.submit.response", "error", "Platform rejected task")
 
 		// Track the attempt on the job row.
 		now := time.Now()
@@ -141,6 +146,9 @@ func (p *Processor) HandleGenerate(ctx context.Context, t *asynq.Task) error {
 	}
 
 	now := time.Now()
+	p.recordUpstreamObservability(ctx, j.ID, &provider.JobStatus{
+		Status: "queued",
+	}, "server.submit.response", "success", "Platform accepted task")
 	execMeta, _ := json.Marshal(map[string]any{
 		"provider_latency_ms": provLatencyMs,
 		"submit_attempt":      retryCount + 1,
@@ -192,6 +200,14 @@ func (p *Processor) HandlePoll(ctx context.Context, t *asynq.Task) error {
 		metrics.RetryTotal.WithLabelValues(p.Prov.Name(), "poll_error").Inc()
 		return err
 	}
+	eventTitle := "Task status: " + st.Status
+	eventLevel := "info"
+	if st.Status == "failed" {
+		eventLevel = "error"
+	} else if st.Status == "succeeded" {
+		eventLevel = "success"
+	}
+	p.recordUpstreamObservability(ctx, j.ID, st, "server.poll.response", eventLevel, eventTitle)
 	switch st.Status {
 	case "succeeded":
 		return p.succeed(ctx, &j, st)
@@ -412,6 +428,144 @@ func updateBatchWorkflowRun(ctx context.Context, tx *gorm.DB, batchID string, st
 	_ = tx.WithContext(ctx).Model(&domain.WorkflowRun{}).
 		Where("batch_run_id = ?", batchID).
 		Updates(updates).Error
+}
+
+func (p *Processor) recordUpstreamObservability(ctx context.Context, jobID string, st *provider.JobStatus, eventName string, level string, title string) {
+	if st == nil {
+		return
+	}
+	var video domain.Video
+	if err := p.DB.WithContext(ctx).Where("upstream_job_id = ?", jobID).First(&video).Error; err != nil {
+		return
+	}
+	metadata, changed := mergeObservabilityMetadata(video.Metadata, st, eventName, level, title)
+	if !changed {
+		return
+	}
+	_ = p.DB.WithContext(ctx).Model(&domain.Video{}).
+		Where("id = ?", video.ID).
+		Update("metadata", metadata).Error
+}
+
+func mergeObservabilityMetadata(raw json.RawMessage, st *provider.JobStatus, eventName string, level string, title string) (json.RawMessage, bool) {
+	root := map[string]any{}
+	if len(raw) > 0 {
+		_ = json.Unmarshal(raw, &root)
+	}
+	obs, _ := root["upstream_observability"].(map[string]any)
+	if obs == nil {
+		obs = map[string]any{}
+	}
+	if len(st.RequestSummary) > 0 {
+		var summary any
+		if json.Unmarshal(st.RequestSummary, &summary) == nil {
+			obs["request_summary"] = summary
+		}
+	}
+	if len(st.SubmitPayload) > 0 {
+		var payload any
+		if json.Unmarshal(st.SubmitPayload, &payload) == nil {
+			obs["submit_payload"] = payload
+		}
+	}
+	current := map[string]any{
+		"status":     st.Status,
+		"updated_at": time.Now().UTC().Format(time.RFC3339Nano),
+	}
+	if st.Progress != nil {
+		current["progress"] = *st.Progress
+	}
+	if st.BillableQuantity != nil {
+		current["billable_quantity"] = *st.BillableQuantity
+	}
+	if st.BillableUnit != nil && strings.TrimSpace(*st.BillableUnit) != "" {
+		current["billable_unit"] = *st.BillableUnit
+	}
+	if st.StoredError != nil && strings.TrimSpace(*st.StoredError) != "" {
+		current["stored_error"] = *st.StoredError
+	}
+	if st.ErrorCode != nil || st.ErrorMessage != nil {
+		errObj := map[string]any{}
+		if st.ErrorCode != nil {
+			errObj["code"] = *st.ErrorCode
+		}
+		if st.ErrorMessage != nil {
+			errObj["message"] = *st.ErrorMessage
+		}
+		current["error"] = errObj
+	}
+	if len(st.Debug) > 0 {
+		var debug any
+		if json.Unmarshal(st.Debug, &debug) == nil {
+			current["debug"] = debug
+			obs["debug"] = debug
+		}
+	}
+	obs["current"] = current
+
+	events := coerceObservabilityEvents(obs["events"])
+	eventPayload := map[string]any{"status": st.Status}
+	if st.Progress != nil {
+		eventPayload["progress"] = *st.Progress
+	}
+	if st.BillableQuantity != nil {
+		eventPayload["billable_quantity"] = *st.BillableQuantity
+	}
+	if st.BillableUnit != nil && strings.TrimSpace(*st.BillableUnit) != "" {
+		eventPayload["billable_unit"] = *st.BillableUnit
+	}
+	if st.ErrorCode != nil {
+		eventPayload["error_code"] = *st.ErrorCode
+	}
+	if st.ErrorMessage != nil {
+		eventPayload["error_message"] = *st.ErrorMessage
+	}
+	if st.StoredError != nil && strings.TrimSpace(*st.StoredError) != "" {
+		eventPayload["stored_error"] = *st.StoredError
+	}
+	if len(st.RequestSummary) > 0 {
+		var summary any
+		if json.Unmarshal(st.RequestSummary, &summary) == nil {
+			eventPayload["request_summary"] = summary
+		}
+	}
+	if len(st.SubmitPayload) > 0 {
+		var payload any
+		if json.Unmarshal(st.SubmitPayload, &payload) == nil {
+			eventPayload["submit_payload"] = payload
+		}
+	}
+	events = append(events, map[string]any{
+		"ts":      time.Now().UTC().Format(time.RFC3339Nano),
+		"event":   eventName,
+		"level":   level,
+		"title":   title,
+		"payload": eventPayload,
+	})
+	if len(events) > 30 {
+		events = events[len(events)-30:]
+	}
+	obs["events"] = events
+	root["upstream_observability"] = obs
+	b, err := json.Marshal(root)
+	if err != nil {
+		return raw, false
+	}
+	return b, true
+}
+
+func coerceObservabilityEvents(raw any) []map[string]any {
+	items, ok := raw.([]any)
+	if !ok {
+		return []map[string]any{}
+	}
+	events := make([]map[string]any, 0, len(items))
+	for _, item := range items {
+		if event, ok := item.(map[string]any); ok {
+			events = append(events, event)
+		}
+	}
+	return events
 }
 
 func (p *Processor) fail(ctx context.Context, j *domain.Job, code, msg string) error {

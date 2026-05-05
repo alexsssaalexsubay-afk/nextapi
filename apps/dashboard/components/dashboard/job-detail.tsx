@@ -26,10 +26,16 @@ type VideoDetail = {
   status: string
   input?: Record<string, unknown>
   output?: { url?: string }
+  metadata?: Record<string, unknown>
   estimated_cost_cents: number
   actual_cost_cents?: number
+  upstream_tokens?: number
+  provider_job_id?: string
+  retry_count?: number
   error_code?: string
   error_message?: string
+  last_error_code?: string
+  last_error_message?: string
   created_at: string
   started_at?: string
   finished_at?: string
@@ -39,8 +45,51 @@ const ACTIVE_STATUSES = new Set(["queued", "submitting", "running", "retrying"])
 const POLL_INTERVAL_MS = 4000
 
 function toJobStatus(s: string): JobStatus {
+  if (s === "processing" || s === "retrying") return "running"
   const valid: JobStatus[] = ["queued", "submitting", "running", "succeeded", "failed"]
   return valid.includes(s as JobStatus) ? (s as JobStatus) : "queued"
+}
+
+type ObservabilityEvent = {
+  ts?: string
+  event?: string
+  level?: string
+  title?: string
+  payload?: unknown
+}
+
+type ObservabilityState = {
+  request_summary?: Record<string, unknown>
+  submit_payload?: Record<string, unknown>
+  current?: Record<string, unknown>
+  debug?: Record<string, unknown>
+  events?: ObservabilityEvent[]
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object" && !Array.isArray(value)
+}
+
+function getObservability(video?: VideoDetail | null): ObservabilityState | null {
+  const root = video?.metadata
+  if (!isRecord(root)) return null
+  const raw = root.upstream_observability
+  return isRecord(raw) ? (raw as ObservabilityState) : null
+}
+
+function stringifyCompact(value: unknown): string {
+  if (typeof value === "string") return value
+  try {
+    return JSON.stringify(value, null, 2)
+  } catch {
+    return String(value)
+  }
+}
+
+function getObservabilityEvents(video?: VideoDetail | null): ObservabilityEvent[] {
+  const events = getObservability(video)?.events
+  if (!Array.isArray(events)) return []
+  return events.filter((event): event is ObservabilityEvent => isRecord(event))
 }
 
 export function JobDetail({ jobId }: { jobId: string }) {
@@ -132,6 +181,21 @@ export function JobDetail({ jobId }: { jobId: string }) {
   const state = toJobStatus(video.status)
   const prompt = (video.input?.prompt as string) || td.noPrompt
   const videoURL = video.output?.url
+  const observability = getObservability(video)
+  const observabilityEvents = getObservabilityEvents(video)
+  const currentSnapshot = observability?.current
+  const providerProgress =
+    isRecord(currentSnapshot) && typeof currentSnapshot.progress === "number"
+      ? currentSnapshot.progress
+      : null
+  const providerBillableQuantity =
+    isRecord(currentSnapshot) && typeof currentSnapshot.billable_quantity === "number"
+      ? currentSnapshot.billable_quantity
+      : null
+  const providerBillableUnit =
+    isRecord(currentSnapshot) && typeof currentSnapshot.billable_unit === "string"
+      ? currentSnapshot.billable_unit
+      : null
   // USD strings — what the upstream invoice is denominated in.
   const reservedUSD = `$${(video.estimated_cost_cents / 100).toFixed(2)}`
   const billedUSD = video.actual_cost_cents != null
@@ -219,11 +283,16 @@ export function JobDetail({ jobId }: { jobId: string }) {
         {/* Left column */}
         <div className="space-y-6">
           <OutputPanel state={state} videoURL={videoURL} />
-          <PayloadPanel input={video.input} />
+          <PayloadPanel
+            input={video.input}
+            requestSummary={observability?.request_summary}
+            submitPayload={observability?.submit_payload}
+          />
           <EventsPanel
             state={state}
             errorCode={video.error_code}
             errorMessage={video.error_message}
+            events={observabilityEvents}
           />
         </div>
 
@@ -239,12 +308,17 @@ export function JobDetail({ jobId }: { jobId: string }) {
             state={state}
             reserved={reservedUSD}
             billed={billedUSD}
+            billableQuantity={providerBillableQuantity}
+            billableUnit={providerBillableUnit}
           />
           <UpstreamPanel
             state={state}
             errorCode={video.error_code}
             errorMessage={video.error_message}
             model={video.model}
+            providerJobID={video.provider_job_id}
+            retryCount={video.retry_count}
+            progress={providerProgress}
           />
         </div>
       </div>
@@ -399,24 +473,47 @@ function FailedView() {
   )
 }
 
-function PayloadPanel({ input }: { input?: Record<string, unknown> }) {
+function PayloadPanel({
+  input,
+  requestSummary,
+  submitPayload,
+}: {
+  input?: Record<string, unknown>
+  requestSummary?: Record<string, unknown>
+  submitPayload?: Record<string, unknown>
+}) {
   const t = useTranslations()
   const r = t.jobs.detail.request
 
   const inputJson = input
     ? JSON.stringify(input, null, 2)
     : `{\n  "prompt": "${r.loadingPlaceholder}"\n}`
+  const tabs = [
+    {
+      label: r.submitted,
+      language: "json",
+      code: inputJson,
+    },
+  ]
+  if (requestSummary) {
+    tabs.push({
+      label: "request_summary",
+      language: "json",
+      code: JSON.stringify(requestSummary, null, 2),
+    })
+  }
+  if (submitPayload) {
+    tabs.push({
+      label: "submit_payload",
+      language: "json",
+      code: JSON.stringify(submitPayload, null, 2),
+    })
+  }
 
   return (
     <CodeBlock
       filename="request.json"
-      tabs={[
-        {
-          label: r.submitted,
-          language: "json",
-          code: inputJson,
-        },
-      ]}
+      tabs={tabs}
     />
   )
 }
@@ -425,31 +522,50 @@ function EventsPanel({
   state,
   errorCode,
   errorMessage,
+  events,
 }: {
   state: JobStatus
   errorCode?: string
   errorMessage?: string
+  events?: ObservabilityEvent[]
 }) {
   const t = useTranslations()
   const e = t.jobs.detail.events
   const errorCopy = describeJobError(t, errorCode, errorMessage)
+  type EventRow = { ev: string; note: string; color: string; payload?: string }
+  const providerRows: EventRow[] = events?.map((event) => ({
+    ev: event.event || "provider.event",
+    note: event.title || (event.payload ? stringifyCompact(event.payload) : ""),
+    color:
+      event.level === "error"
+        ? "failed"
+        : event.level === "success"
+          ? "success"
+          : event.event?.includes("running") || event.event?.includes("processing")
+            ? "running"
+            : "queued",
+    payload: event.payload ? stringifyCompact(event.payload) : "",
+  })) ?? []
 
-  const rows = [
-    { ev: "job.submitted", note: e.notes.submitted, color: "queued" },
+  const fallbackRows = [
+    { ev: "job.submitted", note: e.notes.submitted, color: "queued", payload: undefined },
     state !== "submitting" && {
       ev: "job.queued",
       note: e.notes.queued,
       color: "queued",
+      payload: undefined,
     },
     (state === "running" || state === "succeeded" || state === "failed") && {
       ev: "job.running",
       note: e.notes.running,
       color: "running",
+      payload: undefined,
     },
     state === "succeeded" && {
       ev: "job.succeeded",
       note: e.notes.succeeded,
       color: "success",
+      payload: undefined,
     },
     state === "failed" && {
       ev: "job.failed",
@@ -457,8 +573,10 @@ function EventsPanel({
         ? `${errorCode || "upstream_error"}: ${errorCopy.summary}${errorCopy.detail ? ` | ${errorCopy.detail}` : ""}`
         : e.notes.failedDefault,
       color: "failed",
+      payload: undefined,
     },
-  ].filter(Boolean) as { ev: string; note: string; color: string }[]
+  ].filter(Boolean) as EventRow[]
+  const rows = providerRows.length > 0 ? providerRows : fallbackRows
 
   return (
     <section className="overflow-hidden rounded-xl border border-border/80 bg-card/40">
@@ -468,19 +586,26 @@ function EventsPanel({
       </div>
       <ul className="divide-y divide-border/60 font-mono text-[12px]">
         {rows.map((r, i) => (
-          <li key={i} className="flex items-center gap-4 px-5 py-2.5">
-            <span
-              className={cn(
-                "w-36 shrink-0",
-                r.color === "success" && "text-status-success",
-                r.color === "failed" && "text-status-failed",
-                r.color === "running" && "text-status-running",
-                r.color === "queued" && "text-status-queued",
-              )}
-            >
-              {r.ev}
-            </span>
-            <span className="flex-1 truncate text-muted-foreground">{r.note}</span>
+          <li key={i} className="px-5 py-2.5">
+            <div className="flex items-center gap-4">
+              <span
+                className={cn(
+                  "w-36 shrink-0",
+                  r.color === "success" && "text-status-success",
+                  r.color === "failed" && "text-status-failed",
+                  r.color === "running" && "text-status-running",
+                  r.color === "queued" && "text-status-queued",
+                )}
+              >
+                {r.ev}
+              </span>
+              <span className="flex-1 truncate text-muted-foreground">{r.note}</span>
+            </div>
+            {typeof r.payload === "string" && r.payload.length > 0 ? (
+              <pre className="mt-2 max-h-28 overflow-auto whitespace-pre-wrap rounded-md bg-background/60 p-2 font-mono text-[10.5px] leading-relaxed text-muted-foreground">
+                {r.payload}
+              </pre>
+            ) : null}
           </li>
         ))}
         {(state === "submitting" || state === "queued" || state === "running") && (
@@ -605,10 +730,14 @@ function BillingPanel({
   state,
   reserved,
   billed,
+  billableQuantity,
+  billableUnit,
 }: {
   state: JobStatus
   reserved: string
   billed: string | null
+  billableQuantity?: number | null
+  billableUnit?: string | null
 }) {
   const t = useTranslations()
   const b = t.jobs.detail.billingPanel
@@ -634,6 +763,7 @@ function BillingPanel({
           value={refundedValue}
           highlight={state === "failed"}
         />
+        {billableQuantity != null && billableUnit ? <Line label="billable" value={`${billableQuantity} ${billableUnit}`} /> : null}
         <div className="h-px bg-border/60" />
         <Line
           label={b.netCredits}
@@ -680,11 +810,17 @@ function UpstreamPanel({
   errorCode,
   errorMessage,
   model,
+  providerJobID,
+  retryCount,
+  progress,
 }: {
   state: JobStatus
   errorCode?: string
   errorMessage?: string
   model?: string
+  providerJobID?: string
+  retryCount?: number
+  progress?: number | null
 }) {
   const t = useTranslations()
   const u = t.jobs.detail.upstreamPanel
@@ -696,7 +832,9 @@ function UpstreamPanel({
       <dl className="mt-4 space-y-2.5 font-mono text-[12px]">
         <Line label={u.provider} value={u.providerValue} />
         <Line label={u.model} value={model || u.modelDefault} />
-        <Line label={u.retries} value={u.retriesValue} />
+        <Line label={u.retries} value={retryCount != null ? String(retryCount) : u.retriesValue} />
+        {providerJobID ? <Line label="provider job" value={providerJobID} /> : null}
+        {progress != null ? <Line label="progress" value={`${progress}%`} /> : null}
         {state === "failed" && errorCode && (
           <Line label={u.errorCode} value={errorCode} highlight />
         )}

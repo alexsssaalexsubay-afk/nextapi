@@ -229,7 +229,7 @@ func (h *VideosHandlers) Create(c *gin.Context) {
 		Model:              req.Model,
 		Status:             "queued",
 		Input:              req.Input,
-		Metadata:           json.RawMessage(`{}`),
+		Metadata:           buildVideoObservabilityMetadata(req.Model, input, nil),
 		UpstreamJobID:      &res.JobID,
 		EstimatedCostCents: res.EstimatedCredits,
 		ReservedCents:      res.EstimatedCredits,
@@ -352,14 +352,13 @@ func (h *VideosHandlers) Retry(c *gin.Context) {
 		return
 	}
 
-	metadata, _ := json.Marshal(map[string]any{"retry_of": original.ID})
 	vid := domain.Video{
 		OrgID:              org.ID,
 		APIKeyID:           original.APIKeyID,
 		Model:              original.Model,
 		Status:             "queued",
 		Input:              original.Input,
-		Metadata:           metadata,
+		Metadata:           buildVideoObservabilityMetadata(original.Model, input, &original.ID),
 		UpstreamJobID:      &res.JobID,
 		EstimatedCostCents: res.EstimatedCredits,
 		ReservedCents:      res.EstimatedCredits,
@@ -439,6 +438,99 @@ func videoGenerationRequest(model string, input videoInput) provider.GenerationR
 	}
 }
 
+func buildVideoObservabilityMetadata(model string, input videoInput, retryOf *string) json.RawMessage {
+	summary := map[string]any{
+		"duration":        input.DurationSeconds,
+		"generate_audio":  boolValue(input.GenerateAudio),
+		"has_first_frame": strings.TrimSpace(stringValue(input.FirstFrameURL)) != "",
+		"has_last_frame":  strings.TrimSpace(stringValue(input.LastFrameURL)) != "",
+		"model":           model,
+		"num_audios":      len(input.AudioURLs),
+		"num_images":      len(input.ImageURLs),
+		"num_videos":      len(input.VideoURLs),
+		"ratio":           valueOrDefault(input.AspectRatio, valueOrDefault(input.Ratio, "adaptive")),
+		"resolution":      valueOrDefault(input.Resolution, provider.DefaultResolution()),
+		"seed":            input.Seed,
+	}
+	frameImages := 0
+	if summary["has_first_frame"] == true {
+		frameImages++
+	}
+	if summary["has_last_frame"] == true {
+		frameImages++
+	}
+	if frameImages > 0 {
+		summary["num_images"] = len(input.ImageURLs) + frameImages
+	}
+	payload := map[string]any{
+		"model":          model,
+		"prompt":         strings.TrimSpace(input.Prompt),
+		"duration":       input.DurationSeconds,
+		"resolution":     valueOrDefault(input.Resolution, provider.DefaultResolution()),
+		"generate_audio": boolValue(input.GenerateAudio),
+		"seed":           input.Seed,
+	}
+	if ratio := valueOrDefault(input.AspectRatio, input.Ratio); ratio != "" {
+		payload["aspect_ratio"] = ratio
+	}
+	if len(input.ImageURLs) > 0 {
+		payload["image_urls"] = input.ImageURLs
+	}
+	if len(input.VideoURLs) > 0 {
+		payload["video_urls"] = input.VideoURLs
+	}
+	if len(input.AudioURLs) > 0 {
+		payload["audio_urls"] = input.AudioURLs
+	}
+	if input.FirstFrameURL != nil && strings.TrimSpace(*input.FirstFrameURL) != "" {
+		payload["first_frame_url"] = strings.TrimSpace(*input.FirstFrameURL)
+	}
+	if input.LastFrameURL != nil && strings.TrimSpace(*input.LastFrameURL) != "" {
+		payload["last_frame_url"] = strings.TrimSpace(*input.LastFrameURL)
+	}
+	metadata := map[string]any{
+		"upstream_observability": map[string]any{
+			"request_summary": summary,
+			"submit_payload":  payload,
+			"events": []map[string]any{
+				{
+					"ts":      time.Now().UTC().Format(time.RFC3339Nano),
+					"event":   "client.submit.request",
+					"level":   "info",
+					"title":   "Submitting playground generation request",
+					"payload": payload,
+				},
+			},
+		},
+	}
+	if retryOf != nil && *retryOf != "" {
+		metadata["retry_of"] = *retryOf
+	}
+	b, err := json.Marshal(metadata)
+	if err != nil {
+		return json.RawMessage(`{}`)
+	}
+	return b
+}
+
+func boolValue(v *bool) bool {
+	return v != nil && *v
+}
+
+func stringValue(v *string) string {
+	if v == nil {
+		return ""
+	}
+	return *v
+}
+
+func valueOrDefault(v string, fallback string) string {
+	if strings.TrimSpace(v) == "" {
+		return fallback
+	}
+	return v
+}
+
 func validateTempMediaKeys(orgID string, keys []string) error {
 	if len(keys) > 12 {
 		return errors.New("temp_media_keys: max 12")
@@ -497,6 +589,7 @@ func (h *VideosHandlers) Get(c *gin.Context) {
 			"last_error_code":      j.LastErrorCode,
 			"last_error_message":   j.LastErrorMsg,
 			"retry_count":          j.RetryCount,
+			"metadata":             gin.H{},
 			"created_at":           j.CreatedAt,
 		}
 		if j.VideoURL != nil {
@@ -551,6 +644,7 @@ func (h *VideosHandlers) Get(c *gin.Context) {
 		"last_error_code":      v.LastErrorCode,
 		"last_error_message":   v.LastErrorMessage,
 		"retry_count":          v.RetryCount,
+		"metadata":             sanitizeCustomerVideoMetadata(v.Metadata),
 		"created_at":           v.CreatedAt,
 		"started_at":           v.StartedAt,
 		"finished_at":          v.FinishedAt,
@@ -702,6 +796,44 @@ func (h *VideosHandlers) List(c *gin.Context) {
 		nextCursor = fmt.Sprintf("%d.%s", last.CreatedAt.UTC().UnixMilli(), last.ID)
 	}
 	c.JSON(http.StatusOK, gin.H{"data": items, "has_more": len(videos) == limit, "next_cursor": nextCursor})
+}
+
+func sanitizeCustomerVideoMetadata(raw json.RawMessage) json.RawMessage {
+	if len(raw) == 0 {
+		return json.RawMessage(`{}`)
+	}
+	var root map[string]any
+	if err := json.Unmarshal(raw, &root); err != nil {
+		return json.RawMessage(`{}`)
+	}
+	obs, _ := root["upstream_observability"].(map[string]any)
+	if obs != nil {
+		delete(obs, "debug")
+		if current, ok := obs["current"].(map[string]any); ok {
+			delete(current, "stored_error")
+			delete(current, "debug")
+		}
+		if events, ok := obs["events"].([]any); ok {
+			for _, item := range events {
+				event, ok := item.(map[string]any)
+				if !ok {
+					continue
+				}
+				payload, ok := event["payload"].(map[string]any)
+				if !ok {
+					continue
+				}
+				delete(payload, "stored_error")
+				delete(payload, "debug")
+			}
+		}
+		root["upstream_observability"] = obs
+	}
+	out, err := json.Marshal(root)
+	if err != nil {
+		return json.RawMessage(`{}`)
+	}
+	return out
 }
 
 // Delete handles DELETE /v1/videos/:id — cancels a queued video or marks it deleted.

@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"strings"
 )
@@ -95,6 +96,13 @@ type JobStatus struct {
 	ErrorCode        *string
 	ErrorMessage     *string
 	ActualTokensUsed *int64
+	Progress         *int
+	BillableQuantity *int64
+	BillableUnit     *string
+	Debug            json.RawMessage
+	RequestSummary   json.RawMessage
+	SubmitPayload    json.RawMessage
+	StoredError      *string
 }
 
 type Provider interface {

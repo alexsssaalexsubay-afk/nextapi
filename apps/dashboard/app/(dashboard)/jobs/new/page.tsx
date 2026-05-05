@@ -42,6 +42,8 @@ type CurrentVideo = {
   estimated_cost_cents?: number
   created_at?: string
   finished_at?: string
+  metadata?: Record<string, unknown>
+  provider_job_id?: string
 }
 type TempMedia = {
   key: string
@@ -126,11 +128,91 @@ type LibraryAsset = {
 }
 
 function toJobStatus(status: string): JobStatus {
-  if (status === "retrying") return "running"
+  if (status === "processing" || status === "retrying") return "running"
   if (["queued", "submitting", "running", "succeeded", "failed"].includes(status)) {
     return status as JobStatus
   }
   return "queued"
+}
+
+type ObservabilityEvent = {
+  ts?: string
+  event?: string
+  level?: string
+  title?: string
+  payload?: unknown
+}
+
+type ObservabilityState = {
+  request_summary?: Record<string, unknown>
+  submit_payload?: Record<string, unknown>
+  current?: Record<string, unknown>
+  debug?: Record<string, unknown>
+  events?: ObservabilityEvent[]
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object" && !Array.isArray(value)
+}
+
+function getObservability(video?: CurrentVideo | null): ObservabilityState | null {
+  const root = video?.metadata
+  if (!isRecord(root)) return null
+  const raw = root.upstream_observability
+  return isRecord(raw) ? (raw as ObservabilityState) : null
+}
+
+function getObservabilityEvents(video?: CurrentVideo | null): ObservabilityEvent[] {
+  const events = getObservability(video)?.events
+  if (!Array.isArray(events)) return []
+  return events.filter((event): event is ObservabilityEvent => isRecord(event))
+}
+
+function getEffectiveStatus(video?: CurrentVideo | null): string {
+  const status = video?.status
+  if (status === "processing" || status === "retrying") return "running"
+  return status || "idle"
+}
+
+function getProviderProgress(video?: CurrentVideo | null): number | null {
+  const current = getObservability(video)?.current
+  const value = isRecord(current) ? current.progress : null
+  return typeof value === "number" && Number.isFinite(value) ? Math.min(100, Math.max(0, value)) : null
+}
+
+function stringifyCompact(value: unknown): string {
+  if (typeof value === "string") return value
+  try {
+    return JSON.stringify(value, null, 2)
+  } catch {
+    return String(value)
+  }
+}
+
+function formatEventLogEntry(event: ObservabilityEvent): string[] {
+  const timestamp = event.ts ?? new Date().toISOString()
+  const eventName = event.event?.toUpperCase() ?? "SERVER.EVENT"
+  const level = event.level?.toUpperCase() ?? "INFO"
+  const title = event.title ?? eventName
+  const parts = [`${timestamp}\n${eventName}\n${level}\n${title}`]
+  if (event.payload != null) {
+    parts.push(stringifyCompact(event.payload))
+  }
+  return parts
+}
+
+function formatObservabilityLogs(video?: CurrentVideo | null): string[] {
+  const events = getObservabilityEvents(video)
+  if (events.length === 0) return []
+  return [...events].reverse().flatMap(formatEventLogEntry)
+}
+
+function getRequestSummaryValue(summary: Record<string, unknown> | undefined, key: string): string | null {
+  const value = summary?.[key]
+  if (typeof value === "string" && value.length > 0) return value
+  if (typeof value === "number" && Number.isFinite(value)) return String(value)
+  if (typeof value === "boolean") return value ? "on" : "off"
+  return null
 }
 
 export default function NewJobPage() {
@@ -267,16 +349,20 @@ export default function NewJobPage() {
   const refreshCurrentVideo = useCallback(async (id: string) => {
     const video = await apiFetch(`/v1/videos/${id}`) as CurrentVideo
     setCurrentVideo(video)
-    setEventLog((logs) => [
-      new Date().toISOString() + " STATUS " + video.status,
-      JSON.stringify({
-        task_id: video.id,
-        status: video.status,
-        tokens: video.upstream_tokens,
-        error: video.error_message,
-      }, null, 2),
-      ...logs.slice(0, 30),
-    ])
+    const upstreamLogs = formatObservabilityLogs(video)
+    setEventLog(
+      upstreamLogs.length > 0
+        ? upstreamLogs
+        : [
+            new Date().toISOString() + " STATUS " + video.status,
+            JSON.stringify({
+              task_id: video.id,
+              status: video.status,
+              tokens: video.upstream_tokens,
+              error: video.error_message,
+            }, null, 2),
+          ],
+    )
     return video
   }, [])
 
@@ -988,7 +1074,7 @@ export default function NewJobPage() {
 
         <aside className="flex min-w-0 flex-col gap-3">
           <LiveExecutionCard
-            status={currentVideo?.status ?? "idle"}
+            status={getEffectiveStatus(currentVideo)}
             currentVideo={currentVideo}
             logs={eventLog}
             model={model}
@@ -1251,7 +1337,10 @@ function LiveExecutionCard({
   }
   taskStatusLabels: Record<string, string>
 }) {
-  const progress = status === "idle"
+  const observability = getObservability(currentVideo)
+  const requestSummary = observability?.request_summary
+  const providerProgress = getProviderProgress(currentVideo)
+  const progress = providerProgress ?? (status === "idle"
     ? 0
     : status === "submitting"
       ? 18
@@ -1259,7 +1348,7 @@ function LiveExecutionCard({
         ? 34
         : status === "running" || status === "retrying"
           ? 72
-          : 100
+          : 100)
 
   const headline = status === "idle"
     ? labels.idle
@@ -1274,8 +1363,21 @@ function LiveExecutionCard({
             : labels.failedTitle
 
   const usingPermanentLibrary = permanentAssetCount > 0
-  const latestTitle = logs[0] ?? labels.idleHint
-  const latestBody = logs[1] ?? ""
+  const latestEvent = getObservabilityEvents(currentVideo).at(-1)
+  const latestTitle = latestEvent?.title ?? logs[0] ?? labels.idleHint
+  const latestBody = latestEvent?.payload ? stringifyCompact(latestEvent.payload) : logs[1] ?? ""
+  const summaryModel = getRequestSummaryValue(requestSummary, "model") ?? model
+  const summaryDuration = getRequestSummaryValue(requestSummary, "duration") ?? duration
+  const summaryResolution = getRequestSummaryValue(requestSummary, "resolution") ?? resolution
+  const summaryAspectRatio = getRequestSummaryValue(requestSummary, "ratio") ?? getRequestSummaryValue(requestSummary, "aspect_ratio") ?? aspectRatio
+  const summaryGenerateAudio = getRequestSummaryValue(requestSummary, "generate_audio") ?? (generateAudio ? "on" : "off")
+  const summaryReferences = (() => {
+    const images = Number(getRequestSummaryValue(requestSummary, "num_images") ?? 0)
+    const videos = Number(getRequestSummaryValue(requestSummary, "num_videos") ?? 0)
+    const audios = Number(getRequestSummaryValue(requestSummary, "num_audios") ?? 0)
+    const total = images + videos + audios
+    return Number.isFinite(total) && total > 0 ? String(total) : String(attachmentCount)
+  })()
 
   return (
     <div className="rounded-[24px] border border-border/80 bg-card/40 p-4 shadow-sm">
@@ -1300,12 +1402,12 @@ function LiveExecutionCard({
       <div className="mt-4 rounded-2xl border border-border/70 bg-background/70 p-3">
         <div className="text-[10.5px] uppercase tracking-[0.14em] text-muted-foreground">{labels.requestSummary}</div>
         <div className="mt-3 grid grid-cols-2 gap-2">
-          <Metric label={formLabels.model} value={model} />
-          <Metric label={formLabels.duration} value={`${duration}s`} />
-          <Metric label={formLabels.resolution} value={resolution} />
-          <Metric label={formLabels.aspectRatio} value={aspectRatio} />
-          <Metric label={formLabels.generateAudio} value={generateAudio ? "on" : "off"} />
-          <Metric label={labels.references} value={String(attachmentCount)} />
+          <Metric label={formLabels.model} value={summaryModel} />
+          <Metric label={formLabels.duration} value={`${summaryDuration}s`} />
+          <Metric label={formLabels.resolution} value={summaryResolution} />
+          <Metric label={formLabels.aspectRatio} value={summaryAspectRatio} />
+          <Metric label={formLabels.generateAudio} value={summaryGenerateAudio} />
+          <Metric label={labels.references} value={summaryReferences} />
         </div>
       </div>
 
@@ -1417,6 +1519,8 @@ function CurrentTaskCard({
 }) {
   // Hooks must run on every render — keep above any early return.
   const [downloading, setDownloading] = useState(false)
+  const observabilityLogs = formatObservabilityLogs(video)
+  const callbackLogs = observabilityLogs.length > 0 ? observabilityLogs : logs
   if (!video) {
     return (
       <div className="rounded-xl border border-border/80 bg-card/40 p-5">
@@ -1424,16 +1528,28 @@ function CurrentTaskCard({
         <p className="mt-2 text-[12.5px] leading-relaxed text-muted-foreground">
           {labels.idleDescription}
         </p>
-        {logs.length > 0 && <CallbackLog logs={logs} title={labels.callbackConsole} copyAll={labels.copyAll} />}
+        {callbackLogs.length > 0 && <CallbackLog logs={callbackLogs} title={labels.callbackConsole} copyAll={labels.copyAll} />}
       </div>
     )
   }
 
-  const status = toJobStatus(video.status)
-  const active = ACTIVE_STATUSES.has(video.status)
+  const effectiveStatus = getEffectiveStatus(video)
+  const status = toJobStatus(effectiveStatus)
+  const active = ACTIVE_STATUSES.has(effectiveStatus)
   const videoURL = video.output?.url || video.output?.video_url
   const cost = video.actual_cost_cents ?? video.estimated_cost_cents
   const errorCopy = describeJobError(t, video.error_code, video.error_message)
+  const progress = getProviderProgress(video)
+  const observability = getObservability(video)
+  const currentSnapshot = observability?.current
+  const billableQuantity =
+    isRecord(currentSnapshot) && typeof currentSnapshot.billable_quantity === "number"
+      ? currentSnapshot.billable_quantity
+      : null
+  const billableUnit =
+    isRecord(currentSnapshot) && typeof currentSnapshot.billable_unit === "string"
+      ? currentSnapshot.billable_unit
+      : null
   const onDownload = async () => {
     if (!videoURL || downloading) return
     setDownloading(true)
@@ -1479,13 +1595,20 @@ function CurrentTaskCard({
       <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-background">
         <div
           className={cn(
-            "h-full rounded-full bg-foreground transition-all",
-            video.status === "queued" && "w-1/5",
-            video.status === "submitting" && "w-2/5",
-            (video.status === "running" || video.status === "retrying") && "w-3/4",
-            video.status === "succeeded" && "w-full",
-            video.status === "failed" && "w-full bg-status-failed",
+            "h-full rounded-full transition-all",
+            effectiveStatus === "failed" ? "bg-status-failed" : "bg-foreground",
           )}
+          style={{
+            width: `${progress ?? (
+              effectiveStatus === "queued"
+                ? 20
+                : effectiveStatus === "submitting"
+                  ? 40
+                  : effectiveStatus === "running" || effectiveStatus === "retrying"
+                    ? 75
+                    : 100
+            )}%`,
+          }}
         />
       </div>
 
@@ -1494,6 +1617,8 @@ function CurrentTaskCard({
         <Metric label={labels.cost} value={formatCents(cost)} />
         <Metric label={labels.tokens} value={video.upstream_tokens != null ? video.upstream_tokens.toLocaleString() : "—"} />
         <Metric label={labels.finished} value={video.finished_at ? new Date(video.finished_at).toLocaleTimeString() : "—"} />
+        {billableQuantity != null && billableUnit ? <Metric label="billable" value={`${billableQuantity} ${billableUnit}`} /> : null}
+        {progress != null ? <Metric label="progress" value={`${progress}%`} /> : null}
       </div>
 
       {(video.error_code || video.error_message) && (
@@ -1533,7 +1658,7 @@ function CurrentTaskCard({
           </button>
         )}
       </div>
-      <CallbackLog logs={logs} title={labels.callbackConsole} copyAll={labels.copyAll} />
+      <CallbackLog logs={callbackLogs} title={labels.callbackConsole} copyAll={labels.copyAll} />
     </div>
   )
 }

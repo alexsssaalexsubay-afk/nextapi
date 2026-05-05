@@ -267,9 +267,12 @@ func (p *LiveProvider) doCreate(ctx context.Context, body []byte) (string, bool,
 }
 
 type uptokenStatusResp struct {
-	ID      string `json:"id"`
-	Status  string `json:"status"`
-	Content *struct {
+	ID               string  `json:"id"`
+	Status           string  `json:"status"`
+	Progress         *int    `json:"progress,omitempty"`
+	BillableQuantity *int64  `json:"billable_quantity,omitempty"`
+	BillableUnit     *string `json:"billable_unit,omitempty"`
+	Content          *struct {
 		VideoURL string `json:"video_url"`
 	} `json:"content,omitempty"`
 	Usage *struct {
@@ -280,6 +283,12 @@ type uptokenStatusResp struct {
 		Message string `json:"message"`
 		Type    string `json:"type"`
 	} `json:"error,omitempty"`
+	Debug *struct {
+		CallbackMode   string          `json:"callback_mode,omitempty"`
+		RequestSummary json.RawMessage `json:"request_summary,omitempty"`
+		SubmitPayload  json.RawMessage `json:"submit_payload,omitempty"`
+		StoredError    string          `json:"stored_error,omitempty"`
+	} `json:"debug,omitempty"`
 }
 
 var allowedAspectRatios = map[string]struct{}{
@@ -359,6 +368,25 @@ func (p *LiveProvider) doStatus(ctx context.Context, providerJobID string) (*pro
 	if out.Error != nil {
 		js.ErrorCode = &out.Error.Code
 		js.ErrorMessage = &out.Error.Message
+	}
+	if out.Progress != nil {
+		js.Progress = out.Progress
+	}
+	if out.BillableQuantity != nil {
+		js.BillableQuantity = out.BillableQuantity
+	}
+	if out.BillableUnit != nil {
+		js.BillableUnit = out.BillableUnit
+	}
+	if out.Debug != nil {
+		if raw, err := json.Marshal(out.Debug); err == nil {
+			js.Debug = raw
+		}
+		js.RequestSummary = out.Debug.RequestSummary
+		js.SubmitPayload = out.Debug.SubmitPayload
+		if strings.TrimSpace(out.Debug.StoredError) != "" {
+			js.StoredError = &out.Debug.StoredError
+		}
 	}
 	return js, false, nil
 }
