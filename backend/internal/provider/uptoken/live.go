@@ -103,33 +103,21 @@ func (p *LiveProvider) EstimateCost(req provider.GenerationRequest) (int64, int6
 	return t, c, nil
 }
 
-// Upstream payload shapes. The Seedance relay accepts both flat fields
-// (prompt, image_urls, first_frame_url…) and the content[] array; we emit the
-// richer content[] representation exclusively so reference roles stay explicit
-// and we never hit error-211 by mixing formats.
-type uptokenPart struct {
-	Type     string           `json:"type"`
-	Text     string           `json:"text,omitempty"`
-	Role     string           `json:"role,omitempty"`
-	ImageURL *uptokenMediaURL `json:"image_url,omitempty"`
-	VideoURL *uptokenMediaURL `json:"video_url,omitempty"`
-	AudioURL *uptokenMediaURL `json:"audio_url,omitempty"`
-}
-
-type uptokenMediaURL struct {
-	URL string `json:"url"`
-}
-
 type uptokenCreateReq struct {
-	Model   string        `json:"model"`
-	Content []uptokenPart `json:"content,omitempty"`
-	// Shared params.
-	Ratio         string `json:"ratio,omitempty"`
-	Resolution    string `json:"resolution,omitempty"`
-	Duration      int    `json:"duration,omitempty"`
-	GenerateAudio *bool  `json:"generate_audio,omitempty"`
-	Draft         *bool  `json:"draft,omitempty"`
-	Seed          *int64 `json:"seed,omitempty"`
+	Model         string   `json:"model"`
+	Prompt        string   `json:"prompt,omitempty"`
+	ImageURLs     []string `json:"image_urls,omitempty"`
+	VideoURLs     []string `json:"video_urls,omitempty"`
+	AudioURLs     []string `json:"audio_urls,omitempty"`
+	FirstFrameURL string   `json:"first_frame_url,omitempty"`
+	LastFrameURL  string   `json:"last_frame_url,omitempty"`
+	Ratio         string   `json:"ratio,omitempty"`
+	AspectRatio   string   `json:"aspect_ratio,omitempty"`
+	Resolution    string   `json:"resolution,omitempty"`
+	Duration      int      `json:"duration,omitempty"`
+	GenerateAudio *bool    `json:"generate_audio,omitempty"`
+	Draft         *bool    `json:"draft,omitempty"`
+	Seed          *int64   `json:"seed,omitempty"`
 }
 
 type uptokenCreateResp struct {
@@ -151,16 +139,7 @@ func (p *LiveProvider) GenerateVideo(ctx context.Context, req provider.Generatio
 
 	model := ResolveUpstreamModel(req, p.model)
 
-	body, err := json.Marshal(uptokenCreateReq{
-		Model:         model,
-		Content:       buildUpTokenContent(req),
-		Ratio:         req.AspectRatio,
-		Resolution:    req.Resolution,
-		Duration:      req.DurationSeconds,
-		GenerateAudio: req.GenerateAudio,
-		Draft:         req.Draft,
-		Seed:          req.Seed,
-	})
+	body, err := json.Marshal(buildUpTokenRequest(model, req))
 	if err != nil {
 		return "", fmt.Errorf("seedance relay create marshal: %w", err)
 	}
@@ -187,66 +166,50 @@ func (p *LiveProvider) GenerateVideo(ctx context.Context, req provider.Generatio
 	return "", lastErr
 }
 
-func buildUpTokenContent(req provider.GenerationRequest) []uptokenPart {
-	parts := make([]uptokenPart, 0, 1+len(req.ImageURLs)+len(req.VideoURLs)+len(req.AudioURLs)+3)
-	if prompt := strings.TrimSpace(req.Prompt); prompt != "" {
-		parts = append(parts, uptokenPart{Type: "text", Text: prompt})
+func buildUpTokenRequest(model string, req provider.GenerationRequest) uptokenCreateReq {
+	out := uptokenCreateReq{
+		Model:         model,
+		Prompt:        strings.TrimSpace(req.Prompt),
+		ImageURLs:     append(compactURLs(nil, req.ImageURLs), optionalURL(req.ImageURL)...),
+		VideoURLs:     compactURLs(nil, req.VideoURLs),
+		AudioURLs:     compactURLs(nil, req.AudioURLs),
+		FirstFrameURL: optionalString(req.FirstFrameURL),
+		LastFrameURL:  optionalString(req.LastFrameURL),
+		Ratio:         req.AspectRatio,
+		AspectRatio:   req.AspectRatio,
+		Resolution:    req.Resolution,
+		Duration:      req.DurationSeconds,
+		GenerateAudio: req.GenerateAudio,
+		Draft:         req.Draft,
+		Seed:          req.Seed,
 	}
-	if req.ImageURL != nil {
-		if u := strings.TrimSpace(*req.ImageURL); u != "" {
-			parts = append(parts, uptokenPart{
-				Type:     "image_url",
-				Role:     "reference_image",
-				ImageURL: &uptokenMediaURL{URL: u},
-			})
-		}
-	}
-	for _, raw := range req.ImageURLs {
+	return out
+}
+
+func compactURLs(dst []string, src []string) []string {
+	for _, raw := range src {
 		if u := strings.TrimSpace(raw); u != "" {
-			parts = append(parts, uptokenPart{
-				Type:     "image_url",
-				Role:     "reference_image",
-				ImageURL: &uptokenMediaURL{URL: u},
-			})
+			dst = append(dst, u)
 		}
 	}
-	if req.FirstFrameURL != nil {
-		if u := strings.TrimSpace(*req.FirstFrameURL); u != "" {
-			parts = append(parts, uptokenPart{
-				Type:     "image_url",
-				Role:     "first_frame",
-				ImageURL: &uptokenMediaURL{URL: u},
-			})
-		}
+	return dst
+}
+
+func optionalURL(raw *string) []string {
+	if raw == nil {
+		return nil
 	}
-	if req.LastFrameURL != nil {
-		if u := strings.TrimSpace(*req.LastFrameURL); u != "" {
-			parts = append(parts, uptokenPart{
-				Type:     "image_url",
-				Role:     "last_frame",
-				ImageURL: &uptokenMediaURL{URL: u},
-			})
-		}
+	if u := strings.TrimSpace(*raw); u != "" {
+		return []string{u}
 	}
-	for _, raw := range req.VideoURLs {
-		if u := strings.TrimSpace(raw); u != "" {
-			parts = append(parts, uptokenPart{
-				Type:     "video_url",
-				Role:     "reference_video",
-				VideoURL: &uptokenMediaURL{URL: u},
-			})
-		}
+	return nil
+}
+
+func optionalString(raw *string) string {
+	if raw == nil {
+		return ""
 	}
-	for _, raw := range req.AudioURLs {
-		if u := strings.TrimSpace(raw); u != "" {
-			parts = append(parts, uptokenPart{
-				Type:     "audio_url",
-				Role:     "reference_audio",
-				AudioURL: &uptokenMediaURL{URL: u},
-			})
-		}
-	}
-	return parts
+	return strings.TrimSpace(*raw)
 }
 
 func (p *LiveProvider) doCreate(ctx context.Context, body []byte) (string, bool, error) {

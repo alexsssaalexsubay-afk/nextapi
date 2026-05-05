@@ -13,8 +13,9 @@ import (
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/provider"
 )
 
-// UpToken's documented POST body uses `content[]` + top-level `ratio`,
-// `resolution`, `duration`, `generate_audio`, `seed`. Make sure all
+// UpToken's public Playground submits flat request fields (`prompt`,
+// `image_urls`, `ratio`, `resolution`, `duration`, `generate_audio`, `seed`).
+// Make sure all customer-paid fields actually hit the wire in that shape.
 // customer-paid fields actually hit the wire (regression: if any of these
 // get silently dropped the customer gets a cheap / default generation).
 func TestLiveProvider_GenerateVideo_SendsAllParamsToUpstream(t *testing.T) {
@@ -75,8 +76,11 @@ func TestLiveProvider_GenerateVideo_SendsAllParamsToUpstream(t *testing.T) {
 	if got["model"] != uptokenSeedance20Pro {
 		t.Errorf("model not mapped: got %v want %q", got["model"], uptokenSeedance20Pro)
 	}
-	if _, mixed := got["prompt"]; mixed {
-		t.Fatalf("content[] request must not also include flat prompt: %v", got)
+	if got["prompt"] != "a cat playing piano" {
+		t.Fatalf("prompt wrong: %v", got["prompt"])
+	}
+	if _, mixed := got["content"]; mixed {
+		t.Fatalf("flat request must not include content[]: %v", got)
 	}
 
 	for k, want := range map[string]any{
@@ -91,22 +95,13 @@ func TestLiveProvider_GenerateVideo_SendsAllParamsToUpstream(t *testing.T) {
 		}
 	}
 
-	// content[] must be text + image_url with role=reference_image.
-	content, ok := got["content"].([]any)
-	if !ok || len(content) != 2 {
-		t.Fatalf("content shape wrong: %v", got["content"])
-	}
-	imgPart, _ := content[1].(map[string]any)
-	if imgPart["role"] != "reference_image" {
-		t.Errorf("image role wrong: %v", imgPart["role"])
-	}
-	imgObj, _ := imgPart["image_url"].(map[string]any)
-	if imgObj == nil || imgObj["url"] != img {
-		t.Errorf("image_url shape wrong: %v", imgPart)
+	imageURLs, ok := got["image_urls"].([]any)
+	if !ok || len(imageURLs) != 1 || imageURLs[0] != img {
+		t.Errorf("image_urls shape wrong: %v", got["image_urls"])
 	}
 }
 
-func TestLiveProvider_GenerateVideo_SendsRichContentArrayWithoutPrompt(t *testing.T) {
+func TestLiveProvider_GenerateVideo_SendsFlatMultiModalFieldsWithoutPrompt(t *testing.T) {
 	var captured []byte
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		captured, _ = io.ReadAll(r.Body)
@@ -137,37 +132,29 @@ func TestLiveProvider_GenerateVideo_SendsRichContentArrayWithoutPrompt(t *testin
 	if err := json.Unmarshal(captured, &got); err != nil {
 		t.Fatalf("unmarshal captured body: %v", err)
 	}
-	if _, mixed := got["prompt"]; mixed {
-		t.Fatalf("content[] request must not also include flat prompt: %v", got)
+	if _, mixed := got["content"]; mixed {
+		t.Fatalf("flat request must not include content[]: %v", got)
 	}
-	content, ok := got["content"].([]any)
-	if !ok || len(content) != 3 {
-		t.Fatalf("content shape wrong: %v", got["content"])
+	if _, hasPrompt := got["prompt"]; hasPrompt {
+		t.Fatalf("visual-only request should omit blank prompt: %v", got["prompt"])
 	}
-	partsByRole := map[string]map[string]any{}
-	for _, raw := range content {
-		part, _ := raw.(map[string]any)
-		role, _ := part["role"].(string)
-		partsByRole[role] = part
+	assertURLs := func(field string, want []string) {
+		items, ok := got[field].([]any)
+		if !ok || len(items) != len(want) {
+			t.Fatalf("%s shape wrong: %v", field, got[field])
+		}
+		for i, expected := range want {
+			if items[i] != expected {
+				t.Fatalf("%s[%d] = %v; want %s", field, i, items[i], expected)
+			}
+		}
 	}
-	if imgPart := partsByRole["reference_image"]; imgPart == nil {
-		t.Fatalf("missing reference_image part: %v", content)
-	} else if imgObj, _ := imgPart["image_url"].(map[string]any); imgObj == nil || imgObj["url"] != "https://cdn.example.com/ref.png" {
-		t.Fatalf("reference image shape wrong: %v", imgPart)
-	}
-	if videoPart := partsByRole["reference_video"]; videoPart == nil {
-		t.Fatalf("missing reference_video part: %v", content)
-	} else if videoObj, _ := videoPart["video_url"].(map[string]any); videoObj == nil || videoObj["url"] != videoURL {
-		t.Fatalf("reference video shape wrong: %v", videoPart)
-	}
-	if audioPart := partsByRole["reference_audio"]; audioPart == nil {
-		t.Fatalf("missing reference_audio part: %v", content)
-	} else if audioObj, _ := audioPart["audio_url"].(map[string]any); audioObj == nil || audioObj["url"] != audioURL {
-		t.Fatalf("reference audio shape wrong: %v", audioPart)
-	}
+	assertURLs("image_urls", []string{"https://cdn.example.com/ref.png"})
+	assertURLs("video_urls", []string{videoURL})
+	assertURLs("audio_urls", []string{audioURL})
 }
 
-func TestLiveProvider_GenerateVideo_SendsFirstAndLastFrameRoles(t *testing.T) {
+func TestLiveProvider_GenerateVideo_SendsFlatFirstAndLastFrameFields(t *testing.T) {
 	var captured []byte
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		captured, _ = io.ReadAll(r.Body)
@@ -197,17 +184,14 @@ func TestLiveProvider_GenerateVideo_SendsFirstAndLastFrameRoles(t *testing.T) {
 	if err := json.Unmarshal(captured, &got); err != nil {
 		t.Fatalf("unmarshal captured body: %v", err)
 	}
-	content, ok := got["content"].([]any)
-	if !ok || len(content) != 2 {
-		t.Fatalf("content shape wrong: %v", got["content"])
+	if _, mixed := got["content"]; mixed {
+		t.Fatalf("flat request must not include content[]: %v", got)
 	}
-	firstPart, _ := content[0].(map[string]any)
-	lastPart, _ := content[1].(map[string]any)
-	if firstPart["role"] != "first_frame" {
-		t.Fatalf("first frame role wrong: %v", firstPart)
+	if got["first_frame_url"] != firstFrame {
+		t.Fatalf("first_frame_url wrong: %v", got["first_frame_url"])
 	}
-	if lastPart["role"] != "last_frame" {
-		t.Fatalf("last frame role wrong: %v", lastPart)
+	if got["last_frame_url"] != lastFrame {
+		t.Fatalf("last_frame_url wrong: %v", got["last_frame_url"])
 	}
 }
 
@@ -236,7 +220,7 @@ func TestLiveProvider_GenerateVideo_OmitsUnsetFields(t *testing.T) {
 	if err := json.Unmarshal(captured, &got); err != nil {
 		t.Fatalf("unmarshal: %v", err)
 	}
-	for _, k := range []string{"ratio", "resolution", "duration", "generate_audio", "seed"} {
+	for _, k := range []string{"ratio", "aspect_ratio", "resolution", "duration", "generate_audio", "seed"} {
 		if _, present := got[k]; present {
 			t.Errorf("field %q leaked into upstream body: %v", k, got[k])
 		}
@@ -274,13 +258,11 @@ func TestLiveProvider_GenerateVideo_DoesNotApplyLegacyPromptCharacterLimit(t *te
 	if err := json.Unmarshal(captured, &got); err != nil {
 		t.Fatalf("unmarshal captured body: %v", err)
 	}
-	content, ok := got["content"].([]any)
-	if !ok || len(content) != 1 {
-		t.Fatalf("content shape wrong: %v", got["content"])
-	}
-	textPart, _ := content[0].(map[string]any)
-	if textPart["text"] != strings.TrimSpace(prompt) {
+	if got["prompt"] != strings.TrimSpace(prompt) {
 		t.Fatalf("prompt text not forwarded intact")
+	}
+	if _, mixed := got["content"]; mixed {
+		t.Fatalf("flat request must not include content[]: %v", got)
 	}
 }
 
