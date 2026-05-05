@@ -801,6 +801,19 @@ export default function NewJobPage() {
                 </div>
               </div>
 
+              <div className="grid gap-3 lg:grid-cols-2">
+                <InlineHintCard
+                  title={t.jobs.new.composer.tempUploadTitle}
+                  body={t.jobs.new.form.stagedOnly}
+                  tone="warning"
+                />
+                <InlineHintCard
+                  title={t.jobs.new.composer.permLibraryTitle}
+                  body={t.jobs.new.composer.permLibraryHint}
+                  tone="neutral"
+                />
+              </div>
+
               <div className="rounded-2xl border border-border/80 bg-background">
                 <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 px-4 py-3">
                   <span className="inline-flex items-center gap-2 text-[12.5px] font-medium">
@@ -974,7 +987,22 @@ export default function NewJobPage() {
         </section>
 
         <aside className="flex min-w-0 flex-col gap-3">
-          <StatusFlowCard status={currentVideo?.status ?? "idle"} labels={t.jobs.new.flow} />
+          <LiveExecutionCard
+            status={currentVideo?.status ?? "idle"}
+            currentVideo={currentVideo}
+            logs={eventLog}
+            model={model}
+            duration={duration}
+            resolution={resolution}
+            aspectRatio={aspectRatio}
+            attachmentCount={attachmentCount}
+            generateAudio={generateAudio}
+            permanentAssetCount={imageURLs.filter((url) => url.startsWith("asset://")).length}
+            labels={t.jobs.new.tracker}
+            formLabels={t.jobs.new.form}
+            flowLabels={t.jobs.new.flow}
+            taskStatusLabels={t.jobs.new.task.status}
+          />
           <CurrentTaskCard
             video={currentVideo}
             retrying={retrying}
@@ -986,6 +1014,30 @@ export default function NewJobPage() {
         </aside>
       </div>
     </DashboardShell>
+  )
+}
+
+function InlineHintCard({
+  title,
+  body,
+  tone,
+}: {
+  title: string
+  body: string
+  tone: "warning" | "neutral"
+}) {
+  return (
+    <div
+      className={cn(
+        "rounded-2xl border px-4 py-3",
+        tone === "warning"
+          ? "border-amber-300/70 bg-amber-50/80 dark:border-amber-500/40 dark:bg-amber-500/10"
+          : "border-border/80 bg-background/70",
+      )}
+    >
+      <div className="text-[12px] font-medium text-foreground">{title}</div>
+      <p className="mt-1 text-[11.5px] leading-6 text-muted-foreground">{body}</p>
+    </div>
   )
 }
 
@@ -1140,12 +1192,55 @@ function CompactURLBox({
   )
 }
 
-function StatusFlowCard({
+function LiveExecutionCard({
   status,
+  currentVideo,
+  logs,
+  model,
+  duration,
+  resolution,
+  aspectRatio,
+  attachmentCount,
+  generateAudio,
+  permanentAssetCount,
   labels,
+  formLabels,
+  flowLabels,
+  taskStatusLabels,
 }: {
   status: string
+  currentVideo: CurrentVideo | null
+  logs: string[]
+  model: string
+  duration: string
+  resolution: string
+  aspectRatio: string
+  attachmentCount: number
+  generateAudio: boolean
+  permanentAssetCount: number
   labels: {
+    title: string
+    idle: string
+    idleHint: string
+    submittingTitle: string
+    queuedTitle: string
+    runningTitle: string
+    succeededTitle: string
+    failedTitle: string
+    requestSummary: string
+    references: string
+    temporaryOnly: string
+    libraryReady: string
+    latestEvent: string
+  }
+  formLabels: {
+    model: string
+    duration: string
+    resolution: string
+    aspectRatio: string
+    generateAudio: string
+  }
+  flowLabels: {
     title: string
     idle: string
     submit: string
@@ -1154,42 +1249,106 @@ function StatusFlowCard({
     callback: string
     done: string
   }
+  taskStatusLabels: Record<string, string>
 }) {
-  const steps = [
-    { key: "idle", label: labels.idle },
-    { key: "submitting", label: labels.submit },
-    { key: "queued", label: labels.queue },
-    { key: "running", label: labels.run },
-    { key: "callback", label: labels.callback },
-    { key: "succeeded", label: labels.done },
-  ]
-  const activeIndex = Math.max(0, steps.findIndex((step) => step.key === status))
-  const completeIndex = status === "failed" || status === "canceled" || status === "cancelled" ? 3 : activeIndex
+  const progress = status === "idle"
+    ? 0
+    : status === "submitting"
+      ? 18
+      : status === "queued"
+        ? 34
+        : status === "running" || status === "retrying"
+          ? 72
+          : 100
+
+  const headline = status === "idle"
+    ? labels.idle
+    : status === "submitting"
+      ? labels.submittingTitle
+      : status === "queued"
+        ? labels.queuedTitle
+        : status === "running" || status === "retrying"
+          ? labels.runningTitle
+          : status === "succeeded"
+            ? labels.succeededTitle
+            : labels.failedTitle
+
+  const usingPermanentLibrary = permanentAssetCount > 0
+  const latestTitle = logs[0] ?? labels.idleHint
+  const latestBody = logs[1] ?? ""
 
   return (
-    <div className="rounded-xl border border-border/80 bg-card/40 p-5">
-      <h2 className="text-[13px] font-medium tracking-tight">{labels.title}</h2>
-      <div className="mt-4 space-y-3">
-        {steps.map((step, index) => {
-          const done = index <= completeIndex && status !== "idle"
-          const current = step.key === status || (step.key === "callback" && status === "succeeded")
-          return (
-            <div key={step.key} className="flex items-center gap-3">
-              <span
-                className={cn(
-                  "flex size-5 items-center justify-center rounded-full border font-mono text-[10px]",
-                  current || done ? "border-foreground bg-foreground text-background" : "border-border text-muted-foreground",
-                )}
-              >
-                {index + 1}
-              </span>
-              <span className={cn("text-[12px]", current ? "text-foreground" : "text-muted-foreground")}>{step.label}</span>
-            </div>
-          )
-        })}
+    <div className="rounded-[24px] border border-border/80 bg-card/40 p-4 shadow-sm">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h2 className="text-[13px] font-medium tracking-tight">{labels.title}</h2>
+          <p className="mt-1 text-[12px] text-muted-foreground">{headline}</p>
+        </div>
+        <StatusPill status={toJobStatus(status)} label={flowStatusLabel(status, flowLabels, taskStatusLabels)} />
+      </div>
+
+      <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-background">
+        <div
+          className={cn(
+            "h-full rounded-full transition-all",
+            status === "failed" ? "bg-status-failed" : "bg-foreground",
+          )}
+          style={{ width: `${progress}%` }}
+        />
+      </div>
+
+      <div className="mt-4 rounded-2xl border border-border/70 bg-background/70 p-3">
+        <div className="text-[10.5px] uppercase tracking-[0.14em] text-muted-foreground">{labels.requestSummary}</div>
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <Metric label={formLabels.model} value={model} />
+          <Metric label={formLabels.duration} value={`${duration}s`} />
+          <Metric label={formLabels.resolution} value={resolution} />
+          <Metric label={formLabels.aspectRatio} value={aspectRatio} />
+          <Metric label={formLabels.generateAudio} value={generateAudio ? "on" : "off"} />
+          <Metric label={labels.references} value={String(attachmentCount)} />
+        </div>
+      </div>
+
+      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+        <div className="rounded-2xl border border-border/70 bg-background/70 p-3">
+          <div className="text-[10.5px] uppercase tracking-[0.14em] text-muted-foreground">{labels.references}</div>
+          <div className="mt-2 text-[12px] font-medium text-foreground">
+            {usingPermanentLibrary ? labels.libraryReady : labels.temporaryOnly}
+          </div>
+          <p className="mt-1 text-[11.5px] leading-6 text-muted-foreground">
+            {usingPermanentLibrary ? `asset:// x${permanentAssetCount}` : labels.idleHint}
+          </p>
+        </div>
+        <div className="rounded-2xl border border-border/70 bg-background/70 p-3">
+          <div className="text-[10.5px] uppercase tracking-[0.14em] text-muted-foreground">{labels.latestEvent}</div>
+          <div className="mt-2 text-[12px] font-medium text-foreground">{latestTitle}</div>
+          <pre className="mt-1 max-h-24 overflow-auto whitespace-pre-wrap font-mono text-[10.5px] leading-relaxed text-muted-foreground">
+            {latestBody || labels.idleHint}
+          </pre>
+        </div>
       </div>
     </div>
   )
+}
+
+function flowStatusLabel(
+  status: string,
+  labels: {
+    idle: string
+    submit: string
+    queue: string
+    run: string
+    callback: string
+    done: string
+  },
+  taskStatusLabels: Record<string, string>,
+): string {
+  if (status === "submitting") return labels.submit
+  if (status === "queued") return labels.queue
+  if (status === "running" || status === "retrying") return labels.run
+  if (status === "succeeded") return labels.done
+  if (status in taskStatusLabels) return taskStatusLabels[status]
+  return labels.idle
 }
 
 function ModeButton({

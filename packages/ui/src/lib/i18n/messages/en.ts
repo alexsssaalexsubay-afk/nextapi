@@ -1502,6 +1502,12 @@ export const en = {
         queuedTitle: "Queued · position 3",
         runningTitle: "Running on Seedance · 86%",
         succeededTitle: "Succeeded · webhook delivered",
+        failedTitle: "Execution failed · inspect upstream error",
+        requestSummary: "Request summary",
+        references: "References",
+        temporaryOnly: "Mostly using temporary references",
+        libraryReady: "Asset library is attached",
+        latestEvent: "Latest event",
       },
       task: {
         title: "Current task",

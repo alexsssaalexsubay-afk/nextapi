@@ -1486,6 +1486,12 @@ export const zh: Messages = {
         queuedTitle: "已排队 · 位置 3",
         runningTitle: "Seedance 生成中 · 86%",
         succeededTitle: "已完成 · Webhook 已投递",
+        failedTitle: "执行失败 · 查看原始错误",
+        requestSummary: "请求摘要",
+        references: "参考素材",
+        temporaryOnly: "当前主要使用临时参考",
+        libraryReady: "已挂载素材库资产",
+        latestEvent: "最新事件",
       },
       task: {
         title: "当前任务",
