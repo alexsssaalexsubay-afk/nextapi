@@ -57,25 +57,25 @@ export const TemplatePanel = memo(function TemplatePanel() {
   return (
     <div className="flex h-full flex-col bg-nc-bg">
       {/* Header */}
-      <div className="flex h-9 shrink-0 items-center justify-between border-b border-nc-border px-4">
+      <div className="flex h-11 shrink-0 items-center justify-between border-b border-nc-border px-4">
         <div className="flex items-center gap-3">
-          <span className="text-[10px] font-medium uppercase tracking-[0.12em] text-nc-text-tertiary">
+          <span className="text-xs font-medium uppercase tracking-[0.12em] text-nc-text-secondary">
             Templates
           </span>
-          <div className="flex items-center gap-0.5 rounded-[var(--radius-md)] border border-nc-border bg-nc-panel p-0.5">
+          <div className="flex items-center gap-0.5 rounded-lg border border-nc-border bg-nc-panel p-1 shadow-sm">
             {CATEGORIES.filter((c) => c.count > 0 || c.id === "all").map((c) => (
               <button
                 key={c.id}
                 onClick={() => setCategory(c.id)}
                 className={cn(
-                  "flex items-center gap-1 rounded-[var(--radius-sm)] px-2 py-0.5 text-[10px] font-medium transition-colors",
+                  "flex items-center gap-1 rounded-lg px-3 py-2 text-xs font-medium transition-all",
                   category === c.id
-                    ? "bg-nc-panel-active text-nc-text"
-                    : "text-nc-text-ghost hover:text-nc-text-tertiary"
+                    ? "bg-nc-panel-active text-nc-text shadow-sm"
+                    : "text-nc-text-tertiary hover:text-nc-text-secondary"
                 )}
               >
                 {c.label}
-                <span className="font-mono text-[8px] tabular-nums text-nc-text-ghost">{c.count}</span>
+                <span className="font-mono text-[10px] tabular-nums text-nc-text-tertiary">{c.count}</span>
               </button>
             ))}
           </div>
@@ -85,7 +85,7 @@ export const TemplatePanel = memo(function TemplatePanel() {
           <svg
             width="12" height="12" viewBox="0 0 12 12" fill="none"
             stroke="currentColor" strokeWidth="1.2"
-            className="absolute left-2 top-1/2 -translate-y-1/2 text-nc-text-ghost"
+            className="absolute left-2.5 top-1/2 -translate-y-1/2 text-nc-text-tertiary"
           >
             <circle cx="5" cy="5" r="3.5" />
             <path d="M8 8l2.5 2.5" />
@@ -95,7 +95,7 @@ export const TemplatePanel = memo(function TemplatePanel() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search templates..."
-            className="h-6 w-36 rounded-[var(--radius-sm)] border border-nc-border bg-nc-panel pl-7 pr-2 text-[10px] text-nc-text outline-none placeholder:text-nc-text-ghost focus:border-nc-accent/30 focus:w-48 transition-all"
+            className="h-9 w-40 rounded-lg border border-nc-border bg-nc-panel pl-8 pr-2 text-xs text-nc-text shadow-sm outline-none placeholder:text-nc-text-tertiary focus:border-nc-accent/40 focus:w-52 transition-all"
           />
         </div>
       </div>
@@ -107,26 +107,26 @@ export const TemplatePanel = memo(function TemplatePanel() {
             <div
               key={template.id}
               onClick={() => applyTemplate(template)}
-              className="group cursor-pointer rounded-[var(--radius-lg)] border border-nc-border bg-nc-surface p-4 transition-all duration-200 hover:border-nc-border-strong hover:shadow-md hover:shadow-black/10 hover:-translate-y-px"
+              className="group cursor-pointer rounded-[var(--radius-lg)] border border-nc-border-strong bg-nc-surface p-4 shadow-sm transition-all duration-200 hover:-translate-y-px hover:border-nc-accent/30 hover:shadow-lg"
             >
               <div className="mb-3 flex items-start justify-between">
                 <div>
-                  <h3 className="text-[12px] font-semibold text-nc-text">{template.name}</h3>
-                  <p className="mt-0.5 text-[10px] text-nc-text-ghost">{template.nameZh}</p>
+                  <h3 className="text-sm font-semibold text-nc-text">{template.name}</h3>
+                  <p className="mt-0.5 text-xs text-nc-text-tertiary">{template.nameZh}</p>
                 </div>
                 <span className={cn(
-                  "shrink-0 rounded-full px-2 py-0.5 text-[8px] font-medium",
+                  "shrink-0 rounded-full border border-nc-border/50 px-2.5 py-1 text-[10px] font-medium shadow-sm",
                   WORKFLOW_COLORS[template.workflow]
                 )}>
                   {WORKFLOW_LABELS[template.workflow]}
                 </span>
               </div>
 
-              <p className="mb-3 text-[10px] leading-relaxed text-nc-text-tertiary">
+              <p className="mb-3 text-sm leading-relaxed text-nc-text-secondary">
                 {template.description}
               </p>
 
-              <div className="flex items-center gap-3 border-t border-nc-border pt-2.5 text-[9px] text-nc-text-ghost">
+              <div className="flex items-center gap-3 border-t border-nc-border pt-3 text-xs text-nc-text-tertiary">
                 <span className="tabular-nums">{template.duration}</span>
                 <span>{template.shotCount} shots</span>
                 <span className="capitalize">{template.style}</span>
@@ -135,7 +135,7 @@ export const TemplatePanel = memo(function TemplatePanel() {
               {template.tags.length > 0 && (
                 <div className="mt-2 flex flex-wrap gap-1">
                   {template.tags.map((tag) => (
-                    <span key={tag} className="rounded bg-nc-panel px-1.5 py-0.5 text-[7px] text-nc-text-ghost">
+                    <span key={tag} className="rounded-md border border-nc-border bg-nc-panel px-2 py-1 text-[10px] text-nc-text-tertiary">
                       {tag}
                     </span>
                   ))}
@@ -147,11 +147,11 @@ export const TemplatePanel = memo(function TemplatePanel() {
 
         {filtered.length === 0 && (
           <div className="flex flex-col items-center justify-center py-16 text-center">
-            <span className="text-[11px] text-nc-text-ghost">No templates found</span>
+            <span className="text-sm text-nc-text-tertiary">No templates found</span>
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery("")}
-                className="mt-2 text-[10px] text-nc-accent hover:text-nc-accent-hover"
+                className="mt-2 text-sm font-medium text-nc-accent shadow-sm transition-all hover:text-nc-accent-hover hover:underline"
               >
                 Clear search
               </button>

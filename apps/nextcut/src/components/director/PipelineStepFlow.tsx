@@ -24,7 +24,7 @@ export const PipelineStepFlow = memo(function PipelineStepFlow() {
   if (pipelineStep === "idle" || pipelineStep === "complete") return null;
 
   return (
-    <div className="flex items-center gap-1 px-4 py-2">
+    <div className="flex items-center gap-1.5 px-4 py-3">
       {STEPS.map((step, i) => {
         const isActive = step.id === pipelineStep;
         const isDone = i < currentIdx;
@@ -39,10 +39,10 @@ export const PipelineStepFlow = memo(function PipelineStepFlow() {
             )}
             <div className="flex items-center gap-1.5">
               <div className={cn(
-                "flex h-5 w-5 items-center justify-center rounded-full text-[8px] font-bold transition-all",
+                "flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold transition-all",
                 isDone ? "bg-nc-success/20 text-nc-success" :
                 isActive ? "bg-nc-accent/20 text-nc-accent ring-2 ring-nc-accent/20" :
-                "bg-nc-panel text-nc-text-ghost"
+                "bg-nc-panel text-nc-text-secondary"
               )}>
                 {isDone ? (
                   <svg width="8" height="8" viewBox="0 0 8 8" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -56,15 +56,15 @@ export const PipelineStepFlow = memo(function PipelineStepFlow() {
               </div>
               <div className="hidden sm:block">
                 <div className={cn(
-                  "text-[9px] font-medium leading-none",
+                  "text-xs font-medium leading-none",
                   isDone ? "text-nc-success" :
                   isActive ? "text-nc-accent" :
-                  "text-nc-text-ghost"
+                  "text-nc-text-secondary"
                 )}>
                   {step.label}
                 </div>
                 {isActive && (
-                  <div className="mt-0.5 text-[7px] text-nc-text-ghost">{step.desc}</div>
+                  <div className="mt-0.5 text-xs text-nc-text-secondary">{step.desc}</div>
                 )}
               </div>
             </div>
@@ -80,7 +80,7 @@ export const ScriptReviewPanel = memo(function ScriptReviewPanel() {
 
   if (sceneOutlines.length === 0) {
     return (
-      <div className="flex items-center justify-center p-8 text-[11px] text-nc-text-ghost">
+      <div className="flex items-center justify-center p-8 text-sm text-nc-text-secondary">
         Waiting for script generation...
       </div>
     );
@@ -90,12 +90,12 @@ export const ScriptReviewPanel = memo(function ScriptReviewPanel() {
     <div className="flex flex-col gap-3 p-4">
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-[13px] font-semibold text-nc-text">Review Script</h3>
-          <p className="text-[10px] text-nc-text-ghost">Edit scenes before generating the storyboard. Changes here affect all downstream shots.</p>
+          <h3 className="text-base font-semibold text-nc-text">Review Script</h3>
+          <p className="text-xs text-nc-text-secondary">Edit scenes before generating the storyboard. Changes here affect all downstream shots.</p>
         </div>
         <button
           onClick={() => setPipelineStep("storyboard_review")}
-          className="rounded-[var(--radius-md)] bg-nc-accent px-4 py-1.5 text-[11px] font-semibold text-nc-bg hover:bg-nc-accent-hover"
+          className="inline-flex h-10 items-center rounded-lg bg-nc-accent px-5 py-2 text-sm font-semibold text-nc-bg shadow-md shadow-nc-accent/20 transition-all hover:bg-nc-accent-hover hover:shadow-lg"
         >
           Approve & Continue
         </button>
@@ -103,15 +103,15 @@ export const ScriptReviewPanel = memo(function ScriptReviewPanel() {
 
       <div className="flex flex-col gap-2">
         {sceneOutlines.map((scene, i) => (
-          <div key={scene.id} className="rounded-[var(--radius-lg)] border border-nc-border bg-nc-surface p-3">
+          <div key={scene.id} className="rounded-[var(--radius-lg)] border border-nc-border bg-nc-surface p-3 shadow-sm transition-shadow hover:shadow-md">
             <div className="mb-2 flex items-center gap-2">
-              <span className="flex h-5 w-5 items-center justify-center rounded bg-nc-accent/10 text-[9px] font-bold text-nc-accent">
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-nc-accent/10 text-xs font-bold text-nc-accent">
                 {i + 1}
               </span>
               <input
                 value={scene.title}
                 onChange={(e) => updateSceneOutline(scene.id, { title: e.target.value })}
-                className="flex-1 bg-transparent text-[12px] font-medium text-nc-text outline-none"
+                className="flex-1 bg-transparent text-sm font-medium text-nc-text outline-none"
                 placeholder="Scene title"
               />
             </div>
@@ -119,13 +119,13 @@ export const ScriptReviewPanel = memo(function ScriptReviewPanel() {
               value={scene.description}
               onChange={(e) => updateSceneOutline(scene.id, { description: e.target.value })}
               rows={3}
-              className="w-full resize-none rounded-[var(--radius-md)] border border-nc-border bg-nc-panel px-3 py-2 text-[11px] leading-relaxed text-nc-text outline-none focus:border-nc-accent/30"
+              className="w-full resize-none rounded-[var(--radius-md)] border border-nc-border bg-nc-panel px-3 py-2 text-sm leading-relaxed text-nc-text outline-none focus:border-nc-accent/30"
               placeholder="Scene description — what happens, who's involved, setting, mood..."
             />
             {scene.characters.length > 0 && (
               <div className="mt-2 flex flex-wrap gap-1">
                 {scene.characters.map((c) => (
-                  <span key={c} className="rounded-full bg-nc-panel-active px-2 py-0.5 text-[8px] text-nc-text-tertiary">
+                  <span key={c} className="rounded-full bg-nc-panel-active px-2 py-0.5 text-xs text-nc-text-secondary">
                     {c}
                   </span>
                 ))}

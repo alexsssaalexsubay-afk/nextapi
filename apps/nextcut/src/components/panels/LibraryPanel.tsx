@@ -60,14 +60,14 @@ export const LibraryPanel = memo(function LibraryPanel() {
   if (assets.length === 0) {
     return (
       <div className="flex h-full flex-col">
-        <div className="flex h-9 items-center border-b border-nc-border px-4">
-          <span className="text-[10px] font-medium uppercase tracking-[0.12em] text-nc-text-tertiary">
+        <div className="flex h-11 items-center border-b border-nc-border px-4 shadow-sm">
+          <span className="text-xs font-semibold uppercase tracking-[0.12em] text-nc-text-secondary">
             Media Library
           </span>
         </div>
         <div className="flex flex-1 flex-col items-center justify-center gap-4">
           <div className="relative">
-            <svg width="56" height="56" viewBox="0 0 56 56" fill="none" className="text-nc-text-ghost/15">
+            <svg width="56" height="56" viewBox="0 0 56 56" fill="none" className="text-nc-text-tertiary/20">
               <rect x="4" y="4" width="22" height="22" rx="3" stroke="currentColor" strokeWidth="1.5" />
               <rect x="30" y="4" width="22" height="22" rx="3" stroke="currentColor" strokeWidth="1.5" />
               <rect x="4" y="30" width="22" height="22" rx="3" stroke="currentColor" strokeWidth="1.5" />
@@ -79,14 +79,14 @@ export const LibraryPanel = memo(function LibraryPanel() {
             </svg>
           </div>
           <div className="text-center">
-            <h3 className="mb-1 text-[13px] font-medium text-nc-text-secondary">Library is empty</h3>
-            <p className="max-w-[280px] text-[11px] leading-relaxed text-nc-text-ghost">
+            <h3 className="mb-1 text-base font-semibold text-nc-text-secondary">Library is empty</h3>
+            <p className="max-w-[280px] text-sm leading-relaxed text-nc-text-tertiary">
               Generated videos and assets will appear here. Start by creating a video from the Director.
             </p>
           </div>
           <button
             onClick={() => setSidebarPage("home")}
-            className="rounded-[var(--radius-md)] bg-nc-accent px-4 py-2 text-[12px] font-semibold text-nc-bg transition-colors hover:bg-nc-accent-hover"
+            className="rounded-lg bg-nc-accent px-5 py-2.5 text-sm font-semibold text-nc-bg shadow-md transition-all hover:bg-nc-accent-hover hover:shadow-lg"
           >
             Create a Video
           </button>
@@ -98,25 +98,25 @@ export const LibraryPanel = memo(function LibraryPanel() {
   return (
     <div className="flex h-full flex-col bg-nc-bg">
       {/* Toolbar */}
-      <div className="flex h-9 shrink-0 items-center justify-between border-b border-nc-border px-4">
+      <div className="flex h-11 shrink-0 items-center justify-between border-b border-nc-border px-4 shadow-sm">
         <div className="flex items-center gap-3">
-          <span className="text-[10px] font-medium uppercase tracking-[0.12em] text-nc-text-tertiary">
+          <span className="text-xs font-semibold uppercase tracking-[0.12em] text-nc-text-secondary">
             Media Library
           </span>
-          <div className="flex items-center gap-0.5 rounded-[var(--radius-md)] border border-nc-border bg-nc-panel p-0.5">
+          <div className="flex items-center gap-0.5 rounded-lg border border-nc-border bg-nc-panel p-1 shadow-sm">
             {FILTERS.filter((f) => f.count > 0 || f.id === "all").map((f) => (
               <button
                 key={f.id}
                 onClick={() => setFilter(f.id)}
                 className={cn(
-                  "flex items-center gap-1 rounded-[var(--radius-sm)] px-2 py-0.5 text-[10px] font-medium transition-colors",
+                  "flex items-center gap-1 rounded-lg px-3 py-2 text-xs font-semibold transition-all",
                   filter === f.id
-                    ? "bg-nc-panel-active text-nc-text"
-                    : "text-nc-text-ghost hover:text-nc-text-tertiary"
+                    ? "bg-nc-panel-active text-nc-text shadow-sm"
+                    : "text-nc-text-tertiary hover:text-nc-text-secondary"
                 )}
               >
                 {f.label}
-                <span className="font-mono text-[8px] tabular-nums text-nc-text-ghost">{f.count}</span>
+                <span className="font-mono text-[10px] tabular-nums text-nc-text-tertiary">{f.count}</span>
               </button>
             ))}
           </div>
@@ -131,7 +131,7 @@ export const LibraryPanel = memo(function LibraryPanel() {
               fill="none"
               stroke="currentColor"
               strokeWidth="1.2"
-              className="absolute left-2 top-1/2 -translate-y-1/2 text-nc-text-ghost"
+              className="absolute left-2.5 top-1/2 -translate-y-1/2 text-nc-text-tertiary"
             >
               <circle cx="5" cy="5" r="3.5" />
               <path d="M8 8l2.5 2.5" />
@@ -141,14 +141,14 @@ export const LibraryPanel = memo(function LibraryPanel() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search..."
-              className="h-6 w-32 rounded-[var(--radius-sm)] border border-nc-border bg-nc-panel pl-7 pr-2 text-[10px] text-nc-text outline-none placeholder:text-nc-text-ghost focus:border-nc-accent/30 focus:w-44 transition-all"
+              className="h-9 w-36 rounded-lg border border-nc-border-strong bg-nc-panel pl-9 pr-2 text-xs text-nc-text shadow-sm outline-none placeholder:text-nc-text-tertiary focus:border-nc-accent/40 focus:w-48 transition-all"
             />
           </div>
 
           <select
             value={sort}
             onChange={(e) => setSort(e.target.value as SortMode)}
-            className="h-6 cursor-pointer appearance-none rounded-[var(--radius-sm)] border border-nc-border bg-nc-panel px-2 text-[10px] text-nc-text-tertiary outline-none"
+            className="h-9 cursor-pointer rounded-lg border border-nc-border-strong bg-nc-panel px-3 text-xs text-nc-text-secondary shadow-sm outline-none focus:ring-2 focus:ring-nc-accent/15"
           >
             <option value="newest">Newest</option>
             <option value="oldest">Oldest</option>
@@ -168,10 +168,10 @@ export const LibraryPanel = memo(function LibraryPanel() {
                 if (asset.shot_id) setSelectedShotId(asset.shot_id);
               }}
               className={cn(
-                "group relative cursor-pointer overflow-hidden rounded-[var(--radius-lg)] border transition-all duration-200",
+                "group relative cursor-pointer overflow-hidden rounded-[var(--radius-lg)] border border-nc-border-strong shadow-sm transition-all duration-200 hover:shadow-lg",
                 selectedAsset === asset.id
-                  ? "border-nc-accent/50 ring-1 ring-nc-accent/20 shadow-lg shadow-nc-accent/5"
-                  : "border-nc-border hover:border-nc-border-strong hover:shadow-md hover:shadow-black/20"
+                  ? "border-nc-accent/50 ring-2 ring-nc-accent/25 shadow-lg shadow-nc-accent/10"
+                  : "hover:border-nc-accent/30 hover:shadow-md"
               )}
             >
               <div className="relative aspect-video bg-black/40">
@@ -203,7 +203,7 @@ export const LibraryPanel = memo(function LibraryPanel() {
 
                 {asset.duration && (
                   <div className="absolute bottom-1.5 right-1.5 rounded bg-black/70 px-1.5 py-0.5 backdrop-blur-sm">
-                    <span className="font-mono text-[8px] tabular-nums text-white/80">{asset.duration}s</span>
+                    <span className="font-mono text-[10px] tabular-nums text-white/90">{asset.duration}s</span>
                   </div>
                 )}
 
@@ -218,9 +218,9 @@ export const LibraryPanel = memo(function LibraryPanel() {
                 </div>
               </div>
 
-              <div className="px-2.5 py-2">
-                <p className="truncate text-[10px] font-medium text-nc-text">{asset.name}</p>
-                <p className="mt-0.5 truncate text-[8px] text-nc-text-ghost">{asset.shot_id}</p>
+              <div className="px-3 py-2.5">
+                <p className="truncate text-sm font-medium text-nc-text">{asset.name}</p>
+                <p className="mt-0.5 truncate text-[10px] text-nc-text-tertiary">{asset.shot_id}</p>
               </div>
             </div>
           ))}

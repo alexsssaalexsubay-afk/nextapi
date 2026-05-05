@@ -155,9 +155,9 @@ export const StructuredPromptBuilder = memo(function StructuredPromptBuilder({
       {FIELDS.map((field) => (
         <div key={field.key}>
           <div className="mb-1.5 flex items-center justify-between">
-            <label className="text-[10px] font-medium uppercase tracking-[0.12em] text-nc-text-tertiary">
+            <label className="text-xs font-medium uppercase tracking-[0.12em] text-nc-text">
               {lang === "zh" ? field.labelZh : field.label}
-              <span className="ml-1 font-normal normal-case tracking-normal text-nc-text-ghost">
+              <span className="ml-1 font-normal normal-case tracking-normal text-nc-text-secondary">
                 {lang === "zh" ? field.label : field.labelZh}
               </span>
             </label>
@@ -169,8 +169,8 @@ export const StructuredPromptBuilder = memo(function StructuredPromptBuilder({
             rows={field.rows}
             disabled={disabled}
             className={cn(
-              "w-full resize-none rounded-[var(--radius-md)] border border-nc-border bg-nc-panel px-3 py-2 text-[12px] leading-relaxed text-nc-text",
-              "placeholder:text-nc-text-ghost/50 outline-none transition-all",
+              "w-full resize-none rounded-lg border border-nc-border bg-nc-panel px-3 py-2.5 text-sm leading-relaxed text-nc-text",
+              "placeholder:text-nc-text-secondary/50 outline-none transition-all",
               "focus:border-nc-accent/40 focus:ring-1 focus:ring-nc-accent/10",
               "disabled:opacity-40"
             )}
@@ -183,7 +183,7 @@ export const StructuredPromptBuilder = memo(function StructuredPromptBuilder({
                   key={preset}
                   onClick={() => insertPreset(field.key, preset)}
                   disabled={disabled}
-                  className="rounded-full border border-nc-border px-2 py-0.5 text-[9px] text-nc-text-ghost transition-colors hover:border-nc-border-strong hover:text-nc-text-tertiary disabled:opacity-40"
+                  className="rounded-full border border-nc-border bg-nc-surface px-2.5 py-1 text-xs text-nc-text-secondary shadow-sm transition-all hover:border-nc-border-strong hover:text-nc-text hover:shadow-md disabled:opacity-40"
                 >
                   {preset}
                 </button>
@@ -194,14 +194,14 @@ export const StructuredPromptBuilder = memo(function StructuredPromptBuilder({
       ))}
 
       {/* Action bar */}
-      <div className="flex items-center justify-between rounded-[var(--radius-md)] border border-nc-border bg-nc-surface px-3 py-2">
+      <div className="flex items-center justify-between rounded-lg border border-nc-border bg-nc-surface px-3 py-2.5 shadow-sm transition-shadow hover:shadow-md">
         <div className="flex items-center gap-1.5">
           {PROMPT_ACTIONS.map((action) => (
             <button
               key={action.id}
               onClick={() => handleAction(action.id)}
               disabled={disabled}
-              className="flex items-center gap-1 rounded-[var(--radius-sm)] px-2 py-1 text-[9px] font-medium text-nc-text-ghost transition-colors hover:bg-nc-panel-hover hover:text-nc-text-tertiary disabled:opacity-40"
+              className="flex items-center gap-1 rounded-lg px-3 py-2 text-xs font-medium text-nc-text-secondary transition-all hover:bg-nc-panel-hover hover:text-nc-text disabled:opacity-40"
             >
               {action.icon}
               {action.id === "translate" ? action.label : t(`promptBuilder.${action.id}` as any)}
@@ -210,7 +210,7 @@ export const StructuredPromptBuilder = memo(function StructuredPromptBuilder({
         </div>
         <button
           onClick={compileToText}
-          className="flex items-center gap-1 rounded-[var(--radius-sm)] bg-nc-accent/10 px-2.5 py-1 text-[9px] font-semibold text-nc-accent transition-colors hover:bg-nc-accent/20"
+          className="flex items-center gap-1 rounded-lg bg-nc-accent/10 px-3 py-2 text-xs font-semibold text-nc-accent shadow-sm transition-all hover:bg-nc-accent/20 hover:shadow-md"
         >
           <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.2">
             <path d="M2 8l2-6h2l2 6M2.5 6h5" />
@@ -220,14 +220,14 @@ export const StructuredPromptBuilder = memo(function StructuredPromptBuilder({
       </div>
 
       {/* Seedance tips */}
-      <div className="rounded-[var(--radius-md)] border border-nc-accent/10 bg-nc-accent-muted p-3">
-        <div className="mb-1.5 flex items-center gap-1.5 text-[9px] font-semibold uppercase tracking-wider text-nc-accent">
+      <div className="rounded-lg border border-nc-accent/20 bg-nc-accent-muted p-3 shadow-sm">
+        <div className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-nc-accent">
           <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor">
             <path d="M5 0l1.2 3.8H10l-3 2.2 1.2 3.8L5 7.6 1.8 9.8 3 6 0 3.8h3.8z" />
           </svg>
           {t("promptBuilder.tipsTitle")}
         </div>
-        <ul className="flex flex-col gap-0.5 text-[9px] leading-relaxed text-nc-text-ghost">
+        <ul className="flex flex-col gap-0.5 text-xs leading-relaxed text-nc-text-secondary">
           <li>{t("promptBuilder.tip1")}</li>
           <li>{t("promptBuilder.tip2")}</li>
           <li>{t("promptBuilder.tip3")}</li>

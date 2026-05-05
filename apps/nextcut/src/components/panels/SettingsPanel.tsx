@@ -50,11 +50,11 @@ export function SettingsPanel() {
 
       {/* Video Provider */}
       <Section title={t("settings.videoProvider")}>
-        <p className="mb-1 text-[11px] leading-relaxed text-nc-text-ghost">
-          {t("settings.videoDesc1")}<span className="font-mono text-[10px]">POST /v1/videos</span>{t("settings.videoDesc2")}
-          <span className="font-mono text-[10px]">Authorization: Bearer sk_live_…</span>{t("settings.videoDesc3")}
-          <span className="font-mono text-[10px]">https://api.nextapi.top</span>{t("settings.videoDesc4")}
-          <span className="font-mono text-[10px]">…/v1</span>{t("settings.videoDesc5")}
+        <p className="mb-1 text-sm leading-relaxed text-nc-text-tertiary">
+          {t("settings.videoDesc1")}<span className="font-mono text-xs">POST /v1/videos</span>{t("settings.videoDesc2")}
+          <span className="font-mono text-xs">Authorization: Bearer sk_live_…</span>{t("settings.videoDesc3")}
+          <span className="font-mono text-xs">https://api.nextapi.top</span>{t("settings.videoDesc4")}
+          <span className="font-mono text-xs">…/v1</span>{t("settings.videoDesc5")}
         </p>
         <div className="flex flex-col gap-3">
           <SelectInput label={t("settings.model")} value={pipeline.video_model} onChange={(v) => setPipeline({ video_model: v })} options={VIDEO_MODELS} />
@@ -67,14 +67,14 @@ export function SettingsPanel() {
           ]} />
           <label className="flex cursor-pointer items-center gap-2.5">
             <input type="checkbox" checked={pipeline.generate_audio} onChange={(e) => setPipeline({ generate_audio: e.target.checked })} className="accent-[#d4a053]" />
-            <span className="text-[12px] text-nc-text-secondary">{t("settings.genAudio")}</span>
+            <span className="text-sm text-nc-text-secondary">{t("settings.genAudio")}</span>
           </label>
         </div>
       </Section>
 
       {/* Per-Agent Override */}
       <Section title={t("settings.agentOverrides")}>
-        <p className="mb-3 text-[11px] text-nc-text-ghost">
+        <p className="mb-3 text-sm text-nc-text-tertiary">
           {t("settings.agentDesc")}
         </p>
         <div className="flex flex-col gap-0.5">
@@ -85,14 +85,14 @@ export function SettingsPanel() {
               <button
                 key={a.key}
                 className={cn(
-                  "flex items-center justify-between rounded-[var(--radius-sm)] px-3 py-2 text-[12px]",
+                  "flex items-center justify-between rounded-lg border border-transparent px-4 py-3 text-sm shadow-sm transition-all hover:border-nc-border hover:bg-nc-panel-hover/80 hover:shadow-md",
                   hasOverride
                     ? "bg-nc-accent-muted text-nc-accent"
                     : "text-nc-text-tertiary hover:bg-nc-panel-hover hover:text-nc-text-secondary"
                 )}
               >
                 <span>{a.label}</span>
-                <span className="font-mono text-[9px] text-nc-text-ghost">{hasOverride ? t("settings.custom") : t("settings.default")}</span>
+                <span className="font-mono text-xs text-nc-text-tertiary">{hasOverride ? t("settings.custom") : t("settings.default")}</span>
               </button>
             );
           })}
@@ -104,8 +104,8 @@ export function SettingsPanel() {
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div>
-      <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-nc-text-secondary">{title}</h3>
+    <div className="rounded-lg border border-nc-border-strong bg-nc-surface p-4 shadow-sm">
+      <h3 className="mb-3 text-sm font-semibold uppercase tracking-[0.12em] text-nc-text-secondary">{title}</h3>
       {children}
     </div>
   );
@@ -116,13 +116,13 @@ function TextInput({ label, value, onChange, type = "text", placeholder = "" }: 
 }) {
   return (
     <label className="flex flex-col gap-1.5">
-      <span className="text-[10px] font-medium uppercase tracking-[0.12em] text-nc-text-tertiary">{label}</span>
+      <span className="text-xs font-semibold uppercase tracking-[0.12em] text-nc-text-secondary">{label}</span>
       <input
         type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="h-[30px] rounded-[var(--radius-sm)] border border-nc-border bg-nc-panel px-2.5 text-[12px] text-nc-text outline-none focus:border-nc-accent/40 focus:ring-1 focus:ring-nc-accent/10"
+        className="h-10 rounded-lg border border-nc-border-strong bg-nc-panel px-3 text-sm text-nc-text shadow-sm outline-none focus:border-nc-accent/50 focus:ring-2 focus:ring-nc-accent/10"
       />
     </label>
   );
@@ -133,11 +133,11 @@ function SelectInput({ label, value, onChange, options }: {
 }) {
   return (
     <label className="flex flex-col gap-1.5">
-      <span className="text-[10px] font-medium uppercase tracking-[0.12em] text-nc-text-tertiary">{label}</span>
+      <span className="text-xs font-semibold uppercase tracking-[0.12em] text-nc-text-secondary">{label}</span>
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="h-[30px] cursor-pointer appearance-none rounded-[var(--radius-sm)] border border-nc-border bg-nc-panel px-2.5 text-[12px] text-nc-text outline-none focus:border-nc-accent/40"
+        className="h-10 cursor-pointer appearance-none rounded-lg border border-nc-border-strong bg-nc-panel px-3 text-sm text-nc-text shadow-sm outline-none focus:border-nc-accent/50 focus:ring-2 focus:ring-nc-accent/10"
       >
         {options.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
       </select>

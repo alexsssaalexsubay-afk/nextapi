@@ -11,7 +11,7 @@ interface PromptScore {
 
 function scorePrompt(prompt: string): PromptScore {
   if (!prompt.trim()) {
-    return { overall: 0, label: "Empty", color: "text-nc-text-ghost", issues: [], tips: ["Start typing your prompt"] };
+    return { overall: 0, label: "Empty", color: "text-nc-text-secondary", issues: [], tips: ["Start typing your prompt"] };
   }
 
   const words = prompt.trim().split(/\s+/).filter(Boolean);
@@ -116,15 +116,15 @@ export const PromptQualityMeter = memo(function PromptQualityMeter({
             style={{ width: `${score.overall}%` }}
           />
         </div>
-        <span className={cn("text-[9px] font-medium", score.color)}>{score.label}</span>
+        <span className={cn("text-xs font-medium", score.color)}>{score.label}</span>
       </div>
     );
   }
 
   return (
-    <div className="rounded-[var(--radius-md)] border border-nc-border bg-nc-surface p-3">
+    <div className="rounded-lg border border-nc-border bg-nc-surface p-3 shadow-sm transition-shadow hover:shadow-md">
       <div className="mb-2 flex items-center justify-between">
-        <span className="text-[10px] font-medium text-nc-text-tertiary">Prompt Quality</span>
+        <span className="text-sm font-medium text-nc-text">Prompt Quality</span>
         <div className="flex items-center gap-2">
           <div className="h-1.5 w-20 overflow-hidden rounded-full bg-nc-panel">
             <div
@@ -138,7 +138,7 @@ export const PromptQualityMeter = memo(function PromptQualityMeter({
               style={{ width: `${score.overall}%` }}
             />
           </div>
-          <span className={cn("text-[10px] font-bold tabular-nums", score.color)}>
+          <span className={cn("text-sm font-bold tabular-nums", score.color)}>
             {score.overall}
           </span>
         </div>
@@ -147,7 +147,7 @@ export const PromptQualityMeter = memo(function PromptQualityMeter({
       {score.issues.length > 0 && (
         <div className="mb-2 flex flex-col gap-0.5">
           {score.issues.map((issue, i) => (
-            <div key={i} className="flex items-start gap-1.5 text-[9px] leading-relaxed text-nc-warning">
+            <div key={i} className="flex items-start gap-1.5 text-xs leading-relaxed text-nc-warning">
               <svg width="8" height="8" viewBox="0 0 8 8" fill="currentColor" className="mt-0.5 shrink-0">
                 <path d="M4 0l4 7H0z" />
               </svg>
@@ -160,7 +160,7 @@ export const PromptQualityMeter = memo(function PromptQualityMeter({
       {score.tips.length > 0 && (
         <div className="flex flex-col gap-0.5">
           {score.tips.slice(0, 3).map((tip, i) => (
-            <div key={i} className="flex items-start gap-1.5 text-[9px] leading-relaxed text-nc-text-ghost">
+            <div key={i} className="flex items-start gap-1.5 text-xs leading-relaxed text-nc-text-secondary">
               <span className="mt-0.5 h-1 w-1 shrink-0 rounded-full bg-nc-accent/40" />
               {tip}
             </div>

@@ -17,8 +17,8 @@ import { EditVideoPanel } from "@/components/panels/EditVideoPanel";
 
 function SectionHeader({ label, children }: { label: string; children?: React.ReactNode }) {
   return (
-    <div className="flex h-8 items-center justify-between border-b border-nc-border px-4">
-      <span className="text-[10px] font-medium uppercase tracking-[0.12em] text-nc-text-tertiary">{label}</span>
+    <div className="flex h-10 items-center justify-between border-b border-nc-border bg-nc-panel/30 px-4 shadow-sm">
+      <span className="text-xs font-medium uppercase tracking-[0.12em] text-nc-text-secondary">{label}</span>
       {children}
     </div>
   );
@@ -62,7 +62,7 @@ function ViewToggle() {
   const { workspaceView, setWorkspaceView } = useAppStore();
 
   return (
-    <div className="flex items-center gap-0.5 rounded-[var(--radius-md)] border border-nc-border bg-nc-panel p-0.5">
+    <div className="flex items-center gap-0.5 rounded-[var(--radius-lg)] border border-nc-border bg-nc-panel p-1 shadow-sm hover:shadow-md">
       {(Object.keys(VIEW_ICONS) as WorkspaceView[]).map((view) => {
         const { label, icon } = VIEW_ICONS[view];
         const isActive = workspaceView === view;
@@ -71,10 +71,10 @@ function ViewToggle() {
             key={view}
             onClick={() => setWorkspaceView(view)}
             className={cn(
-              "flex h-6 items-center gap-1.5 rounded-[var(--radius-sm)] px-2 text-[10px] font-medium transition-all duration-150",
+              "flex h-8 items-center gap-1.5 rounded-lg px-3 text-xs font-medium transition-all duration-150",
               isActive
-                ? "bg-nc-panel-active text-nc-text shadow-sm"
-                : "text-nc-text-ghost hover:text-nc-text-tertiary"
+                ? "bg-nc-panel-active text-nc-text shadow-md"
+                : "text-nc-text-tertiary hover:bg-nc-panel-hover hover:text-nc-text-secondary"
             )}
             title={label}
           >
@@ -181,12 +181,12 @@ export function WorkspaceLayout() {
       onMouseLeave={() => { setIsDraggingH(false); setIsDraggingV(false); }}
     >
       {/* Top toolbar with view toggle */}
-      <div className="flex h-9 shrink-0 items-center justify-between border-b border-nc-border px-4">
+      <div className="flex h-11 shrink-0 items-center justify-between border-b border-nc-border bg-nc-panel/20 px-4 shadow-sm">
         <ViewToggle />
         <div className="flex items-center gap-2">
           <button
             onClick={() => useAppStore.getState().setPreviewFullscreen(!useAppStore.getState().previewFullscreen)}
-            className="flex h-6 w-6 items-center justify-center rounded-[var(--radius-sm)] text-nc-text-ghost hover:bg-nc-panel-hover hover:text-nc-text-tertiary"
+            className="flex h-8 w-8 items-center justify-center rounded-lg border border-transparent text-nc-text-tertiary transition-all hover:border-nc-border hover:bg-nc-panel-hover hover:text-nc-text-secondary hover:shadow-sm"
             title="Toggle preview"
           >
             <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.2">

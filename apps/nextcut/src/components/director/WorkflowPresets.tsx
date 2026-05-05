@@ -48,9 +48,9 @@ export const WorkflowPresets = memo(function WorkflowPresets({
 
   return (
     <div>
-      <label className="mb-2 block text-[10px] font-medium uppercase tracking-[0.12em] text-nc-text-tertiary">
+      <label className="mb-2 block text-xs font-medium uppercase tracking-[0.12em] text-nc-text">
         Seedance Workflow
-        <span className="ml-1 font-normal normal-case tracking-normal text-nc-text-ghost">
+        <span className="ml-1 font-normal normal-case tracking-normal text-nc-text-secondary">
           生成工作流
         </span>
       </label>
@@ -63,31 +63,31 @@ export const WorkflowPresets = memo(function WorkflowPresets({
               onClick={() => handleSelect(preset.id)}
               disabled={disabled}
               className={cn(
-                "group flex flex-col gap-2 rounded-[var(--radius-lg)] border p-3 text-left transition-all duration-200",
+                "group flex flex-col gap-2 rounded-[var(--radius-lg)] border border-nc-border p-4 text-left shadow-sm transition-all duration-200 hover:shadow-md",
                 "disabled:opacity-40",
                 isActive
-                  ? "border-nc-accent/40 bg-nc-accent-dim shadow-sm shadow-nc-accent/5"
-                  : "border-nc-border hover:border-nc-border-strong hover:bg-nc-panel-hover"
+                  ? "border-nc-accent/40 bg-nc-accent-dim shadow-md shadow-nc-accent/10 ring-1 ring-nc-accent/15"
+                  : "hover:border-nc-border-strong hover:bg-nc-panel-hover"
               )}
             >
               <div className="flex items-start justify-between">
                 {WORKFLOW_ICONS[preset.id]}
-                <span className="rounded-full bg-nc-surface px-1.5 py-0.5 text-[8px] tabular-nums text-nc-text-ghost">
+                <span className="rounded-full bg-nc-surface px-1.5 py-0.5 text-xs tabular-nums text-nc-text-secondary">
                   {preset.duration}
                 </span>
               </div>
 
               <div>
-                <div className="text-[11px] font-semibold text-nc-text">{preset.label}</div>
-                <div className="text-[9px] text-nc-text-ghost">{preset.labelZh}</div>
+                <div className="text-sm font-semibold text-nc-text">{preset.label}</div>
+                <div className="text-xs text-nc-text-secondary">{preset.labelZh}</div>
               </div>
 
-              <p className="text-[9px] leading-relaxed text-nc-text-tertiary">
+              <p className="text-xs leading-relaxed text-nc-text-secondary">
                 {preset.description}
               </p>
 
               {/* Requirements */}
-              <div className="flex items-center gap-2 text-[8px]">
+              <div className="flex items-center gap-2 text-xs">
                 {preset.needsRefImage && (
                   <span className="flex items-center gap-0.5 text-nc-accent">
                     <svg width="8" height="8" viewBox="0 0 8 8" fill="none" stroke="currentColor" strokeWidth="1">
@@ -105,7 +105,7 @@ export const WorkflowPresets = memo(function WorkflowPresets({
                   </span>
                 )}
                 {!preset.needsRefImage && !preset.needsRefVideo && (
-                  <span className="text-nc-text-ghost">Text only</span>
+                  <span className="text-nc-text-secondary">Text only</span>
                 )}
               </div>
 
@@ -113,7 +113,7 @@ export const WorkflowPresets = memo(function WorkflowPresets({
               {isActive && (
                 <div className="mt-1 border-t border-nc-border pt-2">
                   {preset.tips.map((tip, i) => (
-                    <div key={i} className="flex items-start gap-1.5 py-0.5 text-[8px] leading-relaxed text-nc-text-ghost">
+                    <div key={i} className="flex items-start gap-1.5 py-0.5 text-xs leading-relaxed text-nc-text-secondary">
                       <span className="mt-0.5 h-1 w-1 shrink-0 rounded-full bg-nc-accent/40" />
                       {tip}
                     </div>

@@ -75,11 +75,11 @@ export const EditVideoPanel = memo(function EditVideoPanel() {
     return (
       <div className="flex h-full items-center justify-center p-6 text-center">
         <div className="flex flex-col items-center gap-2">
-          <svg width="32" height="32" viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="1" className="text-nc-text-ghost/40">
+          <svg width="32" height="32" viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="1" className="text-nc-text-tertiary/45">
             <rect x="4" y="8" width="24" height="16" rx="2" />
             <path d="M12 14l5 3-5 3z" />
           </svg>
-          <span className="text-[11px] text-nc-text-ghost">Select a shot to edit its video</span>
+          <span className="text-sm text-nc-text-tertiary">Select a shot to edit its video</span>
         </div>
       </div>
     );
@@ -88,7 +88,7 @@ export const EditVideoPanel = memo(function EditVideoPanel() {
   if (!selectedShot.video_url) {
     return (
       <div className="flex h-full items-center justify-center p-6 text-center">
-        <span className="text-[11px] text-nc-text-ghost">Generate a video first, then come back to edit it</span>
+        <span className="text-sm text-nc-text-tertiary">Generate a video first, then come back to edit it</span>
       </div>
     );
   }
@@ -96,42 +96,42 @@ export const EditVideoPanel = memo(function EditVideoPanel() {
   return (
     <div className="flex h-full flex-col overflow-auto">
       {/* Header */}
-      <div className="flex h-8 shrink-0 items-center gap-2 border-b border-nc-border px-3">
-        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.2" className="text-nc-accent">
+      <div className="flex h-11 shrink-0 items-center gap-2 border-b border-nc-border px-4 shadow-sm">
+        <svg width="14" height="14" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.2" className="text-nc-accent">
           <path d="M9 1.5l1.5 1.5L4 9.5H2.5V8L9 1.5z" />
         </svg>
-        <span className="text-[11px] font-medium text-nc-text">Edit Video — {selectedShot.title || selectedShot.id}</span>
+        <span className="text-sm font-semibold text-nc-text">Edit Video — {selectedShot.title || selectedShot.id}</span>
       </div>
 
-      <div className="flex flex-1 flex-col gap-3 p-3">
+      <div className="flex flex-1 flex-col gap-4 p-4">
         {/* Mode selector */}
-        <div className="grid grid-cols-3 gap-1.5">
+        <div className="grid grid-cols-3 gap-2">
           {EDIT_MODES.map((m) => (
             <button
               key={m.id}
               onClick={() => setMode(m.id)}
               className={cn(
-                "flex flex-col items-center gap-1 rounded-[var(--radius-md)] border p-2 text-center transition-all",
+                "flex flex-col items-center gap-1.5 rounded-lg border p-3 text-center shadow-sm transition-all hover:shadow-md",
                 mode === m.id
-                  ? "border-nc-accent bg-nc-accent/8 text-nc-accent"
-                  : "border-nc-border bg-nc-panel text-nc-text-tertiary hover:border-nc-text-ghost/30 hover:bg-nc-panel-hover"
+                  ? "border-nc-accent bg-nc-accent/10 text-nc-accent shadow-md"
+                  : "border-nc-border-strong bg-nc-panel text-nc-text-secondary hover:border-nc-text-tertiary/40 hover:bg-nc-panel-hover"
               )}
             >
-              <svg width="14" height="14" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="0.8">
+              <svg width="16" height="16" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="0.8">
                 <path d={m.icon} />
               </svg>
-              <span className="text-[10px] font-medium">{m.label}</span>
+              <span className="text-xs font-semibold">{m.label}</span>
             </button>
           ))}
         </div>
 
-        <p className="text-[9px] leading-relaxed text-nc-text-ghost">
+        <p className="text-xs leading-relaxed text-nc-text-tertiary">
           {EDIT_MODES.find((m) => m.id === mode)?.desc}
         </p>
 
         {/* Edit prompt */}
-        <div className="flex flex-col gap-1">
-          <label className="text-[9px] font-medium uppercase tracking-wider text-nc-text-ghost">
+        <div className="flex flex-col gap-1.5">
+          <label className="text-xs font-semibold uppercase tracking-wider text-nc-text-secondary">
             {mode === "inpaint" ? "What to fill in" : mode === "restyle" ? "Target style" : "Replacement description"}
           </label>
           <textarea
@@ -145,14 +145,14 @@ export const EditVideoPanel = memo(function EditVideoPanel() {
                   : "e.g., Replace the background with a sunset beach"
             }
             rows={3}
-            className="resize-none rounded-[var(--radius-md)] border border-nc-border bg-nc-panel px-2.5 py-2 text-[11px] text-nc-text placeholder:text-nc-text-ghost/50 focus:border-nc-accent/50 focus:outline-none"
+            className="resize-none rounded-lg border border-nc-border-strong bg-nc-panel px-3 py-2.5 text-sm text-nc-text shadow-sm placeholder:text-nc-text-tertiary/55 focus:border-nc-accent/50 focus:outline-none focus:ring-2 focus:ring-nc-accent/15"
           />
         </div>
 
         {/* Mask description (inpaint only) */}
         {mode === "inpaint" && (
-          <div className="flex flex-col gap-1">
-            <label className="text-[9px] font-medium uppercase tracking-wider text-nc-text-ghost">
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-semibold uppercase tracking-wider text-nc-text-secondary">
               Mask region (describe what to mask)
             </label>
             <input
@@ -160,18 +160,18 @@ export const EditVideoPanel = memo(function EditVideoPanel() {
               value={maskDesc}
               onChange={(e) => setMaskDesc(e.target.value)}
               placeholder="e.g., the person on the left side"
-              className="rounded-[var(--radius-md)] border border-nc-border bg-nc-panel px-2.5 py-1.5 text-[11px] text-nc-text placeholder:text-nc-text-ghost/50 focus:border-nc-accent/50 focus:outline-none"
+              className="rounded-lg border border-nc-border-strong bg-nc-panel px-3 py-2.5 text-sm text-nc-text shadow-sm placeholder:text-nc-text-tertiary/55 focus:border-nc-accent/50 focus:outline-none focus:ring-2 focus:ring-nc-accent/15"
             />
           </div>
         )}
 
         {/* Strength slider */}
-        <div className="flex flex-col gap-1">
+        <div className="flex flex-col gap-1.5">
           <div className="flex items-center justify-between">
-            <label className="text-[9px] font-medium uppercase tracking-wider text-nc-text-ghost">
+            <label className="text-xs font-semibold uppercase tracking-wider text-nc-text-secondary">
               Edit strength
             </label>
-            <span className="font-mono text-[10px] tabular-nums text-nc-text-tertiary">
+            <span className="font-mono text-xs tabular-nums text-nc-text-secondary">
               {Math.round(strength * 100)}%
             </span>
           </div>
@@ -182,16 +182,16 @@ export const EditVideoPanel = memo(function EditVideoPanel() {
             step={0.05}
             value={strength}
             onChange={(e) => setStrength(parseFloat(e.target.value))}
-            className="h-1 w-full cursor-pointer appearance-none rounded-full bg-nc-panel accent-nc-accent"
+            className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-nc-panel accent-nc-accent"
           />
-          <div className="flex justify-between text-[8px] text-nc-text-ghost">
+          <div className="flex justify-between text-[10px] text-nc-text-tertiary">
             <span>Subtle</span>
             <span>Complete</span>
           </div>
         </div>
 
         {/* Tips */}
-        <div className="rounded-[var(--radius-md)] border border-nc-accent/10 bg-nc-accent-muted p-2 text-[8px] leading-relaxed text-nc-text-ghost">
+        <div className="rounded-lg border border-nc-accent/25 bg-nc-accent-muted p-3 text-xs leading-relaxed text-nc-text-secondary shadow-sm">
           {mode === "inpaint" && "Tip: Describe the masked region clearly. Works best for replacing small objects or fixing artifacts."}
           {mode === "restyle" && "Tip: Keep motion intact while changing aesthetics. Lower strength preserves more of the original."}
           {mode === "replace" && "Tip: Best for swapping backgrounds or subjects. Use high strength for dramatic changes."}
@@ -202,10 +202,10 @@ export const EditVideoPanel = memo(function EditVideoPanel() {
           onClick={handleSubmit}
           disabled={!canSubmit || submitting}
           className={cn(
-            "flex items-center justify-center gap-2 rounded-[var(--radius-md)] px-4 py-2 text-[11px] font-semibold transition-all",
+            "flex h-11 items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-semibold transition-all",
             canSubmit && !submitting
-              ? "bg-nc-accent text-nc-bg shadow-sm hover:bg-nc-accent-hover"
-              : "cursor-not-allowed bg-nc-panel text-nc-text-ghost"
+              ? "bg-nc-accent text-nc-bg shadow-md hover:bg-nc-accent-hover hover:shadow-lg"
+              : "cursor-not-allowed bg-nc-panel text-nc-text-tertiary"
           )}
         >
           {submitting ? (

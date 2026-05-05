@@ -24,7 +24,7 @@ const GOALS: GoalOption[] = [
     label: "Tell a Story",
     labelZh: "讲一个故事",
     desc: "A short narrative with characters and plot",
-    icon: <span className="text-[18px]">📖</span>,
+    icon: <span className="text-xl">📖</span>,
     workflow: "multimodal_story",
     defaultShots: 6,
     defaultDuration: 5,
@@ -34,7 +34,7 @@ const GOALS: GoalOption[] = [
     label: "Showcase a Product",
     labelZh: "产品展示",
     desc: "Product reveal, unboxing, or advertisement",
-    icon: <span className="text-[18px]">🎁</span>,
+    icon: <span className="text-xl">🎁</span>,
     workflow: "image_to_video",
     defaultShots: 3,
     defaultDuration: 5,
@@ -44,7 +44,7 @@ const GOALS: GoalOption[] = [
     label: "Music Video",
     labelZh: "音乐 MV",
     desc: "Visual accompaniment to a song or beat",
-    icon: <span className="text-[18px]">🎵</span>,
+    icon: <span className="text-xl">🎵</span>,
     workflow: "multimodal_story",
     defaultShots: 8,
     defaultDuration: 5,
@@ -54,7 +54,7 @@ const GOALS: GoalOption[] = [
     label: "Quick Concept",
     labelZh: "快速创意",
     desc: "Rapidly explore a visual idea or mood",
-    icon: <span className="text-[18px]">💡</span>,
+    icon: <span className="text-xl">💡</span>,
     workflow: "text_to_video",
     defaultShots: 4,
     defaultDuration: 5,
@@ -64,7 +64,7 @@ const GOALS: GoalOption[] = [
     label: "Social Media Clip",
     labelZh: "社交媒体短视频",
     desc: "Vertical or square content for TikTok, Reels, Shorts",
-    icon: <span className="text-[18px]">📱</span>,
+    icon: <span className="text-xl">📱</span>,
     workflow: "text_to_video",
     defaultShots: 4,
     defaultDuration: 5,
@@ -74,7 +74,7 @@ const GOALS: GoalOption[] = [
     label: "Cinematic Trailer",
     labelZh: "电影预告",
     desc: "Epic trailer with dramatic arc and tension",
-    icon: <span className="text-[18px]">🎬</span>,
+    icon: <span className="text-xl">🎬</span>,
     workflow: "multimodal_story",
     defaultShots: 12,
     defaultDuration: 5,
@@ -143,7 +143,7 @@ export const GuidedWizard = memo(function GuidedWizard({
         {/* Close button */}
         <button
           onClick={onClose}
-          className="absolute right-4 top-4 flex h-6 w-6 items-center justify-center rounded-full text-nc-text-ghost transition-colors hover:bg-nc-panel-hover hover:text-nc-text"
+          className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-lg text-nc-text-secondary transition-all hover:bg-nc-panel-hover hover:text-nc-text"
         >
           <svg width="10" height="10" viewBox="0 0 10 10" stroke="currentColor" strokeWidth="1.5"><path d="M2 2l6 6M8 2l-6 6" /></svg>
         </button>
@@ -154,10 +154,10 @@ export const GuidedWizard = memo(function GuidedWizard({
             <div key={s} className="flex items-center gap-2">
               {i > 0 && <div className={cn("h-px w-6", step === s || (["goal", "content", "style", "confirm"].indexOf(step) > i) ? "bg-nc-accent" : "bg-nc-border")} />}
               <div className={cn(
-                "flex h-6 w-6 items-center justify-center rounded-full text-[9px] font-bold transition-all",
+                "flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold transition-all",
                 step === s ? "bg-nc-accent text-nc-bg ring-2 ring-nc-accent/20" :
                 (["goal", "content", "style", "confirm"].indexOf(step) > i) ? "bg-nc-success/20 text-nc-success" :
-                "bg-nc-panel text-nc-text-ghost"
+                "bg-nc-panel text-nc-text-secondary"
               )}>
                 {(["goal", "content", "style", "confirm"].indexOf(step) > i) ? "✓" : i + 1}
               </div>
@@ -168,23 +168,23 @@ export const GuidedWizard = memo(function GuidedWizard({
         {/* Step: Goal */}
         {step === "goal" && (
           <div>
-            <h2 className="mb-1 text-center text-[18px] font-bold text-nc-text">{t("wizard.step1Title")}</h2>
-            <p className="mb-5 text-center text-[12px] text-nc-text-ghost">{t("wizard.step1Desc")}</p>
+            <h2 className="mb-1 text-center text-xl font-bold text-nc-text">{t("wizard.step1Title")}</h2>
+            <p className="mb-5 text-center text-sm text-nc-text-secondary">{t("wizard.step1Desc")}</p>
             <div className="grid grid-cols-3 gap-2.5">
               {GOALS.map((g) => (
                 <button
                   key={g.id}
                   onClick={() => setSelectedGoal(g.id)}
                   className={cn(
-                    "flex flex-col items-center gap-2 rounded-xl border p-4 text-center transition-all",
+                    "flex flex-col items-center gap-2 rounded-xl border border-nc-border p-4 text-center shadow-sm transition-all hover:shadow-md",
                     selectedGoal === g.id
-                      ? "border-nc-accent/40 bg-nc-accent-dim shadow-md shadow-nc-accent/10"
-                      : "border-nc-border hover:border-nc-border-strong hover:shadow-sm"
+                      ? "border-nc-accent/40 bg-nc-accent-dim shadow-md shadow-nc-accent/10 ring-1 ring-nc-accent/15"
+                      : "hover:border-nc-border-strong"
                   )}
                 >
                   {g.icon}
-                  <div className="text-[11px] font-semibold text-nc-text">{lang === "zh" ? g.labelZh : g.label}</div>
-                  <div className="text-[9px] text-nc-text-ghost">{lang === "zh" ? g.label : g.labelZh}</div>
+                  <div className="text-sm font-semibold text-nc-text">{lang === "zh" ? g.labelZh : g.label}</div>
+                  <div className="text-xs text-nc-text-secondary">{lang === "zh" ? g.label : g.labelZh}</div>
                 </button>
               ))}
             </div>
@@ -194,8 +194,8 @@ export const GuidedWizard = memo(function GuidedWizard({
         {/* Step: Content */}
         {step === "content" && (
           <div>
-            <h2 className="mb-1 text-center text-[18px] font-bold text-nc-text">{t("wizard.step2Title")}</h2>
-            <p className="mb-5 text-center text-[12px] text-nc-text-ghost">
+            <h2 className="mb-1 text-center text-xl font-bold text-nc-text">{t("wizard.step2Title")}</h2>
+            <p className="mb-5 text-center text-sm text-nc-text-secondary">
               {t("wizard.step2Desc")}
             </p>
             <textarea
@@ -208,10 +208,10 @@ export const GuidedWizard = memo(function GuidedWizard({
                 : "Describe what you want to see. The more specific, the better."
               }
               rows={5}
-              className="w-full resize-none rounded-xl border border-nc-border bg-nc-panel px-4 py-3 text-[13px] leading-relaxed text-nc-text outline-none placeholder:text-nc-text-ghost/50 focus:border-nc-accent/40 focus:ring-1 focus:ring-nc-accent/10"
+              className="w-full resize-none rounded-xl border border-nc-border bg-nc-panel px-4 py-3 text-base leading-relaxed text-nc-text outline-none placeholder:text-nc-text-secondary/50 focus:border-nc-accent/40 focus:ring-1 focus:ring-nc-accent/10"
               autoFocus
             />
-            <div className="mt-2 flex items-center justify-between text-[9px] text-nc-text-ghost">
+            <div className="mt-2 flex items-center justify-between text-xs text-nc-text-secondary">
               <span>{ideaText.trim().split(/\s+/).filter(Boolean).length} {t("wizard.words")}</span>
               <span>{t("wizard.anyLang")}</span>
             </div>
@@ -221,27 +221,27 @@ export const GuidedWizard = memo(function GuidedWizard({
         {/* Step: Style */}
         {step === "style" && (
           <div>
-            <h2 className="mb-1 text-center text-[18px] font-bold text-nc-text">{t("wizard.step3Title")}</h2>
-            <p className="mb-5 text-center text-[12px] text-nc-text-ghost">{t("wizard.step3Desc")}</p>
+            <h2 className="mb-1 text-center text-xl font-bold text-nc-text">{t("wizard.step3Title")}</h2>
+            <p className="mb-5 text-center text-sm text-nc-text-secondary">{t("wizard.step3Desc")}</p>
             <div className="mb-4 grid grid-cols-4 gap-2">
               {STYLE_OPTIONS.map((s) => (
                 <button
                   key={s.id}
                   onClick={() => setSelectedStyle(s.id)}
                   className={cn(
-                    "flex flex-col items-center gap-1 rounded-xl border py-3 transition-all",
+                    "flex flex-col items-center gap-1 rounded-xl border border-nc-border py-3 shadow-sm transition-all hover:shadow-md",
                     selectedStyle === s.id
-                      ? "border-nc-accent/40 bg-nc-accent-dim"
-                      : "border-nc-border hover:border-nc-border-strong"
+                      ? "border-nc-accent/40 bg-nc-accent-dim ring-1 ring-nc-accent/10"
+                      : "hover:border-nc-border-strong"
                   )}
                 >
-                  <span className="text-[16px]">{s.emoji}</span>
-                  <span className="text-[10px] font-medium text-nc-text">{s.label}</span>
+                  <span className="text-lg">{s.emoji}</span>
+                  <span className="text-xs font-medium text-nc-text">{s.label}</span>
                 </button>
               ))}
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-[10px] text-nc-text-tertiary">{t("wizard.format")}</span>
+              <span className="text-xs text-nc-text-secondary">{t("wizard.format")}</span>
               {[
                 { id: "16:9", label: "Landscape" },
                 { id: "9:16", label: "Portrait" },
@@ -251,10 +251,10 @@ export const GuidedWizard = memo(function GuidedWizard({
                   key={r.id}
                   onClick={() => setRatio(r.id)}
                   className={cn(
-                    "rounded-[var(--radius-md)] border px-3 py-1.5 text-[10px] font-medium transition-all",
+                    "rounded-lg border px-3 py-2 text-xs font-medium transition-all",
                     ratio === r.id
                       ? "border-nc-accent/40 bg-nc-accent-dim text-nc-accent"
-                      : "border-nc-border text-nc-text-tertiary hover:border-nc-border-strong"
+                      : "border-nc-border text-nc-text-secondary hover:border-nc-border-strong"
                   )}
                 >
                   {r.id} {r.label}
@@ -267,9 +267,9 @@ export const GuidedWizard = memo(function GuidedWizard({
         {/* Step: Confirm */}
         {step === "confirm" && goal && (
           <div>
-            <h2 className="mb-1 text-center text-[18px] font-bold text-nc-text">{t("wizard.step4Title")}</h2>
-            <p className="mb-5 text-center text-[12px] text-nc-text-ghost">{t("wizard.step4Desc")}</p>
-            <div className="space-y-2 rounded-xl border border-nc-border bg-nc-surface p-4">
+            <h2 className="mb-1 text-center text-xl font-bold text-nc-text">{t("wizard.step4Title")}</h2>
+            <p className="mb-5 text-center text-sm text-nc-text-secondary">{t("wizard.step4Desc")}</p>
+            <div className="space-y-2 rounded-xl border border-nc-border bg-nc-surface p-4 shadow-sm transition-shadow hover:shadow-md">
               <ConfirmRow label={t("wizard.goal")} value={lang === "zh" ? goal.labelZh : goal.label} />
               <ConfirmRow label={t("wizard.style")} value={selectedStyle} />
               <ConfirmRow label={t("wizard.formatVal")} value={ratio} />
@@ -277,13 +277,13 @@ export const GuidedWizard = memo(function GuidedWizard({
               <ConfirmRow label={t("wizard.duration")} value={`${goal.defaultDuration}s`} />
               <ConfirmRow label={t("wizard.workflow")} value={goal.workflow.replace(/_/g, " ")} />
               <div className="border-t border-nc-border pt-2">
-                <div className="text-[9px] font-medium text-nc-text-ghost">{t("wizard.yourIdea")}</div>
-                <p className="mt-0.5 text-[11px] leading-relaxed text-nc-text-secondary">
+                <div className="text-xs font-medium text-nc-text-secondary">{t("wizard.yourIdea")}</div>
+                <p className="mt-0.5 text-sm leading-relaxed text-nc-text">
                   {ideaText.length > 200 ? ideaText.slice(0, 200) + "..." : ideaText}
                 </p>
               </div>
             </div>
-            <div className="mt-3 rounded-[var(--radius-md)] border border-nc-accent/10 bg-nc-accent-muted px-3 py-2 text-[9px] leading-relaxed text-nc-text-ghost">
+            <div className="mt-3 rounded-lg border border-nc-accent/20 bg-nc-accent-muted px-3 py-2.5 text-xs leading-relaxed text-nc-text-secondary shadow-sm">
               {t("wizard.agentSteps")}
             </div>
           </div>
@@ -293,7 +293,7 @@ export const GuidedWizard = memo(function GuidedWizard({
         <div className="mt-6 flex items-center justify-between">
           <button
             onClick={step === "goal" ? onClose : handleBack}
-            className="rounded-[var(--radius-md)] px-4 py-2 text-[12px] text-nc-text-ghost transition-colors hover:text-nc-text-tertiary"
+            className="rounded-lg px-4 py-2.5 text-sm text-nc-text-secondary transition-all hover:text-nc-text"
           >
             {step === "goal" ? t("wizard.cancel") : t("wizard.back")}
           </button>
@@ -301,7 +301,7 @@ export const GuidedWizard = memo(function GuidedWizard({
           {step === "confirm" ? (
             <button
               onClick={handleGenerate}
-              className="flex items-center gap-2 rounded-xl bg-nc-accent px-6 py-2.5 text-[13px] font-bold text-nc-bg shadow-lg shadow-nc-accent/20 transition-all hover:bg-nc-accent-hover hover:shadow-xl"
+              className="flex h-10 items-center gap-2 rounded-lg bg-nc-accent px-6 py-2.5 text-base font-bold text-nc-bg shadow-md shadow-nc-accent/25 transition-all hover:bg-nc-accent-hover hover:shadow-lg"
             >
               <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor"><polygon points="3,1 13,7 3,13" /></svg>
               {t("wizard.generate")}
@@ -311,10 +311,10 @@ export const GuidedWizard = memo(function GuidedWizard({
               onClick={handleNext}
               disabled={(step === "goal" && !selectedGoal) || (step === "content" && !ideaText.trim())}
               className={cn(
-                "rounded-xl px-6 py-2.5 text-[13px] font-semibold transition-all",
+                "rounded-lg px-6 py-3 text-base font-semibold transition-all",
                 ((step === "goal" && selectedGoal) || (step === "content" && ideaText.trim()) || step === "style")
-                  ? "bg-nc-accent text-nc-bg hover:bg-nc-accent-hover"
-                  : "bg-nc-panel text-nc-text-ghost cursor-not-allowed"
+                  ? "bg-nc-accent text-nc-bg shadow-md shadow-nc-accent/20 hover:bg-nc-accent-hover hover:shadow-lg"
+                  : "bg-nc-panel text-nc-text-secondary cursor-not-allowed"
               )}
             >
               {t("wizard.next")}
@@ -328,9 +328,9 @@ export const GuidedWizard = memo(function GuidedWizard({
 
 function ConfirmRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-center justify-between text-[11px]">
-      <span className="text-nc-text-ghost">{label}</span>
-      <span className="font-medium capitalize text-nc-text-secondary">{value}</span>
+    <div className="flex items-center justify-between text-sm">
+      <span className="text-nc-text-secondary">{label}</span>
+      <span className="font-medium capitalize text-nc-text">{value}</span>
     </div>
   );
 }

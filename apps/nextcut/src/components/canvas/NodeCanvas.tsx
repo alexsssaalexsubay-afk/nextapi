@@ -12,29 +12,33 @@ import { useDirectorStore } from "@/stores/director-store";
 
 const baseNodeStyle = {
   background: "#111118",
-  border: "1px solid rgba(255,255,255,0.06)",
-  borderRadius: 8,
-  color: "#9898a6",
-  fontSize: 11,
+  border: "1px solid rgba(255,255,255,0.12)",
+  borderRadius: 10,
+  color: "#a8a8b8",
+  fontSize: 13,
   fontWeight: 500,
-  padding: "8px 16px",
+  padding: "10px 18px",
   fontFamily: "Inter, system-ui, sans-serif",
+  boxShadow: "0 2px 8px rgba(0,0,0,0.35), 0 0 0 1px rgba(255,255,255,0.04) inset",
 };
 
 const activeNodeStyle = {
   ...baseNodeStyle,
-  border: "1px solid rgba(212,160,83,0.35)",
-  color: "#d4a053",
-  boxShadow: "0 0 12px rgba(212,160,83,0.08)",
+  border: "1px solid rgba(212,160,83,0.45)",
+  color: "#e8b86a",
+  boxShadow:
+    "0 4px 14px rgba(212,160,83,0.18), 0 2px 6px rgba(0,0,0,0.35), 0 0 0 1px rgba(212,160,83,0.12) inset",
 };
 
 const doneNodeStyle = {
   ...baseNodeStyle,
-  border: "1px solid rgba(62,207,142,0.30)",
-  color: "#3ecf8e",
+  border: "1px solid rgba(62,207,142,0.42)",
+  color: "#4ed69e",
+  boxShadow:
+    "0 3px 12px rgba(62,207,142,0.12), 0 2px 6px rgba(0,0,0,0.3), 0 0 0 1px rgba(62,207,142,0.08) inset",
 };
 
-const edgeColor = "rgba(255,255,255,0.06)";
+const edgeColor = "rgba(255,255,255,0.12)";
 const edgeActiveColor = "#d4a053";
 
 const AGENT_PIPELINE = [
@@ -98,10 +102,10 @@ export function NodeCanvas() {
       style: {
         ...baseNodeStyle,
         border: s.status === "completed"
-          ? "1px solid rgba(62,207,142,0.25)"
-          : "1px solid rgba(212,160,83,0.12)",
-        fontSize: 10,
-        width: 140,
+          ? "1px solid rgba(62,207,142,0.4)"
+          : "1px solid rgba(212,160,83,0.25)",
+        fontSize: 12,
+        width: 148,
       },
     }));
 
@@ -147,13 +151,15 @@ export function NodeCanvas() {
         fitView
         proOptions={{ hideAttribution: true }}
         style={{ background: "#060609" }}
+        className="[&_.react-flow__controls]:!rounded-[var(--radius-lg)] [&_.react-flow__controls]:!border [&_.react-flow__controls]:!border-white/10 [&_.react-flow__controls]:!shadow-lg"
       >
         <Background variant={BackgroundVariant.Dots} gap={24} size={0.5} color="rgba(255,255,255,0.04)" />
         <Controls
           style={{
             background: "#111118",
-            border: "1px solid rgba(255,255,255,0.06)",
-            borderRadius: 8,
+            border: "1px solid rgba(255,255,255,0.14)",
+            borderRadius: 10,
+            boxShadow: "0 4px 14px rgba(0,0,0,0.45), 0 0 0 1px rgba(255,255,255,0.05) inset",
           }}
         />
       </ReactFlow>

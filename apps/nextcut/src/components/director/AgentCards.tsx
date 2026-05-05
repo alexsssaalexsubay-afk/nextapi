@@ -102,18 +102,18 @@ export const AgentCards = memo(function AgentCards() {
   const progressMap = new Map(agentProgress.map((p) => [p.agent, p]));
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between">
-        <h3 className="text-[12px] font-semibold text-nc-text">AI Director Team</h3>
+        <h3 className="text-lg font-semibold text-nc-text">AI Director Team</h3>
         {isRunning && (
-          <span className="flex items-center gap-1.5 text-[9px] text-nc-accent">
+          <span className="flex items-center gap-1.5 text-xs text-nc-accent">
             <span className="inline-block h-[5px] w-[5px] animate-pulse rounded-full bg-nc-accent" />
             Working
           </span>
         )}
       </div>
 
-      <div className="grid grid-cols-2 gap-1.5">
+      <div className="grid grid-cols-2 gap-2">
         {AGENTS.map((agent) => {
           const progress = progressMap.get(agent.id);
           const isActive = progress?.status === "running" || progress?.status === "progress";
@@ -124,37 +124,37 @@ export const AgentCards = memo(function AgentCards() {
             <div
               key={agent.id}
               className={cn(
-                "relative overflow-hidden rounded-[var(--radius-md)] border p-2.5 transition-all",
-                isActive ? "border-nc-accent/30 bg-nc-accent-muted shadow-sm" :
-                isDone ? "border-nc-success/20 bg-nc-surface" :
-                "border-nc-border bg-nc-surface"
+                "relative overflow-hidden rounded-lg border border-nc-border bg-nc-surface p-3 shadow-sm transition-all duration-200 hover:shadow-md",
+                isActive ? "border-nc-accent/40 bg-nc-accent-muted shadow-md ring-1 ring-nc-accent/15" :
+                isDone ? "border-nc-success/30 bg-nc-surface shadow-sm" :
+                ""
               )}
             >
               <div className="flex items-center gap-2">
                 <div
-                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[13px]"
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-lg shadow-inner"
                   style={{ backgroundColor: agent.color + "15" }}
                 >
                   {agent.avatar}
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5">
-                    <span className="text-[10px] font-semibold text-nc-text">{agent.name}</span>
-                    <span className="text-[8px] text-nc-text-ghost">{agent.nameZh}</span>
+                    <span className="text-sm font-semibold text-nc-text">{agent.name}</span>
+                    <span className="text-xs text-nc-text-secondary">{agent.nameZh}</span>
                     {isDone && (
                       <svg width="8" height="8" viewBox="0 0 8 8" fill="none" stroke="#10b981" strokeWidth="1.5" className="ml-auto shrink-0">
                         <path d="M1.5 4l2 2L6.5 2" />
                       </svg>
                     )}
                   </div>
-                  <div className="text-[8px] text-nc-text-ghost">{agent.role}</div>
+                  <div className="text-xs leading-tight text-nc-text-secondary">{agent.role}</div>
                 </div>
               </div>
 
               {/* Thinking bubble when active */}
               {isActive && (
-                <div className="mt-1.5 rounded bg-nc-panel px-2 py-1">
-                  <div className="flex items-center gap-1 text-[8px] italic text-nc-accent">
+                <div className="mt-1.5 rounded-lg border border-nc-border/80 bg-nc-panel px-2.5 py-1.5 shadow-sm">
+                  <div className="flex items-center gap-1 text-xs italic text-nc-accent">
                     <div className="flex gap-0.5">
                       <span className="inline-block h-1 w-1 animate-bounce rounded-full bg-nc-accent" style={{ animationDelay: "0ms" }} />
                       <span className="inline-block h-1 w-1 animate-bounce rounded-full bg-nc-accent" style={{ animationDelay: "200ms" }} />
@@ -167,7 +167,7 @@ export const AgentCards = memo(function AgentCards() {
 
               {/* Progress bar */}
               {progress && (
-                <div className="mt-1.5 h-[2px] overflow-hidden rounded-full bg-nc-panel">
+                <div className="mt-2 h-1 overflow-hidden rounded-full bg-nc-panel">
                   <div
                     className={cn(
                       "h-full rounded-full transition-all duration-700",

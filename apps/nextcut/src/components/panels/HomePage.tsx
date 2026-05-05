@@ -54,21 +54,21 @@ export const HomePage = memo(function HomePage() {
 
       {/* Hero */}
       <div className="flex flex-col items-center px-8 pt-16 pb-10 text-center">
-        <div className="mb-4 flex items-center gap-2 rounded-full border border-nc-accent/20 bg-nc-accent-muted px-3 py-1">
-          <span className="h-1.5 w-1.5 rounded-full bg-nc-accent animate-[glow-pulse_3s_ease-in-out_infinite]" />
-          <span className="text-[10px] font-medium text-nc-accent">{t("home.hero.poweredBy")}</span>
+        <div className="mb-4 flex items-center gap-2 rounded-full border border-nc-accent/30 bg-nc-accent-muted px-4 py-2 shadow-sm">
+          <span className="h-2 w-2 rounded-full bg-nc-accent animate-[glow-pulse_3s_ease-in-out_infinite]" />
+          <span className="text-xs font-semibold text-nc-accent">{t("home.hero.poweredBy")}</span>
         </div>
-        <h1 className="mb-3 text-[28px] font-bold leading-tight tracking-tight text-nc-text">
+        <h1 className="mb-3 text-3xl font-bold leading-tight tracking-tight text-nc-text">
           {t("home.hero.title1")}
           <br />
           <span className="text-nc-accent">{t("home.hero.title2")}</span>
         </h1>
-        <p className="max-w-md text-[13px] leading-relaxed text-nc-text-tertiary">
+        <p className="max-w-md text-base leading-relaxed text-nc-text-secondary">
           {t("home.hero.subtitle")}
         </p>
         <button
           onClick={() => setShowWizard(true)}
-          className="mt-4 flex items-center gap-2 rounded-xl border border-nc-accent/30 bg-nc-accent/10 px-5 py-2 text-[12px] font-semibold text-nc-accent transition-all hover:bg-nc-accent/20 hover:shadow-md"
+          className="mt-4 flex h-11 items-center gap-2 rounded-xl border border-nc-accent/35 bg-nc-accent/10 px-5 py-2.5 text-sm font-semibold text-nc-accent shadow-md transition-all hover:bg-nc-accent/20 hover:shadow-lg"
         >
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5">
             <path d="M7 1v12M1 7h12" />
@@ -80,16 +80,16 @@ export const HomePage = memo(function HomePage() {
       {/* Two paths */}
       <div className="mx-auto flex w-full max-w-4xl gap-4 px-8">
         {/* Quick Path */}
-        <div className="flex flex-1 flex-col rounded-[var(--radius-lg)] border border-nc-border bg-nc-surface p-5 transition-all hover:border-nc-border-strong hover:shadow-lg hover:shadow-black/10">
+        <div className="flex flex-1 flex-col rounded-[var(--radius-lg)] border border-nc-border-strong bg-nc-surface p-5 shadow-md transition-all hover:-translate-y-0.5 hover:border-nc-accent/25 hover:shadow-xl hover:shadow-black/15">
           <div className="mb-4 flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-nc-accent/10">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-nc-accent/10">
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-nc-accent">
                 <path d="M2 8h12M9 4l4 4-4 4" />
               </svg>
             </div>
             <div>
-              <h2 className="text-[14px] font-semibold text-nc-text">{t("home.quick.title")}</h2>
-              <p className="text-[10px] text-nc-text-ghost">{t("home.quick.subtitle")}</p>
+              <h2 className="text-base font-semibold text-nc-text">{t("home.quick.title")}</h2>
+              <p className="text-sm text-nc-text-tertiary">{t("home.quick.subtitle")}</p>
             </div>
           </div>
 
@@ -99,8 +99,8 @@ export const HomePage = memo(function HomePage() {
             placeholder={t("home.quick.placeholder")}
             rows={4}
             className={cn(
-              "mb-3 w-full resize-none rounded-[var(--radius-md)] border border-nc-border bg-nc-panel px-3 py-2.5 text-[13px] leading-relaxed text-nc-text",
-              "placeholder:text-nc-text-ghost/50 outline-none",
+              "mb-3 w-full resize-none rounded-lg border border-nc-border-strong bg-nc-panel px-3 py-2.5 text-base leading-relaxed text-nc-text",
+              "placeholder:text-nc-text-tertiary/50 outline-none",
               "focus:border-nc-accent/40 focus:ring-1 focus:ring-nc-accent/10"
             )}
           />
@@ -111,7 +111,7 @@ export const HomePage = memo(function HomePage() {
               <button
                 key={i}
                 onClick={() => applyExample(ex)}
-                className="rounded-full border border-nc-border px-2 py-0.5 text-[9px] text-nc-text-ghost transition-colors hover:border-nc-border-strong hover:text-nc-text-tertiary"
+                className="rounded-full border border-nc-border px-3 py-1.5 text-xs text-nc-text-tertiary shadow-sm transition-all hover:border-nc-border-strong hover:text-nc-text-secondary hover:shadow-md"
               >
                 {t("home.quick.example")} {i + 1}
               </button>
@@ -122,10 +122,10 @@ export const HomePage = memo(function HomePage() {
             onClick={handleQuickGenerate}
             disabled={!localPrompt.trim() || isRunning}
             className={cn(
-              "mt-auto flex h-10 items-center justify-center gap-2 rounded-[var(--radius-md)] text-[13px] font-semibold transition-all",
+              "mt-auto flex h-11 items-center justify-center gap-2 rounded-lg text-base font-semibold transition-all",
               localPrompt.trim() && !isRunning
-                ? "bg-nc-accent text-nc-bg shadow-lg shadow-nc-accent/15 hover:bg-nc-accent-hover"
-                : "bg-nc-panel text-nc-text-ghost cursor-not-allowed"
+                ? "bg-nc-accent text-nc-bg shadow-md shadow-nc-accent/20 hover:bg-nc-accent-hover hover:shadow-lg"
+                : "bg-nc-panel text-nc-text-tertiary cursor-not-allowed"
             )}
           >
             <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor"><polygon points="2,0 12,6 2,12" /></svg>
@@ -134,17 +134,17 @@ export const HomePage = memo(function HomePage() {
         </div>
 
         {/* Precise Path */}
-        <div className="flex flex-1 flex-col rounded-[var(--radius-lg)] border border-nc-border bg-nc-surface p-5 transition-all hover:border-nc-border-strong hover:shadow-lg hover:shadow-black/10">
+        <div className="flex flex-1 flex-col rounded-[var(--radius-lg)] border border-nc-border-strong bg-nc-surface p-5 shadow-md transition-all hover:-translate-y-0.5 hover:border-nc-info/30 hover:shadow-xl hover:shadow-black/15">
           <div className="mb-4 flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-nc-info/10">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-nc-info/10">
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-nc-info">
                 <rect x="2" y="2" width="12" height="12" rx="2" />
                 <path d="M5 6h6M5 8h4M5 10h5" />
               </svg>
             </div>
             <div>
-              <h2 className="text-[14px] font-semibold text-nc-text">{t("home.precise.title")}</h2>
-              <p className="text-[10px] text-nc-text-ghost">{t("home.precise.subtitle")}</p>
+              <h2 className="text-base font-semibold text-nc-text">{t("home.precise.title")}</h2>
+              <p className="text-sm text-nc-text-tertiary">{t("home.precise.subtitle")}</p>
             </div>
           </div>
 
@@ -158,7 +158,7 @@ export const HomePage = memo(function HomePage() {
 
           <button
             onClick={handlePrecisePath}
-            className="mt-auto flex h-10 items-center justify-center gap-2 rounded-[var(--radius-md)] border border-nc-info/30 bg-nc-info/10 text-[13px] font-semibold text-nc-info transition-colors hover:bg-nc-info/20"
+            className="mt-auto flex h-11 items-center justify-center gap-2 rounded-lg border border-nc-info/35 bg-nc-info/10 text-base font-semibold text-nc-info shadow-sm transition-all hover:bg-nc-info/20 hover:shadow-md"
           >
             <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5">
               <rect x="2" y="2" width="8" height="8" rx="1" />
@@ -172,10 +172,10 @@ export const HomePage = memo(function HomePage() {
       {/* Template quick picks */}
       <div className="mx-auto mt-8 w-full max-w-4xl px-8 pb-12">
         <div className="mb-3 flex items-center justify-between">
-          <h3 className="text-[12px] font-semibold text-nc-text">{t("home.templates.title")}</h3>
+          <h3 className="text-sm font-semibold text-nc-text">{t("home.templates.title")}</h3>
           <button
             onClick={() => setSidebarPage("templates")}
-            className="text-[10px] text-nc-accent hover:text-nc-accent-hover"
+            className="text-sm font-medium text-nc-accent shadow-sm transition-all hover:text-nc-accent-hover hover:underline"
           >
             {t("home.templates.viewAll")}
           </button>
@@ -186,11 +186,11 @@ export const HomePage = memo(function HomePage() {
             <button
               key={tmpl.id}
               onClick={() => applyTemplate(tmpl.id)}
-              className="group rounded-[var(--radius-lg)] border border-nc-border bg-nc-surface p-3 text-left transition-all hover:border-nc-border-strong hover:shadow-md hover:shadow-black/10"
+              className="group rounded-[var(--radius-lg)] border border-nc-border-strong bg-nc-surface p-4 text-left shadow-sm transition-all hover:border-nc-accent/30 hover:shadow-lg"
             >
-              <div className="mb-1.5 text-[11px] font-semibold text-nc-text">{tmpl.nameZh}</div>
-              <div className="mb-1 text-[9px] text-nc-text-ghost">{tmpl.name}</div>
-              <div className="flex items-center gap-2 text-[8px] text-nc-text-ghost">
+              <div className="mb-1.5 text-sm font-semibold text-nc-text">{tmpl.nameZh}</div>
+              <div className="mb-1 text-xs text-nc-text-tertiary">{tmpl.name}</div>
+              <div className="flex items-center gap-2 text-[10px] text-nc-text-tertiary">
                 <span className="tabular-nums">{tmpl.duration}</span>
                 <span>{tmpl.shotCount} {t("home.templates.shots")}</span>
                 <span className="capitalize">{tmpl.style}</span>
@@ -202,8 +202,8 @@ export const HomePage = memo(function HomePage() {
 
       {/* Seedance tips */}
       <div className="mx-auto w-full max-w-4xl border-t border-nc-border px-8 py-6">
-        <div className="mb-2 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-nc-accent">
-          <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor">
+        <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-nc-accent">
+          <svg width="12" height="12" viewBox="0 0 10 10" fill="currentColor">
             <path d="M5 0l1.2 3.8H10l-3 2.2 1.2 3.8L5 7.6 1.8 9.8 3 6 0 3.8h3.8z" />
           </svg>
           {t("home.tips.title")}
@@ -229,13 +229,13 @@ export const HomePage = memo(function HomePage() {
 
 function StepPreview({ number, title, desc }: { number: number; title: string; desc: string }) {
   return (
-    <div className="flex items-center gap-2.5 rounded-[var(--radius-md)] border border-nc-border bg-nc-panel px-3 py-2">
-      <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-nc-info/10 text-[9px] font-bold text-nc-info">
+    <div className="flex items-center gap-2.5 rounded-lg border border-nc-border bg-nc-panel px-3 py-2.5 shadow-sm">
+      <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-nc-info/10 text-xs font-bold text-nc-info">
         {number}
       </div>
       <div className="min-w-0">
-        <div className="text-[10px] font-semibold text-nc-text">{title}</div>
-        <div className="truncate text-[9px] text-nc-text-ghost">{desc}</div>
+        <div className="text-sm font-semibold text-nc-text">{title}</div>
+        <div className="truncate text-xs text-nc-text-tertiary">{desc}</div>
       </div>
     </div>
   );
@@ -243,9 +243,9 @@ function StepPreview({ number, title, desc }: { number: number; title: string; d
 
 function TipCard({ title, desc }: { title: string; desc: string }) {
   return (
-    <div className="rounded-[var(--radius-md)] border border-nc-accent/10 bg-nc-accent-muted p-3">
-      <div className="mb-1 text-[10px] font-semibold text-nc-text">{title}</div>
-      <p className="text-[9px] leading-relaxed text-nc-text-ghost">{desc}</p>
+    <div className="rounded-lg border border-nc-accent/25 bg-nc-accent-muted p-4 shadow-sm">
+      <div className="mb-1 text-sm font-semibold text-nc-text">{title}</div>
+      <p className="text-xs leading-relaxed text-nc-text-tertiary">{desc}</p>
     </div>
   );
 }

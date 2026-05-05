@@ -85,11 +85,11 @@ export const TimelineEditor = memo(function TimelineEditor() {
   if (directorShots.length === 0) {
     return (
       <div className="flex h-full flex-col bg-nc-surface">
-        <div className="flex h-8 items-center justify-between border-b border-nc-border px-4">
-          <span className="text-[10px] font-medium uppercase tracking-[0.12em] text-nc-text-tertiary">{t("timeline.title")}</span>
+        <div className="flex h-10 items-center justify-between border-b border-nc-border bg-nc-surface px-4 shadow-sm">
+          <span className="text-xs font-medium uppercase tracking-[0.12em] text-nc-text-secondary">{t("timeline.title")}</span>
         </div>
         <div className="flex flex-1 items-center justify-center">
-          <span className="text-[11px] text-nc-text-ghost">{t("timeline.empty")}</span>
+          <span className="text-sm text-nc-text-tertiary">{t("timeline.empty")}</span>
         </div>
       </div>
     );
@@ -98,45 +98,47 @@ export const TimelineEditor = memo(function TimelineEditor() {
   return (
     <div className="flex h-full flex-col bg-nc-surface">
       {/* Header */}
-      <div className="flex h-8 shrink-0 items-center justify-between border-b border-nc-border px-4">
+      <div className="flex h-10 shrink-0 items-center justify-between border-b border-nc-border bg-nc-surface px-4 shadow-sm">
         <div className="flex items-center gap-4">
-          <span className="text-[10px] font-medium uppercase tracking-[0.12em] text-nc-text-tertiary">{t("timeline.title")}</span>
-          <div className="font-mono text-[10px] tabular-nums text-nc-accent">
+          <span className="text-xs font-medium uppercase tracking-[0.12em] text-nc-text-secondary">{t("timeline.title")}</span>
+          <div className="font-mono text-xs tabular-nums text-nc-accent">
             {formatTimecode(playheadPos)}
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 font-mono text-[10px] text-nc-text-ghost">
+          <div className="flex items-center gap-2 font-mono text-xs text-nc-text-tertiary">
             <span className="tabular-nums">{totalDuration.toFixed(1)}s</span>
             <span className="text-nc-border-strong">/</span>
             <span className="tabular-nums">{directorShots.length} {t("timeline.shots")}</span>
           </div>
 
           {/* Zoom control */}
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-2">
             <button
+              type="button"
               onClick={() => setTimelineZoom(timelineZoom / 1.5)}
-              className="flex h-5 w-5 items-center justify-center rounded text-nc-text-ghost hover:bg-nc-panel-hover hover:text-nc-text-tertiary"
+              className="flex h-9 w-9 items-center justify-center rounded-lg border border-nc-border bg-nc-panel/80 text-nc-text-tertiary shadow-sm transition-all hover:border-nc-border-strong hover:bg-nc-panel-hover hover:text-nc-text-secondary hover:shadow-md"
             >
-              <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.2">
+              <svg width="12" height="12" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.2" className="shrink-0 scale-110">
                 <path d="M2 5h6" />
               </svg>
             </button>
-            <div className="h-1 w-12 overflow-hidden rounded-full bg-nc-panel">
+            <div className="h-1.5 w-14 overflow-hidden rounded-full border border-nc-border/50 bg-nc-panel shadow-inner">
               <div
-                className="h-full rounded-full bg-nc-text-ghost/30 transition-all"
+                className="h-full rounded-full bg-nc-text-tertiary/40 transition-all"
                 style={{ width: `${((timelineZoom - 0.25) / 3.75) * 100}%` }}
               />
             </div>
             <button
+              type="button"
               onClick={() => setTimelineZoom(timelineZoom * 1.5)}
-              className="flex h-5 w-5 items-center justify-center rounded text-nc-text-ghost hover:bg-nc-panel-hover hover:text-nc-text-tertiary"
+              className="flex h-9 w-9 items-center justify-center rounded-lg border border-nc-border bg-nc-panel/80 text-nc-text-tertiary shadow-sm transition-all hover:border-nc-border-strong hover:bg-nc-panel-hover hover:text-nc-text-secondary hover:shadow-md"
             >
-              <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.2">
+              <svg width="12" height="12" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.2" className="shrink-0 scale-110">
                 <path d="M2 5h6M5 2v6" />
               </svg>
             </button>
-            <span className="w-8 text-right font-mono text-[9px] tabular-nums text-nc-text-ghost">
+            <span className="min-w-[2.5rem] text-right font-mono text-xs tabular-nums text-nc-text-tertiary">
               {Math.round(timelineZoom * 100)}%
             </span>
           </div>
@@ -155,7 +157,7 @@ export const TimelineEditor = memo(function TimelineEditor() {
       >
         <div className="relative" style={{ width: totalWidth, minHeight: "100%" }}>
           {/* Ruler */}
-          <div className="sticky top-0 z-10 h-5 border-b border-nc-border bg-nc-surface/90 backdrop-blur-sm">
+          <div className="sticky top-0 z-10 h-6 border-b border-nc-border bg-nc-surface/95 shadow-sm backdrop-blur-sm">
             {rulerMarks.map(({ time, major }) => (
               <div
                 key={time}
@@ -164,7 +166,7 @@ export const TimelineEditor = memo(function TimelineEditor() {
               >
                 <div className={cn("h-full w-px", major ? "bg-nc-border" : "bg-nc-border/40")} />
                 {major && (
-                  <span className="absolute left-1.5 top-0.5 font-mono text-[8px] tabular-nums text-nc-text-ghost">
+                  <span className="absolute left-1.5 top-1 font-mono text-xs tabular-nums text-nc-text-tertiary">
                     {time >= 60 ? `${Math.floor(time / 60)}m${Math.floor(time % 60)}s` : `${time}s`}
                   </span>
                 )}
@@ -173,9 +175,9 @@ export const TimelineEditor = memo(function TimelineEditor() {
           </div>
 
           {/* Track label */}
-          <div className="absolute left-0 top-5 z-10 flex h-[calc(100%-20px)] w-12 flex-col justify-center border-r border-nc-border bg-nc-surface">
+          <div className="absolute left-0 top-6 z-10 flex h-[calc(100%-24px)] w-12 flex-col justify-center border-r border-nc-border bg-nc-surface shadow-sm">
             <div className="flex items-center justify-center">
-              <span className="text-[8px] font-medium uppercase tracking-widest text-nc-text-ghost" style={{ writingMode: "vertical-lr", transform: "rotate(180deg)" }}>
+              <span className="text-xs font-medium uppercase tracking-widest text-nc-text-tertiary" style={{ writingMode: "vertical-lr", transform: "rotate(180deg)" }}>
                 {t("timeline.video")}
               </span>
             </div>
@@ -194,11 +196,11 @@ export const TimelineEditor = memo(function TimelineEditor() {
                   key={shot.id}
                   onClick={() => setSelectedShotId(shot.id)}
                   className={cn(
-                    "group relative flex flex-col justify-between overflow-hidden rounded-[var(--radius-sm)] border transition-all duration-150",
+                    "group relative flex flex-col justify-between overflow-hidden rounded-lg border border-nc-border/60 bg-nc-panel/20 shadow-sm transition-all duration-150 hover:shadow-md",
                     colors.bg,
                     isActive
-                      ? cn(colors.border, "ring-1", colors.ring, "shadow-md")
-                      : cn("border-transparent hover:border-nc-border-strong")
+                      ? cn(colors.border, "ring-1", colors.ring, "shadow-md hover:shadow-lg")
+                      : cn("hover:border-nc-border-strong")
                   )}
                   style={{ width: `${width}px`, minHeight: 52 }}
                 >
@@ -206,17 +208,17 @@ export const TimelineEditor = memo(function TimelineEditor() {
                   <div className={cn("h-[2px] w-full", isActive ? "bg-nc-accent" : "bg-transparent")} />
 
                   {/* Content */}
-                  <div className="flex flex-1 flex-col justify-center px-2 py-1">
+                  <div className="flex flex-1 flex-col justify-center px-2.5 py-2">
                     <div className="flex items-center gap-1.5">
                       {hasVideo && (
-                        <span className="h-1 w-1 shrink-0 rounded-full bg-nc-success" />
+                        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-nc-success shadow-sm" />
                       )}
-                      <span className="truncate font-mono text-[9px] font-medium text-nc-text-secondary">
+                      <span className="truncate font-mono text-xs font-medium text-nc-text">
                         {shot.id}
                       </span>
                     </div>
                     {width > 80 && (
-                      <span className="mt-0.5 truncate text-[8px] text-nc-text-ghost">
+                      <span className="mt-0.5 truncate text-xs text-nc-text-tertiary">
                         {shot.title}
                       </span>
                     )}
@@ -224,8 +226,8 @@ export const TimelineEditor = memo(function TimelineEditor() {
 
                   {/* Duration tag */}
                   {width > 50 && (
-                    <div className="px-2 pb-1">
-                      <span className="font-mono text-[7px] tabular-nums text-nc-text-ghost/60">
+                    <div className="px-2.5 pb-2">
+                      <span className="font-mono text-xs tabular-nums text-nc-text-tertiary/80">
                         {shot.duration}s
                       </span>
                     </div>
@@ -236,9 +238,9 @@ export const TimelineEditor = memo(function TimelineEditor() {
           </div>
 
           {/* Audio track */}
-          <div className="relative ml-12 flex flex-col gap-[2px] border-t border-nc-border/40 px-1 py-1">
-            <div className="absolute -left-12 top-0 flex h-full w-12 items-center justify-center border-r border-nc-border bg-nc-surface">
-              <span className="text-[8px] font-medium uppercase tracking-widest text-nc-text-ghost" style={{ writingMode: "vertical-lr", transform: "rotate(180deg)" }}>
+          <div className="relative ml-12 flex flex-col gap-[2px] border-t border-nc-border px-1 py-2 shadow-sm">
+            <div className="absolute -left-12 top-0 flex h-full w-12 items-center justify-center border-r border-nc-border bg-nc-surface shadow-sm">
+              <span className="text-xs font-medium uppercase tracking-widest text-nc-text-tertiary" style={{ writingMode: "vertical-lr", transform: "rotate(180deg)" }}>
                 {t("timeline.audio")}
               </span>
             </div>
@@ -250,16 +252,16 @@ export const TimelineEditor = memo(function TimelineEditor() {
                   <div
                     key={`audio-${shot.id}`}
                     className={cn(
-                      "relative flex flex-col justify-end overflow-hidden rounded-[var(--radius-sm)] border px-1 pb-1 transition-colors",
+                      "relative flex flex-col justify-end overflow-hidden rounded-lg border px-1.5 pb-1.5 shadow-sm transition-shadow hover:shadow-md",
                       hasDialogue 
-                        ? "bg-nc-info/10 border-nc-info/20 hover:border-nc-info/40 min-h-[48px]" 
-                        : "bg-nc-success/10 border-nc-success/15 h-6"
+                        ? "bg-nc-info/10 border-nc-info/30 hover:border-nc-info/50 min-h-[52px]" 
+                        : "bg-nc-success/10 border-nc-success/25 h-7"
                     )}
                     style={{ width: `${width}px` }}
                     title={shot.audio?.dialogue || "Ambient"}
                   >
                     {hasDialogue && (
-                      <div className="absolute top-1 left-1.5 right-1 text-[8px] font-medium leading-tight text-nc-info truncate opacity-90">
+                      <div className="absolute left-1.5 right-1 top-1.5 text-xs font-medium leading-tight text-nc-info truncate opacity-95">
                         "{shot.audio?.dialogue}"
                       </div>
                     )}

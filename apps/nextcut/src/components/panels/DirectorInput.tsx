@@ -109,14 +109,14 @@ export function DirectorInput() {
       <div className="flex flex-col gap-4 p-4">
         {/* Input mode toggle */}
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-0.5 rounded-[var(--radius-md)] border border-nc-border bg-nc-panel p-0.5">
+          <div className="flex items-center gap-0.5 rounded-lg border border-nc-border-strong bg-nc-panel p-1 shadow-sm">
             <button
               onClick={() => setUseStructuredPrompt(false)}
               className={cn(
-                "rounded-[var(--radius-sm)] px-3 py-1 text-[10px] font-medium transition-colors",
+                "rounded-lg px-4 py-2 text-xs font-semibold transition-all",
                 !useStructuredPrompt
-                  ? "bg-nc-panel-active text-nc-text shadow-sm"
-                  : "text-nc-text-ghost hover:text-nc-text-tertiary"
+                  ? "bg-nc-panel-active text-nc-text shadow-md"
+                  : "text-nc-text-tertiary hover:text-nc-text-secondary"
               )}
             >
               {t("director.freeform")}
@@ -124,17 +124,17 @@ export function DirectorInput() {
             <button
               onClick={() => setUseStructuredPrompt(true)}
               className={cn(
-                "rounded-[var(--radius-sm)] px-3 py-1 text-[10px] font-medium transition-colors",
+                "rounded-lg px-4 py-2 text-xs font-semibold transition-all",
                 useStructuredPrompt
-                  ? "bg-nc-panel-active text-nc-text shadow-sm"
-                  : "text-nc-text-ghost hover:text-nc-text-tertiary"
+                  ? "bg-nc-panel-active text-nc-text shadow-md"
+                  : "text-nc-text-tertiary hover:text-nc-text-secondary"
               )}
             >
               {t("director.directorMode")}
             </button>
           </div>
           {wordCount > 0 && inputMode === "freeform" && (
-            <span className="text-[9px] tabular-nums text-nc-text-ghost">{wordCount} {t("director.words")}</span>
+            <span className="text-xs tabular-nums text-nc-text-tertiary">{wordCount} {t("director.words")}</span>
           )}
         </div>
 
@@ -148,8 +148,8 @@ export function DirectorInput() {
               rows={5}
               disabled={isRunning}
               className={cn(
-                "w-full resize-none rounded-[var(--radius-lg)] border bg-nc-panel p-3 text-[13px] leading-relaxed text-nc-text",
-                "placeholder:text-nc-text-ghost/60 outline-none transition-all duration-200",
+                "w-full resize-none rounded-[var(--radius-lg)] border bg-nc-panel p-3 text-base leading-relaxed text-nc-text",
+                "placeholder:text-nc-text-tertiary/60 outline-none transition-all duration-200",
                 "focus:border-nc-accent/40 focus:ring-1 focus:ring-nc-accent/10",
                 "disabled:opacity-40",
                 isRunning ? "border-nc-border" : "border-nc-border hover:border-nc-border-strong"
@@ -200,13 +200,13 @@ export function DirectorInput() {
                   onClick={() => setStyle(s.id)}
                   disabled={isRunning}
                   className={cn(
-                    "flex items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] font-medium transition-all duration-150 disabled:opacity-40",
+                    "flex items-center gap-1.5 rounded-full border px-3 py-2 text-xs font-semibold transition-all duration-150 disabled:opacity-40",
                     style === s.id
                       ? "border-nc-accent/40 bg-nc-accent-dim text-nc-accent"
                       : "border-nc-border text-nc-text-tertiary hover:border-nc-border-strong hover:text-nc-text-secondary"
                   )}
                 >
-                  <span className="text-[9px]">{s.icon}</span>
+                  <span className="text-xs">{s.icon}</span>
                   {s.label}
                 </button>
               ))}
@@ -227,8 +227,8 @@ export function DirectorInput() {
                     : "border-nc-border text-nc-text-tertiary hover:border-nc-border-strong"
                 )}
               >
-                <span className="text-[11px] font-semibold tabular-nums">{r.label}</span>
-                <span className="text-[8px] text-nc-text-ghost">{r.desc}</span>
+                <span className="text-sm font-semibold tabular-nums">{r.label}</span>
+                <span className="text-[10px] text-nc-text-tertiary">{r.desc}</span>
               </button>
             ))}
           </div>
@@ -242,17 +242,17 @@ export function DirectorInput() {
         >
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="mb-1.5 block text-[10px] text-nc-text-tertiary">{t("director.shotsLabel")}</label>
+              <label className="mb-1.5 block text-xs text-nc-text-secondary">{t("director.shotsLabel")}</label>
               <div className="flex items-center gap-2">
                 <input type="range" min={1} max={24} value={numShots} onChange={(e) => setNumShots(parseInt(e.target.value))} disabled={isRunning} className="flex-1" />
-                <span className="w-6 text-center font-mono text-[12px] tabular-nums text-nc-text-secondary">{numShots}</span>
+                <span className="w-7 text-center font-mono text-sm tabular-nums text-nc-text-secondary">{numShots}</span>
               </div>
             </div>
             <div>
-              <label className="mb-1.5 block text-[10px] text-nc-text-tertiary">{t("director.durationLabel")}</label>
+              <label className="mb-1.5 block text-xs text-nc-text-secondary">{t("director.durationLabel")}</label>
               <div className="flex items-center gap-2">
                 <input type="range" min={4} max={15} value={duration} onChange={(e) => setDuration(parseInt(e.target.value))} disabled={isRunning} className="flex-1" />
-                <span className="w-6 text-center font-mono text-[12px] tabular-nums text-nc-text-secondary">{duration}</span>
+                <span className="w-7 text-center font-mono text-sm tabular-nums text-nc-text-secondary">{duration}</span>
               </div>
             </div>
           </div>
@@ -275,7 +275,7 @@ export function DirectorInput() {
                   ) : ref.type === "video" ? (
                     <video src={ref.url} className="h-full w-full object-cover" muted />
                   ) : (
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="text-nc-text-ghost">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="text-nc-text-tertiary">
                       <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1" />
                       <polygon points="6.5,5 11,8 6.5,11" fill="currentColor" />
                     </svg>
@@ -290,7 +290,7 @@ export function DirectorInput() {
               ))}
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="flex h-16 w-16 items-center justify-center rounded-[var(--radius-md)] border border-dashed border-nc-border text-nc-text-ghost hover:border-nc-border-strong hover:text-nc-text-tertiary"
+                className="flex h-16 w-16 items-center justify-center rounded-[var(--radius-md)] border border-dashed border-nc-border-strong text-nc-text-tertiary hover:border-nc-accent/40 hover:text-nc-text-secondary shadow-sm"
               >
                 <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M7 3v8M3 7h8" /></svg>
               </button>
@@ -298,7 +298,7 @@ export function DirectorInput() {
           ) : (
             <div
               onClick={() => fileInputRef.current?.click()}
-              className="flex cursor-pointer items-center justify-center gap-2 rounded-[var(--radius-md)] border border-dashed border-nc-border py-4 text-[10px] text-nc-text-ghost transition-colors hover:border-nc-border-strong hover:text-nc-text-tertiary"
+              className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-nc-border-strong py-5 text-sm text-nc-text-tertiary shadow-sm transition-all hover:border-nc-accent/40 hover:text-nc-text-secondary hover:shadow-md"
             >
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1">
                 <rect x="1" y="2" width="12" height="10" rx="1.5" />
@@ -315,7 +315,7 @@ export function DirectorInput() {
           {isRunning ? (
             <button
               onClick={stopPipeline}
-              className="flex h-10 items-center justify-center gap-2 rounded-[var(--radius-md)] border border-nc-error/30 bg-nc-error/10 text-[12px] font-semibold text-nc-error transition-colors hover:bg-nc-error/20"
+              className="flex h-11 items-center justify-center gap-2 rounded-lg border border-nc-error/35 bg-nc-error/10 text-sm font-semibold text-nc-error shadow-sm transition-all hover:bg-nc-error/20 hover:shadow-md"
             >
               <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor"><rect x="1" y="1" width="8" height="8" rx="1" /></svg>
               {t("director.stopPipeline")}
@@ -325,10 +325,10 @@ export function DirectorInput() {
               onClick={runPipeline}
               disabled={!prompt.trim()}
               className={cn(
-                "flex h-10 items-center justify-center gap-2 rounded-[var(--radius-md)] text-[13px] font-semibold transition-all duration-200",
+                "flex h-11 items-center justify-center gap-2 rounded-lg text-base font-semibold transition-all duration-200",
                 prompt.trim()
-                  ? "bg-nc-accent text-nc-bg shadow-lg shadow-nc-accent/15 hover:bg-nc-accent-hover hover:shadow-xl hover:shadow-nc-accent/20"
-                  : "bg-nc-panel text-nc-text-ghost cursor-not-allowed"
+                  ? "bg-nc-accent text-nc-bg shadow-md shadow-nc-accent/20 hover:bg-nc-accent-hover hover:shadow-lg hover:shadow-nc-accent/25"
+                  : "bg-nc-panel text-nc-text-tertiary cursor-not-allowed"
               )}
             >
               <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor"><polygon points="3,1 13,7 3,13" /></svg>
@@ -341,7 +341,7 @@ export function DirectorInput() {
               onClick={submitVideoGeneration}
               disabled={isGenerating}
               className={cn(
-                "flex h-10 items-center justify-center gap-2 rounded-[var(--radius-md)] text-[12px] font-semibold transition-all duration-200",
+                "flex h-11 items-center justify-center gap-2 rounded-lg text-sm font-semibold transition-all duration-200 shadow-sm",
                 isGenerating
                   ? "bg-nc-info/15 text-nc-info cursor-wait"
                   : "border border-nc-accent/30 bg-nc-accent/10 text-nc-accent hover:bg-nc-accent/20"
@@ -358,18 +358,18 @@ export function DirectorInput() {
 
         {/* Status summary */}
         {hasPlan && (
-          <div className="flex items-center gap-3 rounded-[var(--radius-md)] border border-nc-border bg-nc-surface px-3 py-2.5">
+          <div className="flex items-center gap-3 rounded-lg border border-nc-border-strong bg-nc-surface px-4 py-3 shadow-sm">
             <div className="flex items-center gap-1.5">
-              <span className="h-1.5 w-1.5 rounded-full bg-nc-success" />
-              <span className="text-[10px] text-nc-text-secondary">{shots.length} {t("director.shotsLabel").toLowerCase()}</span>
+              <span className="h-2 w-2 rounded-full bg-nc-success" />
+              <span className="text-xs text-nc-text-secondary">{shots.length} {t("director.shotsLabel").toLowerCase()}</span>
             </div>
             {shots.filter((s) => s.video_url).length > 0 && (
               <div className="flex items-center gap-1.5">
-                <span className="h-1.5 w-1.5 rounded-full bg-nc-accent" />
-                <span className="text-[10px] text-nc-accent">{shots.filter((s) => s.video_url).length} {t("director.rendered")}</span>
+                <span className="h-2 w-2 rounded-full bg-nc-accent" />
+                <span className="text-xs text-nc-accent">{shots.filter((s) => s.video_url).length} {t("director.rendered")}</span>
               </div>
             )}
-            <span className="ml-auto font-mono text-[9px] tabular-nums text-nc-text-ghost">
+            <span className="ml-auto font-mono text-xs tabular-nums text-nc-text-tertiary">
               {shots.reduce((s, sh) => s + sh.duration, 0).toFixed(1)}s
             </span>
           </div>
@@ -395,30 +395,30 @@ function CollapsibleSection({
   children: React.ReactNode;
 }) {
   return (
-    <div className="rounded-[var(--radius-lg)] border border-nc-border bg-nc-surface">
+    <div className="rounded-[var(--radius-lg)] border border-nc-border-strong bg-nc-surface shadow-sm">
       <button
         onClick={onToggle}
-        className="flex w-full items-center justify-between px-3 py-2.5"
+        className="flex w-full items-center justify-between rounded-t-[var(--radius-lg)] px-4 py-3 transition-colors hover:bg-nc-panel-hover/50"
       >
         <div className="flex items-center gap-2">
-          <span className="text-[10px] font-medium uppercase tracking-[0.12em] text-nc-text-tertiary">
+          <span className="text-xs font-semibold uppercase tracking-[0.12em] text-nc-text-secondary">
             {title}
           </span>
-          <span className="text-[9px] text-nc-text-ghost">{titleZh}</span>
+          <span className="text-xs text-nc-text-tertiary">{titleZh}</span>
           {badge && (
-            <span className="rounded-full bg-nc-accent/15 px-1.5 py-0.5 text-[8px] font-medium text-nc-accent">
+            <span className="rounded-full border border-nc-accent/30 bg-nc-accent/15 px-2 py-0.5 text-[10px] font-semibold text-nc-accent shadow-sm">
               {badge}
             </span>
           )}
         </div>
         <svg
-          width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.2"
-          className={cn("text-nc-text-ghost transition-transform", expanded && "rotate-180")}
+          width="12" height="12" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.2"
+          className={cn("text-nc-text-tertiary transition-transform", expanded && "rotate-180")}
         >
           <path d="M2 3.5l3 3 3-3" />
         </svg>
       </button>
-      {expanded && <div className="border-t border-nc-border px-3 pb-3 pt-2.5">{children}</div>}
+      {expanded && <div className="border-t border-nc-border px-4 pb-4 pt-3">{children}</div>}
     </div>
   );
 }

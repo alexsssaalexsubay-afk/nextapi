@@ -10,7 +10,7 @@ export function AppShell() {
   useKeyboardShortcuts();
 
   return (
-    <div className="flex h-screen flex-col bg-nc-bg select-none antialiased">
+    <div className="flex h-screen flex-col bg-nc-bg text-sm select-none antialiased">
       <Titlebar />
       <UpdateBanner />
       <div className="flex flex-1 overflow-hidden">

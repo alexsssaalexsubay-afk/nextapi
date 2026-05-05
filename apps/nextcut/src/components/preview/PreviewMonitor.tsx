@@ -77,21 +77,21 @@ export const PreviewMonitor = memo(function PreviewMonitor() {
   return (
     <div className="flex h-full flex-col bg-nc-bg">
       {/* Header */}
-      <div className="flex h-8 items-center justify-between border-b border-nc-border px-4">
-        <span className="text-[10px] font-medium uppercase tracking-[0.12em] text-nc-text-tertiary">Preview</span>
+      <div className="flex h-10 items-center justify-between border-b border-nc-border bg-nc-bg px-4 shadow-sm">
+        <span className="text-xs font-medium uppercase tracking-[0.12em] text-nc-text-secondary">Preview</span>
         <div className="flex items-center gap-2">
           {selectedShot && (
             <span className={cn(
-              "rounded px-1.5 py-0.5 text-[9px] font-medium",
-              selectedShot.video_url ? "bg-nc-success/10 text-nc-success" :
-              selectedShot.status === "failed" ? "bg-nc-error/10 text-nc-error" :
-              "bg-nc-surface text-nc-text-ghost"
+              "rounded-lg border border-nc-border/60 px-2.5 py-1 text-xs font-medium shadow-sm",
+              selectedShot.video_url ? "bg-nc-success/10 text-nc-success border-nc-success/25" :
+              selectedShot.status === "failed" ? "bg-nc-error/10 text-nc-error border-nc-error/25" :
+              "bg-nc-surface text-nc-text-tertiary"
             )}>
               {selectedShot.video_url ? "Ready" : selectedShot.status}
             </span>
           )}
           {selectedShotId && (
-            <span className="font-mono text-[10px] text-nc-accent">{selectedShotId}</span>
+            <span className="font-mono text-xs text-nc-accent">{selectedShotId}</span>
           )}
         </div>
       </div>
@@ -100,11 +100,11 @@ export const PreviewMonitor = memo(function PreviewMonitor() {
       <div className="relative flex flex-1 items-center justify-center bg-black/60">
         {selectedShot ? (
           hasVideo ? (
-            <div className="relative flex h-full w-full items-center justify-center p-2">
+            <div className="relative flex h-full w-full items-center justify-center p-3">
               <video
                 ref={videoRef}
                 src={selectedShot.video_url}
-                className="max-h-full max-w-full rounded-sm object-contain"
+                className="max-h-full max-w-full rounded-lg border border-nc-border/40 object-contain shadow-lg shadow-black/40"
                 onTimeUpdate={() => {
                   if (videoRef.current) setCurrentTime(videoRef.current.currentTime);
                 }}
@@ -133,8 +133,8 @@ export const PreviewMonitor = memo(function PreviewMonitor() {
                   className="absolute inset-0 flex cursor-pointer items-center justify-center opacity-0 transition-opacity hover:opacity-100"
                   onClick={togglePlay}
                 >
-                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-black/40 backdrop-blur-sm transition-transform hover:scale-110">
-                    <svg width="18" height="18" viewBox="0 0 18 18" fill="white">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-full border border-white/20 bg-black/50 shadow-lg backdrop-blur-sm transition-all hover:scale-110 hover:shadow-xl">
+                    <svg width="22" height="22" viewBox="0 0 18 18" fill="white">
                       <polygon points="5,2 16,9 5,16" />
                     </svg>
                   </div>
@@ -143,50 +143,50 @@ export const PreviewMonitor = memo(function PreviewMonitor() {
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center gap-3 p-8">
-              <div className="rounded-[var(--radius-lg)] border border-nc-border/50 bg-nc-surface/30 p-6 text-center">
+              <div className="rounded-[var(--radius-lg)] border border-nc-border bg-nc-surface/50 p-7 text-center shadow-md hover:shadow-lg transition-shadow">
                 {(selectedShot.status === "generating" || selectedShot.status === "queued" || (selectedShot.status === "pending" && isRunning)) ? (
-                  <div className="flex flex-col items-center gap-3">
+                  <div className="flex flex-col items-center gap-4">
                     <div className="relative">
-                      <div className="h-8 w-8 animate-[spin_2s_linear_infinite] rounded-full border-2 border-nc-accent/20 border-t-nc-accent" />
-                      <div className="absolute inset-0 h-8 w-8 animate-[spin_3s_linear_infinite_reverse] rounded-full border-2 border-transparent border-b-nc-accent/30" />
+                      <div className="h-9 w-9 animate-[spin_2s_linear_infinite] rounded-full border-2 border-nc-accent/20 border-t-nc-accent" />
+                      <div className="absolute inset-0 h-9 w-9 animate-[spin_3s_linear_infinite_reverse] rounded-full border-2 border-transparent border-b-nc-accent/30" />
                     </div>
-                    <div className="text-[11px] text-nc-text-ghost">
+                    <div className="text-sm text-nc-text-tertiary">
                       {selectedShot.status === "queued" ? "Queued for generation..." : "Generating..."}
                     </div>
                   </div>
                 ) : selectedShot.status === "failed" ? (
-                  <div className="flex flex-col items-center gap-2">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className="text-nc-error/60">
+                  <div className="flex flex-col items-center gap-3">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" className="text-nc-error/70">
                       <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1.5" />
                       <path d="M8 8l8 8M16 8l-8 8" stroke="currentColor" strokeWidth="1.5" />
                     </svg>
-                    <span className="text-[11px] text-nc-error/80">Generation failed</span>
-                    <span className="text-[9px] text-nc-text-ghost">Try re-running the pipeline</span>
+                    <span className="text-sm text-nc-error/90">Generation failed</span>
+                    <span className="text-xs text-nc-text-tertiary">Try re-running the pipeline</span>
                   </div>
                 ) : (
-                  <div className="flex flex-col items-center gap-2">
-                    <svg width="32" height="32" viewBox="0 0 32 32" fill="none" className="text-nc-text-ghost/25">
+                  <div className="flex flex-col items-center gap-3">
+                    <svg width="36" height="36" viewBox="0 0 32 32" fill="none" className="text-nc-text-tertiary/35">
                       <rect x="4" y="6" width="24" height="20" rx="2" stroke="currentColor" strokeWidth="1.2" />
                       <polygon points="13,12 21,16 13,20" fill="currentColor" />
                     </svg>
-                    <span className="text-[10px] text-nc-text-ghost">Awaiting generation</span>
+                    <span className="text-xs text-nc-text-tertiary">Awaiting generation</span>
                   </div>
                 )}
               </div>
               {selectedShot.prompt && (
-                <p className="max-w-[280px] text-center text-[9px] leading-relaxed text-nc-text-ghost/60 italic">
+                <p className="max-w-[300px] text-center text-xs leading-relaxed text-nc-text-tertiary/90 italic">
                   &ldquo;{selectedShot.prompt.slice(0, 160)}&rdquo;
                 </p>
               )}
             </div>
           )
         ) : (
-          <div className="flex flex-col items-center gap-3">
-            <svg width="40" height="40" viewBox="0 0 40 40" fill="none" className="text-nc-text-ghost/15">
+          <div className="flex flex-col items-center gap-4">
+            <svg width="44" height="44" viewBox="0 0 40 40" fill="none" className="text-nc-text-tertiary/25">
               <rect x="4" y="8" width="32" height="24" rx="2" stroke="currentColor" strokeWidth="1.2" />
               <polygon points="17,15 27,20 17,25" fill="currentColor" opacity="0.5" />
             </svg>
-            <span className="text-[11px] text-nc-text-ghost">Select a shot to preview</span>
+            <span className="text-sm text-nc-text-tertiary">Select a shot to preview</span>
           </div>
         )}
       </div>
@@ -195,7 +195,7 @@ export const PreviewMonitor = memo(function PreviewMonitor() {
       {hasVideo && videoDuration > 0 && (
         <div
           ref={scrubRef}
-          className="group relative h-2 cursor-pointer bg-nc-surface"
+          className="group relative h-2.5 cursor-pointer border-t border-nc-border bg-nc-surface shadow-inner"
           onClick={handleScrubClick}
         >
           <div
@@ -210,9 +210,9 @@ export const PreviewMonitor = memo(function PreviewMonitor() {
       )}
 
       {/* Transport bar */}
-      <div className="flex h-10 shrink-0 items-center justify-between border-t border-nc-border px-3">
+      <div className="flex h-11 shrink-0 items-center justify-between border-t border-nc-border bg-nc-bg px-4 shadow-[0_-1px_0_rgba(0,0,0,0.06)]">
         {/* Timecode left */}
-        <div className="w-24 font-mono text-[10px] tabular-nums text-nc-text-ghost">
+        <div className="w-28 font-mono text-xs tabular-nums text-nc-text-tertiary">
           {hasVideo ? formatTime(currentTime) : "--:--:--"}
         </div>
 
@@ -220,50 +220,53 @@ export const PreviewMonitor = memo(function PreviewMonitor() {
         <div className="flex items-center gap-2">
           {/* Shot counter */}
           {shots.length > 0 && selectedIndex >= 0 && (
-            <span className="mr-2 rounded bg-nc-surface px-1.5 py-0.5 font-mono text-[9px] tabular-nums text-nc-text-ghost">
+            <span className="mr-2 rounded-lg border border-nc-border/60 bg-nc-surface px-2.5 py-1 font-mono text-xs tabular-nums text-nc-text-tertiary shadow-sm">
               {selectedIndex + 1}/{shots.length}
             </span>
           )}
 
           <button
+            type="button"
             onClick={goToPrev}
             disabled={selectedIndex <= 0}
-            className="p-1.5 text-nc-text-ghost transition-colors hover:text-nc-text-tertiary disabled:opacity-25"
+            className="rounded-lg border border-transparent p-2 text-nc-text-tertiary transition-all hover:border-nc-border hover:bg-nc-panel hover:text-nc-text-secondary disabled:opacity-25"
           >
-            <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
+            <svg width="14" height="14" viewBox="0 0 12 12" fill="currentColor">
               <rect x="1" y="2" width="2.5" height="8" rx="0.5" />
               <polygon points="5,6 11,2 11,10" />
             </svg>
           </button>
 
           <button
+            type="button"
             onClick={togglePlay}
             disabled={!hasVideo}
             className={cn(
-              "flex h-8 w-8 items-center justify-center rounded-full transition-all",
+              "flex h-11 w-11 items-center justify-center rounded-full border border-nc-accent/30 shadow-md transition-all hover:shadow-lg",
               hasVideo
-                ? "bg-nc-accent/15 text-nc-accent hover:bg-nc-accent/25 hover:shadow-md hover:shadow-nc-accent/10"
-                : "bg-nc-panel-hover text-nc-text-ghost"
+                ? "bg-nc-accent/15 text-nc-accent hover:bg-nc-accent/25 hover:shadow-nc-accent/20"
+                : "border-nc-border bg-nc-panel-hover text-nc-text-tertiary shadow-sm hover:shadow-md"
             )}
           >
             {isPlaying ? (
-              <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor">
+              <svg width="12" height="12" viewBox="0 0 10 10" fill="currentColor">
                 <rect x="1" y="1" width="3" height="8" rx="0.5" />
                 <rect x="6" y="1" width="3" height="8" rx="0.5" />
               </svg>
             ) : (
-              <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor">
+              <svg width="12" height="12" viewBox="0 0 10 10" fill="currentColor">
                 <polygon points="2,0 10,5 2,10" />
               </svg>
             )}
           </button>
 
           <button
+            type="button"
             onClick={goToNext}
             disabled={selectedIndex >= shots.length - 1}
-            className="p-1.5 text-nc-text-ghost transition-colors hover:text-nc-text-tertiary disabled:opacity-25"
+            className="rounded-lg border border-transparent p-2 text-nc-text-tertiary transition-all hover:border-nc-border hover:bg-nc-panel hover:text-nc-text-secondary disabled:opacity-25"
           >
-            <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
+            <svg width="14" height="14" viewBox="0 0 12 12" fill="currentColor">
               <polygon points="1,2 7,6 1,10" />
               <rect x="8.5" y="2" width="2.5" height="8" rx="0.5" />
             </svg>
@@ -271,7 +274,7 @@ export const PreviewMonitor = memo(function PreviewMonitor() {
         </div>
 
         {/* Right controls */}
-        <div className="flex w-24 items-center justify-end gap-2">
+        <div className="flex w-28 items-center justify-end gap-2">
           {/* Volume */}
           <div
             className="relative"
@@ -279,10 +282,11 @@ export const PreviewMonitor = memo(function PreviewMonitor() {
             onMouseLeave={() => setShowVolumeSlider(false)}
           >
             <button
+              type="button"
               onClick={() => setIsMuted(!isMuted)}
-              className="p-1 text-nc-text-ghost hover:text-nc-text-tertiary"
+              className="rounded-lg border border-transparent p-2 text-nc-text-tertiary transition-all hover:border-nc-border hover:bg-nc-panel hover:text-nc-text-secondary"
             >
-              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.2">
+              <svg width="14" height="14" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.2">
                 {isMuted || volume === 0 ? (
                   <>
                     <polygon points="1,4 3,4 6,1 6,11 3,8 1,8" fill="currentColor" stroke="none" />
@@ -298,7 +302,7 @@ export const PreviewMonitor = memo(function PreviewMonitor() {
               </svg>
             </button>
             {showVolumeSlider && (
-              <div className="absolute -top-20 left-1/2 z-30 flex -translate-x-1/2 flex-col items-center rounded-[var(--radius-md)] border border-nc-border bg-nc-panel p-2 shadow-xl">
+              <div className="absolute -top-20 left-1/2 z-30 flex -translate-x-1/2 flex-col items-center rounded-lg border border-nc-border bg-nc-panel p-3 shadow-xl">
                 <input
                   type="range"
                   min={0}
@@ -314,7 +318,7 @@ export const PreviewMonitor = memo(function PreviewMonitor() {
           </div>
 
           {/* Duration */}
-          <span className="font-mono text-[10px] tabular-nums text-nc-text-ghost">
+          <span className="font-mono text-xs tabular-nums text-nc-text-tertiary">
             {hasVideo ? formatTime(videoDuration) : "--:--:--"}
           </span>
         </div>

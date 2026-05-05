@@ -103,14 +103,14 @@ export const CharacterPanel = memo(function CharacterPanel() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-[12px] font-semibold text-nc-text">{t("char.title")}</h3>
-          <p className="text-[9px] text-nc-text-ghost">
+          <h3 className="text-base font-semibold text-nc-text">{t("char.title")}</h3>
+          <p className="text-xs text-nc-text-secondary">
             {t("char.desc")}
           </p>
         </div>
         <button
           onClick={handleAddCharacter}
-          className="flex items-center gap-1 rounded-[var(--radius-md)] bg-nc-accent/10 px-2.5 py-1.5 text-[10px] font-semibold text-nc-accent transition-colors hover:bg-nc-accent/20"
+          className="flex items-center gap-1.5 rounded-lg bg-nc-accent/10 px-3 py-2 text-xs font-semibold text-nc-accent shadow-sm transition-all hover:bg-nc-accent/20 hover:shadow-md"
         >
           <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5">
             <path d="M5 2v6M2 5h6" />
@@ -130,23 +130,23 @@ export const CharacterPanel = memo(function CharacterPanel() {
 
       {/* Character list */}
       {characters.length === 0 ? (
-        <div className="flex flex-col items-center gap-3 rounded-[var(--radius-lg)] border border-dashed border-nc-border py-8 text-center">
+        <div className="flex flex-col items-center gap-3 rounded-[var(--radius-lg)] border border-dashed border-nc-border bg-nc-surface/30 py-8 text-center shadow-sm">
           <div className="flex h-12 w-12 items-center justify-center rounded-full bg-nc-panel">
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.2" className="text-nc-text-ghost">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.2" className="text-nc-text-secondary">
               <circle cx="10" cy="7" r="3.5" />
               <path d="M3.5 17c0-3.5 2.9-6 6.5-6s6.5 2.5 6.5 6" />
             </svg>
           </div>
           <div>
-            <p className="text-[11px] font-medium text-nc-text-tertiary">{t("char.empty")}</p>
-            <p className="mt-1 max-w-[200px] text-[9px] leading-relaxed text-nc-text-ghost">
+            <p className="text-sm font-medium text-nc-text">{t("char.empty")}</p>
+            <p className="mt-1 max-w-[200px] text-xs leading-relaxed text-nc-text-secondary">
               {t("char.emptyDesc1")}<br/>
               {t("char.emptyDesc2")}
             </p>
           </div>
           <button
             onClick={handleAddCharacter}
-            className="flex items-center gap-1.5 rounded-[var(--radius-md)] bg-nc-accent px-4 py-2 text-[11px] font-semibold text-nc-bg shadow-md shadow-nc-accent/15 transition-colors hover:bg-nc-accent-hover"
+            className="flex items-center gap-1.5 rounded-lg bg-nc-accent px-4 py-2.5 text-sm font-semibold text-nc-bg shadow-md shadow-nc-accent/20 transition-all hover:bg-nc-accent-hover hover:shadow-lg"
           >
             <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5">
               <circle cx="6" cy="4.5" r="2.5" />
@@ -165,10 +165,10 @@ export const CharacterPanel = memo(function CharacterPanel() {
               <div
                 key={char.id}
                 className={cn(
-                  "rounded-[var(--radius-lg)] border transition-all duration-200",
+                  "rounded-[var(--radius-lg)] border border-nc-border shadow-sm transition-all duration-200 hover:shadow-md",
                   isExpanded
-                    ? "border-nc-border-strong bg-nc-surface shadow-sm"
-                    : "border-nc-border bg-nc-surface hover:border-nc-border-strong"
+                    ? "border-nc-border-strong bg-nc-surface shadow-md"
+                    : "bg-nc-surface hover:border-nc-border-strong"
                 )}
               >
                 {/* Character header */}
@@ -184,7 +184,7 @@ export const CharacterPanel = memo(function CharacterPanel() {
                     {char.referenceImages.length > 0 ? (
                       <img src={char.referenceImages[0]} alt={char.name} className="h-full w-full object-cover" />
                     ) : (
-                      <span className="text-[11px] font-bold" style={{ color: char.color }}>
+                      <span className="text-sm font-bold" style={{ color: char.color }}>
                         {char.name.charAt(0).toUpperCase()}
                       </span>
                     )}
@@ -192,14 +192,14 @@ export const CharacterPanel = memo(function CharacterPanel() {
 
                   <div className="flex-1 text-left">
                     <div className="flex items-center gap-2">
-                      <span className="text-[11px] font-semibold text-nc-text">{char.name}</span>
+                      <span className="text-sm font-semibold text-nc-text">{char.name}</span>
                       {char.locked && (
                         <svg width="8" height="8" viewBox="0 0 8 8" fill="currentColor" className="text-nc-accent">
                           <path d="M2 4V3a2 2 0 114 0v1h.5a.5.5 0 01.5.5v3a.5.5 0 01-.5.5h-5a.5.5 0 01-.5-.5v-3a.5.5 0 01.5-.5H2zm1 0h2V3a1 1 0 00-2 0v1z" />
                         </svg>
                       )}
                     </div>
-                    <div className="flex items-center gap-2 text-[9px] text-nc-text-ghost">
+                    <div className="flex items-center gap-2 text-xs text-nc-text-secondary">
                       <span>{char.referenceImages.length} {t("char.refs")}</span>
                       {shotCount > 0 && <span>{t("char.inShots").replace("{count}", shotCount.toString())}</span>}
                       {char.appearance && <span className="truncate max-w-[120px]">{char.appearance}</span>}
@@ -208,7 +208,7 @@ export const CharacterPanel = memo(function CharacterPanel() {
 
                   <svg
                     width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.2"
-                    className={cn("shrink-0 text-nc-text-ghost transition-transform", isExpanded && "rotate-180")}
+                    className={cn("shrink-0 text-nc-text-secondary transition-transform", isExpanded && "rotate-180")}
                   >
                     <path d="M2 3.5l3 3 3-3" />
                   </svg>
@@ -219,45 +219,45 @@ export const CharacterPanel = memo(function CharacterPanel() {
                   <div className="border-t border-nc-border px-3 pb-3 pt-2.5">
                     {/* Name */}
                     <div className="mb-2">
-                      <label className="mb-1 block text-[9px] font-medium uppercase tracking-wider text-nc-text-ghost">{t("char.name")}</label>
+                      <label className="mb-1 block text-xs font-medium uppercase tracking-wider text-nc-text-secondary">{t("char.name")}</label>
                       <input
                         value={char.name}
                         onChange={(e) => updateCharacter(char.id, { name: e.target.value })}
-                        className="w-full rounded-[var(--radius-sm)] border border-nc-border bg-nc-panel px-2.5 py-1.5 text-[11px] text-nc-text outline-none focus:border-nc-accent/30"
+                        className="w-full rounded-lg border border-nc-border bg-nc-panel px-2.5 py-2 text-sm text-nc-text outline-none focus:border-nc-accent/30"
                         placeholder={t("char.namePh")}
                       />
                     </div>
 
                     {/* Appearance (most important for consistency) */}
                     <div className="mb-2">
-                      <label className="mb-1 flex items-center gap-1 text-[9px] font-medium uppercase tracking-wider text-nc-text-ghost">
+                      <label className="mb-1 flex items-center gap-1 text-xs font-medium uppercase tracking-wider text-nc-text-secondary">
                         {t("char.appearance")}
-                        <span className="rounded bg-nc-accent/10 px-1 py-px text-[7px] font-semibold normal-case text-nc-accent">{t("char.critical")}</span>
+                        <span className="rounded bg-nc-accent/10 px-1 py-px text-xs font-semibold normal-case text-nc-accent">{t("char.critical")}</span>
                       </label>
                       <textarea
                         value={char.appearance}
                         onChange={(e) => updateCharacter(char.id, { appearance: e.target.value })}
                         rows={3}
-                        className="w-full resize-none rounded-[var(--radius-sm)] border border-nc-border bg-nc-panel px-2.5 py-1.5 text-[11px] leading-relaxed text-nc-text outline-none focus:border-nc-accent/30"
+                        className="w-full resize-none rounded-lg border border-nc-border bg-nc-panel px-2.5 py-2 text-sm leading-relaxed text-nc-text outline-none focus:border-nc-accent/30"
                         placeholder={t("char.appPh")}
                       />
-                      <div className="mt-0.5 text-[8px] text-nc-text-ghost">
+                      <div className="mt-0.5 text-xs text-nc-text-secondary">
                         {t("char.appHint")}
                       </div>
                     </div>
 
                     {/* Reference images (most important for Seedance) */}
                     <div className="mb-2">
-                      <label className="mb-1 flex items-center gap-1 text-[9px] font-medium uppercase tracking-wider text-nc-text-ghost">
+                      <label className="mb-1 flex items-center gap-1 text-xs font-medium uppercase tracking-wider text-nc-text-secondary">
                         {t("char.refImages")}
-                        <span className="rounded bg-nc-success/10 px-1 py-px text-[7px] font-semibold normal-case text-nc-success">{t("char.key")}</span>
+                        <span className="rounded bg-nc-success/10 px-1 py-px text-xs font-semibold normal-case text-nc-success">{t("char.key")}</span>
                       </label>
                       <div className="flex flex-wrap gap-1.5">
                         {char.referenceImages.map((img, i) => (
-                          <div key={i} className="group relative h-14 w-14 overflow-hidden rounded-[var(--radius-md)] border border-nc-border">
+                          <div key={i} className="group relative h-14 w-14 overflow-hidden rounded-lg border border-nc-border shadow-sm">
                             <img src={img} alt={`ref ${i + 1}`} className="h-full w-full object-cover" />
                             {i === 0 && (
-                              <div className="absolute bottom-0 left-0 right-0 bg-nc-accent/80 py-px text-center text-[6px] font-bold uppercase text-white">
+                              <div className="absolute bottom-0 left-0 right-0 bg-nc-accent/80 py-px text-center text-xs font-bold uppercase text-white">
                                 {t("char.master")}
                               </div>
                             )}
@@ -271,7 +271,7 @@ export const CharacterPanel = memo(function CharacterPanel() {
                         ))}
                         <button
                           onClick={() => { setUploadTarget(char.id); fileInputRef.current?.click(); }}
-                          className="flex h-14 w-14 items-center justify-center rounded-[var(--radius-md)] border border-dashed border-nc-border text-nc-text-ghost transition-colors hover:border-nc-border-strong hover:text-nc-text-tertiary"
+                          className="flex h-14 w-14 items-center justify-center rounded-lg border border-dashed border-nc-border text-nc-text-secondary transition-all hover:border-nc-border-strong hover:text-nc-text"
                           title={t("char.uploadImage")}
                         >
                           <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.2"><path d="M6 3v6M3 6h6" /></svg>
@@ -281,7 +281,7 @@ export const CharacterPanel = memo(function CharacterPanel() {
                             onClick={() => handleGeneratePortrait(char.id)}
                             disabled={generating === char.id}
                             className={cn(
-                              "flex h-14 w-14 flex-col items-center justify-center gap-0.5 rounded-[var(--radius-md)] border text-[7px] font-medium transition-colors",
+                              "flex h-14 w-14 flex-col items-center justify-center gap-0.5 rounded-lg border text-xs font-medium shadow-sm transition-all",
                               generating === char.id
                                 ? "border-nc-accent/30 bg-nc-accent/10 text-nc-accent"
                                 : "border-dashed border-nc-accent/30 text-nc-accent/60 hover:border-nc-accent hover:bg-nc-accent/5 hover:text-nc-accent"
@@ -297,7 +297,7 @@ export const CharacterPanel = memo(function CharacterPanel() {
                           </button>
                         )}
                       </div>
-                      <div className="mt-1 text-[8px] text-nc-text-ghost">
+                      <div className="mt-1 text-xs text-nc-text-secondary">
                         {t("char.refHint")}
                       </div>
                     </div>
@@ -305,43 +305,43 @@ export const CharacterPanel = memo(function CharacterPanel() {
                     {/* Personality & Voice (optional) */}
                     <div className="grid grid-cols-2 gap-2 mb-2">
                       <div>
-                        <label className="mb-1 block text-[9px] font-medium uppercase tracking-wider text-nc-text-ghost">{t("char.personality")}</label>
+                        <label className="mb-1 block text-xs font-medium uppercase tracking-wider text-nc-text-secondary">{t("char.personality")}</label>
                         <input
                           value={char.personality}
                           onChange={(e) => updateCharacter(char.id, { personality: e.target.value })}
-                          className="w-full rounded-[var(--radius-sm)] border border-nc-border bg-nc-panel px-2 py-1 text-[10px] text-nc-text outline-none focus:border-nc-accent/30"
+                          className="w-full rounded-lg border border-nc-border bg-nc-panel px-2.5 py-2 text-sm text-nc-text outline-none focus:border-nc-accent/30"
                           placeholder={t("char.persPh")}
                         />
                       </div>
                       <div>
-                        <label className="mb-1 block text-[9px] font-medium uppercase tracking-wider text-nc-text-ghost">{t("char.voice")}</label>
+                        <label className="mb-1 block text-xs font-medium uppercase tracking-wider text-nc-text-secondary">{t("char.voice")}</label>
                         <input
                           value={char.voice}
                           onChange={(e) => updateCharacter(char.id, { voice: e.target.value })}
-                          className="w-full rounded-[var(--radius-sm)] border border-nc-border bg-nc-panel px-2 py-1 text-[10px] text-nc-text outline-none focus:border-nc-accent/30"
+                          className="w-full rounded-lg border border-nc-border bg-nc-panel px-2.5 py-2 text-sm text-nc-text outline-none focus:border-nc-accent/30"
                           placeholder={t("char.voicePh")}
                         />
                       </div>
                     </div>
 
                     {/* Identity lock toggle */}
-                    <div className="flex items-center justify-between rounded-[var(--radius-md)] bg-nc-panel px-3 py-2">
+                    <div className="flex items-center justify-between rounded-lg border border-nc-border bg-nc-panel px-3 py-2.5 shadow-sm">
                       <div>
-                        <div className="text-[10px] font-medium text-nc-text">{t("char.identityLock")}</div>
-                        <div className="text-[8px] text-nc-text-ghost">
+                        <div className="text-xs font-medium text-nc-text">{t("char.identityLock")}</div>
+                        <div className="text-xs text-nc-text-secondary">
                           {t("char.lockHint")}
                         </div>
                       </div>
                       <button
                         onClick={() => updateCharacter(char.id, { locked: !char.locked })}
                         className={cn(
-                          "flex h-5 w-9 items-center rounded-full px-0.5 transition-colors",
+                          "flex h-6 w-11 items-center rounded-full px-0.5 transition-all",
                           char.locked ? "bg-nc-accent" : "bg-nc-border"
                         )}
                       >
                         <div className={cn(
-                          "h-4 w-4 rounded-full bg-white shadow transition-transform",
-                          char.locked ? "translate-x-4" : "translate-x-0"
+                          "h-5 w-5 rounded-full bg-white shadow-md transition-transform",
+                          char.locked ? "translate-x-5" : "translate-x-0"
                         )} />
                       </button>
                     </div>
@@ -350,7 +350,7 @@ export const CharacterPanel = memo(function CharacterPanel() {
                     <div className="mt-2 flex justify-end">
                       <button
                         onClick={() => removeCharacter(char.id)}
-                        className="text-[9px] text-nc-error/60 transition-colors hover:text-nc-error"
+                        className="text-xs text-nc-error/60 transition-colors hover:text-nc-error"
                       >
                         {t("char.remove")}
                       </button>
@@ -365,9 +365,9 @@ export const CharacterPanel = memo(function CharacterPanel() {
 
       {/* Consistency tips */}
       {characters.length > 0 && (
-        <div className="rounded-[var(--radius-md)] border border-nc-accent/10 bg-nc-accent-muted p-2.5">
-          <div className="mb-1 text-[9px] font-semibold text-nc-accent">{t("char.tipsTitle")}</div>
-          <ul className="flex flex-col gap-0.5 text-[8px] leading-relaxed text-nc-text-ghost">
+        <div className="rounded-lg border border-nc-accent/20 bg-nc-accent-muted p-3 shadow-sm">
+          <div className="mb-1 text-xs font-semibold text-nc-accent">{t("char.tipsTitle")}</div>
+          <ul className="flex flex-col gap-0.5 text-xs leading-relaxed text-nc-text-secondary">
             <li>{t("char.tip1")}</li>
             <li>{t("char.tip2")}</li>
             <li>{t("char.tip3")}</li>

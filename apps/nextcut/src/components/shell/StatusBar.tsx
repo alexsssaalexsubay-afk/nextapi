@@ -10,12 +10,12 @@ function StatusIndicator({ status, label }: { status: ConnectionStatus; label: s
           "inline-block h-[5px] w-[5px] rounded-full transition-colors",
           status === "connected" && "bg-nc-success",
           status === "connecting" && "bg-nc-warning animate-pulse",
-          status === "disconnected" && "bg-nc-text-ghost/40"
+          status === "disconnected" && "bg-nc-text-tertiary/40"
         )}
       />
       <span className={cn(
         "transition-colors",
-        status === "connected" ? "text-nc-text-tertiary" : "text-nc-text-ghost"
+        status === "connected" ? "text-nc-text-secondary" : "text-nc-text-tertiary"
       )}>
         {label}
       </span>
@@ -31,7 +31,7 @@ export function StatusBar() {
   const totalShots = shots.length;
 
   return (
-    <div className="flex h-[22px] shrink-0 items-center justify-between border-t border-nc-border bg-nc-sidebar px-4 text-[10px]">
+    <div className="flex h-8 shrink-0 items-center justify-between border-t border-nc-border bg-nc-sidebar px-4 text-xs shadow-[0_-1px_0_0_rgba(0,0,0,0.03)]">
       <div className="flex items-center gap-5">
         <StatusIndicator status={sidecarStatus} label="Engine" />
         <StatusIndicator status={comfyuiStatus} label="ComfyUI" />
@@ -44,11 +44,11 @@ export function StatusBar() {
       </div>
       <div className="flex items-center gap-4">
         {totalShots > 0 && (
-          <span className="tabular-nums text-nc-text-ghost">
+          <span className="tabular-nums text-nc-text-tertiary">
             {completedShots}/{totalShots} shots
           </span>
         )}
-        <span className="text-nc-text-ghost">v0.1.0</span>
+        <span className="text-nc-text-tertiary">v0.1.0</span>
       </div>
     </div>
   );

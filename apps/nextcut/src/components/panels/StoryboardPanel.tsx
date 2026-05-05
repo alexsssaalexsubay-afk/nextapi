@@ -92,7 +92,7 @@ export const StoryboardPanel = memo(function StoryboardPanel() {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 p-8 text-center">
         <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-nc-panel">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" className="text-nc-text-ghost">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" className="text-nc-text-tertiary">
             <rect x="3" y="3" width="7" height="7" rx="1" />
             <rect x="14" y="3" width="7" height="7" rx="1" />
             <rect x="3" y="14" width="7" height="7" rx="1" />
@@ -100,8 +100,8 @@ export const StoryboardPanel = memo(function StoryboardPanel() {
           </svg>
         </div>
         <div>
-          <p className="text-[12px] font-medium text-nc-text-tertiary">{t("storyboard.empty")}</p>
-          <p className="mt-1 text-[10px] text-nc-text-ghost">{t("storyboard.emptyDesc")}</p>
+          <p className="text-sm font-medium text-nc-text-secondary">{t("storyboard.empty")}</p>
+          <p className="mt-1 text-xs text-nc-text-tertiary">{t("storyboard.emptyDesc")}</p>
         </div>
       </div>
     );
@@ -110,12 +110,12 @@ export const StoryboardPanel = memo(function StoryboardPanel() {
   return (
     <div className="flex h-full flex-col bg-nc-bg">
       {/* Toolbar */}
-      <div className="flex h-9 shrink-0 items-center justify-between border-b border-nc-border px-4">
+      <div className="flex h-11 shrink-0 items-center justify-between border-b border-nc-border px-4">
         <div className="flex items-center gap-3">
-          <span className="text-[10px] font-medium uppercase tracking-[0.12em] text-nc-text-tertiary">
+          <span className="text-xs font-medium uppercase tracking-[0.12em] text-nc-text-secondary">
             {t("storyboard.title")}
           </span>
-          <span className="font-mono text-[10px] tabular-nums text-nc-text-ghost">
+          <span className="font-mono text-xs tabular-nums text-nc-text-tertiary">
             {completed}/{shots.length}
             {generating > 0 && (
               <span className="ml-1 text-nc-info">({generating} {t("storyboard.renderingCount")})</span>
@@ -125,16 +125,16 @@ export const StoryboardPanel = memo(function StoryboardPanel() {
 
         <div className="flex items-center gap-2">
           {/* Grid size */}
-          <div className="flex items-center gap-0.5 rounded-[var(--radius-sm)] border border-nc-border bg-nc-panel p-0.5">
+          <div className="flex items-center gap-0.5 rounded-lg border border-nc-border bg-nc-panel p-1 shadow-sm">
             {(["sm", "md", "lg"] as GridSize[]).map((size) => (
               <button
                 key={size}
                 onClick={() => setGridSize(size)}
                 className={cn(
-                  "rounded-[var(--radius-sm)] px-1.5 py-0.5 text-[9px] font-medium transition-colors",
+                  "rounded-lg px-3 py-2 text-xs font-medium transition-all",
                   gridSize === size
-                    ? "bg-nc-panel-active text-nc-text"
-                    : "text-nc-text-ghost hover:text-nc-text-tertiary"
+                    ? "bg-nc-panel-active text-nc-text shadow-sm"
+                    : "text-nc-text-tertiary hover:text-nc-text-secondary"
                 )}
               >
                 {size.toUpperCase()}
@@ -227,12 +227,12 @@ const ShotCard = memo(function ShotCard({
       onMouseEnter={() => setHovering(true)}
       onMouseLeave={() => setHovering(false)}
       className={cn(
-        "group relative flex cursor-pointer flex-col overflow-hidden rounded-[var(--radius-lg)] border transition-all duration-200",
+        "group relative flex cursor-pointer flex-col overflow-hidden rounded-[var(--radius-lg)] border border-nc-border shadow-sm transition-all duration-200 hover:shadow-md",
         isSelected
           ? "border-nc-accent/50 bg-nc-panel shadow-lg shadow-nc-accent/5 ring-1 ring-nc-accent/20"
           : isDragOver
           ? "border-nc-info/50 bg-nc-info/5 ring-1 ring-nc-info/20"
-          : "border-nc-border bg-nc-surface hover:border-nc-border-strong hover:shadow-md hover:shadow-black/20"
+          : "border-nc-border-strong bg-nc-surface hover:border-nc-accent/30 hover:shadow-lg hover:shadow-black/15"
       )}
     >
       {/* Thumbnail */}
@@ -255,7 +255,7 @@ const ShotCard = memo(function ShotCard({
         ) : shot.status === "generating" || shot.status === "processing" ? (
           <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-nc-panel">
             <div className="h-5 w-5 animate-spin rounded-full border-2 border-nc-accent border-t-transparent" />
-            {!isCompact && <span className="text-[9px] text-nc-text-ghost">{t("storyboard.rendering")}</span>}
+            {!isCompact && <span className="text-xs text-nc-text-tertiary">{t("storyboard.rendering")}</span>}
           </div>
         ) : shot.status === "failed" ? (
           <div className="flex h-full w-full flex-col items-center justify-center gap-1 bg-nc-error/5">
@@ -263,24 +263,24 @@ const ShotCard = memo(function ShotCard({
               <circle cx="8" cy="8" r="6" /><path d="M6 6l4 4M10 6l-4 4" />
             </svg>
             {!isCompact && (
-              <button onClick={onRegenerate} className="text-[9px] text-nc-accent hover:underline">{t("storyboard.retry")}</button>
+              <button onClick={onRegenerate} className="rounded-lg px-3 py-2 text-xs font-medium text-nc-accent shadow-sm transition-all hover:bg-nc-accent/10 hover:shadow-md hover:underline">{t("storyboard.retry")}</button>
             )}
           </div>
         ) : (
           <div className="flex h-full w-full items-center justify-center bg-nc-panel">
-            <span className="text-[10px] text-nc-text-ghost">{t("storyboard.pending")}</span>
+            <span className="text-xs text-nc-text-tertiary">{t("storyboard.pending")}</span>
           </div>
         )}
 
         {/* Shot number */}
-        <div className="absolute left-1.5 top-1.5 flex h-4 min-w-4 items-center justify-center rounded bg-black/60 px-1 text-[8px] font-bold text-white backdrop-blur-sm">
+        <div className="absolute left-1.5 top-1.5 flex h-5 min-w-[1.25rem] items-center justify-center rounded-md bg-black/60 px-1.5 text-xs font-bold text-white backdrop-blur-sm">
           {index + 1}
         </div>
 
         {/* Quality badge */}
         {shot.qualityScore && (
           <div className={cn(
-            "absolute right-1.5 top-1.5 rounded px-1.5 py-0.5 text-[8px] font-bold backdrop-blur-sm",
+            "absolute right-1.5 top-1.5 rounded-md px-2 py-0.5 text-xs font-bold backdrop-blur-sm",
             shot.qualityScore.overall >= 0.8 ? "bg-nc-success/80 text-white" :
             shot.qualityScore.overall >= 0.5 ? "bg-nc-warning/80 text-white" :
             "bg-nc-error/80 text-white"
@@ -290,7 +290,7 @@ const ShotCard = memo(function ShotCard({
         )}
 
         {/* Duration */}
-        <div className="absolute bottom-1.5 right-1.5 rounded bg-black/60 px-1.5 py-0.5 text-[8px] font-mono tabular-nums text-white backdrop-blur-sm">
+        <div className="absolute bottom-1.5 right-1.5 rounded-md bg-black/60 px-2 py-0.5 text-xs font-mono tabular-nums text-white backdrop-blur-sm">
           {shot.duration}s
         </div>
 
@@ -308,7 +308,7 @@ const ShotCard = memo(function ShotCard({
       {/* Info area */}
       {!isCompact && (
         <div className="flex flex-col gap-1 px-3 py-2.5">
-          <h4 className="line-clamp-1 text-[11px] font-medium text-nc-text">
+          <h4 className="line-clamp-1 text-sm font-medium text-nc-text">
             {shot.title || `Shot ${index + 1}`}
           </h4>
 
@@ -324,14 +324,14 @@ const ShotCard = memo(function ShotCard({
                 value={promptDraft}
                 onChange={(e) => onPromptDraftChange(e.target.value)}
                 rows={3}
-                className="w-full resize-none rounded-[var(--radius-sm)] border border-nc-accent/30 bg-nc-panel px-2 py-1.5 text-[10px] leading-relaxed text-nc-text outline-none focus:ring-1 focus:ring-nc-accent/20"
+                className="w-full resize-none rounded-lg border border-nc-accent/40 bg-nc-panel px-3 py-2 text-sm leading-relaxed text-nc-text shadow-sm outline-none focus:ring-2 focus:ring-nc-accent/20"
                 autoFocus
               />
-              <div className="mt-1 flex justify-end gap-1">
-                <button onClick={onCancelEdit} className="rounded px-2 py-0.5 text-[9px] text-nc-text-ghost hover:bg-nc-panel">
+              <div className="mt-1 flex justify-end gap-2">
+                <button onClick={onCancelEdit} className="rounded-lg px-3 py-2 text-xs text-nc-text-tertiary transition-all hover:bg-nc-panel">
                   {t("storyboard.cancel")}
                 </button>
-                <button onClick={onSavePrompt} className="rounded bg-nc-accent px-2 py-0.5 text-[9px] font-medium text-nc-bg">
+                <button onClick={onSavePrompt} className="rounded-lg bg-nc-accent px-3 py-2 text-xs font-medium text-nc-bg shadow-md transition-all hover:bg-nc-accent-hover hover:shadow-lg">
                   {t("storyboard.save")}
                 </button>
               </div>
@@ -340,7 +340,7 @@ const ShotCard = memo(function ShotCard({
             shot.prompt && (
               <p
                 onClick={(e) => { e.stopPropagation(); onStartEditPrompt(); }}
-                className="line-clamp-2 cursor-text text-[9px] leading-relaxed text-nc-text-ghost hover:text-nc-text-tertiary"
+                className="line-clamp-2 cursor-text text-xs leading-relaxed text-nc-text-tertiary hover:text-nc-text-secondary"
               >
                 {shot.prompt}
               </p>
@@ -349,31 +349,31 @@ const ShotCard = memo(function ShotCard({
 
           {/* Prompt quick actions */}
           {!isEditing && isSelected && (
-            <div className="mt-1 flex items-center gap-1">
+            <div className="mt-1 flex flex-wrap items-center gap-1.5">
               <button
                 onClick={(e) => { e.stopPropagation(); onPromptAction("simplify"); }}
-                className="rounded px-1.5 py-0.5 text-[8px] text-nc-text-ghost hover:bg-nc-panel-hover hover:text-nc-text-tertiary"
+                className="rounded-lg px-3 py-2 text-xs font-medium text-nc-text-tertiary shadow-sm transition-all hover:bg-nc-panel-hover hover:text-nc-text-secondary hover:shadow-md"
                 title="Simplify prompt"
               >
                 Simplify
               </button>
               <button
                 onClick={(e) => { e.stopPropagation(); onPromptAction("enhance"); }}
-                className="rounded px-1.5 py-0.5 text-[8px] text-nc-text-ghost hover:bg-nc-panel-hover hover:text-nc-text-tertiary"
+                className="rounded-lg px-3 py-2 text-xs font-medium text-nc-text-tertiary shadow-sm transition-all hover:bg-nc-panel-hover hover:text-nc-text-secondary hover:shadow-md"
                 title="Enhance with more detail"
               >
                 Enhance
               </button>
               <button
                 onClick={(e) => { e.stopPropagation(); onPromptAction("translate"); }}
-                className="rounded px-1.5 py-0.5 text-[8px] text-nc-text-ghost hover:bg-nc-panel-hover hover:text-nc-text-tertiary"
+                className="rounded-lg px-3 py-2 text-xs font-medium text-nc-text-tertiary shadow-sm transition-all hover:bg-nc-panel-hover hover:text-nc-text-secondary hover:shadow-md"
                 title="Translate Chinese ↔ English"
               >
                 中/En
               </button>
               <button
                 onClick={(e) => { e.stopPropagation(); onStartEditPrompt(); }}
-                className="ml-auto rounded px-1.5 py-0.5 text-[8px] text-nc-accent hover:bg-nc-accent/10"
+                className="ml-auto rounded-lg px-3 py-2 text-xs font-semibold text-nc-accent shadow-sm transition-all hover:bg-nc-accent/10 hover:shadow-md"
               >
                 {t("storyboard.edit")}
               </button>
@@ -402,7 +402,7 @@ function QualityBar({ score }: { score: QualityScore }) {
     <div className="flex items-center gap-2">
       {metrics.map((m) => (
         <div key={m.label} className="flex items-center gap-1">
-          <span className="text-[7px] text-nc-text-ghost">{m.label}</span>
+          <span className="text-xs text-nc-text-tertiary">{m.label}</span>
           <div className="h-1 w-8 overflow-hidden rounded-full bg-nc-panel">
             <div className={cn("h-full rounded-full transition-all", m.color)} style={{ width: `${m.value * 100}%` }} />
           </div>
