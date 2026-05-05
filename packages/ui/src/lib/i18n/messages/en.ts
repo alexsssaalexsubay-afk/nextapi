@@ -2062,7 +2062,7 @@ export const en = {
       fieldOrgName: "Organization name",
       fieldOrgNameHint: "Defaults to '<email> org'",
       fieldCredits: "Initial credits",
-      fieldCreditsHint: "In whole credits (1 credit = ¥0.01). Enter 0 for none.",
+      fieldCreditsHint: "Initial balance in USD (e.g. 10 for $10.00). Enter 0 for none.",
       colEmail: "Email",
       colId: "User ID",
       colCreated: "Created",
@@ -2102,7 +2102,7 @@ export const en = {
     creditsPage: {
       title: "Credit adjustments",
       description:
-        "Every adjustment is signed, immutable, and ties to invoice lines. 1 credit = ¥0.01.",
+        "Every adjustment is signed, immutable, and ties to invoice lines.",
       meta: {
         ledgerHeight: "ledger entries",
         lastEntry: "latest entry",
@@ -2176,7 +2176,7 @@ export const en = {
     budgetPage: {
       title: "Platform upstream budget",
       description:
-        "Set a total point ceiling you track against the Seedance relay (same unit as the ledger: 1 pt ≈ ¥0.01). Does not call the upstream API for balance; fill from your handoff or console.",
+        "Set a total USD budget ceiling you track against the Seedance relay (same unit as the ledger: USD). Does not call the upstream API for balance; fill from your handoff or console.",
       statusHeading: "Status",
       used: "All-time usage (platform)",
       usedHint: "Sum of all negative credit deltas in every org — same as overview.",

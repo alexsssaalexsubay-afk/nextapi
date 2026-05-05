@@ -2043,8 +2043,8 @@ export const zh: Messages = {
       fieldNewPassword: "新密码（至少 8 位）",
       fieldOrgName: "组织名称",
       fieldOrgNameHint: "默认为 '<邮箱> org'",
-      fieldCredits: "初始点数",
-      fieldCreditsHint: "整数点数（1 点 = ¥0.01）。填 0 表示不充值。",
+      fieldCredits: "初始余额 (USD)",
+      fieldCreditsHint: "填入初始美金余额（如 10 表示 $10.00）。填 0 表示不充值。",
       colEmail: "邮箱",
       colId: "用户 ID",
       colCreated: "创建时间",
@@ -2084,7 +2084,7 @@ export const zh: Messages = {
     creditsPage: {
       title: "点数调整",
       description:
-        "每笔调整均经过签名、不可篡改，并直接关联到发票行。1 点 = ¥0.01。",
+        "每笔调整均经过签名、不可篡改，并直接关联到发票行。",
       meta: {
         ledgerHeight: "账本条目",
         lastEntry: "最新记录",
@@ -2158,7 +2158,7 @@ export const zh: Messages = {
     budgetPage: {
       title: "上游总预算（平台）",
       description:
-        "填写你针对 Seedance 中继管控的总点数（与账本单位一致：1 点 ≈ ¥0.01）。不会自动请求上游余额；请按上游额度或控制台手工同步。",
+        "填写你针对 Seedance 中继管控的总预算（与账本单位一致：USD）。不会自动请求上游余额；请按上游额度或控制台手工同步。",
       statusHeading: "当前状态",
       used: "全平台历史消耗（点）",
       usedHint: "所有组织账本中负向点数之和，与概览一致。",

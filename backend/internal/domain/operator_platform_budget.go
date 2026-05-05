@@ -4,7 +4,7 @@ import "time"
 
 // OperatorPlatformBudget is a single-row table: total upstream / platform
 // credit budget the operator sets for visibility (not enforced on jobs).
-// Unit matches credits_ledger.delta_credits (1 point ≈ ¥0.01 in product copy).
+// Unit matches credits_ledger.delta_cents (USD cents).
 type OperatorPlatformBudget struct {
 	ID            int       `gorm:"primaryKey"`
 	BudgetCredits *int64    `gorm:"column:budget_credits"`
