@@ -201,7 +201,7 @@ AI-CanvasPro 是阿硕的第三方本地节点画布。它是 Source Available /
 - An **n8n workflow template** with create + poll + download steps.
 - A **Make scenario template** with the same two-step video flow.
 - A **Dify OpenAPI tool schema** users can import.
-- Our own **Creator Kit**: fill key, write prompt, upload image, generate video.
+- Our own **NextCut** (Desktop App): fill key, write prompt, upload image, generate video.
 
 These assets are safer and more useful than promising broad "OpenAI-compatible" support that only
 covers chat clients.
