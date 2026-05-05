@@ -130,28 +130,25 @@ export const CharacterPanel = memo(function CharacterPanel() {
 
       {/* Character list */}
       {characters.length === 0 ? (
-        <div className="flex flex-col items-center gap-3 rounded-[var(--radius-lg)] border border-dashed border-nc-border bg-nc-surface/30 py-8 text-center shadow-sm">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-nc-panel">
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.2" className="text-nc-text-secondary">
-              <circle cx="10" cy="7" r="3.5" />
-              <path d="M3.5 17c0-3.5 2.9-6 6.5-6s6.5 2.5 6.5 6" />
+        <div className="flex flex-col items-center gap-4 rounded-[var(--radius-lg)] border border-dashed border-nc-border-strong bg-nc-bg py-10 text-center">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-nc-surface text-nc-text-tertiary border border-nc-border">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+              <circle cx="9" cy="7" r="4" />
+              <path d="M19 8v6" />
+              <path d="M22 11h-6" />
             </svg>
           </div>
           <div>
-            <p className="text-sm font-medium text-nc-text">{t("char.empty")}</p>
-            <p className="mt-1 max-w-[200px] text-xs leading-relaxed text-nc-text-secondary">
-              {t("char.emptyDesc1")}<br/>
-              {t("char.emptyDesc2")}
+            <p className="text-[15px] font-bold text-nc-text">{t("char.empty")}</p>
+            <p className="mt-1 max-w-[240px] text-[13px] leading-relaxed text-nc-text-tertiary">
+              {t("char.emptyDesc1")} {t("char.emptyDesc2")}
             </p>
           </div>
           <button
             onClick={handleAddCharacter}
-            className="flex items-center gap-1.5 rounded-lg bg-nc-accent px-4 py-2.5 text-sm font-semibold text-nc-bg shadow-md shadow-nc-accent/20 transition-all hover:bg-nc-accent-hover hover:shadow-lg"
+            className="mt-2 text-[14px] font-bold text-nc-text hover:text-nc-text-secondary transition-colors underline"
           >
-            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5">
-              <circle cx="6" cy="4.5" r="2.5" />
-              <path d="M2 11c0-2.2 1.8-4 4-4s4 1.8 4 4" />
-            </svg>
             {t("char.createFirst")}
           </button>
         </div>
@@ -190,19 +187,19 @@ export const CharacterPanel = memo(function CharacterPanel() {
                     )}
                   </div>
 
-                  <div className="flex-1 text-left">
+                  <div className="flex-1 text-left min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-semibold text-nc-text">{char.name}</span>
+                      <span className="text-sm font-semibold text-nc-text truncate">{char.name}</span>
                       {char.locked && (
-                        <svg width="8" height="8" viewBox="0 0 8 8" fill="currentColor" className="text-nc-accent">
+                        <svg width="8" height="8" viewBox="0 0 8 8" fill="currentColor" className="text-nc-accent shrink-0">
                           <path d="M2 4V3a2 2 0 114 0v1h.5a.5.5 0 01.5.5v3a.5.5 0 01-.5.5h-5a.5.5 0 01-.5-.5v-3a.5.5 0 01.5-.5H2zm1 0h2V3a1 1 0 00-2 0v1z" />
                         </svg>
                       )}
                     </div>
-                    <div className="flex items-center gap-2 text-xs text-nc-text-secondary">
-                      <span>{char.referenceImages.length} {t("char.refs")}</span>
-                      {shotCount > 0 && <span>{t("char.inShots").replace("{count}", shotCount.toString())}</span>}
-                      {char.appearance && <span className="truncate max-w-[120px]">{char.appearance}</span>}
+                    <div className="flex items-center gap-2 text-xs text-nc-text-secondary truncate">
+                      <span className="shrink-0">{char.referenceImages.length} {t("char.refs")}</span>
+                      {shotCount > 0 && <span className="shrink-0">{t("char.inShots").replace("{count}", shotCount.toString())}</span>}
+                      {char.appearance && <span className="truncate">{char.appearance}</span>}
                     </div>
                   </div>
 

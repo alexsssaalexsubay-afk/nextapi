@@ -39,14 +39,7 @@
   },
   "plugins": {
     "shell": {
-      "open": true,
-      "scope": [
-        {
-          "name": "nextcut-sidecar",
-          "cmd": "binaries/nextcut-sidecar",
-          "args": true
-        }
-      ]
+      "open": true
     }
   }
 }

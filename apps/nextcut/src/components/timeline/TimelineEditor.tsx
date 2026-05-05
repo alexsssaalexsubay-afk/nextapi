@@ -84,29 +84,62 @@ export const TimelineEditor = memo(function TimelineEditor() {
 
   if (directorShots.length === 0) {
     return (
-      <div className="flex h-full flex-col bg-nc-surface">
-        <div className="flex h-10 items-center justify-between border-b border-nc-border bg-nc-surface px-4 shadow-sm">
-          <span className="text-xs font-medium uppercase tracking-[0.12em] text-nc-text-secondary">{t("timeline.title")}</span>
+      <div className="flex h-full flex-col bg-nc-surface border-t border-nc-border">
+        <div className="flex h-[56px] items-center justify-between border-b border-nc-border bg-nc-surface px-8 shadow-sm">
+          <span className="text-[14px] font-semibold text-nc-text">{t("timeline.title")}</span>
         </div>
-        <div className="flex flex-1 items-center justify-center">
-          <span className="text-sm text-nc-text-tertiary">{t("timeline.empty")}</span>
+        <div className="flex flex-1 flex-col overflow-hidden opacity-40">
+          <div className="h-8 border-b border-nc-border bg-nc-surface/95" />
+          
+          {/* Skeletal Tracks */}
+          <div className="relative flex-1 py-4 px-14 flex flex-col gap-8">
+            <div className="absolute left-0 top-0 h-full w-14 border-r border-nc-border" />
+            
+            {/* Video Track Skeleton */}
+            <div className="relative">
+              <div className="absolute -left-14 top-0 h-full w-14 flex items-center justify-center">
+                <span className="text-[12px] font-semibold tracking-widest text-nc-text-tertiary" style={{ writingMode: "vertical-lr", transform: "rotate(180deg)" }}>VIDEO</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="h-16 w-48 rounded-[12px] border border-dashed border-nc-border-strong bg-nc-panel/30" />
+                <div className="h-16 w-32 rounded-[12px] border border-dashed border-nc-border-strong bg-nc-panel/30" />
+                <div className="h-16 w-64 rounded-[12px] border border-dashed border-nc-border-strong bg-nc-panel/30" />
+              </div>
+            </div>
+
+            {/* Audio Track Skeleton */}
+            <div className="relative">
+              <div className="absolute -left-14 top-0 h-full w-14 flex items-center justify-center">
+                <span className="text-[12px] font-semibold tracking-widest text-nc-text-tertiary" style={{ writingMode: "vertical-lr", transform: "rotate(180deg)" }}>AUDIO</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="h-10 w-48 rounded-[10px] border border-dashed border-nc-border bg-nc-panel/20" />
+                <div className="h-10 w-32 rounded-[10px] border border-dashed border-nc-border bg-nc-panel/20" />
+                <div className="h-10 w-64 rounded-[10px] border border-dashed border-nc-border bg-nc-panel/20" />
+              </div>
+            </div>
+            
+            <div className="absolute inset-0 flex items-center justify-center mt-12">
+              <span className="text-[14px] font-medium text-nc-text-secondary bg-nc-bg border border-nc-border px-6 py-3 rounded-[999px] shadow-sm">{t("timeline.empty")}</span>
+            </div>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex h-full flex-col bg-nc-surface">
+    <div className="flex h-full flex-col bg-nc-surface border-t border-nc-border">
       {/* Header */}
-      <div className="flex h-10 shrink-0 items-center justify-between border-b border-nc-border bg-nc-surface px-4 shadow-sm">
-        <div className="flex items-center gap-4">
-          <span className="text-xs font-medium uppercase tracking-[0.12em] text-nc-text-secondary">{t("timeline.title")}</span>
-          <div className="font-mono text-xs tabular-nums text-nc-accent">
+      <div className="flex h-[56px] shrink-0 items-center justify-between border-b border-nc-border bg-nc-surface px-8 shadow-sm">
+        <div className="flex items-center gap-6">
+          <span className="text-[14px] font-semibold text-nc-text">{t("timeline.title")}</span>
+          <div className="font-mono text-[14px] font-semibold tabular-nums text-nc-text">
             {formatTimecode(playheadPos)}
           </div>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 font-mono text-xs text-nc-text-tertiary">
+        <div className="flex items-center gap-6">
+          <div className="flex items-center gap-3 font-mono text-[13px] font-medium text-nc-text-secondary bg-nc-bg px-4 py-1.5 rounded-[12px] border border-nc-border">
             <span className="tabular-nums">{totalDuration.toFixed(1)}s</span>
             <span className="text-nc-border-strong">/</span>
             <span className="tabular-nums">{directorShots.length} {t("timeline.shots")}</span>
@@ -117,28 +150,28 @@ export const TimelineEditor = memo(function TimelineEditor() {
             <button
               type="button"
               onClick={() => setTimelineZoom(timelineZoom / 1.5)}
-              className="flex h-9 w-9 items-center justify-center rounded-lg border border-nc-border bg-nc-panel/80 text-nc-text-tertiary shadow-sm transition-all hover:border-nc-border-strong hover:bg-nc-panel-hover hover:text-nc-text-secondary hover:shadow-md"
+              className="flex h-9 w-9 items-center justify-center rounded-[10px] border border-nc-border bg-nc-panel text-nc-text-tertiary shadow-sm transition-all hover:bg-[#F5F3FF] hover:text-nc-accent hover:shadow-md"
             >
-              <svg width="12" height="12" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.2" className="shrink-0 scale-110">
+              <svg width="12" height="12" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5" className="shrink-0 scale-110">
                 <path d="M2 5h6" />
               </svg>
             </button>
-            <div className="h-1.5 w-14 overflow-hidden rounded-full border border-nc-border/50 bg-nc-panel shadow-inner">
+            <div className="h-[6px] w-16 overflow-hidden rounded-[999px] border border-nc-border/50 bg-nc-panel shadow-inner">
               <div
-                className="h-full rounded-full bg-nc-text-tertiary/40 transition-all"
+                className="h-full rounded-[999px] bg-nc-text-tertiary/40 transition-all"
                 style={{ width: `${((timelineZoom - 0.25) / 3.75) * 100}%` }}
               />
             </div>
             <button
               type="button"
               onClick={() => setTimelineZoom(timelineZoom * 1.5)}
-              className="flex h-9 w-9 items-center justify-center rounded-lg border border-nc-border bg-nc-panel/80 text-nc-text-tertiary shadow-sm transition-all hover:border-nc-border-strong hover:bg-nc-panel-hover hover:text-nc-text-secondary hover:shadow-md"
+              className="flex h-9 w-9 items-center justify-center rounded-[10px] border border-nc-border bg-nc-panel text-nc-text-tertiary shadow-sm transition-all hover:bg-[#F5F3FF] hover:text-nc-accent hover:shadow-md"
             >
-              <svg width="12" height="12" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.2" className="shrink-0 scale-110">
+              <svg width="12" height="12" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5" className="shrink-0 scale-110">
                 <path d="M2 5h6M5 2v6" />
               </svg>
             </button>
-            <span className="min-w-[2.5rem] text-right font-mono text-xs tabular-nums text-nc-text-tertiary">
+            <span className="min-w-[3rem] text-right font-mono text-[13px] font-medium tabular-nums text-nc-text-tertiary">
               {Math.round(timelineZoom * 100)}%
             </span>
           </div>

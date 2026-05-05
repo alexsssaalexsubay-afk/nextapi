@@ -8,21 +8,21 @@ export function Titlebar() {
   return (
     <div
       data-tauri-drag-region
-      className="flex h-11 shrink-0 items-center justify-between border-b border-nc-border bg-nc-sidebar px-4 shadow-sm"
+      className="flex h-12 shrink-0 items-center justify-between border-b border-nc-border bg-nc-bg px-4 shadow-sm"
     >
       <div className="flex items-center gap-2.5" data-tauri-drag-region>
         <div className="flex h-5 w-5 items-center justify-center">
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-            <path d="M2 3.5L7 1L12 3.5V7L7 13L2 7V3.5Z" fill="currentColor" className="text-nc-accent" />
-            <path d="M7 1L12 3.5L7 6L2 3.5L7 1Z" fill="currentColor" className="text-nc-accent" opacity="0.6" />
+            <path d="M2 3.5L7 1L12 3.5V7L7 13L2 7V3.5Z" fill="currentColor" className="text-nc-text" />
+            <path d="M7 1L12 3.5L7 6L2 3.5L7 1Z" fill="currentColor" className="text-nc-text" opacity="0.6" />
           </svg>
         </div>
-        <span className="text-base font-medium tracking-tight text-nc-text">
+        <span className="text-[14px] font-extrabold tracking-tight text-nc-text pr-2">
           NextCut
         </span>
         {isRunning && (
-          <span className="flex items-center gap-1.5 rounded-full bg-nc-accent/10 px-2.5 py-1 text-xs font-medium text-nc-accent shadow-sm">
-            <span className="h-1 w-1 animate-pulse rounded-full bg-nc-accent" />
+          <span className="flex items-center gap-1.5 rounded-full bg-nc-surface px-2.5 py-1 text-xs font-medium text-nc-text shadow-sm border border-nc-border">
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-nc-text" />
             Processing
           </span>
         )}

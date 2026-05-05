@@ -65,9 +65,9 @@ export const LibraryPanel = memo(function LibraryPanel() {
             Media Library
           </span>
         </div>
-        <div className="flex flex-1 flex-col items-center justify-center gap-4">
+        <div className="flex flex-1 flex-col items-center justify-center gap-6">
           <div className="relative">
-            <svg width="56" height="56" viewBox="0 0 56 56" fill="none" className="text-nc-text-tertiary/20">
+            <svg width="64" height="64" viewBox="0 0 56 56" fill="none" className="text-nc-text-tertiary/20">
               <rect x="4" y="4" width="22" height="22" rx="3" stroke="currentColor" strokeWidth="1.5" />
               <rect x="30" y="4" width="22" height="22" rx="3" stroke="currentColor" strokeWidth="1.5" />
               <rect x="4" y="30" width="22" height="22" rx="3" stroke="currentColor" strokeWidth="1.5" />
@@ -79,14 +79,14 @@ export const LibraryPanel = memo(function LibraryPanel() {
             </svg>
           </div>
           <div className="text-center">
-            <h3 className="mb-1 text-base font-semibold text-nc-text-secondary">Library is empty</h3>
-            <p className="max-w-[280px] text-sm leading-relaxed text-nc-text-tertiary">
+            <h3 className="mb-2 text-lg font-bold text-nc-text">Library is empty</h3>
+            <p className="max-w-[300px] text-[15px] leading-relaxed text-nc-text-tertiary">
               Generated videos and assets will appear here. Start by creating a video from the Director.
             </p>
           </div>
           <button
             onClick={() => setSidebarPage("home")}
-            className="rounded-lg bg-nc-accent px-5 py-2.5 text-sm font-semibold text-nc-bg shadow-md transition-all hover:bg-nc-accent-hover hover:shadow-lg"
+            className="mt-8 inline-flex h-12 items-center justify-center rounded-xl bg-nc-text px-8 text-[14px] font-medium text-nc-bg transition-colors hover:bg-nc-text-secondary"
           >
             Create a Video
           </button>
@@ -103,20 +103,20 @@ export const LibraryPanel = memo(function LibraryPanel() {
           <span className="text-xs font-semibold uppercase tracking-[0.12em] text-nc-text-secondary">
             Media Library
           </span>
-          <div className="flex items-center gap-0.5 rounded-lg border border-nc-border bg-nc-panel p-1 shadow-sm">
+          <div className="flex items-center gap-1 overflow-x-auto rounded-lg border border-nc-border bg-nc-panel p-1.5 shadow-sm scrollbar-hide">
             {FILTERS.filter((f) => f.count > 0 || f.id === "all").map((f) => (
               <button
                 key={f.id}
                 onClick={() => setFilter(f.id)}
                 className={cn(
-                  "flex items-center gap-1 rounded-lg px-3 py-2 text-xs font-semibold transition-all",
+                  "flex shrink-0 items-center gap-1.5 rounded-lg px-4 py-2 text-[13px] font-semibold transition-all",
                   filter === f.id
                     ? "bg-nc-panel-active text-nc-text shadow-sm"
                     : "text-nc-text-tertiary hover:text-nc-text-secondary"
                 )}
               >
-                {f.label}
-                <span className="font-mono text-[10px] tabular-nums text-nc-text-tertiary">{f.count}</span>
+                <span className="whitespace-nowrap">{f.label}</span>
+                <span className="font-mono text-[11px] tabular-nums text-nc-text-tertiary">{f.count}</span>
               </button>
             ))}
           </div>

@@ -126,25 +126,30 @@ export function InspectorPanel() {
   return (
     <div className="flex h-48 flex-col border-t border-nc-border bg-nc-surface shadow-[0_-4px_16px_rgba(0,0,0,0.15)]">
       {/* Tab bar */}
-      <div className="flex h-11 shrink-0 items-center border-b border-nc-border px-2">
-        {TABS.map((t) => (
-          <button
-            key={t.id}
-            onClick={() => setTab(t.id)}
-            className={cn(
-              "h-full rounded-t-lg px-4 text-xs font-medium uppercase tracking-[0.12em] transition-all",
-              tab === t.id
-                ? "border-b-2 border-nc-accent text-nc-accent"
-                : "text-nc-text-tertiary hover:text-nc-text-secondary"
-            )}
-          >
-            {t.label}
-          </button>
-        ))}
+      <div className="flex h-14 shrink-0 items-center border-b border-nc-border px-4">
+        <div className="flex gap-1 h-full">
+          {TABS.map((t) => (
+            <button
+              key={t.id}
+              onClick={() => setTab(t.id)}
+              className={cn(
+                "relative flex h-full items-center px-4 text-[13px] font-bold uppercase tracking-wider transition-colors",
+                tab === t.id
+                  ? "text-nc-text"
+                  : "text-nc-text-tertiary hover:text-nc-text-secondary hover:bg-nc-panel/50"
+              )}
+            >
+              {t.label}
+              {tab === t.id && (
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-nc-text" />
+              )}
+            </button>
+          ))}
+        </div>
 
-        <div className="ml-auto flex items-center gap-2 pr-3">
+        <div className="ml-auto flex items-center gap-3">
           {completedShots.length > 0 && (
-            <span className="rounded-full border border-nc-success/25 bg-nc-success/15 px-3 py-1 text-xs tabular-nums text-nc-success shadow-sm">
+            <span className="rounded-lg border border-nc-success/30 bg-nc-success/10 px-3 py-1.5 text-[12px] font-bold tabular-nums text-nc-success shadow-sm">
               {completedShots.length}/{shots.length}
             </span>
           )}
@@ -152,12 +157,12 @@ export function InspectorPanel() {
             <button
               onClick={regenerateShot}
               disabled={regenerating || isRunning}
-              className="flex h-10 items-center gap-1.5 rounded-lg border border-nc-accent/25 bg-nc-accent/10 px-3 py-2 text-xs font-semibold text-nc-accent shadow-sm transition-all hover:bg-nc-accent/20 hover:shadow-md disabled:opacity-40"
+              className="flex h-9 items-center gap-1.5 rounded-lg border border-nc-text bg-nc-surface px-4 py-2 text-[13px] font-bold text-nc-text shadow-sm transition-all hover:bg-nc-panel disabled:opacity-40"
             >
               {regenerating ? (
-                <div className="h-2 w-2 animate-spin rounded-full border border-nc-accent border-t-transparent" />
+                <div className="h-3 w-3 animate-spin rounded-full border-2 border-nc-text border-t-transparent" />
               ) : (
-                <svg width="8" height="8" viewBox="0 0 8 8" fill="none" stroke="currentColor" strokeWidth="1.2">
+                <svg width="12" height="12" viewBox="0 0 8 8" fill="none" stroke="currentColor" strokeWidth="1.5">
                   <path d="M7 4a3 3 0 1 1-.9-2.1" />
                   <path d="M7 1v2H5" />
                 </svg>

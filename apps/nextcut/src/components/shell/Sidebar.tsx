@@ -97,17 +97,17 @@ export function Sidebar() {
   const { user, logout } = useAuthStore();
 
   return (
-    <div className="flex w-[60px] shrink-0 flex-col items-center border-r border-nc-border bg-nc-sidebar shadow-sm">
+    <div className="flex w-[240px] shrink-0 flex-col border-r border-nc-border bg-nc-surface shadow-sm">
       {/* Logo mark */}
-      <div className="flex h-10 w-full items-center justify-center">
-        <div className="relative h-2.5 w-2.5">
-          <div className="absolute inset-0 rounded-full bg-nc-accent" />
-          <div className="absolute inset-0 animate-glow-pulse rounded-full bg-nc-accent" />
+      <div className="flex h-[72px] w-full items-center gap-3 px-6">
+        <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-nc-accent text-nc-surface font-sans font-bold shadow-sm">
+          N
         </div>
+        <span className="text-[18px] font-bold text-nc-text tracking-tight">NextCut</span>
       </div>
 
       {/* Navigation */}
-      <div className="flex flex-1 flex-col items-center gap-0.5 py-1">
+      <div className="flex flex-1 flex-col gap-1.5 px-4 py-4">
         {NAV_ITEMS.map((item) => {
           const isActive = sidebarPage === item.id;
           const label = t(item.labelKey);
@@ -116,62 +116,39 @@ export function Sidebar() {
               key={item.id}
               onClick={() => setSidebarPage(item.id)}
               className={cn(
-                "group relative flex h-11 w-11 items-center justify-center rounded-[var(--radius-lg)] transition-all duration-150",
+                "group flex h-11 w-full items-center gap-3 rounded-xl px-4 transition-all duration-200",
                 isActive
-                  ? "bg-nc-accent-dim text-nc-accent shadow-sm"
-                  : "text-nc-text-tertiary hover:bg-nc-panel-hover hover:text-nc-text-secondary hover:shadow-sm"
+                  ? "bg-nc-accent/10 text-nc-accent font-bold"
+                  : "text-nc-text-secondary hover:bg-nc-panel hover:text-nc-text font-medium"
               )}
-              title={label}
             >
-              {isActive && (
-                <div className="absolute left-0 top-1/2 h-4 w-[2px] -translate-y-1/2 rounded-r-full bg-nc-accent" />
-              )}
-              {item.icon(isActive)}
-
-              {/* Tooltip */}
-              <div className="pointer-events-none absolute left-full z-50 ml-2 whitespace-nowrap rounded-lg border border-nc-border bg-nc-elevated px-2.5 py-1.5 text-sm font-medium text-nc-text opacity-0 shadow-md transition-opacity group-hover:opacity-100">
-                {label}
+              <div className="shrink-0">
+                {item.icon(isActive)}
               </div>
+              <span className="text-[14px] truncate">{label}</span>
             </button>
           );
         })}
       </div>
 
       {/* Bottom: account / language */}
-      <div className="flex flex-col items-center gap-2 pb-3">
-        <button
-          onClick={() => setLang(lang === "en" ? "zh" : "en")}
-          className="flex h-9 w-9 items-center justify-center rounded-full text-xs font-bold uppercase text-nc-text-secondary ring-1 ring-nc-border/60 transition-all hover:bg-nc-panel-hover hover:text-nc-text hover:shadow-sm"
-          title={t("nav.toggleLang")}
-        >
-          {lang}
-        </button>
-        
-        {user ? (
-          <button
-            onClick={logout}
-            className="group relative flex h-9 w-9 items-center justify-center rounded-full bg-nc-accent/20 text-sm font-medium text-nc-accent shadow-sm transition-all hover:bg-red-500/20 hover:text-red-500 hover:shadow-md hover:ring-1 hover:ring-red-500/30"
-            title={`${t("nav.logout")} (${user.email})`}
-          >
-            <span className="group-hover:hidden">{user.email.charAt(0).toUpperCase()}</span>
-            <svg className="hidden h-3.5 w-3.5 group-hover:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
-              <polyline points="16 17 21 12 16 7"></polyline>
-              <line x1="21" y1="12" x2="9" y2="12"></line>
-            </svg>
+      <div className="flex flex-col gap-4 p-4 border-t border-nc-border">
+        {/* Quota mock */}
+        <div className="rounded-xl border border-nc-border bg-nc-panel/50 p-4">
+          <div className="mb-1 flex items-center justify-between">
+            <span className="text-[12px] font-semibold text-nc-text-secondary">本月渲染时长</span>
+          </div>
+          <div className="mb-2 text-[14px] font-bold text-nc-text">
+            32h <span className="text-[12px] font-medium text-nc-text-tertiary">/ 100h</span>
+          </div>
+          <div className="h-1.5 w-full rounded-full bg-nc-border overflow-hidden mb-3">
+            <div className="h-full bg-nc-accent w-[32%]" />
+          </div>
+          <button className="flex w-full items-center justify-center gap-2 rounded-lg bg-nc-accent/10 py-2 text-[13px] font-bold text-nc-accent transition-colors hover:bg-nc-accent/20">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+            升级套餐
           </button>
-        ) : (
-          <button
-            onClick={() => setSidebarPage("settings")}
-            className="group relative flex h-9 w-9 items-center justify-center rounded-full bg-nc-panel-hover text-sm font-medium text-nc-text-secondary shadow-sm ring-1 ring-nc-border/50 transition-all hover:bg-nc-panel-active hover:shadow-md hover:ring-nc-accent/30"
-            title={t("nav.signIn")}
-          >
-            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-              <circle cx="12" cy="7" r="4"></circle>
-            </svg>
-          </button>
-        )}
+        </div>
       </div>
     </div>
   );

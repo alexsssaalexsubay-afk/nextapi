@@ -65,103 +65,109 @@ export const ProjectsPanel = memo(function ProjectsPanel() {
   };
 
   return (
-    <div className="flex h-full flex-col overflow-hidden">
+    <div className="flex h-full flex-col overflow-hidden bg-nc-bg">
       {/* Header */}
-      <div className="flex h-11 items-center justify-between border-b border-nc-border px-5 shadow-sm">
-        <span className="text-xs font-medium uppercase tracking-[0.12em] text-nc-text-secondary">
+      <div className="flex h-[72px] items-center justify-between px-8">
+        <span className="text-[18px] font-semibold text-nc-text">
           Projects
         </span>
         <button
           onClick={() => setShowCreate(!showCreate)}
-          className="flex h-10 items-center gap-1.5 rounded-lg border border-nc-accent/25 bg-nc-accent/10 px-3 py-2 text-xs font-semibold text-nc-accent shadow-sm transition-all hover:bg-nc-accent/20 hover:shadow-md"
+          className="flex h-[44px] items-center gap-2 rounded-[12px] bg-nc-accent px-6 text-[14px] font-semibold text-white transition-all hover:bg-nc-accent-hover hover:-translate-y-0.5 active:bg-[#4E42CC] shadow-sm"
         >
-          <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <svg width="14" height="14" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M5 1v8M1 5h8" />
           </svg>
-          New
+          New Project
         </button>
       </div>
 
       {/* Create form */}
       {showCreate && (
-        <div className="border-b border-nc-border bg-nc-surface p-4 shadow-sm">
-          <input
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
-            placeholder="Project name"
-            className="mb-2 w-full rounded-lg border border-nc-border-strong bg-nc-panel px-3 py-2.5 text-sm text-nc-text shadow-sm outline-none placeholder:text-nc-text-tertiary focus:border-nc-accent/50"
-            onKeyDown={(e) => e.key === "Enter" && createProject()}
-            autoFocus
-          />
-          <input
-            value={newDesc}
-            onChange={(e) => setNewDesc(e.target.value)}
-            placeholder="Description (optional)"
-            className="mb-3 w-full rounded-lg border border-nc-border-strong bg-nc-panel px-3 py-2.5 text-sm text-nc-text shadow-sm outline-none placeholder:text-nc-text-tertiary focus:border-nc-accent/50"
-          />
-          <div className="flex justify-end gap-2">
-            <button
-              onClick={() => setShowCreate(false)}
-              className="rounded-lg px-4 py-2 text-sm text-nc-text-tertiary transition-colors hover:text-nc-text-secondary"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={createProject}
-              disabled={!newName.trim()}
-              className="rounded-lg bg-nc-accent px-4 py-2 text-sm font-semibold text-nc-bg shadow-md transition-all hover:bg-nc-accent-hover hover:shadow-lg disabled:opacity-40"
-            >
-              Create
-            </button>
+        <div className="border-b border-nc-border bg-nc-surface p-8 shadow-sm">
+          <div className="max-w-xl mx-auto flex flex-col gap-4">
+            <input
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              placeholder="Project name"
+              className="w-full rounded-[12px] border border-nc-border bg-nc-bg px-[14px] py-3 text-[14px] text-nc-text outline-none placeholder:text-nc-text-tertiary focus:border-nc-accent transition-colors shadow-sm"
+              onKeyDown={(e) => e.key === "Enter" && createProject()}
+              autoFocus
+            />
+            <input
+              value={newDesc}
+              onChange={(e) => setNewDesc(e.target.value)}
+              placeholder="Description (optional)"
+              className="w-full rounded-[12px] border border-nc-border bg-nc-bg px-[14px] py-3 text-[14px] text-nc-text outline-none placeholder:text-nc-text-tertiary focus:border-nc-accent transition-colors shadow-sm"
+            />
+            <div className="flex justify-end gap-3 mt-2">
+              <button
+                onClick={() => setShowCreate(false)}
+                className="flex h-[40px] items-center justify-center rounded-[12px] border border-nc-border px-5 text-[14px] font-medium text-nc-text-secondary transition-colors hover:text-nc-text hover:bg-nc-surface bg-white"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={createProject}
+                disabled={!newName.trim()}
+                className="flex h-[40px] items-center justify-center rounded-[12px] bg-nc-accent px-6 text-[14px] font-semibold text-white transition-colors hover:bg-nc-accent-hover disabled:bg-[#D9D6FE] disabled:cursor-not-allowed shadow-sm"
+              >
+                Create
+              </button>
+            </div>
           </div>
         </div>
       )}
 
       {/* Project list */}
-      <div className="flex-1 overflow-auto p-4">
+      <div className="flex-1 overflow-auto p-8 pt-4">
         {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <div className="h-5 w-5 animate-spin rounded-full border-2 border-nc-accent border-t-transparent" />
+          <div className="flex items-center justify-center py-20">
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-nc-accent border-t-transparent" />
           </div>
         ) : projects.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 text-center">
-            <svg width="32" height="32" viewBox="0 0 32 32" fill="none" className="mb-3 text-nc-text-tertiary/25">
-              <rect x="4" y="6" width="24" height="20" rx="2" stroke="currentColor" strokeWidth="1.2" />
-              <path d="M4 12h24" stroke="currentColor" strokeWidth="1" />
-              <rect x="8" y="8" width="6" height="3" rx="1" stroke="currentColor" strokeWidth="1" />
-            </svg>
-            <span className="text-sm text-nc-text-tertiary">No projects yet</span>
+          <div className="flex flex-col items-center justify-center py-32 text-center">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-nc-surface border border-nc-border mb-4 text-nc-text-tertiary">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 9h18v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9Z" />
+                <path d="m3 9 2.45-4.9A2 2 0 0 1 7.24 3h9.52a2 2 0 0 1 1.8 1.1L21 9" />
+                <path d="M12 3v6" />
+              </svg>
+            </div>
+            <span className="text-[16px] font-medium text-nc-text">No projects yet</span>
             <button
               onClick={() => setShowCreate(true)}
-              className="mt-2 text-sm font-medium text-nc-accent transition-all hover:underline"
+              className="mt-2 text-[14px] text-nc-accent transition-colors hover:text-nc-accent-hover font-medium"
             >
               Create your first project
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 max-w-7xl w-full">
             {projects.map((p) => (
               <div
                 key={p.id}
-                className="group flex flex-col rounded-[var(--radius-lg)] border border-nc-border-strong bg-nc-surface p-4 shadow-sm transition-all duration-200 hover:border-nc-accent/25 hover:shadow-lg"
+                className="group flex flex-col h-40 rounded-[14px] border border-nc-border bg-nc-surface p-4 shadow-sm transition-all hover:border-nc-accent hover:shadow-md cursor-pointer"
               >
-                <div className="mb-1 flex items-start justify-between">
-                  <h3 className="text-sm font-medium text-nc-text">{p.name}</h3>
+                <div className="mb-2 flex items-start justify-between">
+                  <h3 className="text-[16px] font-semibold text-nc-text truncate pr-4">{p.name}</h3>
                   <button
-                    onClick={() => deleteProject(p.id)}
-                    className="rounded-lg p-2 text-nc-text-tertiary opacity-0 transition-all hover:bg-nc-error/10 hover:text-nc-error group-hover:opacity-100"
+                    onClick={(e) => { e.stopPropagation(); deleteProject(p.id); }}
+                    className="rounded-[10px] p-1.5 text-nc-text-tertiary opacity-0 transition-all hover:bg-nc-surface hover:text-nc-error group-hover:opacity-100 border border-transparent hover:border-nc-border"
                   >
-                    <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.2">
-                      <path d="M2 2l6 6M8 2l-6 6" />
+                    <svg width="14" height="14" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M2 3h8M4 3V2a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v1M5 5v4M7 5v4M3 3v7a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1V3" />
                     </svg>
                   </button>
                 </div>
-                {p.description && (
-                  <p className="mb-2 line-clamp-2 text-sm text-nc-text-tertiary">{p.description}</p>
+                {p.description ? (
+                  <p className="mb-4 line-clamp-2 text-[14px] leading-[22px] text-nc-text-secondary">{p.description}</p>
+                ) : (
+                  <p className="mb-4 text-[14px] italic text-nc-text-tertiary">No description</p>
                 )}
-                <div className="mt-auto flex items-center gap-3 border-t border-nc-border pt-3 text-xs text-nc-text-tertiary">
+                <div className="mt-auto flex items-center justify-between text-[12px] font-medium uppercase tracking-wider text-nc-text-tertiary">
                   <span>{formatDate(p.updated_at)}</span>
-                  <span className="ml-auto font-mono">{p.id.slice(0, 8)}</span>
+                  <span className="font-mono bg-nc-bg px-2 py-0.5 rounded-[10px] border border-nc-border text-[11px]">{p.id.slice(0, 8)}</span>
                 </div>
               </div>
             ))}

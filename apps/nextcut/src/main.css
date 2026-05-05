@@ -1,47 +1,48 @@
 @import "tailwindcss";
 
 @theme {
-  /* === Deep Black Cinema Palette === */
-  --color-nc-bg: #060609;
-  --color-nc-surface: #0c0c12;
-  --color-nc-panel: #111118;
-  --color-nc-panel-hover: #18181f;
-  --color-nc-panel-active: #1e1e28;
-  --color-nc-elevated: #16161e;
-  --color-nc-sidebar: #09090e;
+  /* === Clean Modern SaaS Palette === */
+  --color-nc-bg: #F8FAFC; 
+  --color-nc-surface: #FFFFFF; 
+  --color-nc-panel: #F1F5F9; 
+  --color-nc-panel-hover: #E2E8F0; 
+  --color-nc-panel-active: #CBD5E1; 
+  --color-nc-elevated: #FFFFFF;
+  --color-nc-sidebar: #FFFFFF;
 
-  /* === Borders — barely visible glass edges === */
-  --color-nc-border: rgba(255, 255, 255, 0.06);
-  --color-nc-border-strong: rgba(255, 255, 255, 0.12);
-  --color-nc-border-focus: rgba(255, 255, 255, 0.20);
+  /* === Borders === */
+  --color-nc-border: #E2E8F0; 
+  --color-nc-border-strong: #CBD5E1; 
+  --color-nc-border-focus: #121826; 
 
   /* === Typography === */
-  --color-nc-text: #e8e8ed;
-  --color-nc-text-secondary: #9898a6;
-  --color-nc-text-tertiary: #5c5c6e;
-  --color-nc-text-ghost: #3a3a48;
+  --color-nc-text: #121826; 
+  --color-nc-text-secondary: #667085; 
+  --color-nc-text-tertiary: #98A2B3; 
+  --color-nc-text-ghost: #D8DDEA; 
 
-  /* === Accent — warm amber/gold === */
-  --color-nc-accent: #d4a053;
-  --color-nc-accent-hover: #e0b36a;
-  --color-nc-accent-dim: rgba(212, 160, 83, 0.15);
-  --color-nc-accent-muted: rgba(212, 160, 83, 0.08);
+  /* === Accent === */
+  --color-nc-accent: #6D5EF8; 
+  --color-nc-accent-hover: #5E50E6; 
+  --color-nc-accent-dim: #F5F3FF; 
+  --color-nc-accent-muted: #F8FAFC;
 
   /* === Semantic === */
-  --color-nc-success: #3ecf8e;
-  --color-nc-error: #f75f5f;
-  --color-nc-warning: #e9a23b;
-  --color-nc-info: #5e9ed6;
+  --color-nc-success: #22C7B8; 
+  --color-nc-error: #EF4444; 
+  --color-nc-warning: #F59E0B; 
+  --color-nc-info: #06B6D4; 
 
   /* === Typography System === */
-  --font-sans: "Inter", "SF Pro Display", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --font-sans: "Inter", "SF Pro Display", "PingFang SC", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", "SF Mono", "Fira Code", ui-monospace, monospace;
 
   /* === Spacing & Radius === */
-  --radius-sm: 4px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
+  --radius-sm: 10px;
+  --radius-md: 12px;
+  --radius-lg: 14px;
   --radius-xl: 16px;
+  --radius-2xl: 20px;
 
   /* === Animations === */
   --animate-fade-in: fade-in 0.2s ease-out;

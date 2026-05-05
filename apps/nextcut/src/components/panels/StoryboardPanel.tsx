@@ -90,18 +90,37 @@ export const StoryboardPanel = memo(function StoryboardPanel() {
 
   if (shots.length === 0) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-3 p-8 text-center">
-        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-nc-panel">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" className="text-nc-text-tertiary">
-            <rect x="3" y="3" width="7" height="7" rx="1" />
-            <rect x="14" y="3" width="7" height="7" rx="1" />
-            <rect x="3" y="14" width="7" height="7" rx="1" />
-            <rect x="14" y="14" width="7" height="7" rx="1" />
-          </svg>
+      <div className="flex h-full flex-col bg-nc-bg">
+        {/* Toolbar */}
+        <div className="flex h-11 shrink-0 items-center justify-between border-b border-nc-border px-4">
+          <div className="flex items-center gap-3">
+            <span className="text-xs font-medium uppercase tracking-[0.12em] text-nc-text-secondary">
+              {t("storyboard.title")}
+            </span>
+          </div>
         </div>
-        <div>
-          <p className="text-sm font-medium text-nc-text-secondary">{t("storyboard.empty")}</p>
-          <p className="mt-1 text-xs text-nc-text-tertiary">{t("storyboard.emptyDesc")}</p>
+
+        <div className="flex flex-1 flex-col p-8">
+          <div className="mb-6 text-center">
+            <h3 className="text-xl font-bold text-nc-text">{t("storyboard.empty")}</h3>
+            <p className="mt-2 text-[14px] text-nc-text-tertiary max-w-md mx-auto">{t("storyboard.emptyDesc")}</p>
+          </div>
+
+          {/* Skeletal Storyboard */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 opacity-50 max-w-6xl mx-auto w-full">
+            {[...Array(10)].map((_, i) => (
+              <div key={i} className="aspect-video w-full rounded-[var(--radius-lg)] bg-nc-surface border border-nc-border shadow-sm flex flex-col justify-between p-3">
+                <div className="flex justify-between items-start w-full">
+                  <div className="h-5 w-5 bg-nc-panel rounded flex items-center justify-center text-[10px] font-bold text-nc-text-tertiary">{i + 1}</div>
+                  <div className="h-4 w-12 bg-nc-panel rounded-sm" />
+                </div>
+                <div className="space-y-1.5 w-full mt-auto">
+                  <div className="h-2 w-full bg-nc-panel rounded-full" />
+                  <div className="h-2 w-3/4 bg-nc-panel rounded-full" />
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     );

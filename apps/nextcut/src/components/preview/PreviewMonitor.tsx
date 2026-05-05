@@ -77,21 +77,21 @@ export const PreviewMonitor = memo(function PreviewMonitor() {
   return (
     <div className="flex h-full flex-col bg-nc-bg">
       {/* Header */}
-      <div className="flex h-10 items-center justify-between border-b border-nc-border bg-nc-bg px-4 shadow-sm">
-        <span className="text-xs font-medium uppercase tracking-[0.12em] text-nc-text-secondary">Preview</span>
-        <div className="flex items-center gap-2">
+      <div className="flex h-[60px] items-center justify-between border-b border-nc-border bg-nc-surface px-6 shadow-sm">
+        <span className="text-[14px] font-semibold text-nc-text">Preview</span>
+        <div className="flex items-center gap-3">
           {selectedShot && (
             <span className={cn(
-              "rounded-lg border border-nc-border/60 px-2.5 py-1 text-xs font-medium shadow-sm",
-              selectedShot.video_url ? "bg-nc-success/10 text-nc-success border-nc-success/25" :
-              selectedShot.status === "failed" ? "bg-nc-error/10 text-nc-error border-nc-error/25" :
-              "bg-nc-surface text-nc-text-tertiary"
+              "rounded-md border px-2 py-1 text-[12px] font-medium shadow-sm",
+              selectedShot.video_url ? "bg-nc-success/10 text-nc-success border-nc-success/20" :
+              selectedShot.status === "failed" ? "bg-nc-error/10 text-nc-error border-nc-error/20" :
+              "bg-nc-bg text-nc-text-tertiary border-nc-border"
             )}>
               {selectedShot.video_url ? "Ready" : selectedShot.status}
             </span>
           )}
           {selectedShotId && (
-            <span className="font-mono text-xs text-nc-accent">{selectedShotId}</span>
+            <span className="font-mono text-[12px] font-medium text-nc-text-secondary bg-nc-bg px-2 py-1 rounded border border-nc-border">{selectedShotId.slice(0, 8)}</span>
           )}
         </div>
       </div>
@@ -210,17 +210,17 @@ export const PreviewMonitor = memo(function PreviewMonitor() {
       )}
 
       {/* Transport bar */}
-      <div className="flex h-11 shrink-0 items-center justify-between border-t border-nc-border bg-nc-bg px-4 shadow-[0_-1px_0_rgba(0,0,0,0.06)]">
+      <div className="flex h-[60px] shrink-0 items-center justify-between border-t border-nc-border bg-nc-surface px-6 shadow-sm">
         {/* Timecode left */}
-        <div className="w-28 font-mono text-xs tabular-nums text-nc-text-tertiary">
+        <div className="w-28 font-mono text-[13px] font-medium tabular-nums text-nc-text-secondary">
           {hasVideo ? formatTime(currentTime) : "--:--:--"}
         </div>
 
         {/* Transport controls */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-4">
           {/* Shot counter */}
           {shots.length > 0 && selectedIndex >= 0 && (
-            <span className="mr-2 rounded-lg border border-nc-border/60 bg-nc-surface px-2.5 py-1 font-mono text-xs tabular-nums text-nc-text-tertiary shadow-sm">
+            <span className="mr-2 rounded-lg border border-nc-border bg-nc-bg px-3 py-1.5 font-mono text-[12px] font-medium tabular-nums text-nc-text-secondary shadow-sm">
               {selectedIndex + 1}/{shots.length}
             </span>
           )}
@@ -229,7 +229,7 @@ export const PreviewMonitor = memo(function PreviewMonitor() {
             type="button"
             onClick={goToPrev}
             disabled={selectedIndex <= 0}
-            className="rounded-lg border border-transparent p-2 text-nc-text-tertiary transition-all hover:border-nc-border hover:bg-nc-panel hover:text-nc-text-secondary disabled:opacity-25"
+            className="rounded-lg p-2.5 text-nc-text-tertiary transition-colors hover:bg-nc-panel hover:text-nc-text disabled:opacity-25"
           >
             <svg width="14" height="14" viewBox="0 0 12 12" fill="currentColor">
               <rect x="1" y="2" width="2.5" height="8" rx="0.5" />
@@ -242,19 +242,19 @@ export const PreviewMonitor = memo(function PreviewMonitor() {
             onClick={togglePlay}
             disabled={!hasVideo}
             className={cn(
-              "flex h-11 w-11 items-center justify-center rounded-full border border-nc-accent/30 shadow-md transition-all hover:shadow-lg",
+              "flex h-12 w-12 items-center justify-center rounded-full shadow-sm transition-all",
               hasVideo
-                ? "bg-nc-accent/15 text-nc-accent hover:bg-nc-accent/25 hover:shadow-nc-accent/20"
-                : "border-nc-border bg-nc-panel-hover text-nc-text-tertiary shadow-sm hover:shadow-md"
+                ? "bg-nc-text text-nc-bg hover:bg-nc-text-secondary hover:shadow-md hover:scale-105"
+                : "bg-nc-panel text-nc-text-tertiary shadow-none"
             )}
           >
             {isPlaying ? (
-              <svg width="12" height="12" viewBox="0 0 10 10" fill="currentColor">
-                <rect x="1" y="1" width="3" height="8" rx="0.5" />
-                <rect x="6" y="1" width="3" height="8" rx="0.5" />
+              <svg width="14" height="14" viewBox="0 0 10 10" fill="currentColor">
+                <rect x="1" y="1" width="3" height="8" rx="1" />
+                <rect x="6" y="1" width="3" height="8" rx="1" />
               </svg>
             ) : (
-              <svg width="12" height="12" viewBox="0 0 10 10" fill="currentColor">
+              <svg width="14" height="14" viewBox="0 0 10 10" fill="currentColor" className="ml-0.5">
                 <polygon points="2,0 10,5 2,10" />
               </svg>
             )}
@@ -264,7 +264,7 @@ export const PreviewMonitor = memo(function PreviewMonitor() {
             type="button"
             onClick={goToNext}
             disabled={selectedIndex >= shots.length - 1}
-            className="rounded-lg border border-transparent p-2 text-nc-text-tertiary transition-all hover:border-nc-border hover:bg-nc-panel hover:text-nc-text-secondary disabled:opacity-25"
+            className="rounded-lg p-2.5 text-nc-text-tertiary transition-colors hover:bg-nc-panel hover:text-nc-text disabled:opacity-25"
           >
             <svg width="14" height="14" viewBox="0 0 12 12" fill="currentColor">
               <polygon points="1,2 7,6 1,10" />
@@ -274,7 +274,7 @@ export const PreviewMonitor = memo(function PreviewMonitor() {
         </div>
 
         {/* Right controls */}
-        <div className="flex w-28 items-center justify-end gap-2">
+        <div className="flex w-28 items-center justify-end gap-3">
           {/* Volume */}
           <div
             className="relative"
@@ -284,9 +284,9 @@ export const PreviewMonitor = memo(function PreviewMonitor() {
             <button
               type="button"
               onClick={() => setIsMuted(!isMuted)}
-              className="rounded-lg border border-transparent p-2 text-nc-text-tertiary transition-all hover:border-nc-border hover:bg-nc-panel hover:text-nc-text-secondary"
+              className="rounded-lg p-2.5 text-nc-text-tertiary transition-colors hover:bg-nc-panel hover:text-nc-text"
             >
-              <svg width="14" height="14" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.2">
+              <svg width="16" height="16" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5">
                 {isMuted || volume === 0 ? (
                   <>
                     <polygon points="1,4 3,4 6,1 6,11 3,8 1,8" fill="currentColor" stroke="none" />
@@ -302,7 +302,7 @@ export const PreviewMonitor = memo(function PreviewMonitor() {
               </svg>
             </button>
             {showVolumeSlider && (
-              <div className="absolute -top-20 left-1/2 z-30 flex -translate-x-1/2 flex-col items-center rounded-lg border border-nc-border bg-nc-panel p-3 shadow-xl">
+              <div className="absolute -top-24 left-1/2 z-30 flex -translate-x-1/2 flex-col items-center rounded-xl border border-nc-border bg-nc-surface p-4 shadow-xl">
                 <input
                   type="range"
                   min={0}
@@ -310,7 +310,7 @@ export const PreviewMonitor = memo(function PreviewMonitor() {
                   step={0.05}
                   value={volume}
                   onChange={(e) => { setVolume(parseFloat(e.target.value)); setIsMuted(false); }}
-                  className="h-12 w-1 appearance-none rounded-full bg-nc-surface accent-nc-accent"
+                  className="h-16 w-1.5 appearance-none rounded-full bg-nc-border accent-nc-text cursor-pointer"
                   style={{ writingMode: "vertical-lr", direction: "rtl" }}
                 />
               </div>
@@ -318,7 +318,7 @@ export const PreviewMonitor = memo(function PreviewMonitor() {
           </div>
 
           {/* Duration */}
-          <span className="font-mono text-xs tabular-nums text-nc-text-tertiary">
+          <span className="font-mono text-[13px] font-medium tabular-nums text-nc-text-secondary bg-nc-bg px-2 py-1 rounded border border-nc-border">
             {hasVideo ? formatTime(videoDuration) : "--:--:--"}
           </span>
         </div>
