@@ -1,5 +1,6 @@
 import { cn } from "@/lib/cn";
 import { useDirectorStore } from "@/stores/director-store";
+import { useI18nStore } from "@/stores/i18n-store";
 
 const LLM_PROVIDERS = [
   { id: "openai", label: "OpenAI" },
@@ -32,48 +33,49 @@ const AGENTS = [
 export function SettingsPanel() {
   const { pipeline, setPipeline, setDefaultLLM } = useDirectorStore();
   const llm = pipeline.default_llm;
+  const { t } = useI18nStore();
 
   return (
     <div className="flex h-full flex-col gap-6 overflow-auto p-4">
       {/* LLM Configuration */}
-      <Section title="Language Model">
+      <Section title={t("settings.llm")}>
         <div className="flex flex-col gap-3">
-          <SelectInput label="Provider" value={llm.provider} onChange={(v) => setDefaultLLM({ provider: v })} options={LLM_PROVIDERS} />
-          <TextInput label="Model" value={llm.model} onChange={(v) => setDefaultLLM({ model: v })} placeholder="gpt-4o" />
-          <TextInput label="Base URL" value={llm.base_url} onChange={(v) => setDefaultLLM({ base_url: v })} placeholder="Leave empty for default" />
-          <TextInput label="API Key" value={llm.api_key} onChange={(v) => setDefaultLLM({ api_key: v })} type="password" placeholder="sk-..." />
-          <TextInput label="Temperature" value={String(llm.temperature)} onChange={(v) => setDefaultLLM({ temperature: parseFloat(v) || 0.7 })} type="number" />
+          <SelectInput label={t("settings.provider")} value={llm.provider} onChange={(v) => setDefaultLLM({ provider: v })} options={LLM_PROVIDERS} />
+          <TextInput label={t("settings.model")} value={llm.model} onChange={(v) => setDefaultLLM({ model: v })} placeholder="gpt-4o" />
+          <TextInput label={t("settings.baseUrl")} value={llm.base_url} onChange={(v) => setDefaultLLM({ base_url: v })} placeholder={t("settings.emptyDefault")} />
+          <TextInput label={t("settings.apiKey")} value={llm.api_key} onChange={(v) => setDefaultLLM({ api_key: v })} type="password" placeholder="sk-..." />
+          <TextInput label={t("settings.temp")} value={String(llm.temperature)} onChange={(v) => setDefaultLLM({ temperature: parseFloat(v) || 0.7 })} type="number" />
         </div>
       </Section>
 
       {/* Video Provider */}
-      <Section title="Video Provider">
+      <Section title={t("settings.videoProvider")}>
         <p className="mb-1 text-[11px] leading-relaxed text-nc-text-ghost">
-          Uses the same surface as the main API: <span className="font-mono text-[10px]">POST /v1/videos</span> with{" "}
-          <span className="font-mono text-[10px]">Authorization: Bearer sk_live_…</span>. Base URL may be{" "}
-          <span className="font-mono text-[10px]">https://api.nextapi.top</span> or{" "}
-          <span className="font-mono text-[10px]">…/v1</span> — both work.
+          {t("settings.videoDesc1")}<span className="font-mono text-[10px]">POST /v1/videos</span>{t("settings.videoDesc2")}
+          <span className="font-mono text-[10px]">Authorization: Bearer sk_live_…</span>{t("settings.videoDesc3")}
+          <span className="font-mono text-[10px]">https://api.nextapi.top</span>{t("settings.videoDesc4")}
+          <span className="font-mono text-[10px]">…/v1</span>{t("settings.videoDesc5")}
         </p>
         <div className="flex flex-col gap-3">
-          <SelectInput label="Model" value={pipeline.video_model} onChange={(v) => setPipeline({ video_model: v })} options={VIDEO_MODELS} />
-          <TextInput label="API Key" value={pipeline.video_api_key} onChange={(v) => setPipeline({ video_api_key: v })} type="password" placeholder="sk_live_… or sk_test_…" />
-          <TextInput label="Base URL" value={pipeline.video_base_url} onChange={(v) => setPipeline({ video_base_url: v })} placeholder="https://api.nextapi.top/v1" />
-          <SelectInput label="Quality" value={pipeline.video_quality} onChange={(v) => setPipeline({ video_quality: v })} options={[
+          <SelectInput label={t("settings.model")} value={pipeline.video_model} onChange={(v) => setPipeline({ video_model: v })} options={VIDEO_MODELS} />
+          <TextInput label={t("settings.apiKey")} value={pipeline.video_api_key} onChange={(v) => setPipeline({ video_api_key: v })} type="password" placeholder="sk_live_… or sk_test_…" />
+          <TextInput label={t("settings.baseUrl")} value={pipeline.video_base_url} onChange={(v) => setPipeline({ video_base_url: v })} placeholder="https://api.nextapi.top/v1" />
+          <SelectInput label={t("settings.quality")} value={pipeline.video_quality} onChange={(v) => setPipeline({ video_quality: v })} options={[
             { id: "480p", label: "480p" },
             { id: "720p", label: "720p" },
             { id: "1080p", label: "1080p" },
           ]} />
           <label className="flex cursor-pointer items-center gap-2.5">
             <input type="checkbox" checked={pipeline.generate_audio} onChange={(e) => setPipeline({ generate_audio: e.target.checked })} className="accent-[#d4a053]" />
-            <span className="text-[12px] text-nc-text-secondary">Generate audio (lip-sync)</span>
+            <span className="text-[12px] text-nc-text-secondary">{t("settings.genAudio")}</span>
           </label>
         </div>
       </Section>
 
       {/* Per-Agent Override */}
-      <Section title="Agent Overrides">
+      <Section title={t("settings.agentOverrides")}>
         <p className="mb-3 text-[11px] text-nc-text-ghost">
-          Override LLM settings per agent. Defaults to the global language model above.
+          {t("settings.agentDesc")}
         </p>
         <div className="flex flex-col gap-0.5">
           {AGENTS.map((a) => {
@@ -90,7 +92,7 @@ export function SettingsPanel() {
                 )}
               >
                 <span>{a.label}</span>
-                <span className="font-mono text-[9px] text-nc-text-ghost">{hasOverride ? "custom" : "default"}</span>
+                <span className="font-mono text-[9px] text-nc-text-ghost">{hasOverride ? t("settings.custom") : t("settings.default")}</span>
               </button>
             );
           })}

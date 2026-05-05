@@ -2,6 +2,7 @@ import { memo, useCallback } from "react";
 import { cn } from "@/lib/cn";
 import { useDirectorStore, type StructuredPrompt } from "@/stores/director-store";
 import { sidecarFetch } from "@/lib/sidecar";
+import { useI18nStore } from "@/stores/i18n-store";
 
 const CAMERA_PRESETS = [
   "Wide establishing shot", "Medium shot", "Close-up", "Extreme close-up",
@@ -114,6 +115,7 @@ export const StructuredPromptBuilder = memo(function StructuredPromptBuilder({
   disabled?: boolean;
 }) {
   const { structuredPrompt, setStructuredPrompt, setPrompt } = useDirectorStore();
+  const { t, lang } = useI18nStore();
 
   const compileToText = useCallback(() => {
     const parts: string[] = [];
@@ -154,9 +156,9 @@ export const StructuredPromptBuilder = memo(function StructuredPromptBuilder({
         <div key={field.key}>
           <div className="mb-1.5 flex items-center justify-between">
             <label className="text-[10px] font-medium uppercase tracking-[0.12em] text-nc-text-tertiary">
-              {field.label}
+              {lang === "zh" ? field.labelZh : field.label}
               <span className="ml-1 font-normal normal-case tracking-normal text-nc-text-ghost">
-                {field.labelZh}
+                {lang === "zh" ? field.label : field.labelZh}
               </span>
             </label>
           </div>
@@ -202,7 +204,7 @@ export const StructuredPromptBuilder = memo(function StructuredPromptBuilder({
               className="flex items-center gap-1 rounded-[var(--radius-sm)] px-2 py-1 text-[9px] font-medium text-nc-text-ghost transition-colors hover:bg-nc-panel-hover hover:text-nc-text-tertiary disabled:opacity-40"
             >
               {action.icon}
-              {action.label}
+              {action.id === "translate" ? action.label : t(`promptBuilder.${action.id}` as any)}
             </button>
           ))}
         </div>
@@ -213,7 +215,7 @@ export const StructuredPromptBuilder = memo(function StructuredPromptBuilder({
           <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.2">
             <path d="M2 8l2-6h2l2 6M2.5 6h5" />
           </svg>
-          Compile to prompt
+          {t("promptBuilder.compile")}
         </button>
       </div>
 
@@ -223,14 +225,14 @@ export const StructuredPromptBuilder = memo(function StructuredPromptBuilder({
           <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor">
             <path d="M5 0l1.2 3.8H10l-3 2.2 1.2 3.8L5 7.6 1.8 9.8 3 6 0 3.8h3.8z" />
           </svg>
-          Seedance 2.0 Tips
+          {t("promptBuilder.tipsTitle")}
         </div>
         <ul className="flex flex-col gap-0.5 text-[9px] leading-relaxed text-nc-text-ghost">
-          <li>Use SVO sentence structure: Subject + Verb + Object</li>
-          <li>One clear action per shot (don&apos;t combine multiple actions)</li>
-          <li>Physical descriptions work better than abstract concepts</li>
-          <li>Reference images determine 70%+ of the visual output</li>
-          <li>Keep individual clips under 10s for best quality</li>
+          <li>{t("promptBuilder.tip1")}</li>
+          <li>{t("promptBuilder.tip2")}</li>
+          <li>{t("promptBuilder.tip3")}</li>
+          <li>{t("promptBuilder.tip4")}</li>
+          <li>{t("promptBuilder.tip5")}</li>
         </ul>
       </div>
     </div>

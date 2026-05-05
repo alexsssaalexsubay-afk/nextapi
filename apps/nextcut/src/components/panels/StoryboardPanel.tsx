@@ -2,6 +2,7 @@ import { memo, useState, useCallback } from "react";
 import { useDirectorStore, type Shot, type QualityScore } from "@/stores/director-store";
 import { sidecarFetch } from "@/lib/sidecar";
 import { cn } from "@/lib/cn";
+import { useI18nStore } from "@/stores/i18n-store";
 
 type GridSize = "sm" | "md" | "lg";
 const GRID_COLS: Record<GridSize, string> = {
@@ -17,6 +18,7 @@ export const StoryboardPanel = memo(function StoryboardPanel() {
   const [dragState, setDragState] = useState<{ from: number; over: number | null } | null>(null);
   const [editingPrompt, setEditingPrompt] = useState<string | null>(null);
   const [promptDraft, setPromptDraft] = useState("");
+  const { t } = useI18nStore();
 
   const completed = shots.filter((s) => s.video_url || s.status === "succeeded").length;
   const generating = shots.filter((s) => s.status === "generating" || s.status === "processing").length;
@@ -98,8 +100,8 @@ export const StoryboardPanel = memo(function StoryboardPanel() {
           </svg>
         </div>
         <div>
-          <p className="text-[12px] font-medium text-nc-text-tertiary">No shots yet</p>
-          <p className="mt-1 text-[10px] text-nc-text-ghost">Generate a plan to see your storyboard here</p>
+          <p className="text-[12px] font-medium text-nc-text-tertiary">{t("storyboard.empty")}</p>
+          <p className="mt-1 text-[10px] text-nc-text-ghost">{t("storyboard.emptyDesc")}</p>
         </div>
       </div>
     );
@@ -111,12 +113,12 @@ export const StoryboardPanel = memo(function StoryboardPanel() {
       <div className="flex h-9 shrink-0 items-center justify-between border-b border-nc-border px-4">
         <div className="flex items-center gap-3">
           <span className="text-[10px] font-medium uppercase tracking-[0.12em] text-nc-text-tertiary">
-            Storyboard
+            {t("storyboard.title")}
           </span>
           <span className="font-mono text-[10px] tabular-nums text-nc-text-ghost">
             {completed}/{shots.length}
             {generating > 0 && (
-              <span className="ml-1 text-nc-info">({generating} rendering)</span>
+              <span className="ml-1 text-nc-info">({generating} {t("storyboard.renderingCount")})</span>
             )}
           </span>
         </div>
@@ -213,6 +215,7 @@ const ShotCard = memo(function ShotCard({
   const [hovering, setHovering] = useState(false);
   const hasVideo = !!shot.video_url;
   const isCompact = gridSize === "sm";
+  const { t } = useI18nStore();
 
   return (
     <div
@@ -252,7 +255,7 @@ const ShotCard = memo(function ShotCard({
         ) : shot.status === "generating" || shot.status === "processing" ? (
           <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-nc-panel">
             <div className="h-5 w-5 animate-spin rounded-full border-2 border-nc-accent border-t-transparent" />
-            {!isCompact && <span className="text-[9px] text-nc-text-ghost">Rendering...</span>}
+            {!isCompact && <span className="text-[9px] text-nc-text-ghost">{t("storyboard.rendering")}</span>}
           </div>
         ) : shot.status === "failed" ? (
           <div className="flex h-full w-full flex-col items-center justify-center gap-1 bg-nc-error/5">
@@ -260,12 +263,12 @@ const ShotCard = memo(function ShotCard({
               <circle cx="8" cy="8" r="6" /><path d="M6 6l4 4M10 6l-4 4" />
             </svg>
             {!isCompact && (
-              <button onClick={onRegenerate} className="text-[9px] text-nc-accent hover:underline">Retry</button>
+              <button onClick={onRegenerate} className="text-[9px] text-nc-accent hover:underline">{t("storyboard.retry")}</button>
             )}
           </div>
         ) : (
           <div className="flex h-full w-full items-center justify-center bg-nc-panel">
-            <span className="text-[10px] text-nc-text-ghost">Pending</span>
+            <span className="text-[10px] text-nc-text-ghost">{t("storyboard.pending")}</span>
           </div>
         )}
 
@@ -326,10 +329,10 @@ const ShotCard = memo(function ShotCard({
               />
               <div className="mt-1 flex justify-end gap-1">
                 <button onClick={onCancelEdit} className="rounded px-2 py-0.5 text-[9px] text-nc-text-ghost hover:bg-nc-panel">
-                  Cancel
+                  {t("storyboard.cancel")}
                 </button>
                 <button onClick={onSavePrompt} className="rounded bg-nc-accent px-2 py-0.5 text-[9px] font-medium text-nc-bg">
-                  Save
+                  {t("storyboard.save")}
                 </button>
               </div>
             </div>
@@ -372,7 +375,7 @@ const ShotCard = memo(function ShotCard({
                 onClick={(e) => { e.stopPropagation(); onStartEditPrompt(); }}
                 className="ml-auto rounded px-1.5 py-0.5 text-[8px] text-nc-accent hover:bg-nc-accent/10"
               >
-                Edit
+                {t("storyboard.edit")}
               </button>
             </div>
           )}
@@ -388,10 +391,11 @@ const ShotCard = memo(function ShotCard({
 });
 
 function QualityBar({ score }: { score: QualityScore }) {
+  const { t } = useI18nStore();
   const metrics = [
-    { label: "Char", value: score.characterConsistency, color: "bg-nc-info" },
-    { label: "Prompt", value: score.promptQuality, color: "bg-nc-accent" },
-    { label: "Style", value: score.styleCoherence, color: "bg-nc-success" },
+    { label: t("storyboard.char"), value: score.characterConsistency, color: "bg-nc-info" },
+    { label: t("storyboard.prompt"), value: score.promptQuality, color: "bg-nc-accent" },
+    { label: t("storyboard.style"), value: score.styleCoherence, color: "bg-nc-success" },
   ];
 
   return (

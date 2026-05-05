@@ -142,7 +142,7 @@ const NAV_ITEMS: { id: SidebarPage; labelKey: string; icon: (active: boolean) =>
         <button
           onClick={() => setLang(lang === "en" ? "zh" : "en")}
           className="flex h-8 w-8 items-center justify-center rounded-full text-[10px] font-bold uppercase text-nc-text-tertiary hover:bg-nc-panel-hover hover:text-nc-text-secondary"
-          title="Toggle Language"
+          title={t("nav.toggleLang")}
         >
           {lang}
         </button>
@@ -151,7 +151,7 @@ const NAV_ITEMS: { id: SidebarPage; labelKey: string; icon: (active: boolean) =>
           <button
             onClick={logout}
             className="group relative flex h-8 w-8 items-center justify-center rounded-full bg-nc-accent/20 text-[11px] font-medium text-nc-accent transition-all hover:bg-red-500/20 hover:text-red-500 hover:ring-1 hover:ring-red-500/30"
-            title={`Logout (${user.email})`}
+            title={`${t("nav.logout")} (${user.email})`}
           >
             <span className="group-hover:hidden">{user.email.charAt(0).toUpperCase()}</span>
             <svg className="hidden h-3.5 w-3.5 group-hover:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -164,7 +164,7 @@ const NAV_ITEMS: { id: SidebarPage; labelKey: string; icon: (active: boolean) =>
           <button
             onClick={() => setSidebarPage("settings")}
             className="group relative flex h-8 w-8 items-center justify-center rounded-full bg-nc-panel-hover text-[11px] font-medium text-nc-text-secondary transition-all hover:bg-nc-panel-active hover:ring-1 hover:ring-nc-accent/20"
-            title="Sign In"
+            title={t("nav.signIn")}
           >
             <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>

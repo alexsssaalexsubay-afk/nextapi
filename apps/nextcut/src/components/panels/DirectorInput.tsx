@@ -8,6 +8,7 @@ import { WorkflowPresets } from "@/components/director/WorkflowPresets";
 import { PipelineStepFlow } from "@/components/director/PipelineStepFlow";
 import { CharacterPanel } from "@/components/director/CharacterPanel";
 import { PromptQualityMeter } from "@/components/director/PromptQualityMeter";
+import { useI18nStore } from "@/stores/i18n-store";
 
 const STYLES = [
   { id: "cinematic", label: "Cinematic", icon: "🎬" },
@@ -45,6 +46,7 @@ export function DirectorInput() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { t } = useI18nStore();
 
   const inputMode: InputMode = useStructuredPrompt ? "structured" : "freeform";
   const hasPlan = shots.length > 0;
@@ -117,7 +119,7 @@ export function DirectorInput() {
                   : "text-nc-text-ghost hover:text-nc-text-tertiary"
               )}
             >
-              Freeform
+              {t("director.freeform")}
             </button>
             <button
               onClick={() => setUseStructuredPrompt(true)}
@@ -128,11 +130,11 @@ export function DirectorInput() {
                   : "text-nc-text-ghost hover:text-nc-text-tertiary"
               )}
             >
-              Director Mode
+              {t("director.directorMode")}
             </button>
           </div>
           {wordCount > 0 && inputMode === "freeform" && (
-            <span className="text-[9px] tabular-nums text-nc-text-ghost">{wordCount} words</span>
+            <span className="text-[9px] tabular-nums text-nc-text-ghost">{wordCount} {t("director.words")}</span>
           )}
         </div>
 
@@ -142,7 +144,7 @@ export function DirectorInput() {
             <textarea
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
-              placeholder="Describe your video idea, paste a script, or write a detailed brief...&#10;&#10;Tip: More detail = better results. Include character descriptions, emotions, settings, and camera movements."
+              placeholder={t("director.promptPlaceholder")}
               rows={5}
               disabled={isRunning}
               className={cn(
@@ -165,7 +167,7 @@ export function DirectorInput() {
 
         {/* Characters */}
         <CollapsibleSection
-          title="Characters"
+          title={t("director.characters")}
           titleZh="角色管理"
           expanded={expandedSection === "characters"}
           onToggle={() => toggleSection("characters")}
@@ -175,7 +177,7 @@ export function DirectorInput() {
 
         {/* Collapsible sections */}
         <CollapsibleSection
-          title="Seedance Workflow"
+          title={t("director.workflow")}
           titleZh="生成工作流"
           expanded={expandedSection === "workflow"}
           onToggle={() => toggleSection("workflow")}
@@ -184,7 +186,7 @@ export function DirectorInput() {
         </CollapsibleSection>
 
         <CollapsibleSection
-          title="Visual Style & Ratio"
+          title={t("director.style")}
           titleZh="风格和比例"
           expanded={expandedSection === "style"}
           onToggle={() => toggleSection("style")}
@@ -233,21 +235,21 @@ export function DirectorInput() {
         </CollapsibleSection>
 
         <CollapsibleSection
-          title="Shots & Duration"
+          title={t("director.shotsDuration")}
           titleZh="镜头和时长"
           expanded={expandedSection === "params"}
           onToggle={() => toggleSection("params")}
         >
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="mb-1.5 block text-[10px] text-nc-text-tertiary">Shots</label>
+              <label className="mb-1.5 block text-[10px] text-nc-text-tertiary">{t("director.shotsLabel")}</label>
               <div className="flex items-center gap-2">
                 <input type="range" min={1} max={24} value={numShots} onChange={(e) => setNumShots(parseInt(e.target.value))} disabled={isRunning} className="flex-1" />
                 <span className="w-6 text-center font-mono text-[12px] tabular-nums text-nc-text-secondary">{numShots}</span>
               </div>
             </div>
             <div>
-              <label className="mb-1.5 block text-[10px] text-nc-text-tertiary">Duration (s)</label>
+              <label className="mb-1.5 block text-[10px] text-nc-text-tertiary">{t("director.durationLabel")}</label>
               <div className="flex items-center gap-2">
                 <input type="range" min={4} max={15} value={duration} onChange={(e) => setDuration(parseInt(e.target.value))} disabled={isRunning} className="flex-1" />
                 <span className="w-6 text-center font-mono text-[12px] tabular-nums text-nc-text-secondary">{duration}</span>
@@ -257,7 +259,7 @@ export function DirectorInput() {
         </CollapsibleSection>
 
         <CollapsibleSection
-          title="Reference Assets"
+          title={t("director.refs")}
           titleZh="参考素材"
           expanded={expandedSection === "refs"}
           onToggle={() => toggleSection("refs")}
@@ -303,7 +305,7 @@ export function DirectorInput() {
                 <circle cx="4.5" cy="5.5" r="1.5" />
                 <path d="M1 10l3.5-3.5L7 9l2-2 4 4" />
               </svg>
-              Drop images, video, or audio for character/style reference
+              {t("director.dropRefs")}
             </div>
           )}
         </CollapsibleSection>
@@ -316,7 +318,7 @@ export function DirectorInput() {
               className="flex h-10 items-center justify-center gap-2 rounded-[var(--radius-md)] border border-nc-error/30 bg-nc-error/10 text-[12px] font-semibold text-nc-error transition-colors hover:bg-nc-error/20"
             >
               <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor"><rect x="1" y="1" width="8" height="8" rx="1" /></svg>
-              Stop Pipeline
+              {t("director.stopPipeline")}
             </button>
           ) : (
             <button
@@ -330,7 +332,7 @@ export function DirectorInput() {
               )}
             >
               <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor"><polygon points="3,1 13,7 3,13" /></svg>
-              {hasPlan ? "Re-plan Shots" : "Generate Plan"}
+              {hasPlan ? t("director.replanShots") : t("director.generatePlan")}
             </button>
           )}
 
@@ -346,9 +348,9 @@ export function DirectorInput() {
               )}
             >
               {isGenerating ? (
-                <><div className="h-3 w-3 animate-spin rounded-full border-[1.5px] border-nc-info border-t-transparent" />Submitting...</>
+                <><div className="h-3 w-3 animate-spin rounded-full border-[1.5px] border-nc-info border-t-transparent" />{t("director.submitting")}</>
               ) : (
-                <>Generate {pendingShots.length} Video{pendingShots.length > 1 ? "s" : ""}</>
+                <>{t("director.generateXVideos").replace("{count}", pendingShots.length.toString()).replace("{plural}", pendingShots.length > 1 ? "s" : "")}</>
               )}
             </button>
           )}
@@ -359,12 +361,12 @@ export function DirectorInput() {
           <div className="flex items-center gap-3 rounded-[var(--radius-md)] border border-nc-border bg-nc-surface px-3 py-2.5">
             <div className="flex items-center gap-1.5">
               <span className="h-1.5 w-1.5 rounded-full bg-nc-success" />
-              <span className="text-[10px] text-nc-text-secondary">{shots.length} shots</span>
+              <span className="text-[10px] text-nc-text-secondary">{shots.length} {t("director.shotsLabel").toLowerCase()}</span>
             </div>
             {shots.filter((s) => s.video_url).length > 0 && (
               <div className="flex items-center gap-1.5">
                 <span className="h-1.5 w-1.5 rounded-full bg-nc-accent" />
-                <span className="text-[10px] text-nc-accent">{shots.filter((s) => s.video_url).length} rendered</span>
+                <span className="text-[10px] text-nc-accent">{shots.filter((s) => s.video_url).length} {t("director.rendered")}</span>
               </div>
             )}
             <span className="ml-auto font-mono text-[9px] tabular-nums text-nc-text-ghost">

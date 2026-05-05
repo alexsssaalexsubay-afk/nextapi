@@ -2,6 +2,7 @@ import { useState } from "react";
 import { cn } from "@/lib/cn";
 import { useAuthStore } from "@/stores/auth-store";
 import { useAppStore } from "@/stores/app-store";
+import { useI18nStore } from "@/stores/i18n-store";
 
 type AuthTab = "login" | "license";
 
@@ -14,6 +15,7 @@ export function LoginPanel() {
   
   const { loginWithPassword, isLoading, error, clearError, user } = useAuthStore();
   const { setSidebarPage } = useAppStore();
+  const { t } = useI18nStore();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,13 +40,13 @@ export function LoginPanel() {
               <circle cx="12" cy="7" r="4"></circle>
             </svg>
           </div>
-          <h2 className="mb-2 text-lg font-semibold text-nc-text">Signed In</h2>
+          <h2 className="mb-2 text-lg font-semibold text-nc-text">{t("auth.signedIn")}</h2>
           <p className="mb-8 text-sm text-nc-text-tertiary">{user.email}</p>
           <button 
             onClick={() => setSidebarPage("workspace")}
             className="h-10 w-full rounded-[var(--radius-md)] bg-nc-accent text-sm font-semibold text-nc-bg hover:bg-nc-accent-hover"
           >
-            Go to Workspace
+            {t("auth.goWorkspace")}
           </button>
         </div>
       </div>
@@ -67,16 +69,16 @@ export function LoginPanel() {
 
         {/* Tab switcher */}
         <div className="mb-5 flex rounded-[var(--radius-md)] border border-nc-border bg-nc-panel p-0.5">
-          {(["login", "license"] as AuthTab[]).map((t) => (
+          {(["login", "license"] as AuthTab[]).map((tId) => (
             <button
-              key={t}
-              onClick={() => { setTab(t); clearError(); }}
+              key={tId}
+              onClick={() => { setTab(tId); clearError(); }}
               className={cn(
                 "h-7 flex-1 rounded-[var(--radius-sm)] text-[11px] font-medium",
-                tab === t ? "bg-nc-panel-active text-nc-text" : "text-nc-text-ghost hover:text-nc-text-tertiary"
+                tab === tId ? "bg-nc-panel-active text-nc-text" : "text-nc-text-ghost hover:text-nc-text-tertiary"
               )}
             >
-              {t === "login" ? "NextAPI Account" : "License Key"}
+              {tId === "login" ? t("auth.account") : t("auth.license")}
             </button>
           ))}
         </div>
@@ -84,7 +86,7 @@ export function LoginPanel() {
         {tab === "login" ? (
           <form onSubmit={handleLogin} className="flex flex-col gap-3">
             <p className="mb-2 text-[12px] leading-relaxed text-nc-text-tertiary">
-              Sign in to unlock Seedance 2.0, unlimited projects, and Pro features.
+              {t("auth.unlockMessage")}
             </p>
             
             {error && (
@@ -97,7 +99,7 @@ export function LoginPanel() {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="Email address"
+              placeholder={t("auth.email")}
               className="h-9 rounded-[var(--radius-sm)] border border-nc-border bg-nc-panel px-3 text-[12px] text-nc-text outline-none placeholder:text-nc-text-ghost focus:border-nc-accent/40 focus:ring-1 focus:ring-nc-accent/10"
               required
             />
@@ -106,7 +108,7 @@ export function LoginPanel() {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Password"
+              placeholder={t("auth.password")}
               className="h-9 rounded-[var(--radius-sm)] border border-nc-border bg-nc-panel px-3 text-[12px] text-nc-text outline-none placeholder:text-nc-text-ghost focus:border-nc-accent/40 focus:ring-1 focus:ring-nc-accent/10"
               required
             />
@@ -121,16 +123,16 @@ export function LoginPanel() {
                   : "bg-nc-accent text-nc-bg hover:bg-nc-accent-hover"
               )}
             >
-              {isLoading ? "Signing in..." : "Sign in with NextAPI"}
+              {isLoading ? t("auth.signingIn") : t("auth.signInNextAPI")}
             </button>
             <div className="mt-2 text-center text-[10px] text-nc-text-ghost">
-              or continue with free tier
+              {t("auth.orFree")}
             </div>
           </form>
         ) : (
           <div className="flex flex-col gap-3">
             <p className="text-[12px] leading-relaxed text-nc-text-tertiary">
-              Enter your enterprise license for air-gapped or OEM deployment.
+              {t("auth.enterLicense")}
             </p>
             <input
               type="text"
@@ -148,14 +150,14 @@ export function LoginPanel() {
                   : "bg-nc-panel text-nc-text-ghost cursor-not-allowed"
               )}
             >
-              Activate License
+              {t("auth.activateLicense")}
             </button>
           </div>
         )}
 
         <div className="mt-8 text-center">
-          <div className="text-[10px] text-nc-text-ghost">Free: 3 projects · 5 shots · watermark</div>
-          <div className="mt-1 text-[10px] text-nc-accent/60">Pro: Unlimited · Seedance 2.0 · No watermark</div>
+          <div className="text-[10px] text-nc-text-ghost">{t("auth.freeFeatures")}</div>
+          <div className="mt-1 text-[10px] text-nc-accent/60">{t("auth.proFeatures")}</div>
         </div>
       </div>
     </div>

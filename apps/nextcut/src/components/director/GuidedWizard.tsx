@@ -3,6 +3,7 @@ import { cn } from "@/lib/cn";
 import { useDirectorStore, type SeedanceWorkflow } from "@/stores/director-store";
 import { useAppStore } from "@/stores/app-store";
 import { useDirector } from "@/hooks/useDirector";
+import { useI18nStore } from "@/stores/i18n-store";
 
 type WizardStep = "goal" | "content" | "style" | "confirm";
 
@@ -101,6 +102,7 @@ export const GuidedWizard = memo(function GuidedWizard({
   } = useDirectorStore();
   const setSidebarPage = useAppStore((s) => s.setSidebarPage);
   const { runPipeline } = useDirector();
+  const { t, lang } = useI18nStore();
 
   const [step, setStep] = useState<WizardStep>("goal");
   const [selectedGoal, setSelectedGoal] = useState<string | null>(null);
@@ -166,8 +168,8 @@ export const GuidedWizard = memo(function GuidedWizard({
         {/* Step: Goal */}
         {step === "goal" && (
           <div>
-            <h2 className="mb-1 text-center text-[18px] font-bold text-nc-text">What do you want to create?</h2>
-            <p className="mb-5 text-center text-[12px] text-nc-text-ghost">Pick a goal and we&apos;ll set everything up for you</p>
+            <h2 className="mb-1 text-center text-[18px] font-bold text-nc-text">{t("wizard.step1Title")}</h2>
+            <p className="mb-5 text-center text-[12px] text-nc-text-ghost">{t("wizard.step1Desc")}</p>
             <div className="grid grid-cols-3 gap-2.5">
               {GOALS.map((g) => (
                 <button
@@ -181,8 +183,8 @@ export const GuidedWizard = memo(function GuidedWizard({
                   )}
                 >
                   {g.icon}
-                  <div className="text-[11px] font-semibold text-nc-text">{g.label}</div>
-                  <div className="text-[9px] text-nc-text-ghost">{g.labelZh}</div>
+                  <div className="text-[11px] font-semibold text-nc-text">{lang === "zh" ? g.labelZh : g.label}</div>
+                  <div className="text-[9px] text-nc-text-ghost">{lang === "zh" ? g.label : g.labelZh}</div>
                 </button>
               ))}
             </div>
@@ -192,9 +194,9 @@ export const GuidedWizard = memo(function GuidedWizard({
         {/* Step: Content */}
         {step === "content" && (
           <div>
-            <h2 className="mb-1 text-center text-[18px] font-bold text-nc-text">Describe your idea</h2>
+            <h2 className="mb-1 text-center text-[18px] font-bold text-nc-text">{t("wizard.step2Title")}</h2>
             <p className="mb-5 text-center text-[12px] text-nc-text-ghost">
-              Write in any language. Be as brief or detailed as you like — our AI screenwriter will expand it.
+              {t("wizard.step2Desc")}
             </p>
             <textarea
               value={ideaText}
@@ -210,8 +212,8 @@ export const GuidedWizard = memo(function GuidedWizard({
               autoFocus
             />
             <div className="mt-2 flex items-center justify-between text-[9px] text-nc-text-ghost">
-              <span>{ideaText.trim().split(/\s+/).filter(Boolean).length} words</span>
-              <span>Any language OK — we&apos;ll translate to optimal English for Seedance</span>
+              <span>{ideaText.trim().split(/\s+/).filter(Boolean).length} {t("wizard.words")}</span>
+              <span>{t("wizard.anyLang")}</span>
             </div>
           </div>
         )}
@@ -219,8 +221,8 @@ export const GuidedWizard = memo(function GuidedWizard({
         {/* Step: Style */}
         {step === "style" && (
           <div>
-            <h2 className="mb-1 text-center text-[18px] font-bold text-nc-text">Choose a look</h2>
-            <p className="mb-5 text-center text-[12px] text-nc-text-ghost">Pick a visual style and format</p>
+            <h2 className="mb-1 text-center text-[18px] font-bold text-nc-text">{t("wizard.step3Title")}</h2>
+            <p className="mb-5 text-center text-[12px] text-nc-text-ghost">{t("wizard.step3Desc")}</p>
             <div className="mb-4 grid grid-cols-4 gap-2">
               {STYLE_OPTIONS.map((s) => (
                 <button
@@ -239,7 +241,7 @@ export const GuidedWizard = memo(function GuidedWizard({
               ))}
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-[10px] text-nc-text-tertiary">Format:</span>
+              <span className="text-[10px] text-nc-text-tertiary">{t("wizard.format")}</span>
               {[
                 { id: "16:9", label: "Landscape" },
                 { id: "9:16", label: "Portrait" },
@@ -265,24 +267,24 @@ export const GuidedWizard = memo(function GuidedWizard({
         {/* Step: Confirm */}
         {step === "confirm" && goal && (
           <div>
-            <h2 className="mb-1 text-center text-[18px] font-bold text-nc-text">Ready to create!</h2>
-            <p className="mb-5 text-center text-[12px] text-nc-text-ghost">Review your settings and hit generate</p>
+            <h2 className="mb-1 text-center text-[18px] font-bold text-nc-text">{t("wizard.step4Title")}</h2>
+            <p className="mb-5 text-center text-[12px] text-nc-text-ghost">{t("wizard.step4Desc")}</p>
             <div className="space-y-2 rounded-xl border border-nc-border bg-nc-surface p-4">
-              <ConfirmRow label="Goal" value={goal.label} />
-              <ConfirmRow label="Style" value={selectedStyle} />
-              <ConfirmRow label="Format" value={ratio} />
-              <ConfirmRow label="Shots" value={String(goal.defaultShots)} />
-              <ConfirmRow label="Duration/shot" value={`${goal.defaultDuration}s`} />
-              <ConfirmRow label="Workflow" value={goal.workflow.replace(/_/g, " ")} />
+              <ConfirmRow label={t("wizard.goal")} value={lang === "zh" ? goal.labelZh : goal.label} />
+              <ConfirmRow label={t("wizard.style")} value={selectedStyle} />
+              <ConfirmRow label={t("wizard.formatVal")} value={ratio} />
+              <ConfirmRow label={t("wizard.shots")} value={String(goal.defaultShots)} />
+              <ConfirmRow label={t("wizard.duration")} value={`${goal.defaultDuration}s`} />
+              <ConfirmRow label={t("wizard.workflow")} value={goal.workflow.replace(/_/g, " ")} />
               <div className="border-t border-nc-border pt-2">
-                <div className="text-[9px] font-medium text-nc-text-ghost">Your idea:</div>
+                <div className="text-[9px] font-medium text-nc-text-ghost">{t("wizard.yourIdea")}</div>
                 <p className="mt-0.5 text-[11px] leading-relaxed text-nc-text-secondary">
                   {ideaText.length > 200 ? ideaText.slice(0, 200) + "..." : ideaText}
                 </p>
               </div>
             </div>
             <div className="mt-3 rounded-[var(--radius-md)] border border-nc-accent/10 bg-nc-accent-muted px-3 py-2 text-[9px] leading-relaxed text-nc-text-ghost">
-              Our AI agents will: write a screenplay → extract characters → create storyboard → refine camera angles → optimize prompts → check consistency. You can edit at each step.
+              {t("wizard.agentSteps")}
             </div>
           </div>
         )}
@@ -293,7 +295,7 @@ export const GuidedWizard = memo(function GuidedWizard({
             onClick={step === "goal" ? onClose : handleBack}
             className="rounded-[var(--radius-md)] px-4 py-2 text-[12px] text-nc-text-ghost transition-colors hover:text-nc-text-tertiary"
           >
-            {step === "goal" ? "Cancel" : "Back"}
+            {step === "goal" ? t("wizard.cancel") : t("wizard.back")}
           </button>
 
           {step === "confirm" ? (
@@ -302,7 +304,7 @@ export const GuidedWizard = memo(function GuidedWizard({
               className="flex items-center gap-2 rounded-xl bg-nc-accent px-6 py-2.5 text-[13px] font-bold text-nc-bg shadow-lg shadow-nc-accent/20 transition-all hover:bg-nc-accent-hover hover:shadow-xl"
             >
               <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor"><polygon points="3,1 13,7 3,13" /></svg>
-              Generate Video
+              {t("wizard.generate")}
             </button>
           ) : (
             <button
@@ -315,7 +317,7 @@ export const GuidedWizard = memo(function GuidedWizard({
                   : "bg-nc-panel text-nc-text-ghost cursor-not-allowed"
               )}
             >
-              Next
+              {t("wizard.next")}
             </button>
           )}
         </div>

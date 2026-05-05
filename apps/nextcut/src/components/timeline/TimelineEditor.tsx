@@ -2,6 +2,7 @@ import { memo, useRef, useCallback, useState, useEffect } from "react";
 import { cn } from "@/lib/cn";
 import { useAppStore } from "@/stores/app-store";
 import { useDirectorStore } from "@/stores/director-store";
+import { useI18nStore } from "@/stores/i18n-store";
 
 const PX_PER_SECOND_BASE = 60;
 
@@ -19,6 +20,7 @@ const TRACK_COLORS = [
 export const TimelineEditor = memo(function TimelineEditor() {
   const { selectedShotId, setSelectedShotId, timelineZoom, setTimelineZoom } = useAppStore();
   const directorShots = useDirectorStore((s) => s.shots);
+  const { t } = useI18nStore();
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const [playheadPos, setPlayheadPos] = useState(0);
@@ -84,10 +86,10 @@ export const TimelineEditor = memo(function TimelineEditor() {
     return (
       <div className="flex h-full flex-col bg-nc-surface">
         <div className="flex h-8 items-center justify-between border-b border-nc-border px-4">
-          <span className="text-[10px] font-medium uppercase tracking-[0.12em] text-nc-text-tertiary">Timeline</span>
+          <span className="text-[10px] font-medium uppercase tracking-[0.12em] text-nc-text-tertiary">{t("timeline.title")}</span>
         </div>
         <div className="flex flex-1 items-center justify-center">
-          <span className="text-[11px] text-nc-text-ghost">Generate a plan to populate the timeline</span>
+          <span className="text-[11px] text-nc-text-ghost">{t("timeline.empty")}</span>
         </div>
       </div>
     );
@@ -98,7 +100,7 @@ export const TimelineEditor = memo(function TimelineEditor() {
       {/* Header */}
       <div className="flex h-8 shrink-0 items-center justify-between border-b border-nc-border px-4">
         <div className="flex items-center gap-4">
-          <span className="text-[10px] font-medium uppercase tracking-[0.12em] text-nc-text-tertiary">Timeline</span>
+          <span className="text-[10px] font-medium uppercase tracking-[0.12em] text-nc-text-tertiary">{t("timeline.title")}</span>
           <div className="font-mono text-[10px] tabular-nums text-nc-accent">
             {formatTimecode(playheadPos)}
           </div>
@@ -107,7 +109,7 @@ export const TimelineEditor = memo(function TimelineEditor() {
           <div className="flex items-center gap-2 font-mono text-[10px] text-nc-text-ghost">
             <span className="tabular-nums">{totalDuration.toFixed(1)}s</span>
             <span className="text-nc-border-strong">/</span>
-            <span className="tabular-nums">{directorShots.length} shots</span>
+            <span className="tabular-nums">{directorShots.length} {t("timeline.shots")}</span>
           </div>
 
           {/* Zoom control */}
@@ -174,7 +176,7 @@ export const TimelineEditor = memo(function TimelineEditor() {
           <div className="absolute left-0 top-5 z-10 flex h-[calc(100%-20px)] w-12 flex-col justify-center border-r border-nc-border bg-nc-surface">
             <div className="flex items-center justify-center">
               <span className="text-[8px] font-medium uppercase tracking-widest text-nc-text-ghost" style={{ writingMode: "vertical-lr", transform: "rotate(180deg)" }}>
-                Video
+                {t("timeline.video")}
               </span>
             </div>
           </div>
@@ -237,7 +239,7 @@ export const TimelineEditor = memo(function TimelineEditor() {
           <div className="relative ml-12 flex flex-col gap-[2px] border-t border-nc-border/40 px-1 py-1">
             <div className="absolute -left-12 top-0 flex h-full w-12 items-center justify-center border-r border-nc-border bg-nc-surface">
               <span className="text-[8px] font-medium uppercase tracking-widest text-nc-text-ghost" style={{ writingMode: "vertical-lr", transform: "rotate(180deg)" }}>
-                Audio
+                {t("timeline.audio")}
               </span>
             </div>
             <div className="flex items-center gap-[2px]">
