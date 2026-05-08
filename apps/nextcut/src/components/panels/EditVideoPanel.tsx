@@ -3,6 +3,7 @@ import { cn } from "@/lib/cn";
 import { useAppStore } from "@/stores/app-store";
 import { useDirectorStore } from "@/stores/director-store";
 import { sidecarFetch } from "@/lib/sidecar";
+import { buildGeneratePayload, formatPreflightFindings, runGenerationPreflight } from "@/lib/generation";
 
 type EditMode = "inpaint" | "restyle" | "replace";
 
@@ -38,6 +39,7 @@ export const EditVideoPanel = memo(function EditVideoPanel() {
   const [strength, setStrength] = useState(0.7);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [preflightError, setPreflightError] = useState("");
 
   const canSubmit = selectedShot?.video_url && editPrompt.trim().length > 0;
 
@@ -45,23 +47,33 @@ export const EditVideoPanel = memo(function EditVideoPanel() {
     if (!canSubmit || !selectedShot) return;
     setSubmitting(true);
     setSubmitted(false);
+    setPreflightError("");
+    const payload = {
+      ...buildGeneratePayload({
+        shot: selectedShot,
+        pipeline,
+        aspectRatio,
+        workflow: `video_edit_${mode}`,
+        promptOverride: editPrompt,
+        extraVideoUrls: [selectedShot.video_url],
+      }),
+      shot_id: `${selectedShot.id}-edit-${mode}`,
+      constraints: [
+        selectedShot.generationParams?.constraints || "",
+        `Edit mode: ${mode}`,
+        mode === "inpaint" ? `Mask region: ${maskDesc}` : "",
+        `Edit strength: ${strength}`,
+      ].filter(Boolean).join("\n"),
+    };
     try {
+      const preflight = await runGenerationPreflight([payload], true);
+      if (preflight.status === "blocked") {
+        setPreflightError(formatPreflightFindings(preflight));
+        return;
+      }
       await sidecarFetch("/generate/submit", {
         method: "POST",
-        body: JSON.stringify({
-          shot_id: `${selectedShot.id}-edit-${mode}`,
-          prompt: editPrompt,
-          video_url: selectedShot.video_url,
-          edit_mode: mode,
-          mask_description: mode === "inpaint" ? maskDesc : undefined,
-          strength,
-          duration: selectedShot.duration,
-          quality: pipeline.video_quality,
-          aspect_ratio: aspectRatio,
-          model: pipeline.video_model,
-          api_key: pipeline.video_api_key,
-          base_url: pipeline.video_base_url,
-        }),
+        body: JSON.stringify(payload),
       });
       setSubmitted(true);
     } catch {
@@ -196,6 +208,12 @@ export const EditVideoPanel = memo(function EditVideoPanel() {
           {mode === "restyle" && "Tip: Keep motion intact while changing aesthetics. Lower strength preserves more of the original."}
           {mode === "replace" && "Tip: Best for swapping backgrounds or subjects. Use high strength for dramatic changes."}
         </div>
+
+        {preflightError && (
+          <div className="whitespace-pre-line rounded-lg border border-nc-error/20 bg-nc-error/5 p-3 text-xs leading-relaxed text-nc-error shadow-sm">
+            {preflightError}
+          </div>
+        )}
 
         {/* Submit */}
         <button

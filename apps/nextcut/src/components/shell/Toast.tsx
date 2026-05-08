@@ -37,7 +37,7 @@ export function Toast() {
           setVisible(false);
           setTimeout(() => setLastError(null), 300);
         }}
-        className="ml-2 rounded-md p-1 text-nc-text-tertiary transition-colors hover:bg-nc-error/10 hover:text-nc-text-secondary"
+        className="ml-2 flex h-9 w-9 items-center justify-center rounded-[10px] text-nc-text-tertiary transition-colors hover:bg-nc-error/10 hover:text-nc-text-secondary"
       >
         <svg width="10" height="10" viewBox="0 0 10 10" stroke="currentColor" strokeWidth="1.5">
           <line x1="1" y1="1" x2="9" y2="9" />

@@ -17,6 +17,7 @@ from openai import AsyncOpenAI
 from pydantic import BaseModel, ValidationError
 
 from director_engine.interfaces.models import AgentConfig, LLMProvider
+from director_engine.tools.runtime_prompts import resolve_system_prompt
 
 T = TypeVar("T", bound=BaseModel)
 logger = logging.getLogger(__name__)
@@ -41,6 +42,7 @@ class BaseAgent:
         self.model = config.model
 
     async def _complete(self, system: str, user: str | list[Any], **kwargs: Any) -> str:
+        system = resolve_system_prompt(system)
         resp = await self.client.chat.completions.create(
             model=self.model,
             messages=[
@@ -53,6 +55,7 @@ class BaseAgent:
         return resp.choices[0].message.content or ""
 
     async def _complete_json(self, system: str, user: str | list[Any], schema: type[T], **kwargs: Any) -> T:
+        system = resolve_system_prompt(system)
         schema_json = json.dumps(schema.model_json_schema(), indent=2)
         system_with_format = (
             f"{system}\n\n"

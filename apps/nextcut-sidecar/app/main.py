@@ -3,8 +3,9 @@ from contextlib import asynccontextmanager
 from collections.abc import AsyncGenerator
 
 import os
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.core.config import settings
@@ -18,6 +19,10 @@ from app.api.auth import router as auth_router
 from app.api.setup import router as setup_router
 from app.api.quickcreate import router as quickcreate_router
 from app.api.generate import router as generate_router
+from app.api.config import router as config_router
+
+TRUSTED_ORIGINS = {"http://localhost:1420", "https://cut.nextapi.top", "tauri://localhost"}
+MUTATING_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
 
 
 @asynccontextmanager
@@ -37,11 +42,22 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:1420", "https://cut.nextapi.top", "tauri://localhost"],
+    allow_origins=list(TRUSTED_ORIGINS),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def enforce_renderer_request_binding(request: Request, call_next):
+    if request.method in MUTATING_METHODS:
+        origin = request.headers.get("origin")
+        if origin and origin not in TRUSTED_ORIGINS:
+            return JSONResponse({"detail": "Untrusted origin"}, status_code=403)
+        if request.headers.get("x-nextcut-client") != "nextcut-renderer":
+            return JSONResponse({"detail": "Missing NextCut client binding"}, status_code=403)
+    return await call_next(request)
 
 app.include_router(director_router, prefix="/director", tags=["director"])
 app.include_router(agents_router, prefix="/agents", tags=["agents"])
@@ -52,6 +68,7 @@ app.include_router(auth_router, prefix="/auth", tags=["auth"])
 app.include_router(setup_router, prefix="/setup", tags=["setup"])
 app.include_router(quickcreate_router, prefix="/quickcreate", tags=["quickcreate"])
 app.include_router(generate_router, prefix="/generate", tags=["generate"])
+app.include_router(config_router, prefix="/config", tags=["config"])
 
 os.makedirs("exports", exist_ok=True)
 app.mount("/exports", StaticFiles(directory="exports"), name="exports")
@@ -72,6 +89,10 @@ async def shutdown():
 
 @app.websocket("/ws/events")
 async def websocket_events(websocket: WebSocket):
+    origin = websocket.headers.get("origin")
+    if origin and origin not in TRUSTED_ORIGINS:
+        await websocket.close(code=1008)
+        return
     await websocket.accept()
     q = event_bus.subscribe()
     try:

@@ -15,6 +15,20 @@ type PortraitGenerationResponse = {
   image_url?: string;
 };
 
+type GeneratedCharacterAsset = {
+  id: string;
+  url: string;
+  role: string;
+  description: string;
+  prompt: string;
+};
+
+type CharacterAssetPackResponse = {
+  status: string;
+  assets?: GeneratedCharacterAsset[];
+  failures?: Array<{ role: string; message: string }>;
+};
+
 function createCharacter(name?: string): CharacterProfile {
   charCounter++;
   return {
@@ -30,7 +44,7 @@ function createCharacter(name?: string): CharacterProfile {
 }
 
 export const CharacterPanel = memo(function CharacterPanel() {
-  const { characters, addCharacter, updateCharacter, removeCharacter, shots } = useDirectorStore();
+  const { characters, addCharacter, updateCharacter, removeCharacter, shots, updateShot, addReference } = useDirectorStore();
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadTarget, setUploadTarget] = useState<string | null>(null);
@@ -43,6 +57,7 @@ export const CharacterPanel = memo(function CharacterPanel() {
   }, [addCharacter]);
 
   const [generating, setGenerating] = useState<string | null>(null);
+  const [assetPackGenerating, setAssetPackGenerating] = useState<string | null>(null);
 
   const handleGeneratePortrait = useCallback(async (charId: string) => {
     const char = characters.find((c) => c.id === charId);
@@ -69,6 +84,67 @@ export const CharacterPanel = memo(function CharacterPanel() {
       setGenerating(null);
     }
   }, [characters, updateCharacter]);
+
+  const handleGenerateAssetPack = useCallback(async (charId: string) => {
+    const char = characters.find((c) => c.id === charId);
+    if (!char || !char.appearance || assetPackGenerating) return;
+    setAssetPackGenerating(charId);
+    try {
+      const res = await sidecarFetch<CharacterAssetPackResponse>("/agents/generate-character-assets", {
+        method: "POST",
+        body: JSON.stringify({
+          character_id: char.id,
+          name: char.name,
+          appearance: char.appearance,
+          personality: char.personality,
+          voice: char.voice,
+          style: "photorealistic commercial film, production-grade identity reference",
+          modes: ["turnaround", "expressions", "outfits", "poses"],
+        }),
+      });
+      const assets = (res.assets || []).filter((asset) => asset.url);
+      if (!assets.length) return;
+      const urls = assets.map((asset) => asset.url);
+      const nextReferenceImages = uniqueCompact([...char.referenceImages, ...urls]);
+      updateCharacter(charId, {
+        referenceImages: nextReferenceImages,
+        locked: true,
+      });
+
+      assets.forEach((asset, index) => {
+        addReference({
+          id: asset.id,
+          name: `${char.name} · ${asset.description}`,
+          url: asset.url,
+          type: "image",
+          role: "角色身份",
+          description: `${asset.description} Identity Lock for ${char.name}.`,
+          priority: index === 0 ? "primary" : "support",
+          locked: true,
+        });
+      });
+
+      shots.forEach((shot) => {
+        if (!shotMatchesCharacter(shot.title, shot.prompt, char.name)) return;
+        const imageUrls = uniqueCompact([...(shot.generationParams?.image_urls || []), ...urls]).slice(0, 9);
+        const referenceInstructions = uniqueCompact([
+          ...(shot.generationParams?.reference_instructions || []),
+          `Use the character reference images for ${char.name} as an identity lock. Preserve face, body proportions, outfit logic, and silhouette across this shot.`,
+        ]);
+        updateShot(shot.id, {
+          generationParams: {
+            ...shot.generationParams,
+            image_urls: imageUrls,
+            reference_instructions: referenceInstructions,
+          },
+        });
+      });
+    } catch {
+      // handled by toast
+    } finally {
+      setAssetPackGenerating(null);
+    }
+  }, [addReference, assetPackGenerating, characters, shots, updateCharacter, updateShot]);
 
   const handleFileUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -293,9 +369,29 @@ export const CharacterPanel = memo(function CharacterPanel() {
                             <span>{t("char.aiGen")}</span>
                           </button>
                         )}
+                        {char.appearance && (
+                          <button
+                            onClick={() => handleGenerateAssetPack(char.id)}
+                            disabled={assetPackGenerating === char.id}
+                            className={cn(
+                              "flex h-14 min-w-[104px] flex-col items-center justify-center gap-0.5 rounded-lg border px-3 text-xs font-semibold shadow-sm transition-all",
+                              assetPackGenerating === char.id
+                                ? "border-nc-accent/30 bg-nc-accent/10 text-nc-accent"
+                                : "border-nc-accent/30 bg-white text-nc-accent hover:border-nc-accent hover:bg-nc-accent/5"
+                            )}
+                            title="生成三视图、表情、服装和姿态资产包，并写入角色锁"
+                          >
+                            {assetPackGenerating === char.id ? (
+                              <span className="h-3 w-3 animate-spin rounded-full border border-current border-t-transparent" />
+                            ) : (
+                              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1"><path d="M2 2h8v8H2zM4 4h4M4 6h4M4 8h2" /></svg>
+                            )}
+                            <span>{assetPackGenerating === char.id ? "生成中" : "资产包"}</span>
+                          </button>
+                        )}
                       </div>
                       <div className="mt-1 text-xs text-nc-text-secondary">
-                        {t("char.refHint")}
+                        {t("char.refHint")} 资产包会自动进入 Reference Stack，并注入匹配角色名的镜头。
                       </div>
                     </div>
 
@@ -375,3 +471,13 @@ export const CharacterPanel = memo(function CharacterPanel() {
     </div>
   );
 });
+
+function shotMatchesCharacter(title: string, prompt: string, characterName: string) {
+  const name = characterName.trim().toLowerCase();
+  if (!name) return false;
+  return title.toLowerCase().includes(name) || prompt.toLowerCase().includes(name);
+}
+
+function uniqueCompact(values: Array<string | undefined | null>) {
+  return Array.from(new Set(values.map((item) => item?.trim()).filter((item): item is string => Boolean(item))));
+}

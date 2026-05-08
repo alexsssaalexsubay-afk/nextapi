@@ -22,6 +22,7 @@ export async function sidecarFetch<T>(
           ...init,
           headers: {
             "Content-Type": "application/json",
+            "X-NextCut-Client": "nextcut-renderer",
             ...init?.headers,
           },
           signal: init?.signal || controller.signal,

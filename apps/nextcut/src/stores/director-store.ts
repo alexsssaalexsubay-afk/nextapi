@@ -1,5 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { safeMediaSrc } from "@/lib/media";
+import { TEMPLATE_CATALOG } from "@/lib/template-catalog";
 
 export interface AgentLLMConfig {
   provider: string;
@@ -28,18 +30,26 @@ export interface PipelineConfig {
 }
 
 export interface ReferenceAsset {
+  id?: string;
+  name?: string;
   url: string;
   type: "image" | "video" | "audio";
   role: string;
   description: string;
+  priority?: "primary" | "secondary" | "support";
+  locked?: boolean;
 }
 
 export interface StructuredPrompt {
   subject: string;
   action: string;
+  scene: string;
   camera: string;
+  motion: string;
   style: string;
+  lighting: string;
   constraints: string;
+  audio: string;
 }
 
 export type SeedanceWorkflow = "text_to_video" | "image_to_video" | "multimodal_story";
@@ -157,9 +167,16 @@ export interface ShotGenerationParams {
   constraints?: string;
   audio_cues?: string[];
   reference_instructions?: string[];
+  first_frame_desc?: string;
+  last_frame_desc?: string;
+  motion_desc?: string;
+  storyboard_image_url?: string;
+  first_frame_image_url?: string;
+  last_frame_image_url?: string;
   image_urls?: string[];
   video_urls?: string[];
   audio_urls?: string[];
+  provider_options?: Record<string, unknown>;
   provider_score?: number;
   provider_reason?: string;
 }
@@ -228,13 +245,20 @@ export interface WorkflowTemplate {
   description: string;
   duration: string;
   shotCount: number;
+  shotDuration?: number;
+  aspectRatio?: string;
   style: string;
   workflow: SeedanceWorkflow;
   prompt: string;
   tags: string[];
+  thumbnail?: string;
+  difficulty?: "入门" | "进阶" | "专业";
+  deliverables?: string[];
+  chain?: string[];
+  variables?: string[];
 }
 
-export const BUILTIN_TEMPLATES: WorkflowTemplate[] = [
+const LEGACY_BUILTIN_TEMPLATES: WorkflowTemplate[] = [
   {
     id: "tmpl_vertical_drama_30s",
     name: "Vertical Drama 30s",
@@ -562,6 +586,10 @@ export const BUILTIN_TEMPLATES: WorkflowTemplate[] = [
   }
 ];
 
+void LEGACY_BUILTIN_TEMPLATES;
+
+export const BUILTIN_TEMPLATES: WorkflowTemplate[] = TEMPLATE_CATALOG;
+
 interface DirectorState {
   prompt: string;
   setPrompt: (p: string) => void;
@@ -672,10 +700,98 @@ const DEFAULT_PIPELINE: PipelineConfig = {
 const DEFAULT_STRUCTURED_PROMPT: StructuredPrompt = {
   subject: "",
   action: "",
+  scene: "",
   camera: "",
+  motion: "",
   style: "",
+  lighting: "",
   constraints: "",
+  audio: "",
 };
+
+function stripAgentSecrets(config: AgentLLMConfig | null): AgentLLMConfig | null {
+  return config ? { ...config, api_key: "" } : null;
+}
+
+function sanitizePipelineForPersist(pipeline: PipelineConfig): PipelineConfig {
+  return {
+    ...pipeline,
+    default_llm: stripAgentSecrets(pipeline.default_llm) ?? DEFAULT_LLM,
+    screenwriter: stripAgentSecrets(pipeline.screenwriter),
+    character_extractor: stripAgentSecrets(pipeline.character_extractor),
+    storyboard_artist: stripAgentSecrets(pipeline.storyboard_artist),
+    cinematographer: stripAgentSecrets(pipeline.cinematographer),
+    audio_director: stripAgentSecrets(pipeline.audio_director),
+    editing_agent: stripAgentSecrets(pipeline.editing_agent),
+    consistency_checker: stripAgentSecrets(pipeline.consistency_checker),
+    prompt_optimizer: stripAgentSecrets(pipeline.prompt_optimizer),
+    video_api_key: "",
+  };
+}
+
+function sanitizeMediaList(values?: string[]) {
+  if (!Array.isArray(values)) return values;
+  return values.map((url) => safeMediaSrc(url)).filter((url): url is string => Boolean(url));
+}
+
+function sanitizeReferenceAsset(reference: ReferenceAsset): ReferenceAsset {
+  return {
+    ...reference,
+    url: safeMediaSrc(reference.url) || "",
+  };
+}
+
+function sanitizeCharacterProfile(character: CharacterProfile): CharacterProfile {
+  return {
+    ...character,
+    referenceImages: sanitizeMediaList(character.referenceImages) || [],
+  };
+}
+
+function sanitizeShotMedia(shot: Shot): Shot {
+  const params = shot.generationParams;
+  return {
+    ...shot,
+    video_url: safeMediaSrc(shot.video_url) || "",
+    thumbnail_url: safeMediaSrc(shot.thumbnail_url) || "",
+    generationParams: params
+      ? {
+          ...params,
+          image_urls: sanitizeMediaList(params.image_urls),
+          video_urls: sanitizeMediaList(params.video_urls),
+          audio_urls: sanitizeMediaList(params.audio_urls),
+        }
+      : params,
+  };
+}
+
+function sanitizeShotPatch(patch: Partial<Shot>): Partial<Shot> {
+  const sanitized = { ...patch };
+  if ("video_url" in sanitized) sanitized.video_url = safeMediaSrc(sanitized.video_url) || "";
+  if ("thumbnail_url" in sanitized) sanitized.thumbnail_url = safeMediaSrc(sanitized.thumbnail_url) || "";
+  if (sanitized.generationParams) {
+    sanitized.generationParams = {
+      ...sanitized.generationParams,
+      image_urls: sanitizeMediaList(sanitized.generationParams.image_urls),
+      video_urls: sanitizeMediaList(sanitized.generationParams.video_urls),
+      audio_urls: sanitizeMediaList(sanitized.generationParams.audio_urls),
+    };
+  }
+  return sanitized;
+}
+
+function persistableDirectorState(state: DirectorState) {
+  return {
+    pipeline: sanitizePipelineForPersist(state.pipeline),
+    style: state.style,
+    numShots: state.numShots,
+    duration: state.duration,
+    aspectRatio: state.aspectRatio,
+    selectedWorkflow: state.selectedWorkflow,
+    useStructuredPrompt: state.useStructuredPrompt,
+    savedTemplates: state.savedTemplates,
+  };
+}
 
 export const useDirectorStore = create<DirectorState>()(
   persist(
@@ -705,7 +821,7 @@ export const useDirectorStore = create<DirectorState>()(
       setAspectRatio: (aspectRatio) => set({ aspectRatio }),
 
       references: [],
-      addReference: (r) => set((s) => ({ references: [...s.references, r] })),
+      addReference: (r) => set((s) => ({ references: [...s.references, sanitizeReferenceAsset(r)] })),
       removeReference: (i) => set((s) => ({ references: s.references.filter((_, idx) => idx !== i) })),
 
       pipeline: DEFAULT_PIPELINE,
@@ -726,11 +842,11 @@ export const useDirectorStore = create<DirectorState>()(
       setPipelineStep: (s) => set({ pipelineStep: s }),
 
       characters: [],
-      setCharacters: (characters) => set({ characters }),
-      addCharacter: (c) => set((s) => ({ characters: [...s.characters, c] })),
+      setCharacters: (characters) => set({ characters: characters.map(sanitizeCharacterProfile) }),
+      addCharacter: (c) => set((s) => ({ characters: [...s.characters, sanitizeCharacterProfile(c)] })),
       updateCharacter: (id, patch) =>
         set((s) => ({
-          characters: s.characters.map((c) => (c.id === id ? { ...c, ...patch } : c)),
+          characters: s.characters.map((c) => (c.id === id ? sanitizeCharacterProfile({ ...c, ...patch }) : c)),
         })),
       removeCharacter: (id) =>
         set((s) => ({ characters: s.characters.filter((c) => c.id !== id) })),
@@ -743,10 +859,10 @@ export const useDirectorStore = create<DirectorState>()(
         })),
 
       shots: [],
-      setShots: (shots) => set({ shots }),
+      setShots: (shots) => set({ shots: shots.map(sanitizeShotMedia) }),
       updateShot: (id, patch) =>
         set((s) => ({
-          shots: s.shots.map((sh) => (sh.id === id ? { ...sh, ...patch } : sh)),
+          shots: s.shots.map((sh) => (sh.id === id ? sanitizeShotMedia({ ...sh, ...sanitizeShotPatch(patch) }) : sh)),
         })),
       reorderShots: (fromIndex, toIndex) =>
         set((s) => {
@@ -802,32 +918,34 @@ export const useDirectorStore = create<DirectorState>()(
     }),
     {
       name: "nextcut-director",
-      partialize: (state) => ({
-        pipeline: state.pipeline,
-        style: state.style,
-        numShots: state.numShots,
-        duration: state.duration,
-        aspectRatio: state.aspectRatio,
-        selectedWorkflow: state.selectedWorkflow,
-        useStructuredPrompt: state.useStructuredPrompt,
-        savedTemplates: state.savedTemplates,
-      }),
+      partialize: persistableDirectorState,
+      onRehydrateStorage: () => (state) => {
+        if (!state || typeof localStorage === "undefined") return;
+        localStorage.setItem("nextcut-director", JSON.stringify({ state: persistableDirectorState(state), version: 0 }));
+      },
       merge: (persisted, current) => {
         const p = persisted as Partial<DirectorState>;
+        const persistedPipeline = p.pipeline ? sanitizePipelineForPersist(p.pipeline) : undefined;
+        const sanitizedPersisted = {
+          ...p,
+          ...(p.references ? { references: p.references.map(sanitizeReferenceAsset) } : {}),
+          ...(p.characters ? { characters: p.characters.map(sanitizeCharacterProfile) } : {}),
+          ...(p.shots ? { shots: p.shots.map(sanitizeShotMedia) } : {}),
+        };
         const legacy: Record<string, string> = {
           "seedance-2.0-reference-to-video": "seedance-2.0-pro",
           "seedance-2.0-text-to-video": "seedance-2.0-fast",
           "seedance-2.0": "seedance-2.0-pro",
         };
-        const vm = p.pipeline?.video_model;
+        const vm = persistedPipeline?.video_model;
         if (vm && legacy[vm]) {
           return {
             ...current,
-            ...p,
-            pipeline: { ...current.pipeline, ...p.pipeline, video_model: legacy[vm] },
+            ...sanitizedPersisted,
+            pipeline: { ...current.pipeline, ...persistedPipeline, video_model: legacy[vm] },
           };
         }
-        return { ...current, ...p };
+        return { ...current, ...sanitizedPersisted, ...(persistedPipeline ? { pipeline: { ...current.pipeline, ...persistedPipeline } } : {}) };
       },
     }
   )

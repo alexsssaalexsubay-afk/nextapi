@@ -1,7 +1,8 @@
 import logging
+import uuid
 
 from fastapi import APIRouter
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from director_engine.tools.camera_presets import (
     PRESETS,
@@ -171,6 +172,42 @@ class PortraitRequest(BaseModel):
     style: str = "photorealistic"
 
 
+class GeneratedImageAsset(BaseModel):
+    id: str
+    url: str
+    role: str
+    description: str
+    prompt: str
+
+
+class ImageAssetFailure(BaseModel):
+    role: str
+    message: str
+
+
+class CharacterAssetRequest(BaseModel):
+    character_id: str
+    name: str
+    appearance: str
+    personality: str = ""
+    voice: str = ""
+    style: str = "photorealistic commercial film"
+    modes: list[str] = Field(default_factory=lambda: ["turnaround", "expressions", "outfits", "poses"])
+
+
+class StoryboardAssetRequest(BaseModel):
+    shot_id: str
+    title: str = ""
+    prompt: str
+    shot_script: str = ""
+    first_frame_desc: str = ""
+    last_frame_desc: str = ""
+    motion_desc: str = ""
+    style: str = "cinematic realistic"
+    aspect_ratio: str = "16:9"
+    modes: list[str] = Field(default_factory=lambda: ["storyboard_keyframe", "first_frame", "last_frame"])
+
+
 @router.post("/generate-portrait")
 async def generate_portrait(req: PortraitRequest):
     """Generate a character reference portrait using AI image generation.
@@ -204,3 +241,133 @@ async def generate_portrait(req: PortraitRequest):
     except Exception as e:
         logger.error("Portrait generation failed: %s", e)
         return {"image_url": "", "status": "error", "message": "Generation failed"}
+
+
+@router.post("/generate-character-assets")
+async def generate_character_assets(req: CharacterAssetRequest):
+    """Generate a real identity asset pack: turnaround, expressions, outfits, poses."""
+    assets: list[GeneratedImageAsset] = []
+    failures: list[ImageAssetFailure] = []
+
+    for mode in req.modes:
+        prompt = _character_asset_prompt(req, mode)
+        try:
+            url = await _generate_image(prompt, aspect_ratio="1:1")
+            assets.append(GeneratedImageAsset(
+                id=f"{req.character_id}-{mode}-{uuid.uuid4().hex[:8]}",
+                url=url,
+                role=f"character_{mode}",
+                description=_character_asset_description(mode),
+                prompt=prompt,
+            ))
+        except Exception as e:
+            logger.error("Character asset generation failed for %s/%s: %s", req.character_id, mode, e)
+            failures.append(ImageAssetFailure(role=mode, message="Generation failed"))
+
+    return {
+        "status": "ok" if assets and not failures else "partial" if assets else "error",
+        "assets": [asset.model_dump() for asset in assets],
+        "failures": [failure.model_dump() for failure in failures],
+    }
+
+
+@router.post("/generate-storyboard-assets")
+async def generate_storyboard_assets(req: StoryboardAssetRequest):
+    """Generate storyboard keyframes and first/last frame images for a shot."""
+    assets: list[GeneratedImageAsset] = []
+    failures: list[ImageAssetFailure] = []
+
+    for mode in req.modes:
+        prompt = _storyboard_asset_prompt(req, mode)
+        try:
+            url = await _generate_image(prompt, aspect_ratio=req.aspect_ratio)
+            assets.append(GeneratedImageAsset(
+                id=f"{req.shot_id}-{mode}-{uuid.uuid4().hex[:8]}",
+                url=url,
+                role=mode,
+                description=_storyboard_asset_description(mode),
+                prompt=prompt,
+            ))
+        except Exception as e:
+            logger.error("Storyboard asset generation failed for %s/%s: %s", req.shot_id, mode, e)
+            failures.append(ImageAssetFailure(role=mode, message="Generation failed"))
+
+    return {
+        "status": "ok" if assets and not failures else "partial" if assets else "error",
+        "assets": [asset.model_dump() for asset in assets],
+        "failures": [failure.model_dump() for failure in failures],
+    }
+
+
+async def _generate_image(prompt: str, aspect_ratio: str = "1:1") -> str:
+    from app.core.config import settings
+    from openai import AsyncOpenAI
+
+    client = AsyncOpenAI(api_key=settings.openai_api_key, base_url=settings.openai_base_url or None)
+    response = await client.images.generate(
+        model="dall-e-3",
+        prompt=prompt,
+        size=_image_size_for_ratio(aspect_ratio),
+        quality="standard",
+        n=1,
+    )
+    return response.data[0].url or ""
+
+
+def _image_size_for_ratio(aspect_ratio: str) -> str:
+    if aspect_ratio in {"16:9", "21:9", "4:3"}:
+        return "1792x1024"
+    if aspect_ratio == "9:16":
+        return "1024x1792"
+    return "1024x1024"
+
+
+def _character_asset_prompt(req: CharacterAssetRequest, mode: str) -> str:
+    base = (
+        f"Create a clean production-ready character asset sheet for {req.name}. "
+        f"Appearance anchor: {req.appearance}. "
+        f"Personality: {req.personality or 'not specified'}. "
+        f"Style: {req.style}. White or very light neutral background, consistent face, consistent body proportions, "
+        "no text labels, no watermark, high detail, useful as an AI video identity reference."
+    )
+    if mode == "turnaround":
+        return base + " Show the same character as a three-view turnaround: front view, side profile, and back view, full body, neutral pose."
+    if mode == "expressions":
+        return base + " Show six consistent head-and-shoulders expressions: neutral, smile, focused, surprised, worried, determined."
+    if mode == "outfits":
+        return base + " Show three outfit variations that preserve identity: hero outfit, casual outfit, production-safe alternate outfit."
+    if mode == "poses":
+        return base + " Show four action poses that preserve identity: standing, walking, reaching, looking back, cinematic natural posture."
+    return base + f" Create a {mode} reference image that preserves identity."
+
+
+def _character_asset_description(mode: str) -> str:
+    return {
+        "turnaround": "三视图身份锚点：正面、侧面、背面。",
+        "expressions": "表情集：用于跨镜头面部一致性。",
+        "outfits": "服装集：用于换装但保持身份。",
+        "poses": "姿态集：用于动作镜头垫图。",
+    }.get(mode, f"角色参考资产：{mode}")
+
+
+def _storyboard_asset_prompt(req: StoryboardAssetRequest, mode: str) -> str:
+    context = req.shot_script or req.prompt
+    base = (
+        f"Create a professional video storyboard frame for shot {req.shot_id} {req.title}. "
+        f"Style: {req.style}. Aspect ratio intent: {req.aspect_ratio}. "
+        f"Shot prompt: {req.prompt}. Shot script: {context}. Camera motion: {req.motion_desc or 'natural cinematic camera movement'}. "
+        "No text overlay, no watermark, clear composition, production storyboard quality."
+    )
+    if mode == "first_frame":
+        return base + f" This is the FIRST FRAME. Visual requirement: {req.first_frame_desc or 'establish the subject, environment, and starting camera composition clearly'}."
+    if mode == "last_frame":
+        return base + f" This is the LAST FRAME. Visual requirement: {req.last_frame_desc or 'show the resolved end pose and final camera composition clearly'}."
+    return base + " This is the main storyboard keyframe that best represents the shot."
+
+
+def _storyboard_asset_description(mode: str) -> str:
+    return {
+        "storyboard_keyframe": "分镜关键帧：用于缩略图和画面确认。",
+        "first_frame": "首帧垫图：用于 image-to-video 起点约束。",
+        "last_frame": "尾帧垫图：用于镜头结束构图与下一镜头连续性。",
+    }.get(mode, f"分镜资产：{mode}")

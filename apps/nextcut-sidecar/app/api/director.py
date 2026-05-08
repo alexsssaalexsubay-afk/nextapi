@@ -95,6 +95,14 @@ class ShotPatchRequest(BaseModel):
     negative_prompt: str | None = None
     duration: int | None = None
     title: str | None = None
+    status: str | None = None
+    camera: str | None = None
+
+
+class ShotCreateRequest(BaseModel):
+    shot: dict[str, Any]
+    card: dict[str, Any] | None = None
+    after_id: str | None = None
 
 
 class ReorderRequest(BaseModel):
@@ -131,8 +139,12 @@ class TemplateResponse(BaseModel):
 # ─── Helpers ──────────────────────────────────────────────────────────
 
 def _to_agent_config(inp: AgentConfigInput) -> AgentConfig:
+    try:
+        provider = LLMProvider(inp.provider)
+    except ValueError:
+        provider = LLMProvider.CUSTOM
     return AgentConfig(
-        provider=LLMProvider(inp.provider),
+        provider=provider,
         model=inp.model,
         base_url=inp.base_url,
         api_key=inp.api_key,
@@ -285,6 +297,13 @@ async def list_plans():
 
 # ─── Shot editing ────────────────────────────────────────────────────
 
+def _sync_shot_generation_cards(plan: dict[str, Any], cards: list[dict[str, Any]]) -> None:
+    plan["shot_generation_cards"] = cards
+    metadata = plan.setdefault("metadata", {})
+    if isinstance(metadata, dict):
+        metadata["shot_generation_cards"] = cards
+
+
 @router.patch("/plan/{plan_id}/shot/{shot_id}")
 async def patch_shot(plan_id: str, shot_id: str, req: ShotPatchRequest):
     plan = _plans.get(plan_id)
@@ -299,12 +318,66 @@ async def patch_shot(plan_id: str, shot_id: str, req: ShotPatchRequest):
             if req.negative_prompt is not None:
                 shot["negative_prompt"] = req.negative_prompt
             if req.duration is not None:
-                shot["duration"] = max(4, min(15, req.duration))
+                shot["duration"] = max(2, min(30, req.duration))
             if req.title is not None:
                 shot["title"] = req.title
+            if req.status is not None:
+                shot["status"] = req.status
+            if req.camera is not None:
+                shot["camera"] = req.camera
             return {"status": "ok", "shot": shot}
 
     raise HTTPException(status_code=404, detail="Shot not found")
+
+
+@router.post("/plan/{plan_id}/shot")
+async def create_shot(plan_id: str, req: ShotCreateRequest):
+    plan = _plans.get(plan_id)
+    if not plan:
+        raise HTTPException(status_code=404, detail="Plan not found")
+
+    shots = list(plan.get("shots", []))
+    shot = dict(req.shot)
+    if not shot.get("id"):
+        shot["id"] = f"shot_{uuid.uuid4().hex[:12]}"
+    insert_at = len(shots)
+    if req.after_id:
+        for index, item in enumerate(shots):
+            if item.get("id") == req.after_id:
+                insert_at = index + 1
+                break
+    shots.insert(insert_at, shot)
+    for index, item in enumerate(shots):
+        item["index"] = index + 1
+    plan["shots"] = shots
+
+    cards = list(plan.get("shot_generation_cards") or plan.get("metadata", {}).get("shot_generation_cards") or [])
+    if req.card:
+        next_card = dict(req.card)
+        next_card["shot_id"] = shot["id"]
+        cards = [card for card in cards if card.get("shot_id") != shot["id"]]
+        cards.append(next_card)
+        _sync_shot_generation_cards(plan, cards)
+
+    return {"status": "ok", "shot": shot, "shot_count": len(shots)}
+
+
+@router.delete("/plan/{plan_id}/shot/{shot_id}")
+async def delete_shot(plan_id: str, shot_id: str):
+    plan = _plans.get(plan_id)
+    if not plan:
+        raise HTTPException(status_code=404, detail="Plan not found")
+
+    shots = [shot for shot in plan.get("shots", []) if shot.get("id") != shot_id]
+    if len(shots) == len(plan.get("shots", [])):
+        raise HTTPException(status_code=404, detail="Shot not found")
+    for index, shot in enumerate(shots):
+        shot["index"] = index + 1
+    plan["shots"] = shots
+
+    cards = list(plan.get("shot_generation_cards") or plan.get("metadata", {}).get("shot_generation_cards") or [])
+    _sync_shot_generation_cards(plan, [card for card in cards if card.get("shot_id") != shot_id])
+    return {"status": "ok", "shot_count": len(shots)}
 
 
 @router.post("/plan/{plan_id}/reorder")

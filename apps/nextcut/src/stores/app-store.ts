@@ -1,15 +1,23 @@
 import { create } from "zustand";
+import { persist } from "zustand/middleware";
 
-export type SidebarPage = "home" | "projects" | "agents" | "library" | "templates" | "edit" | "settings" | "workspace";
+export type SidebarPage = "home" | "projects" | "agents" | "library" | "templates" | "edit" | "settings" | "workspace" | "guide";
 export type ConnectionStatus = "connected" | "connecting" | "disconnected";
 export type WorkspaceView = "storyboard" | "canvas" | "split";
+export type StoryflowMode = "storyflow" | "focus" | "review" | "timeline";
 
 interface AppState {
   sidebarPage: SidebarPage;
   setSidebarPage: (page: SidebarPage) => void;
 
+  sidebarCollapsed: boolean;
+  setSidebarCollapsed: (collapsed: boolean) => void;
+
   workspaceView: WorkspaceView;
   setWorkspaceView: (view: WorkspaceView) => void;
+
+  storyflowMode: StoryflowMode;
+  setStoryflowMode: (mode: StoryflowMode) => void;
 
   sidecarStatus: ConnectionStatus;
   setSidecarStatus: (status: ConnectionStatus) => void;
@@ -28,30 +36,56 @@ interface AppState {
 
   inspectorCollapsed: boolean;
   setInspectorCollapsed: (c: boolean) => void;
+
+  workspaceCleanMode: boolean;
+  setWorkspaceCleanMode: (c: boolean) => void;
 }
 
-export const useAppStore = create<AppState>((set) => ({
-  sidebarPage: "workspace",
-  setSidebarPage: (page) => set({ sidebarPage: page }),
+export const useAppStore = create<AppState>()(
+  persist(
+    (set) => ({
+      sidebarPage: "agents",
+      setSidebarPage: (page) => set({ sidebarPage: page }),
 
-  workspaceView: "storyboard",
-  setWorkspaceView: (view) => set({ workspaceView: view }),
+      sidebarCollapsed: false,
+      setSidebarCollapsed: (sidebarCollapsed) => set({ sidebarCollapsed }),
 
-  sidecarStatus: "disconnected",
-  setSidecarStatus: (status) => set({ sidecarStatus: status }),
+      workspaceView: "storyboard",
+      setWorkspaceView: (view) => set({ workspaceView: view }),
 
-  comfyuiStatus: "disconnected",
-  setComfyuiStatus: (status) => set({ comfyuiStatus: status }),
+      storyflowMode: "storyflow",
+      setStoryflowMode: (storyflowMode) => set({ storyflowMode }),
 
-  selectedShotId: null,
-  setSelectedShotId: (id) => set({ selectedShotId: id }),
+      sidecarStatus: "disconnected",
+      setSidecarStatus: (status) => set({ sidecarStatus: status }),
 
-  timelineZoom: 1,
-  setTimelineZoom: (z) => set({ timelineZoom: Math.max(0.25, Math.min(4, z)) }),
+      comfyuiStatus: "disconnected",
+      setComfyuiStatus: (status) => set({ comfyuiStatus: status }),
 
-  previewFullscreen: false,
-  setPreviewFullscreen: (f) => set({ previewFullscreen: f }),
+      selectedShotId: null,
+      setSelectedShotId: (id) => set({ selectedShotId: id }),
 
-  inspectorCollapsed: false,
-  setInspectorCollapsed: (c) => set({ inspectorCollapsed: c }),
-}));
+      timelineZoom: 1,
+      setTimelineZoom: (z) => set({ timelineZoom: Math.max(0.25, Math.min(4, z)) }),
+
+      previewFullscreen: false,
+      setPreviewFullscreen: (f) => set({ previewFullscreen: f }),
+
+      inspectorCollapsed: false,
+      setInspectorCollapsed: (c) => set({ inspectorCollapsed: c }),
+
+      workspaceCleanMode: false,
+      setWorkspaceCleanMode: (workspaceCleanMode) => set({ workspaceCleanMode }),
+    }),
+    {
+      name: "nextcut-app-shell",
+      partialize: (state) => ({
+        sidebarCollapsed: state.sidebarCollapsed,
+        timelineZoom: state.timelineZoom,
+        inspectorCollapsed: state.inspectorCollapsed,
+        workspaceCleanMode: state.workspaceCleanMode,
+        storyflowMode: state.storyflowMode,
+      }),
+    }
+  )
+);

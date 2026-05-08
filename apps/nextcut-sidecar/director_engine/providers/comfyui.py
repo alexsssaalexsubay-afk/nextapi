@@ -6,15 +6,24 @@ import asyncio
 import json
 import uuid
 from typing import Any
+from urllib.parse import urlencode
 
 import httpx
 import websockets
 
-from director_engine.interfaces.models import VideoGenerationParams
+from director_engine.interfaces.models import ProviderConfig, VideoGenerationParams
 
 
 class ComfyUIProvider:
-    def __init__(self, base_url: str = "http://localhost:8188") -> None:
+    def __init__(self, config: ProviderConfig | str = "http://localhost:8188") -> None:
+        self.provider = "comfyui"
+        self.model = ""
+        if isinstance(config, ProviderConfig):
+            base_url = config.base_url or "http://localhost:8188"
+            self.provider = config.provider or self.provider
+            self.model = config.model
+        else:
+            base_url = config
         self.base_url = base_url.rstrip("/")
         self.ws_url = base_url.replace("http", "ws") + "/ws"
         self.client_id = uuid.uuid4().hex[:8]
@@ -28,7 +37,11 @@ class ComfyUIProvider:
             return False
 
     async def generate(self, params: VideoGenerationParams) -> dict[str, Any]:
-        workflow = self._build_workflow(params)
+        workflow = (
+            params.provider_options.get("workflow")
+            if isinstance(params.provider_options.get("workflow"), dict)
+            else self._build_workflow(params)
+        )
         return await self.submit_workflow(workflow)
 
     async def submit_workflow(self, workflow: dict[str, Any]) -> dict[str, Any]:
@@ -37,7 +50,14 @@ class ComfyUIProvider:
             resp = await client.post(f"{self.base_url}/prompt", json=payload)
             resp.raise_for_status()
             data = resp.json()
-            return {"job_id": data.get("prompt_id", ""), "status": "queued"}
+            return {
+                "job_id": data.get("prompt_id", ""),
+                "status": "queued",
+                "provider": self.provider,
+                "provider_model": self.model,
+                "request_payload": payload,
+                "upstream_response": data,
+            }
 
     async def poll_status(self, job_id: str) -> dict[str, Any]:
         async with httpx.AsyncClient(timeout=10.0) as client:
@@ -46,8 +66,28 @@ class ComfyUIProvider:
             data = resp.json()
             if job_id in data:
                 outputs = data[job_id].get("outputs", {})
-                return {"status": "completed", "outputs": outputs}
+                return {
+                    "status": "completed",
+                    "job_id": job_id,
+                    "outputs": self._with_file_urls(outputs),
+                    "upstream_response": data,
+                }
             return {"status": "running"}
+
+    async def wait_for_completion(
+        self, job_id: str, timeout: float = 300.0, interval: float = 5.0
+    ) -> dict[str, Any]:
+        elapsed = 0.0
+        while elapsed < timeout:
+            result = await self.poll_status(job_id)
+            status = result.get("status", "")
+            if status in ("completed", "succeeded"):
+                return {**result, "status": "succeeded"}
+            if status in ("failed", "cancelled"):
+                return result
+            await asyncio.sleep(interval)
+            elapsed += interval
+        return {"status": "timeout", "job_id": job_id}
 
     async def stream_progress(self, job_id: str):
         """Yield progress events from ComfyUI WebSocket."""
@@ -57,7 +97,10 @@ class ComfyUIProvider:
                     if isinstance(msg, str):
                         data = json.loads(msg)
                         yield data
-                        if data.get("type") == "executed" and data.get("data", {}).get("prompt_id") == job_id:
+                        if (
+                            data.get("type") == "executed"
+                            and data.get("data", {}).get("prompt_id") == job_id
+                        ):
                             break
         except Exception:
             pass
@@ -82,7 +125,11 @@ class ComfyUIProvider:
             for node_name, node_info in data.items():
                 inputs = node_info.get("input", {}).get("required", {})
                 for param_name, param_info in inputs.items():
-                    if isinstance(param_info, list) and len(param_info) > 0 and isinstance(param_info[0], list):
+                    if (
+                        isinstance(param_info, list)
+                        and len(param_info) > 0
+                        and isinstance(param_info[0], list)
+                    ):
                         models[f"{node_name}.{param_name}"] = param_info[0]
             return models
 
@@ -131,3 +178,27 @@ class ComfyUIProvider:
             "inputs": {"images": ["6", 0], "filename_prefix": "NextCut"},
         }
         return workflow
+
+    def _with_file_urls(self, outputs: dict[str, Any]) -> dict[str, Any]:
+        for node_output in outputs.values():
+            if not isinstance(node_output, dict):
+                continue
+            for key in ("images", "videos", "gifs"):
+                items = node_output.get(key)
+                if not isinstance(items, list):
+                    continue
+                for item in items:
+                    if not isinstance(item, dict) or item.get("url") or item.get("fileUrl"):
+                        continue
+                    filename = item.get("filename")
+                    if not filename:
+                        continue
+                    query = urlencode(
+                        {
+                            "filename": filename,
+                            "subfolder": item.get("subfolder", ""),
+                            "type": item.get("type", "output"),
+                        }
+                    )
+                    item["fileUrl"] = f"{self.base_url}/view?{query}"
+        return outputs

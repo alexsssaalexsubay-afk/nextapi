@@ -1,4 +1,5 @@
 import { memo, useRef, useCallback, useState, useEffect } from "react";
+import { Camera, CheckCircle2, Clock3, Minus, Plus, Sparkles } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useAppStore } from "@/stores/app-store";
 import { useDirectorStore } from "@/stores/director-store";
@@ -9,26 +10,46 @@ const PX_PER_SECOND_BASE = 60;
 const TRACK_COLORS = [
   { bg: "bg-nc-accent/25", border: "border-nc-accent/30", ring: "ring-nc-accent/40" },
   { bg: "bg-nc-info/25", border: "border-nc-info/30", ring: "ring-nc-info/40" },
-  { bg: "bg-purple-500/25", border: "border-purple-500/30", ring: "ring-purple-500/40" },
-  { bg: "bg-nc-error/20", border: "border-nc-error/25", ring: "ring-nc-error/35" },
   { bg: "bg-nc-success/25", border: "border-nc-success/30", ring: "ring-nc-success/40" },
-  { bg: "bg-pink-500/25", border: "border-pink-500/30", ring: "ring-pink-500/40" },
-  { bg: "bg-cyan-500/25", border: "border-cyan-500/30", ring: "ring-cyan-500/40" },
-  { bg: "bg-lime-500/25", border: "border-lime-500/30", ring: "ring-lime-500/40" },
+  { bg: "bg-nc-warning/20", border: "border-nc-warning/30", ring: "ring-nc-warning/35" },
+  { bg: "bg-nc-error/15", border: "border-nc-error/25", ring: "ring-nc-error/30" },
 ];
+
+function shotStatusLabel(status?: string, hasVideo?: boolean) {
+  if (hasVideo) return "已生成";
+  if (status === "failed") return "失败";
+  if (status === "generating" || status === "processing") return "生成中";
+  if (status === "queued") return "排队中";
+  if (status === "planned" || status === "pending") return "已规划";
+  return "待生成";
+}
 
 export const TimelineEditor = memo(function TimelineEditor() {
   const { selectedShotId, setSelectedShotId, timelineZoom, setTimelineZoom } = useAppStore();
   const directorShots = useDirectorStore((s) => s.shots);
+  const updateShot = useDirectorStore((s) => s.updateShot);
   const { t } = useI18nStore();
 
   const scrollRef = useRef<HTMLDivElement>(null);
+  const previousSelectedSignatureRef = useRef<string | null>(null);
   const [playheadPos, setPlayheadPos] = useState(0);
   const [isDraggingPlayhead, setIsDraggingPlayhead] = useState(false);
+  const [syncNotice, setSyncNotice] = useState<{ shotId: string; label: string } | null>(null);
 
   const pxPerSec = PX_PER_SECOND_BASE * timelineZoom;
   const totalDuration = directorShots.reduce((sum, s) => sum + s.duration, 0);
   const totalWidth = Math.max(totalDuration * pxPerSec + 120, 600);
+  const selectedShot = directorShots.find((shot) => shot.id === selectedShotId) || directorShots[0];
+  const selectedStart = directorShots.slice(0, Math.max(0, directorShots.findIndex((shot) => shot.id === selectedShot?.id))).reduce((sum, shot) => sum + shot.duration, 0);
+
+  const findShotAtTime = useCallback((time: number) => {
+    let acc = 0;
+    for (const shot of directorShots) {
+      if (time >= acc && time < acc + shot.duration) return shot;
+      acc += shot.duration;
+    }
+    return directorShots[directorShots.length - 1] || null;
+  }, [directorShots]);
 
   const handleScrub = useCallback((e: React.MouseEvent) => {
     const container = scrollRef.current;
@@ -38,16 +59,9 @@ export const TimelineEditor = memo(function TimelineEditor() {
     const x = e.clientX - rect.left + scrollLeft - 48;
     const time = Math.max(0, x / pxPerSec);
     setPlayheadPos(time);
-
-    let acc = 0;
-    for (const shot of directorShots) {
-      if (time >= acc && time < acc + shot.duration) {
-        setSelectedShotId(shot.id);
-        break;
-      }
-      acc += shot.duration;
-    }
-  }, [pxPerSec, directorShots, setSelectedShotId]);
+    const shot = findShotAtTime(time);
+    if (shot) setSelectedShotId(shot.id);
+  }, [findShotAtTime, pxPerSec, setSelectedShotId]);
 
   useEffect(() => {
     if (!isDraggingPlayhead) return;
@@ -57,7 +71,10 @@ export const TimelineEditor = memo(function TimelineEditor() {
       const rect = container.getBoundingClientRect();
       const scrollLeft = container.scrollLeft;
       const x = e.clientX - rect.left + scrollLeft - 48;
-      setPlayheadPos(Math.max(0, x / pxPerSec));
+      const time = Math.max(0, Math.min(totalDuration, x / pxPerSec));
+      setPlayheadPos(time);
+      const shot = findShotAtTime(time);
+      if (shot) setSelectedShotId(shot.id);
     };
     const handleUp = () => setIsDraggingPlayhead(false);
     window.addEventListener("mousemove", handleMove);
@@ -66,7 +83,42 @@ export const TimelineEditor = memo(function TimelineEditor() {
       window.removeEventListener("mousemove", handleMove);
       window.removeEventListener("mouseup", handleUp);
     };
-  }, [isDraggingPlayhead, pxPerSec]);
+  }, [findShotAtTime, isDraggingPlayhead, pxPerSec, setSelectedShotId, totalDuration]);
+
+  useEffect(() => {
+    const container = scrollRef.current;
+    if (!container || !selectedShot) return;
+    const targetLeft = Math.max(0, selectedStart * pxPerSec - 120);
+    container.scrollTo({ left: targetLeft, behavior: "smooth" });
+    if (!isDraggingPlayhead) setPlayheadPos(selectedStart);
+  }, [isDraggingPlayhead, pxPerSec, selectedShot, selectedStart]);
+
+  useEffect(() => {
+    if (!selectedShot) return;
+    const signature = [
+      selectedShot.id,
+      selectedShot.title,
+      selectedShot.duration,
+      selectedShot.status,
+      selectedShot.camera,
+      selectedShot.generationParams?.shot_script,
+    ].join("|");
+    if (previousSelectedSignatureRef.current && previousSelectedSignatureRef.current !== signature) {
+      setSyncNotice({ shotId: selectedShot.id, label: `${selectedShot.title || `镜头 ${selectedShot.index}`} 已同步到时间线` });
+    }
+    previousSelectedSignatureRef.current = signature;
+  }, [selectedShot]);
+
+  useEffect(() => {
+    if (!syncNotice) return;
+    const timer = window.setTimeout(() => setSyncNotice(null), 2200);
+    return () => window.clearTimeout(timer);
+  }, [syncNotice]);
+
+  const changeSelectedDuration = useCallback((delta: number) => {
+    if (!selectedShot) return;
+    updateShot(selectedShot.id, { duration: Math.max(2, Math.min(15, Number((selectedShot.duration + delta).toFixed(1)))) });
+  }, [selectedShot, updateShot]);
 
   const formatTimecode = (secs: number) => {
     const m = Math.floor(secs / 60);
@@ -89,7 +141,7 @@ export const TimelineEditor = memo(function TimelineEditor() {
           <span className="text-[14px] font-semibold text-nc-text">{t("timeline.title")}</span>
         </div>
         <div className="flex flex-1 flex-col overflow-hidden opacity-40">
-          <div className="h-8 border-b border-nc-border bg-nc-surface/95" />
+          <div className="h-9 border-b border-nc-border bg-nc-surface/95" />
           
           {/* Skeletal Tracks */}
           <div className="relative flex-1 py-4 px-14 flex flex-col gap-8">
@@ -98,7 +150,7 @@ export const TimelineEditor = memo(function TimelineEditor() {
             {/* Video Track Skeleton */}
             <div className="relative">
               <div className="absolute -left-14 top-0 h-full w-14 flex items-center justify-center">
-                <span className="text-[12px] font-semibold tracking-widest text-nc-text-tertiary" style={{ writingMode: "vertical-lr", transform: "rotate(180deg)" }}>VIDEO</span>
+                <span className="text-[12px] font-semibold tracking-widest text-nc-text-tertiary" style={{ writingMode: "vertical-lr", transform: "rotate(180deg)" }}>视频</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="h-16 w-48 rounded-[12px] border border-dashed border-nc-border-strong bg-nc-panel/30" />
@@ -110,7 +162,7 @@ export const TimelineEditor = memo(function TimelineEditor() {
             {/* Audio Track Skeleton */}
             <div className="relative">
               <div className="absolute -left-14 top-0 h-full w-14 flex items-center justify-center">
-                <span className="text-[12px] font-semibold tracking-widest text-nc-text-tertiary" style={{ writingMode: "vertical-lr", transform: "rotate(180deg)" }}>AUDIO</span>
+                <span className="text-[12px] font-semibold tracking-widest text-nc-text-tertiary" style={{ writingMode: "vertical-lr", transform: "rotate(180deg)" }}>音频</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="h-10 w-48 rounded-[10px] border border-dashed border-nc-border bg-nc-panel/20" />
@@ -137,9 +189,63 @@ export const TimelineEditor = memo(function TimelineEditor() {
           <div className="font-mono text-[14px] font-semibold tabular-nums text-nc-text">
             {formatTimecode(playheadPos)}
           </div>
+          {selectedShot && (
+            <div className="hidden min-h-9 max-w-[520px] items-center gap-3 rounded-[13px] border border-nc-border bg-white px-4 py-2 shadow-sm xl:flex">
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[9px] bg-[#F5F3FF] text-nc-accent">
+                <Sparkles className="h-3.5 w-3.5" />
+              </span>
+              <span className="min-w-0">
+                <span className="block truncate text-[13px] font-semibold leading-5 text-nc-text">{selectedShot.title}</span>
+                <span className="block truncate text-[12px] leading-4 text-nc-text-tertiary">{selectedShot.generationParams?.shot_script || selectedShot.camera || "等待镜头合约"}</span>
+              </span>
+              {syncNotice?.shotId === selectedShot.id && (
+                <span className="ml-auto flex shrink-0 items-center gap-1 rounded-full bg-nc-success/10 px-2.5 py-1 text-[12px] font-semibold leading-4 text-nc-success">
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  已同步
+                </span>
+              )}
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-6">
-          <div className="flex items-center gap-3 font-mono text-[13px] font-medium text-nc-text-secondary bg-nc-bg px-4 py-1.5 rounded-[12px] border border-nc-border">
+          {selectedShot && (
+            <div className="hidden items-center gap-2 lg:flex">
+              <button
+                type="button"
+                aria-label="缩短当前镜头"
+                onClick={() => changeSelectedDuration(-0.5)}
+                className="flex h-9 w-9 items-center justify-center rounded-[10px] border border-nc-border bg-white text-nc-text-secondary shadow-sm transition-all hover:border-nc-accent/40 hover:text-nc-accent"
+              >
+                <Minus className="h-3.5 w-3.5" />
+              </button>
+              <div className="min-w-[86px] rounded-[10px] border border-nc-border bg-nc-bg px-3 py-1.5 text-center font-mono text-[12px] font-semibold tabular-nums text-nc-text">
+                S{selectedShot.index} · {selectedShot.duration}s
+              </div>
+              <button
+                type="button"
+                aria-label="延长当前镜头"
+                onClick={() => changeSelectedDuration(0.5)}
+                className="flex h-9 w-9 items-center justify-center rounded-[10px] border border-nc-border bg-white text-nc-text-secondary shadow-sm transition-all hover:border-nc-accent/40 hover:text-nc-accent"
+              >
+                <Plus className="h-3.5 w-3.5" />
+              </button>
+              <select
+                aria-label="当前镜头状态"
+                value={selectedShot.status}
+                onChange={(event) => updateShot(selectedShot.id, { status: event.target.value })}
+                className="h-9 rounded-[10px] border border-nc-border bg-white px-3 text-[12px] font-semibold text-nc-text-secondary shadow-sm outline-none transition-all focus:border-nc-accent focus:ring-2 focus:ring-nc-accent/10"
+              >
+                <option value="planned">已规划</option>
+                <option value="pending">待生成</option>
+                <option value="queued">排队中</option>
+                <option value="generating">生成中</option>
+                <option value="succeeded">已生成</option>
+                <option value="failed">失败</option>
+              </select>
+            </div>
+          )}
+          <div className="flex min-h-9 items-center gap-3 rounded-[12px] border border-nc-border bg-nc-bg px-4 py-2 font-mono text-[13px] font-medium leading-5 text-nc-text-secondary">
+            <Clock3 className="h-4 w-4 text-nc-text-tertiary" />
             <span className="tabular-nums">{totalDuration.toFixed(1)}s</span>
             <span className="text-nc-border-strong">/</span>
             <span className="tabular-nums">{directorShots.length} {t("timeline.shots")}</span>
@@ -149,12 +255,11 @@ export const TimelineEditor = memo(function TimelineEditor() {
           <div className="flex items-center gap-2">
             <button
               type="button"
+              aria-label="缩小时间线"
               onClick={() => setTimelineZoom(timelineZoom / 1.5)}
-              className="flex h-9 w-9 items-center justify-center rounded-[10px] border border-nc-border bg-nc-panel text-nc-text-tertiary shadow-sm transition-all hover:bg-[#F5F3FF] hover:text-nc-accent hover:shadow-md"
+              className="flex h-10 w-10 items-center justify-center rounded-[10px] border border-nc-border bg-nc-panel text-nc-text-tertiary shadow-sm transition-all hover:bg-[#F5F3FF] hover:text-nc-accent hover:shadow-md"
             >
-              <svg width="12" height="12" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5" className="shrink-0 scale-110">
-                <path d="M2 5h6" />
-              </svg>
+              <Minus className="h-4 w-4" />
             </button>
             <div className="h-[6px] w-16 overflow-hidden rounded-[999px] border border-nc-border/50 bg-nc-panel shadow-inner">
               <div
@@ -164,12 +269,11 @@ export const TimelineEditor = memo(function TimelineEditor() {
             </div>
             <button
               type="button"
+              aria-label="放大时间线"
               onClick={() => setTimelineZoom(timelineZoom * 1.5)}
-              className="flex h-9 w-9 items-center justify-center rounded-[10px] border border-nc-border bg-nc-panel text-nc-text-tertiary shadow-sm transition-all hover:bg-[#F5F3FF] hover:text-nc-accent hover:shadow-md"
+              className="flex h-10 w-10 items-center justify-center rounded-[10px] border border-nc-border bg-nc-panel text-nc-text-tertiary shadow-sm transition-all hover:bg-[#F5F3FF] hover:text-nc-accent hover:shadow-md"
             >
-              <svg width="12" height="12" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5" className="shrink-0 scale-110">
-                <path d="M2 5h6M5 2v6" />
-              </svg>
+              <Plus className="h-4 w-4" />
             </button>
             <span className="min-w-[3rem] text-right font-mono text-[13px] font-medium tabular-nums text-nc-text-tertiary">
               {Math.round(timelineZoom * 100)}%
@@ -190,7 +294,7 @@ export const TimelineEditor = memo(function TimelineEditor() {
       >
         <div className="relative" style={{ width: totalWidth, minHeight: "100%" }}>
           {/* Ruler */}
-          <div className="sticky top-0 z-10 h-6 border-b border-nc-border bg-nc-surface/95 shadow-sm backdrop-blur-sm">
+          <div className="sticky top-0 z-10 h-7 border-b border-nc-border bg-nc-surface/95 shadow-sm backdrop-blur-sm">
             {rulerMarks.map(({ time, major }) => (
               <div
                 key={time}
@@ -199,7 +303,7 @@ export const TimelineEditor = memo(function TimelineEditor() {
               >
                 <div className={cn("h-full w-px", major ? "bg-nc-border" : "bg-nc-border/40")} />
                 {major && (
-                  <span className="absolute left-1.5 top-1 font-mono text-xs tabular-nums text-nc-text-tertiary">
+                  <span className="absolute left-2 top-1.5 font-mono text-[12px] leading-4 tabular-nums text-nc-text-tertiary">
                     {time >= 60 ? `${Math.floor(time / 60)}m${Math.floor(time % 60)}s` : `${time}s`}
                   </span>
                 )}
@@ -208,60 +312,62 @@ export const TimelineEditor = memo(function TimelineEditor() {
           </div>
 
           {/* Track label */}
-          <div className="absolute left-0 top-6 z-10 flex h-[calc(100%-24px)] w-12 flex-col justify-center border-r border-nc-border bg-nc-surface shadow-sm">
+          <div className="absolute left-0 top-7 z-10 flex h-[calc(100%-28px)] w-12 flex-col justify-center border-r border-nc-border bg-nc-surface shadow-sm">
             <div className="flex items-center justify-center">
-              <span className="text-xs font-medium uppercase tracking-widest text-nc-text-tertiary" style={{ writingMode: "vertical-lr", transform: "rotate(180deg)" }}>
-                {t("timeline.video")}
+              <span className="text-[12px] font-medium uppercase tracking-[0.12em] text-nc-text-tertiary" style={{ writingMode: "vertical-lr", transform: "rotate(180deg)" }}>
+                视频轨道
               </span>
             </div>
           </div>
 
           {/* Shot clips */}
-          <div className="relative ml-12 flex items-start gap-[2px] px-1 py-3">
+          <div className="relative ml-12 flex items-start gap-1 px-2 py-3.5">
             {directorShots.map((shot, i) => {
               const colors = TRACK_COLORS[i % TRACK_COLORS.length];
               const isActive = selectedShotId === shot.id;
               const width = shot.duration * pxPerSec;
               const hasVideo = !!shot.video_url;
+              const statusLabel = shotStatusLabel(shot.status, hasVideo);
 
               return (
                 <button
                   key={shot.id}
                   onClick={() => setSelectedShotId(shot.id)}
                   className={cn(
-                    "group relative flex flex-col justify-between overflow-hidden rounded-lg border border-nc-border/60 bg-nc-panel/20 shadow-sm transition-all duration-150 hover:shadow-md",
+                    "group relative flex flex-col justify-between overflow-hidden rounded-[12px] border border-nc-border/60 bg-white shadow-sm transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md",
                     colors.bg,
                     isActive
-                      ? cn(colors.border, "ring-1", colors.ring, "shadow-md hover:shadow-lg")
+                      ? cn(colors.border, "ring-2", colors.ring, "shadow-md hover:shadow-lg")
                       : cn("hover:border-nc-border-strong")
                   )}
-                  style={{ width: `${width}px`, minHeight: 52 }}
+                  style={{ width: `${width}px`, minHeight: 66 }}
                 >
                   {/* Color strip top */}
-                  <div className={cn("h-[2px] w-full", isActive ? "bg-nc-accent" : "bg-transparent")} />
+                  <div className={cn("h-[3px] w-full", isActive ? "bg-nc-accent" : "bg-transparent")} />
 
                   {/* Content */}
-                  <div className="flex flex-1 flex-col justify-center px-2.5 py-2">
-                    <div className="flex items-center gap-1.5">
+                  <div className="flex flex-1 flex-col justify-center px-3.5 py-3">
+                    <div className="flex min-w-0 items-center gap-2">
                       {hasVideo && (
                         <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-nc-success shadow-sm" />
                       )}
-                      <span className="truncate font-mono text-xs font-medium text-nc-text">
-                        {shot.id}
+                      <span className="truncate text-[13px] font-semibold leading-5 text-nc-text">
+                        {shot.title || `镜头 ${i + 1}`}
                       </span>
                     </div>
-                    {width > 80 && (
-                      <span className="mt-0.5 truncate text-xs text-nc-text-tertiary">
-                        {shot.title}
+                  {width > 80 && (
+                      <span className="mt-1.5 flex min-w-0 items-center gap-1 truncate text-[12px] leading-4 text-nc-text-tertiary">
+                        <Camera className="h-3 w-3 shrink-0" />
+                        <span className="truncate">{statusLabel} · {shot.camera || "镜头规划"}</span>
                       </span>
                     )}
                   </div>
 
                   {/* Duration tag */}
                   {width > 50 && (
-                    <div className="px-2.5 pb-2">
-                      <span className="font-mono text-xs tabular-nums text-nc-text-tertiary/80">
-                        {shot.duration}s
+                    <div className="px-3.5 pb-2.5">
+                      <span className="font-mono text-[12px] leading-4 tabular-nums text-nc-text-tertiary/80">
+                        {shot.duration}s · S{i + 1}
                       </span>
                     </div>
                   )}
@@ -271,13 +377,13 @@ export const TimelineEditor = memo(function TimelineEditor() {
           </div>
 
           {/* Audio track */}
-          <div className="relative ml-12 flex flex-col gap-[2px] border-t border-nc-border px-1 py-2 shadow-sm">
+          <div className="relative ml-12 flex flex-col gap-1 border-t border-nc-border px-2 py-2.5 shadow-sm">
             <div className="absolute -left-12 top-0 flex h-full w-12 items-center justify-center border-r border-nc-border bg-nc-surface shadow-sm">
-              <span className="text-xs font-medium uppercase tracking-widest text-nc-text-tertiary" style={{ writingMode: "vertical-lr", transform: "rotate(180deg)" }}>
-                {t("timeline.audio")}
+              <span className="text-[12px] font-medium uppercase tracking-[0.12em] text-nc-text-tertiary" style={{ writingMode: "vertical-lr", transform: "rotate(180deg)" }}>
+                音频轨道
               </span>
             </div>
-            <div className="flex items-center gap-[2px]">
+            <div className="flex items-center gap-1">
               {directorShots.map((shot, i) => {
                 const width = shot.duration * pxPerSec;
                 const hasDialogue = !!shot.audio?.dialogue;
@@ -285,16 +391,16 @@ export const TimelineEditor = memo(function TimelineEditor() {
                   <div
                     key={`audio-${shot.id}`}
                     className={cn(
-                      "relative flex flex-col justify-end overflow-hidden rounded-lg border px-1.5 pb-1.5 shadow-sm transition-shadow hover:shadow-md",
+                      "relative flex flex-col justify-end overflow-hidden rounded-[12px] border px-2.5 pb-2 shadow-sm transition-shadow hover:shadow-md",
                       hasDialogue 
-                        ? "bg-nc-info/10 border-nc-info/30 hover:border-nc-info/50 min-h-[52px]" 
-                        : "bg-nc-success/10 border-nc-success/25 h-7"
+                        ? "bg-nc-info/10 border-nc-info/30 hover:border-nc-info/50 min-h-[58px]" 
+                        : "bg-nc-success/10 border-nc-success/25 h-9"
                     )}
                     style={{ width: `${width}px` }}
-                    title={shot.audio?.dialogue || "Ambient"}
+                    title={shot.audio?.dialogue || "环境音"}
                   >
                     {hasDialogue && (
-                      <div className="absolute left-1.5 right-1 top-1.5 text-xs font-medium leading-tight text-nc-info truncate opacity-95">
+                      <div className="absolute left-2.5 right-2 top-2 truncate text-[12px] font-medium leading-4 text-nc-info opacity-95">
                         "{shot.audio?.dialogue}"
                       </div>
                     )}
@@ -307,7 +413,7 @@ export const TimelineEditor = memo(function TimelineEditor() {
                             hasDialogue ? "bg-nc-info/40" : "bg-nc-success/40"
                           )}
                           style={{
-                            height: `${(hasDialogue ? 10 : 20) + Math.sin((j + i * 7) * 0.7) * (hasDialogue ? 30 : 40) + Math.random() * 20}px`,
+                            height: `${Math.max(8, (hasDialogue ? 22 : 18) + Math.sin((j + i * 7) * 0.7) * (hasDialogue ? 18 : 14) + Math.cos((j + 3) * 0.43) * 8)}px`,
                           }}
                         />
                       ))}

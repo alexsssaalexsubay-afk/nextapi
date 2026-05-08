@@ -54,6 +54,20 @@ interface SetupState {
   setSavedKeys: (k: Partial<SetupState["savedKeys"]>) => void;
 }
 
+function persistableSetupState(state: SetupState) {
+  return {
+    setupComplete: state.setupComplete,
+    setupStatus: state.setupStatus,
+    wizardStep: state.wizardStep,
+    savedKeys: {
+      nextapi_key: "",
+      openai_key: "",
+      openai_base_url: state.savedKeys.openai_base_url,
+      openai_model: state.savedKeys.openai_model,
+    },
+  };
+}
+
 export const useSetupStore = create<SetupState>()(
   persist(
     (set) => ({
@@ -77,6 +91,26 @@ export const useSetupStore = create<SetupState>()(
           savedKeys: { ...state.savedKeys, ...k },
         })),
     }),
-    { name: "nextcut-setup" }
+    {
+      name: "nextcut-setup",
+      partialize: persistableSetupState,
+      onRehydrateStorage: () => (state) => {
+        if (!state || typeof localStorage === "undefined") return;
+        localStorage.setItem("nextcut-setup", JSON.stringify({ state: persistableSetupState(state), version: 0 }));
+      },
+      merge: (persisted, current) => {
+        const p = persisted as Partial<SetupState>;
+        return {
+          ...current,
+          ...p,
+          savedKeys: {
+            ...current.savedKeys,
+            ...p.savedKeys,
+            nextapi_key: "",
+            openai_key: "",
+          },
+        };
+      },
+    }
   )
 );

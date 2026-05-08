@@ -7,6 +7,7 @@ const modKey = (e: KeyboardEvent) => (isMac ? e.metaKey : e.ctrlKey);
 
 export function useKeyboardShortcuts() {
   const setSidebarPage = useAppStore((s) => s.setSidebarPage);
+  const sidebarPage = useAppStore((s) => s.sidebarPage);
   const setWorkspaceView = useAppStore((s) => s.setWorkspaceView);
   const selectedShotId = useAppStore((s) => s.selectedShotId);
   const setSelectedShotId = useAppStore((s) => s.setSelectedShotId);
@@ -17,6 +18,7 @@ export function useKeyboardShortcuts() {
   useEffect(() => {
     function handler(e: KeyboardEvent) {
       if (isInputFocused()) return;
+      if (sidebarPage === "workspace") return;
 
       // Navigation: 1-5 for sidebar pages
       if (!modKey(e) && !e.altKey) {
@@ -28,6 +30,7 @@ export function useKeyboardShortcuts() {
           "5": "templates",
           "6": "edit",
           "7": "settings",
+          "8": "guide",
         };
         if (pageMap[e.key]) {
           e.preventDefault();
@@ -115,7 +118,7 @@ export function useKeyboardShortcuts() {
 
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [setSidebarPage, setWorkspaceView, selectedShotId, setSelectedShotId, shots, timelineZoom, setTimelineZoom]);
+  }, [sidebarPage, setSidebarPage, setWorkspaceView, selectedShotId, setSelectedShotId, shots, timelineZoom, setTimelineZoom]);
 }
 
 function isInputFocused(): boolean {

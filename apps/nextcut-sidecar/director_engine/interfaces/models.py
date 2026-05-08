@@ -206,6 +206,10 @@ class VideoGenerationParams(BaseModel):
     image_urls: list[str] = Field(default_factory=list)
     video_urls: list[str] = Field(default_factory=list)
     audio_urls: list[str] = Field(default_factory=list)
+    provider_options: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Provider-specific passthrough options. Adapters may merge safe keys into their native request body.",
+    )
     
     # Advanced ControlNet / IP-Adapter Parameters
     controlnet_depth: float = Field(default=0.0, description="Weight for depth map control (0.0 to 1.0)")

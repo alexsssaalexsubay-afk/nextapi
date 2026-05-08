@@ -17,6 +17,9 @@
         "height": 900,
         "minWidth": 1024,
         "minHeight": 700,
+        "resizable": true,
+        "maximizable": true,
+        "maximized": true,
         "decorations": false,
         "transparent": false
       }

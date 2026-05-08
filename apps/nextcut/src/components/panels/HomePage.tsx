@@ -1,262 +1,284 @@
-import { useState, memo } from "react";
+import { memo, useMemo, useState } from "react";
+import { useDirector } from "@/hooks/useDirector";
 import { useAppStore } from "@/stores/app-store";
 import { useDirectorStore } from "@/stores/director-store";
-import { useDirector } from "@/hooks/useDirector";
-import { cn } from "@/lib/cn";
+import { TEMPLATE_CATALOG } from "@/lib/template-catalog";
 import { GuidedWizard } from "@/components/director/GuidedWizard";
+import {
+  Button,
+  FieldShell,
+  MediaThumb,
+  PageHeader,
+  PageShell,
+  Pill,
+  SectionCard,
+  Segmented,
+  StatusBadge,
+  Surface,
+} from "@/components/ui/kit";
+
+const BUILTIN_TEMPLATES = TEMPLATE_CATALOG;
+
+type Aspect = "16:9" | "9:16" | "1:1";
+type DurationPreset = "5" | "10" | "15";
+type StylePreset = "cinematic" | "commercial" | "vlog";
 
 export const HomePage = memo(function HomePage() {
   const { setSidebarPage } = useAppStore();
-  const { prompt, setPrompt, setUseStructuredPrompt, isRunning } = useDirectorStore();
+  const {
+    prompt,
+    setPrompt,
+    setUseStructuredPrompt,
+    setAspectRatio,
+    setDuration,
+    setStyle,
+    setSelectedWorkflow,
+    setNumShots,
+    isRunning,
+  } = useDirectorStore();
   const { runPipeline } = useDirector();
   const [localPrompt, setLocalPrompt] = useState(prompt || "");
   const [showWizard, setShowWizard] = useState(false);
+  const [aspect, setAspect] = useState<Aspect>("16:9");
+  const [durationPreset, setDurationPreset] = useState<DurationPreset>("10");
+  const [stylePreset, setStylePreset] = useState<StylePreset>("cinematic");
+  const featuredTemplates = useMemo(() => BUILTIN_TEMPLATES.slice(0, 4), []);
+
+  const commitCreativeSettings = () => {
+    setPrompt(localPrompt.trim());
+    setAspectRatio(aspect);
+    setDuration(Number(durationPreset));
+    setStyle(stylePreset);
+  };
 
   const handleQuickGenerate = async () => {
-    setPrompt(localPrompt);
+    if (!localPrompt.trim() || isRunning) return;
+    commitCreativeSettings();
+    setSelectedWorkflow("text_to_video");
     setSidebarPage("agents");
     await runPipeline();
   };
 
-  const handlePrecisePath = () => {
-    if (localPrompt) setPrompt(localPrompt);
+  const handleDirectorPath = () => {
+    if (localPrompt.trim()) commitCreativeSettings();
     setUseStructuredPrompt(true);
     setSidebarPage("agents");
   };
 
+  const applyTemplate = (template: typeof BUILTIN_TEMPLATES[number]) => {
+    setSelectedWorkflow(template.workflow);
+    setStyle(template.style);
+    setNumShots(template.shotCount);
+    if (template.shotDuration) setDuration(template.shotDuration);
+    if (template.aspectRatio) setAspectRatio(template.aspectRatio);
+    if (template.prompt) setPrompt(template.prompt);
+    setSidebarPage("agents");
+  };
+
   return (
-    <div className="flex h-full flex-col overflow-auto bg-nc-bg p-8">
+    <PageShell>
       {showWizard && <GuidedWizard onClose={() => setShowWizard(false)} />}
 
-      <div className="mx-auto flex w-full max-w-[1100px] flex-col gap-8 pb-16">
-        {/* Header */}
-        <div className="flex flex-col mb-4">
-          <h1 className="text-[36px] leading-[44px] font-bold tracking-tight text-nc-text flex items-center gap-2">
-            描述它，导演它，渲染它
-            <span className="text-nc-accent text-3xl">✨</span>
-          </h1>
-          <p className="text-[14px] text-nc-text-secondary mt-2 font-medium">
-            用一句话快速生成，或精准控制每一个镜头，创作属于你的视觉故事。
-          </p>
-        </div>
+      <PageHeader
+        eyebrow="NextCut Studio"
+        title="描述它，导演它，渲染它"
+        subtitle="面向专业创作者和团队的 AI 视频工作台。创意输入、工作流、素材和编辑器在同一套清爽设计系统下协同。"
+        action={
+          <>
+            <Button variant="secondary" onClick={() => setShowWizard(true)}>
+              <CompassIcon />
+              引导创作
+            </Button>
+            <Button variant="primary" onClick={handleDirectorPath}>
+              <SparkIcon />
+              AI 导演
+            </Button>
+          </>
+        }
+      />
 
-        {/* Two main path cards */}
-        <div className="flex flex-col lg:flex-row gap-6">
-          {/* Quick Generate Card */}
-          <div className="flex flex-1 flex-col rounded-[20px] border border-nc-border bg-nc-surface p-6 shadow-sm transition-all hover:shadow-md relative overflow-hidden group">
-            <div className="mb-6 flex items-center gap-4">
-              <div className="flex h-11 w-11 items-center justify-center rounded-[12px] bg-nc-accent text-white shadow-sm">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
-              </div>
-              <div>
-                <h2 className="text-[18px] font-semibold text-nc-text flex items-center gap-2">快速生成 <span className="bg-nc-accent-dim text-nc-accent text-[12px] font-medium px-2 py-0.5 rounded-[999px]">AI 一句话成片</span></h2>
-                <p className="text-[14px] text-nc-text-secondary mt-0.5">输入你的想法，AI 将为你生成完整视频</p>
-              </div>
-            </div>
-
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(360px,0.75fr)]">
+        <SectionCard
+          title="创意输入"
+          subtitle="先把想法说清楚，再选择比例、时长和风格。这里的每个控件都会写入生成参数。"
+          action={<StatusBadge tone={localPrompt.trim() ? "success" : "neutral"}>{localPrompt.trim() ? `${localPrompt.trim().length} 字` : "等待创意"}</StatusBadge>}
+          className="min-h-[520px]"
+        >
+          <FieldShell className="min-h-[180px] items-start px-5 py-4">
             <textarea
               value={localPrompt}
-              onChange={(e) => setLocalPrompt(e.target.value)}
-              placeholder="例如：一位穿红裙的女孩在日落海边奔跑，电影感，慢镜头..."
-              rows={4}
-              className={cn(
-                "mb-6 min-h-[120px] w-full resize-none rounded-[16px] border border-nc-border bg-nc-bg p-4 text-[14px] leading-[22px] text-nc-text",
-                "placeholder:text-nc-text-tertiary outline-none transition-all duration-200",
-                "focus:border-nc-accent focus:ring-1 focus:ring-nc-accent/20 focus:shadow-[0_0_0_2px_rgba(109,94,248,0.1)]"
-              )}
+              onChange={(event) => setLocalPrompt(event.target.value)}
+              placeholder="例如：为一款便携咖啡机制作 30 秒产品广告，清晨厨房自然光，突出便携设计和香气氛围..."
+              rows={7}
+              className="min-h-[148px] w-full resize-none bg-transparent text-[15px] leading-7 text-nc-text outline-none placeholder:text-nc-text-tertiary"
             />
+          </FieldShell>
 
-            <div className="mt-auto flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <button className="flex items-center gap-1.5 rounded-[999px] bg-nc-bg border border-nc-border px-3 py-1 h-[28px] text-[13px] font-medium text-nc-text-secondary hover:bg-nc-panel">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M3 9h18" /><path d="M9 21V9" /></svg>
-                  9:16 竖屏
-                </button>
-                <button className="flex items-center gap-1.5 rounded-[999px] bg-nc-bg border border-nc-border px-3 py-1 h-[28px] text-[13px] font-medium text-nc-text-secondary hover:bg-nc-panel">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                  30s 时长
-                </button>
-                <button className="flex items-center gap-1.5 rounded-[999px] bg-nc-bg border border-nc-border px-3 py-1 h-[28px] text-[13px] font-medium text-nc-text-secondary hover:bg-nc-panel">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-                  电影级画质
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 9l6 6 6-6"/></svg>
-                </button>
-              </div>
-              <button
-                onClick={handleQuickGenerate}
-                disabled={!localPrompt.trim() || isRunning}
-                className={cn(
-                  "flex h-[44px] items-center justify-center gap-2 rounded-[12px] px-6 text-[14px] font-semibold transition-all duration-200",
-                  localPrompt.trim() && !isRunning
-                    ? "bg-nc-accent text-white hover:bg-nc-accent-hover hover:-translate-y-0.5 active:bg-[#4E42CC]"
-                    : "bg-[#D9D6FE] text-white cursor-not-allowed"
-                )}
-              >
-                立即生成 <span className="text-[16px]">✨</span>
-              </button>
+          <div className="mt-6 grid gap-5 lg:grid-cols-3">
+            <ControlGroup title="画面比例">
+              <Segmented<Aspect>
+                value={aspect}
+                onChange={setAspect}
+                options={[
+                  { value: "16:9", label: "16:9" },
+                  { value: "9:16", label: "9:16" },
+                  { value: "1:1", label: "1:1" },
+                ]}
+                className="w-full"
+              />
+            </ControlGroup>
+            <ControlGroup title="镜头时长">
+              <Segmented<DurationPreset>
+                value={durationPreset}
+                onChange={setDurationPreset}
+                options={[
+                  { value: "5", label: "5s" },
+                  { value: "10", label: "10s" },
+                  { value: "15", label: "15s" },
+                ]}
+                className="w-full"
+              />
+            </ControlGroup>
+            <ControlGroup title="视觉风格">
+              <Segmented<StylePreset>
+                value={stylePreset}
+                onChange={setStylePreset}
+                options={[
+                  { value: "cinematic", label: "电影" },
+                  { value: "commercial", label: "广告" },
+                  { value: "vlog", label: "Vlog" },
+                ]}
+                className="w-full"
+              />
+            </ControlGroup>
+          </div>
+
+          <div className="mt-8 flex flex-wrap items-center justify-between gap-4 rounded-[18px] border border-nc-border bg-nc-panel px-5 py-4">
+            <div>
+              <p className="text-[14px] font-semibold leading-6 text-nc-text">推荐路径</p>
+              <p className="text-[13px] leading-5 text-nc-text-secondary">快速生成适合探索，AI 导演适合团队交付和镜头级控制。</p>
+            </div>
+            <div className="flex flex-wrap gap-3">
+              <Button variant="secondary" onClick={handleDirectorPath}>
+                <FlowIcon />
+                进入工作流
+              </Button>
+              <Button variant="primary" onClick={handleQuickGenerate} disabled={!localPrompt.trim() || isRunning}>
+                <PlayIcon />
+                {isRunning ? "生成中" : "立即生成"}
+              </Button>
             </div>
           </div>
+        </SectionCard>
 
-          {/* Precise Path Card */}
-          <div className="flex flex-1 flex-col rounded-[20px] border border-nc-border bg-nc-surface p-6 shadow-sm transition-all hover:shadow-md group">
-            <div className="mb-6 flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="flex h-11 w-11 items-center justify-center rounded-[12px] bg-nc-success text-white shadow-sm">
-                  <span className="font-bold text-[18px]">C</span>
-                </div>
-                <div>
-                  <h2 className="text-[18px] font-semibold text-nc-text flex items-center gap-2">专业导演模式 <span className="bg-nc-success/10 text-nc-success text-[12px] font-medium px-2 py-0.5 rounded-[999px]">精细化创作</span></h2>
-                  <p className="text-[14px] text-nc-text-secondary mt-0.5">结构化创作流程，精细控制每一步</p>
-                </div>
-              </div>
-              <button
-                onClick={handlePrecisePath}
-                className="flex h-[40px] items-center gap-1.5 rounded-[12px] border border-nc-border bg-nc-surface px-4 text-[14px] font-medium text-nc-text transition-colors hover:bg-nc-bg active:bg-nc-panel"
-              >
-                打开导演工作台
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-              </button>
-            </div>
-
-            <div className="flex flex-col gap-4 relative flex-1 justify-center">
-              <div className="absolute left-[19px] top-6 bottom-6 w-[2px] bg-nc-border z-0" />
-              <StepPreview number={1} title="脚本" desc="AI 编写剧情脚本，设定角色与对话" icon="📄" />
-              <StepPreview number={2} title="分镜" desc="可视化镜头列表，拖拽排序，拆分/合并" icon="🎞️" />
-              <StepPreview number={3} title="提示词" desc="精调每个镜头：主体 → 动作 → 运动 → 风格" icon="🪄" />
-            </div>
+        <SectionCard title="预览方向" subtitle="让内容成为主角，工具只在需要时出现。" contentClassName="p-5">
+          <MediaThumb tone="accent" duration={`${durationPreset}s`} badge={<StatusBadge tone="info">{aspect}</StatusBadge>} className="shadow-[0_20px_60px_rgba(108,77,255,0.18)]" />
+          <div className="mt-5 grid gap-3">
+            <InfoRow label="工作流" value={stylePreset === "commercial" ? "产品广告" : stylePreset === "vlog" ? "创作者 Vlog" : "电影短片"} />
+            <InfoRow label="输出比例" value={aspect} />
+            <InfoRow label="单镜头时长" value={`${durationPreset} 秒`} />
           </div>
-        </div>
-
-        {/* Quick Links */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <QuickLink icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-nc-accent"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>} title="快速生成" subtitle="一句话生成视频" onClick={() => {}} />
-          <QuickLink icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-nc-success"><path d="M3 7l7-4 7 4v6l-7 4-7-4V7z" /><path d="M10 3v14" /><path d="M3 7l7 4 7-4" /></svg>} title="导演工作台" subtitle="精细化创作流程" onClick={handlePrecisePath} />
-          <QuickLink icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-nc-info"><rect x="3" y="3" width="6" height="6" rx="1" /><rect x="15" y="3" width="6" height="6" rx="1" /><rect x="3" y="15" width="6" height="6" rx="1" /><rect x="15" y="15" width="6" height="6" rx="1" /></svg>} title="模板库" subtitle="热门场景模板" onClick={() => setSidebarPage("templates")} />
-          <QuickLink icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-yellow-500"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" /></svg>} title="项目" subtitle="管理你的作品" onClick={() => setSidebarPage("projects")} />
-        </div>
-
-        {/* Templates Section */}
-        <div>
-          <div className="mb-4 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <h3 className="text-[18px] font-bold text-nc-text">灵感模板</h3>
-              <span className="text-[13px] text-nc-text-secondary">开箱即用，激发你的创作灵感</span>
-            </div>
-            <button
-              onClick={() => setSidebarPage("templates")}
-              className="flex items-center gap-1 text-[13px] font-medium text-nc-text-secondary hover:text-nc-text transition-colors"
-            >
-              查看全部模板
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-            </button>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {/* Mocked template cards matching the image */}
-            <TemplateCard title="竖屏剧情短视频 30s" subtitle="情感故事 | 人物叙事 | 电影感" tags={["9:16", "30s", "6 镜头"]} badge="热门" color="bg-blue-900" />
-            <TemplateCard title="产品开箱 15s" subtitle="电商带货 | 产品展示 | 高转化" tags={["16:9", "15s", "3 镜头"]} badge="新品" color="bg-orange-800" />
-            <TemplateCard title="电影预告片 60s" subtitle="史诗氛围 | 预告片 | 高冲击力" tags={["16:9", "60s", "12 镜头"]} badge="精选" color="bg-slate-800" />
-          </div>
-        </div>
-
-        {/* Recent Projects Section */}
-        <div>
-          <div className="mb-4 flex items-center justify-between">
-            <h3 className="text-[18px] font-bold text-nc-text">最近项目</h3>
-            <button
-              onClick={() => setSidebarPage("projects")}
-              className="flex items-center gap-1 text-[13px] font-medium text-nc-text-secondary hover:text-nc-text transition-colors"
-            >
-              全部项目
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-            </button>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            <ProjectCard title="夏日海边短片" time="更新于 2 小时前" />
-            <ProjectCard title="咖啡品牌广告" time="更新于 昨天" />
-            <ProjectCard title="未来城市预告片" time="更新于 3 天前" />
-          </div>
-        </div>
-
+        </SectionCard>
       </div>
-    </div>
+
+      <div className="mt-6 grid gap-6 lg:grid-cols-4">
+        <HomeShortcut title="项目" subtitle="查看草稿和交付进度" tone="accent" onClick={() => setSidebarPage("projects")} icon={<FolderIcon />} />
+        <HomeShortcut title="素材库" subtitle="管理视频、图片和音频" tone="info" onClick={() => setSidebarPage("library")} icon={<GridIcon />} />
+        <HomeShortcut title="模板" subtitle="从成熟镜头结构开始" tone="success" onClick={() => setSidebarPage("templates")} icon={<TemplateIcon />} />
+        <HomeShortcut title="编辑器" subtitle="进入分镜与时间线" tone="warning" onClick={() => setSidebarPage("edit")} icon={<TimelineIcon />} />
+      </div>
+
+      <SectionCard
+        className="mt-6"
+        title="精选模板"
+        subtitle="选择一个常见视频场景，快速带入镜头结构、参考素材和生成参数。"
+        action={<Button variant="ghost" onClick={() => setSidebarPage("templates")}>查看全部</Button>}
+      >
+        <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
+          {featuredTemplates.map((template, index) => (
+            <Surface key={template.id} interactive className="overflow-hidden p-4">
+              <button type="button" onClick={() => applyTemplate(template)} className="w-full text-left">
+                <MediaThumb src={template.thumbnail} title={template.nameZh} tone={index % 2 === 0 ? "accent" : "info"} duration={template.duration} badge={<StatusBadge tone="accent">{template.shotCount} 镜头</StatusBadge>} />
+                <div className="px-1 pt-5">
+                  <h3 className="line-clamp-1 text-[17px] font-semibold leading-7 text-nc-text">{template.nameZh}</h3>
+                  <p className="mt-2 line-clamp-2 min-h-[44px] text-[14px] leading-[22px] text-nc-text-secondary">{template.description}</p>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <Pill tone="neutral">{template.style}</Pill>
+                    <Pill tone="info">{template.workflow === "text_to_video" ? "文生视频" : template.workflow === "image_to_video" ? "图生视频" : "多模态"}</Pill>
+                  </div>
+                </div>
+              </button>
+            </Surface>
+          ))}
+        </div>
+      </SectionCard>
+    </PageShell>
   );
 });
 
-function StepPreview({ number, title, desc, icon }: { number: number; title: string; desc: string; icon: string }) {
+function ControlGroup({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="flex items-center gap-4 z-10">
-      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-nc-success text-white text-[14px] font-bold shadow-sm">
-        {number}
-      </div>
-      <div className="flex-1 rounded-[14px] border border-nc-border bg-nc-bg p-4 shadow-sm flex items-center justify-between">
-        <div>
-          <div className="text-[16px] font-semibold text-nc-text">{title}</div>
-          <div className="text-[14px] text-nc-text-secondary mt-0.5">{desc}</div>
-        </div>
-        <div className="flex h-8 w-8 items-center justify-center rounded-[10px] border border-nc-border bg-nc-surface">
-          {icon === "📄" && <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-nc-text-secondary"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>}
-          {icon === "🎞️" && <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-nc-success"><rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="2" y1="7" x2="7" y2="7"/><line x1="2" y1="17" x2="7" y2="17"/><line x1="17" y1="17" x2="22" y2="17"/><line x1="17" y1="7" x2="22" y2="7"/></svg>}
-          {icon === "🪄" && <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-nc-info"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>}
-        </div>
-      </div>
+    <div className="min-w-0 rounded-[16px] border border-nc-border bg-white p-4">
+      <p className="mb-3 text-[13px] font-semibold leading-5 text-nc-text-secondary">{title}</p>
+      {children}
     </div>
   );
 }
 
-function QuickLink({ icon, title, subtitle, onClick }: { icon: React.ReactNode; title: string; subtitle: string; onClick: () => void }) {
+function InfoRow({ label, value }: { label: string; value: string }) {
   return (
-    <button onClick={onClick} className="flex items-center gap-4 rounded-[14px] border border-nc-border bg-nc-surface p-4 text-left shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5">
-      <div className="flex h-10 w-10 items-center justify-center rounded-[12px] bg-nc-bg border border-nc-border">
-        {icon}
-      </div>
-      <div>
-        <div className="text-[16px] font-semibold text-nc-text">{title}</div>
-        <div className="text-[12px] text-nc-text-tertiary mt-0.5">{subtitle}</div>
-      </div>
-    </button>
-  );
-}
-
-function TemplateCard({ title, subtitle, tags, badge, color }: { title: string; subtitle: string; tags: string[]; badge: string; color: string }) {
-  return (
-    <div className="group relative flex h-48 cursor-pointer flex-col justify-end overflow-hidden rounded-[20px] shadow-sm transition-all duration-300 hover:shadow-md hover:-translate-y-1 border border-nc-border">
-      <div className={cn("absolute inset-0 transition-transform duration-700 group-hover:scale-105", color)}>
-        {/* Placeholder for actual images */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
-      </div>
-      <div className="absolute right-4 top-4 rounded-[999px] px-2 py-0.5 text-[12px] font-medium text-white shadow backdrop-blur-md bg-white/20">
-        {badge}
-      </div>
-      <div className="relative z-10 p-6">
-        <h4 className="text-[18px] font-semibold text-white shadow-sm">{title}</h4>
-        <p className="text-[14px] text-white/80 mt-1 mb-3">{subtitle}</p>
-        <div className="flex gap-2">
-          {tags.map((tag, i) => (
-            <span key={i} className="rounded-[999px] border border-white/20 bg-white/10 px-2 py-1 text-[12px] font-medium text-white backdrop-blur-sm">
-              {tag}
-            </span>
-          ))}
-        </div>
-      </div>
+    <div className="flex items-center justify-between gap-4 rounded-[14px] bg-nc-panel px-4 py-3">
+      <span className="text-[13px] leading-5 text-nc-text-secondary">{label}</span>
+      <span className="text-[13px] font-semibold leading-5 text-nc-text">{value}</span>
     </div>
   );
 }
 
-function ProjectCard({ title, time }: { title: string; time: string }) {
+function HomeShortcut({ title, subtitle, icon, tone, onClick }: { title: string; subtitle: string; icon: React.ReactNode; tone: "accent" | "info" | "success" | "warning"; onClick: () => void }) {
   return (
-    <div className="group flex cursor-pointer items-center gap-4 rounded-[14px] border border-nc-border bg-nc-surface p-4 shadow-sm transition-all hover:shadow-md">
-      <div className="h-16 w-24 shrink-0 rounded-[12px] bg-nc-panel overflow-hidden border border-nc-border">
-        {/* Image placeholder */}
-        <div className="h-full w-full bg-gradient-to-br from-nc-border to-nc-bg opacity-50" />
-      </div>
-      <div className="flex flex-1 flex-col">
-        <div className="text-[16px] font-semibold text-nc-text mb-1">{title}</div>
-        <div className="text-[12px] text-nc-text-tertiary">{time}</div>
-      </div>
-      <button className="flex h-8 w-8 items-center justify-center rounded-[10px] text-nc-text-tertiary hover:bg-nc-panel hover:text-nc-text transition-colors opacity-0 group-hover:opacity-100">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
+    <Surface interactive className="p-5">
+      <button type="button" onClick={onClick} className="flex w-full items-center gap-4 text-left">
+        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[15px] border border-nc-border bg-nc-panel text-nc-accent">
+          {icon}
+        </span>
+        <span className="min-w-0">
+          <span className="block text-[16px] font-semibold leading-6 text-nc-text">{title}</span>
+          <span className="mt-1 block text-[13px] leading-5 text-nc-text-secondary">{subtitle}</span>
+        </span>
+        <StatusBadge tone={tone} className="ml-auto">打开</StatusBadge>
       </button>
-    </div>
+    </Surface>
   );
+}
+
+function SparkIcon() {
+  return <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M10 2l1.4 4.3L16 8l-4.6 1.7L10 14l-1.4-4.3L4 8l4.6-1.7L10 2Z" /></svg>;
+}
+
+function CompassIcon() {
+  return <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="10" cy="10" r="7" /><path d="m12.5 7.5-1.4 3.6-3.6 1.4 1.4-3.6 3.6-1.4Z" /></svg>;
+}
+
+function FlowIcon() {
+  return <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M5 5h4v4H5zM11 11h4v4h-4zM9 7h2a2 2 0 0 1 2 2v2" /></svg>;
+}
+
+function PlayIcon() {
+  return <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor"><path d="M7 5.5v9l7-4.5-7-4.5Z" /></svg>;
+}
+
+function FolderIcon() {
+  return <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6.5A2.5 2.5 0 0 1 5.5 4H8l2 2h4.5A2.5 2.5 0 0 1 17 8.5v5A2.5 2.5 0 0 1 14.5 16h-9A2.5 2.5 0 0 1 3 13.5v-7Z" /></svg>;
+}
+
+function GridIcon() {
+  return <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M3 3h5v5H3zM12 3h5v5h-5zM3 12h5v5H3zM12 12h5v5h-5z" /></svg>;
+}
+
+function TemplateIcon() {
+  return <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h12v12H4z" /><path d="M4 8h12M8 8v8" /></svg>;
+}
+
+function TimelineIcon() {
+  return <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h14M3 10h9M3 14h14" /><path d="M15 9v2" /></svg>;
 }

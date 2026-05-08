@@ -63,6 +63,37 @@ def _merge_prompt_with_negative(prompt: str, negative: str) -> str:
     return f"{p}\n\n{suffix}" if p else suffix
 
 
+def _safe_provider_options(options: dict[str, Any]) -> dict[str, Any]:
+    """Allow native provider fields without allowing callers to smuggle auth headers."""
+    blocked = {
+        "api_key",
+        "apikey",
+        "authorization",
+        "auth",
+        "headers",
+        "token",
+        "access_token",
+        "access-token",
+        "accesstoken",
+        "refresh_token",
+        "refresh-token",
+        "refreshtoken",
+        "secret",
+        "password",
+        "x-api-key",
+        "xapikey",
+    }
+    safe: dict[str, Any] = {}
+    for key, value in (options or {}).items():
+        normalized = str(key).strip()
+        lowered = normalized.lower()
+        compact = lowered.replace("_", "").replace("-", "")
+        if not normalized or lowered in blocked or compact in blocked or value is None:
+            continue
+        safe[normalized] = value
+    return safe
+
+
 class SeedanceProvider:
     def __init__(self, config: ProviderConfig) -> None:
         self.config = config
@@ -97,6 +128,7 @@ class SeedanceProvider:
             inp["video_urls"] = params.video_urls[:3]
         if params.audio_urls:
             inp["audio_urls"] = params.audio_urls[:3]
+        inp.update(_safe_provider_options(params.provider_options))
         return {"model": model, "input": inp}
 
     async def generate(self, params: VideoGenerationParams) -> dict[str, Any]:
@@ -114,6 +146,10 @@ class SeedanceProvider:
                 "job_id": data.get("id", ""),
                 "status": data.get("status", "queued"),
                 "estimated_cost_cents": data.get("estimated_cost_cents", 0),
+                "provider": self.config.provider,
+                "provider_model": payload.get("model", self.config.model),
+                "request_payload": payload,
+                "upstream_response": data,
             }
 
     async def generate_sequence(
@@ -160,6 +196,10 @@ class SeedanceProvider:
             return {
                 "job_id": data.get("id", ""),
                 "status": data.get("status", "queued"),
+                "provider": self.config.provider,
+                "provider_model": model,
+                "request_payload": payload,
+                "upstream_response": data,
             }
 
     async def edit_video(
@@ -195,6 +235,10 @@ class SeedanceProvider:
             return {
                 "job_id": data.get("id", ""),
                 "status": data.get("status", "queued"),
+                "provider": self.config.provider,
+                "provider_model": model,
+                "request_payload": payload,
+                "upstream_response": data,
             }
 
     async def poll_status(self, job_id: str) -> dict[str, Any]:

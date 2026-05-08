@@ -1,234 +1,304 @@
-import { memo, useCallback } from "react";
+import { memo, useCallback, useMemo } from "react";
+import {
+  AudioLines,
+  Camera,
+  Clapperboard,
+  Copy,
+  FileText,
+  Lightbulb,
+  Move3D,
+  Sparkles,
+  Target,
+  WandSparkles,
+} from "lucide-react";
+import { Button, FieldLabel, IconFrame, Pill, SectionTitle, Surface } from "@/components/ui/kit";
 import { cn } from "@/lib/cn";
+import { CAMERA_MOVEMENTS, LIGHTING_STYLES, OPTICS_AND_LENSES } from "@/lib/prompt-dictionary";
 import { useDirectorStore, type StructuredPrompt } from "@/stores/director-store";
-import { useI18nStore } from "@/stores/i18n-store";
-
-const CAMERA_PRESETS = [
-  "Wide establishing shot", "Medium shot", "Close-up", "Extreme close-up",
-  "Over-the-shoulder", "Bird's eye view", "Low angle", "Dutch angle",
-  "Tracking shot", "Dolly zoom", "Handheld", "Steadicam",
-  "Crane shot", "POV shot", "Slow pan", "Whip pan",
-];
 
 const STYLE_PRESETS = [
-  "Cinematic realistic", "Anime cel-shaded", "Film noir high contrast",
-  "Dreamy soft focus", "Documentary natural", "Cyberpunk neon",
-  "Vintage film grain", "Commercial clean", "Wuxia epic",
-  "Minimal flat", "Music video stylized", "Social media vibrant",
+  "production-grade SaaS commercial",
+  "cinematic realistic, restrained color grade",
+  "documentary natural, handheld intimacy",
+  "premium product film, clean reflections",
+  "social short video, strong first-frame hook",
+  "soft lifestyle, warm natural light",
 ];
 
 const CONSTRAINT_PRESETS = [
-  "No text or watermarks", "No sudden scene changes",
-  "Maintain character appearance", "Keep lighting consistent",
-  "Avoid fast camera shaking", "No morphing artifacts",
-  "Keep background stable", "Maintain eye contact with camera",
+  "one clear action per shot",
+  "stable identity and wardrobe",
+  "no text overlays or watermarks",
+  "avoid sudden scene changes",
+  "keep product shape consistent",
+  "preserve scene geography",
 ];
 
-const FIELDS: {
+const AUDIO_PRESETS = [
+  "clean ambience with soft transition accents",
+  "steady pulse that rises toward the ending",
+  "dialogue only when face is visible",
+  "final beat leaves 0.5s breathing room",
+];
+
+const FIELD_GROUPS: Array<{
   key: keyof StructuredPrompt;
   label: string;
-  labelZh: string;
+  eyebrow: string;
   placeholder: string;
+  icon: typeof Target;
+  tone: "accent" | "info" | "success" | "warning" | "neutral";
+  rows?: number;
   presets?: string[];
-  rows: number;
-}[] = [
+}> = [
   {
     key: "subject",
-    label: "Subject",
-    labelZh: "主体",
-    placeholder: "Who/what is in the shot? e.g. A young woman in a red dress, a golden retriever, a steaming coffee cup...",
+    label: "主体锁定",
+    eyebrow: "Subject",
+    placeholder: "人物、产品或场景主角。写清楚可见特征，但不要堆形容词。",
+    icon: Target,
+    tone: "accent",
     rows: 2,
   },
   {
     key: "action",
-    label: "Action",
-    labelZh: "动作",
-    placeholder: "What happens? Use SVO: Subject + Verb + Object. e.g. walks through a bamboo forest, pours coffee slowly, turns to face the camera...",
+    label: "动作事件",
+    eyebrow: "Action",
+    placeholder: "主体正在做的一件事。优先使用 SVO：主体 + 动作 + 对象。",
+    icon: Sparkles,
+    tone: "info",
+    rows: 2,
+  },
+  {
+    key: "scene",
+    label: "场景语境",
+    eyebrow: "Scene",
+    placeholder: "空间、时间、气氛和上下文，让镜头知道发生在哪里。",
+    icon: Clapperboard,
+    tone: "neutral",
     rows: 2,
   },
   {
     key: "camera",
-    label: "Camera",
-    labelZh: "镜头",
-    placeholder: "Camera angle and movement. e.g. Slow tracking shot from left, close-up with shallow depth of field...",
-    presets: CAMERA_PRESETS,
-    rows: 1,
+    label: "镜头语言",
+    eyebrow: "Camera",
+    placeholder: "机位、景别、镜头焦段，例如 close-up, 35mm, shallow depth of field。",
+    icon: Camera,
+    tone: "success",
+    presets: OPTICS_AND_LENSES.slice(0, 5).map((item) => item.value),
+  },
+  {
+    key: "motion",
+    label: "Camera Motion",
+    eyebrow: "Motion",
+    placeholder: "镜头运动和主体运动如何配合。运动强度要可生成。",
+    icon: Move3D,
+    tone: "accent",
+    presets: [
+      ...CAMERA_MOVEMENTS.basic.slice(0, 2),
+      ...CAMERA_MOVEMENTS.advanced.slice(0, 4),
+      ...CAMERA_MOVEMENTS.dynamic.slice(0, 2),
+    ].map((item) => item.value),
   },
   {
     key: "style",
-    label: "Style",
-    labelZh: "风格",
-    placeholder: "Visual style and mood. e.g. Cinematic warm tones, dramatic lighting, 35mm film look...",
+    label: "视觉风格",
+    eyebrow: "Style",
+    placeholder: "画面质感、色彩、产品气质。保持专业、克制、现代。",
+    icon: WandSparkles,
+    tone: "info",
     presets: STYLE_PRESETS,
-    rows: 1,
+  },
+  {
+    key: "lighting",
+    label: "光线质感",
+    eyebrow: "Lighting",
+    placeholder: "主光、环境光、反射、高光与阴影关系。",
+    icon: Lightbulb,
+    tone: "warning",
+    presets: [
+      ...LIGHTING_STYLES.environmental.slice(0, 3),
+      ...LIGHTING_STYLES.cinematic_setups.slice(0, 3),
+      ...LIGHTING_STYLES.stylized.slice(0, 2),
+    ].map((item) => item.value),
   },
   {
     key: "constraints",
-    label: "Constraints",
-    labelZh: "约束",
-    placeholder: "What to avoid. e.g. No text overlays, maintain character appearance, avoid fast cuts...",
+    label: "生成约束",
+    eyebrow: "Guardrails",
+    placeholder: "明确不要发生什么，避免漂移、文字、水印、身份变化。",
+    icon: FileText,
+    tone: "neutral",
     presets: CONSTRAINT_PRESETS,
-    rows: 1,
+  },
+  {
+    key: "audio",
+    label: "声音节奏",
+    eyebrow: "Audio",
+    placeholder: "音乐、对白、音效和剪辑节奏，只写会影响画面的关键声音。",
+    icon: AudioLines,
+    tone: "success",
+    presets: AUDIO_PRESETS,
   },
 ];
+
+function compileStructuredPrompt(structuredPrompt: StructuredPrompt) {
+  const segments = [
+    structuredPrompt.subject && `Subject: ${structuredPrompt.subject.trim()}`,
+    structuredPrompt.action && `Action: ${structuredPrompt.action.trim()}`,
+    structuredPrompt.scene && `Scene: ${structuredPrompt.scene.trim()}`,
+    structuredPrompt.camera && `Camera: ${structuredPrompt.camera.trim()}`,
+    structuredPrompt.motion && `Motion: ${structuredPrompt.motion.trim()}`,
+    structuredPrompt.style && `Style: ${structuredPrompt.style.trim()}`,
+    structuredPrompt.lighting && `Lighting: ${structuredPrompt.lighting.trim()}`,
+    structuredPrompt.audio && `Audio: ${structuredPrompt.audio.trim()}`,
+    structuredPrompt.constraints && `Constraints: ${structuredPrompt.constraints.trim()}`,
+  ].filter(Boolean);
+
+  return segments.join(". ");
+}
 
 export const StructuredPromptBuilder = memo(function StructuredPromptBuilder({
   disabled,
 }: {
   disabled?: boolean;
 }) {
-  const { structuredPrompt, setStructuredPrompt, setPrompt } = useDirectorStore();
-  const { lang } = useI18nStore();
+  const {
+    structuredPrompt,
+    setStructuredPrompt,
+    setPrompt,
+    useStructuredPrompt,
+    setUseStructuredPrompt,
+  } = useDirectorStore();
 
-  const compileToText = useCallback(() => {
-    const parts: string[] = [];
-    if (structuredPrompt.subject) parts.push(structuredPrompt.subject.trim());
-    if (structuredPrompt.action) parts.push(structuredPrompt.action.trim());
-    if (structuredPrompt.camera) parts.push(`Camera: ${structuredPrompt.camera.trim()}`);
-    if (structuredPrompt.style) parts.push(`Style: ${structuredPrompt.style.trim()}`);
-    if (structuredPrompt.constraints) parts.push(`Avoid: ${structuredPrompt.constraints.trim()}`);
-    const compiled = parts.join(". ") + ".";
-    setPrompt(compiled);
-    return compiled;
-  }, [structuredPrompt, setPrompt]);
+  const compiledPrompt = useMemo(() => compileStructuredPrompt(structuredPrompt), [structuredPrompt]);
+  const filledCount = useMemo(
+    () => FIELD_GROUPS.filter((field) => structuredPrompt[field.key]?.trim()).length,
+    [structuredPrompt]
+  );
 
   const insertPreset = useCallback((field: keyof StructuredPrompt, preset: string) => {
-    const current = structuredPrompt[field];
-    const value = current ? `${current}, ${preset.toLowerCase()}` : preset;
-    setStructuredPrompt({ [field]: value });
+    const current = structuredPrompt[field]?.trim();
+    setStructuredPrompt({ [field]: current ? `${current}, ${preset}` : preset });
   }, [structuredPrompt, setStructuredPrompt]);
 
+  const applyCompiledPrompt = useCallback(() => {
+    if (!compiledPrompt) return;
+    setPrompt(compiledPrompt);
+    setUseStructuredPrompt(true);
+  }, [compiledPrompt, setPrompt, setUseStructuredPrompt]);
+
   return (
-    <div className="flex flex-col gap-6">
-      {FIELDS.map((field) => (
-        <div key={field.key} className="relative rounded-[16px] border border-nc-border bg-nc-surface p-6 shadow-sm transition-all hover:shadow-md hover:border-nc-accent">
-          <div className="mb-4 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="flex h-8 w-8 items-center justify-center rounded-[10px] bg-nc-bg text-nc-text-secondary border border-nc-border">
-                {field.key === "subject" && <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>}
-                {field.key === "action" && <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>}
-                {field.key === "camera" && <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"></rect><line x1="7" y1="2" x2="7" y2="22"></line><line x1="17" y1="2" x2="17" y2="22"></line><line x1="2" y1="12" x2="22" y2="12"></line><line x1="2" y1="7" x2="7" y2="7"></line><line x1="2" y1="17" x2="7" y2="17"></line><line x1="17" y1="17" x2="22" y2="17"></line><line x1="17" y1="7" x2="22" y2="7"></line></svg>}
-                {field.key === "style" && <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path></svg>}
-                {field.key === "constraints" && <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>}
+    <Surface className="overflow-hidden rounded-[20px]">
+      <div className="flex items-start justify-between gap-5 border-b border-nc-border px-6 py-5">
+        <SectionTitle
+          title="Prompt Decomposition"
+          subtitle="把创意拆成可执行的主体、动作、场景、运镜、参考约束和声音节奏。"
+        />
+        <div className="flex shrink-0 items-center gap-2">
+          <Pill tone={useStructuredPrompt ? "accent" : "neutral"}>
+            {useStructuredPrompt ? "已接管主提示词" : `${filledCount}/${FIELD_GROUPS.length} 已填写`}
+          </Pill>
+          <Button size="sm" variant="primary" onClick={applyCompiledPrompt} disabled={disabled || !compiledPrompt}>
+            <WandSparkles className="h-4 w-4" />
+            应用到创意
+          </Button>
+        </div>
+      </div>
+
+      <div className="grid gap-5 p-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(300px,0.8fr)]">
+        <div className="grid gap-4 md:grid-cols-2">
+          {FIELD_GROUPS.map((field) => {
+            const Icon = field.icon;
+            const active = Boolean(structuredPrompt[field.key]?.trim());
+            return (
+              <div
+                key={field.key}
+                className={cn(
+                  "rounded-[18px] border bg-white p-5 shadow-sm transition-all duration-200",
+                  active ? "border-nc-accent/28 bg-[#FBFAFF]" : "border-nc-border hover:border-nc-accent/28"
+                )}
+              >
+                <div className="mb-4 flex items-start gap-3">
+                  <IconFrame tone={field.tone} className="h-10 w-10 rounded-[12px]">
+                    <Icon className="h-5 w-5" />
+                  </IconFrame>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-[15px] font-semibold leading-6 text-nc-text">{field.label}</h3>
+                      <span className="text-[12px] font-semibold uppercase leading-4 tracking-[0.08em] text-nc-text-tertiary">
+                        {field.eyebrow}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-[12px] leading-5 text-nc-text-secondary">{field.placeholder}</p>
+                  </div>
+                </div>
+                <FieldLabel label={field.label} className="gap-2">
+                  <textarea
+                    value={structuredPrompt[field.key] || ""}
+                    onChange={(event) => setStructuredPrompt({ [field.key]: event.target.value })}
+                    disabled={disabled}
+                    rows={field.rows || 1}
+                    className="min-h-[48px] w-full resize-none rounded-[14px] border border-nc-border bg-white px-4 py-3 text-[14px] leading-6 text-nc-text shadow-sm outline-none transition focus:border-nc-accent focus:ring-2 focus:ring-nc-accent/10 disabled:opacity-45"
+                  />
+                </FieldLabel>
+                {field.presets && (
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {field.presets.slice(0, 6).map((preset) => (
+                      <button
+                        key={preset}
+                        type="button"
+                        onClick={() => insertPreset(field.key, preset)}
+                        disabled={disabled}
+                        className="min-h-8 rounded-[999px] border border-nc-border bg-nc-bg px-3 py-1.5 text-[12px] font-semibold leading-4 text-nc-text-secondary transition hover:border-nc-accent/35 hover:bg-[#F5F3FF] hover:text-nc-accent disabled:opacity-45"
+                      >
+                        {preset}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
-              <label className="text-[16px] font-semibold text-nc-text flex items-center gap-2">
-                {lang === "zh" ? field.labelZh : field.label}
-                <span className="text-[12px] font-medium text-nc-text-tertiary">
-                  {lang === "zh" ? field.label : field.labelZh}
-                </span>
-              </label>
-            </div>
-            <div className="flex items-center gap-4">
-              <span className="text-[12px] font-mono text-nc-text-tertiary">0/300</span>
-              <button className="flex items-center gap-1.5 text-[13px] font-semibold text-nc-accent hover:text-nc-accent-hover transition-colors">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path></svg>
-                AI 补全
-              </button>
-            </div>
-          </div>
-          <textarea
-            value={structuredPrompt[field.key]}
-            onChange={(e) => setStructuredPrompt({ [field.key]: e.target.value })}
-            placeholder={field.placeholder}
-            rows={field.rows}
-            disabled={disabled}
-            className={cn(
-              "w-full min-h-[80px] resize-none rounded-[12px] bg-nc-bg p-[16px] text-[14px] leading-[22px] text-nc-text border border-transparent",
-              "placeholder:text-nc-text-tertiary outline-none transition-all duration-200",
-              "focus:border-nc-accent focus:bg-white focus:ring-1 focus:ring-nc-accent/20 focus:shadow-[0_0_0_2px_rgba(109,94,248,0.1)]",
-              "disabled:opacity-40"
-            )}
-          />
-          {/* Preset chips */}
-          {field.presets && (
-            <div className="mt-4 flex flex-wrap gap-2.5 px-1">
-              {field.presets.slice(0, 8).map((preset) => (
-                <button
-                  key={preset}
-                  onClick={() => insertPreset(field.key, preset)}
-                  disabled={disabled}
-                  className="rounded-[999px] bg-nc-bg px-[12px] py-[6px] text-[13px] font-medium text-nc-text-secondary transition-all hover:bg-[#F5F3FF] hover:text-nc-accent disabled:opacity-40 border border-transparent hover:border-nc-accent/20"
-                >
-                  {preset}
-                </button>
-              ))}
-              {field.presets.length > 8 && (
-                <button className="rounded-[999px] bg-nc-bg px-[12px] py-[6px] text-[13px] font-medium text-nc-text-secondary transition-all hover:bg-[#F5F3FF] hover:text-nc-accent">
-                  更多 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="inline ml-1"><path d="M6 9l6 6 6-6"/></svg>
-                </button>
-              )}
-            </div>
-          )}
+            );
+          })}
         </div>
-      ))}
 
-      {/* Seedance tips */}
-      <div className="rounded-[16px] border border-nc-border bg-nc-surface p-6 shadow-sm">
-        <div className="mb-4 flex items-center gap-2 text-[16px] font-semibold text-nc-text">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-nc-accent">
-            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
-          </svg>
-          Seedance 2.0 提示
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-nc-text-tertiary"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          <div>
-            <div className="flex items-center gap-2 text-[14px] font-semibold text-nc-text mb-1">
-              <span className="text-nc-accent">✨</span> 使用 SVO 句子结构
+        <div className="sticky top-5 self-start rounded-[18px] border border-nc-border bg-nc-bg p-5">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <div>
+              <h3 className="text-[16px] font-semibold leading-6 text-nc-text">可生成提示词</h3>
+              <p className="mt-1 text-[13px] leading-5 text-nc-text-secondary">只在点击应用时写入主创意，不再在渲染中偷偷改状态。</p>
             </div>
-            <div className="text-[12px] text-nc-text-secondary">主语 + 谓语 + 宾语，描述更清晰</div>
+            <Button
+              size="icon"
+              variant="secondary"
+              aria-label="复制提示词"
+              title="复制提示词"
+              onClick={() => {
+                void navigator.clipboard?.writeText(compiledPrompt);
+              }}
+              disabled={!compiledPrompt}
+            >
+              <Copy className="h-4 w-4" />
+            </Button>
           </div>
-          <div>
-            <div className="flex items-center gap-2 text-[14px] font-semibold text-nc-text mb-1">
-              <span className="text-nc-accent">🎯</span> 每个镜头聚焦一个动作
-            </div>
-            <div className="text-[12px] text-nc-text-secondary">避免多个动作叠加，效果更稳定</div>
+          <div className="min-h-[260px] rounded-[16px] border border-nc-border bg-white p-5 text-[14px] leading-7 text-nc-text-secondary shadow-sm">
+            {compiledPrompt || "拆解主体、动作、场景和镜头后，这里会形成可直接送进导演链的提示词。"}
           </div>
-          <div>
-            <div className="flex items-center gap-2 text-[14px] font-semibold text-nc-text mb-1">
-              <span className="text-nc-accent">💡</span> 物理描述越具体越好
-            </div>
-            <div className="text-[12px] text-nc-text-secondary">光线、材质、环境会影响真实感</div>
-          </div>
-          <div>
-            <div className="flex items-center gap-2 text-[14px] font-semibold text-nc-text mb-1">
-              <span className="text-nc-accent">🖼️</span> 参考图决定 70%+ 效果
-            </div>
-            <div className="text-[12px] text-nc-text-secondary">上传参考图可显著提升一致性</div>
+          <div className="mt-4 grid grid-cols-2 gap-3">
+            {[
+              ["Storyboard", "分镜会继承动作与场景"],
+              ["Reference", "参考图优先于文字外观"],
+              ["Camera Motion", "运镜和主体动作分离"],
+              ["Prompt Review", "约束进入质检清单"],
+            ].map(([title, desc]) => (
+              <div key={title} className="rounded-[14px] border border-nc-border bg-white p-4">
+                <div className="text-[13px] font-semibold leading-5 text-nc-text">{title}</div>
+                <div className="mt-1 text-[12px] leading-5 text-nc-text-tertiary">{desc}</div>
+              </div>
+            ))}
           </div>
         </div>
       </div>
-
-      {/* Action bar (Floating style) */}
-      <div className="sticky bottom-4 z-20 flex flex-col sm:flex-row items-center justify-between rounded-[20px] border border-nc-border bg-nc-surface/90 backdrop-blur-xl p-4 shadow-md mx-auto w-full">
-        <div className="flex items-center gap-4 w-full sm:w-auto mb-4 sm:mb-0">
-          <span className="text-[14px] font-semibold text-nc-text whitespace-nowrap">提示词预览</span>
-          <div className="text-[14px] text-nc-text-secondary truncate max-w-md">
-            {compileToText()}
-          </div>
-          <span className="text-[12px] font-mono text-nc-text-tertiary ml-auto">68/1200</span>
-          <button className="text-nc-text-tertiary hover:text-nc-text transition-colors">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-          </button>
-        </div>
-        <div className="flex items-center gap-3 w-full sm:w-auto">
-          <button
-            onClick={compileToText}
-            className="flex flex-1 sm:flex-none h-[40px] items-center justify-center gap-2 rounded-[12px] border border-nc-border bg-white px-5 text-[14px] font-medium text-nc-text-secondary transition-colors hover:bg-nc-surface hover:text-nc-text shadow-sm"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
-            保存草稿
-          </button>
-          <button
-            onClick={compileToText}
-            className="flex flex-1 sm:flex-none h-[44px] items-center justify-center gap-2 rounded-[12px] bg-nc-accent px-6 text-[14px] font-semibold text-white transition-colors hover:bg-nc-accent-hover shadow-sm active:bg-[#4E42CC]"
-          >
-            <span className="text-[16px]">✨</span>
-            生成镜头
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="ml-1"><polyline points="6 9 12 15 18 9"></polyline></svg>
-          </button>
-        </div>
-      </div>
-    </div>
+    </Surface>
   );
 });

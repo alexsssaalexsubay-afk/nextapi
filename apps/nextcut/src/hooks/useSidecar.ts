@@ -1,6 +1,7 @@
 import { useEffect, useRef, useCallback } from "react";
 import { useAppStore } from "@/stores/app-store";
 import { useDirectorStore } from "@/stores/director-store";
+import { safeMediaSrc } from "@/lib/media";
 import { checkHealth, createReconnectingWs, waitForSidecar } from "@/lib/sidecar";
 
 const HEALTH_POLL_INTERVAL = 15_000;
@@ -30,8 +31,9 @@ export function useSidecar() {
     if (evt.type === "shot.generated") {
       const shotId = evt.data?.shot_id as string;
       const videoUrl = evt.data?.video_url as string;
-      if (shotId && videoUrl) {
-        updateShot(shotId, { status: "succeeded", video_url: videoUrl });
+      const safeVideoUrl = safeMediaSrc(videoUrl);
+      if (shotId && safeVideoUrl) {
+        updateShot(shotId, { status: "succeeded", video_url: safeVideoUrl });
       }
     }
 
@@ -42,8 +44,8 @@ export function useSidecar() {
       if (shotId) {
         updateShot(shotId, {
           status: "succeeded",
-          video_url: videoUrl || "",
-          thumbnail_url: thumbnailUrl || "",
+          video_url: safeMediaSrc(videoUrl) || "",
+          thumbnail_url: safeMediaSrc(thumbnailUrl) || "",
         });
       }
     }

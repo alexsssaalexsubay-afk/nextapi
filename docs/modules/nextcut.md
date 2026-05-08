@@ -67,5 +67,6 @@ The app sells NextAPI API access. It is *not* a separate product with its own bi
 ## References
 
 - [Use NextAPI keys in third-party tools](../use-nextapi-key-in-third-party-tools.md) — user-facing guide
+- [NextCut product guide](./nextcut-product-guide.md) — in-app usage guide with generated product walkthrough images
 - [Canvas workbench v0.2](./canvas-workbench-v02.md) — existing Canvas module design
 - [Canvas workflow](./canvas-workflow.md) — workflow CRUD and run model

@@ -22,3 +22,4 @@ Modules planned for W1:
 Additional slices (see files in this directory):
 - `seedance-relay-webhook-assets.md` — managed Seedance relay callbacks (`POST /api/webhooks/seedance`), HMAC secret, optional asset library sync.
 - `email-otp-easypay-billing.md` — dashboard email OTP, EasyPay checkout, notify URL behaviour.
+- `nextcut-data-memory-alignment.md` — NextCut desktop/main-site field alignment, asset registry, prompt registry, memory model, and UI plan.

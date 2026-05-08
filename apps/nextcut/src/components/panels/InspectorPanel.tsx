@@ -1,16 +1,19 @@
 import { useState, useCallback } from "react";
+import { ArrowLeft, ArrowRight, Download, Edit3, Film, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useAppStore } from "@/stores/app-store";
 import { useDirectorStore } from "@/stores/director-store";
 import { sidecarFetch } from "@/lib/sidecar";
+import { buildGeneratePayload, formatPreflightFindings, runGenerationPreflight } from "@/lib/generation";
+import { Button, Pill, Segmented, Surface } from "@/components/ui/kit";
 
 type Tab = "properties" | "prompt" | "extend" | "export";
 
 const TABS: { id: Tab; label: string }[] = [
-  { id: "properties", label: "Properties" },
-  { id: "prompt", label: "Prompt" },
-  { id: "extend", label: "Extend" },
-  { id: "export", label: "Export" },
+  { id: "properties", label: "信息" },
+  { id: "prompt", label: "提示词" },
+  { id: "extend", label: "扩展" },
+  { id: "export", label: "导出" },
 ];
 
 export function InspectorPanel() {
@@ -22,12 +25,14 @@ export function InspectorPanel() {
     isRunning,
     pipeline,
     aspectRatio,
+    selectedWorkflow,
     productionBible,
     shotGenerationCards,
     promptReview,
   } = useDirectorStore();
 
   const selectedShot = shots.find((s) => s.id === selectedShotId);
+  const selectedShotIndex = shots.findIndex((s) => s.id === selectedShotId);
   const selectedCard = shotGenerationCards.find((c) => c.shot_id === selectedShotId);
   const selectedFindings = promptReview?.findings.filter((f) => f.shot_id === selectedShotId) || [];
   const completedShots = shots.filter((s) => s.status === "succeeded" || s.video_url);
@@ -35,6 +40,7 @@ export function InspectorPanel() {
   const [editingPrompt, setEditingPrompt] = useState("");
   const [isEditing, setIsEditing] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
+  const [preflightError, setPreflightError] = useState("");
 
   const startEditing = useCallback(() => {
     if (!selectedShot) return;
@@ -52,49 +58,53 @@ export function InspectorPanel() {
   const regenerateShot = useCallback(async () => {
     if (!selectedShot) return;
     setRegenerating(true);
+    setPreflightError("");
+    const payload = buildGeneratePayload({ shot: selectedShot, pipeline, aspectRatio, workflow: selectedWorkflow });
     try {
+      const preflight = await runGenerationPreflight([payload], false);
+      if (preflight.status === "blocked") {
+        setPreflightError(formatPreflightFindings(preflight));
+        return;
+      }
       await sidecarFetch("/generate/batch", {
         method: "POST",
         body: JSON.stringify({
           sequential: false,
-          shots: [{
-            shot_id: selectedShot.id,
-            prompt: selectedShot.prompt,
-            duration: selectedShot.duration,
-            quality: pipeline.video_quality,
-            aspect_ratio: aspectRatio,
-            generate_audio: pipeline.generate_audio,
-            model: pipeline.video_model,
-            api_key: pipeline.video_api_key,
-            base_url: pipeline.video_base_url,
-          }],
+          shots: [payload],
         }),
       });
       updateShot(selectedShot.id, { status: "queued", video_url: "", thumbnail_url: "" });
     } catch {
-      // handled by toast
+      updateShot(selectedShot.id, { status: "failed" });
     } finally {
       setRegenerating(false);
     }
-  }, [selectedShot, pipeline, aspectRatio, updateShot]);
+  }, [selectedShot, pipeline, aspectRatio, selectedWorkflow, updateShot]);
 
   const handleExtend = useCallback(async (direction: "forward" | "backward") => {
     if (!selectedShot?.video_url) return;
+    setPreflightError("");
+    const payload = {
+      ...buildGeneratePayload({
+        shot: selectedShot,
+        pipeline,
+        aspectRatio,
+        workflow: "video_extend",
+        promptOverride: `${selectedShot.prompt}\nExtend ${direction} while preserving the same subject, style, camera logic, and continuity.`,
+        durationOverride: 5,
+        extraVideoUrls: [selectedShot.video_url],
+      }),
+      shot_id: `${selectedShot.id}-ext-${direction}`,
+    };
     try {
+      const preflight = await runGenerationPreflight([payload], true);
+      if (preflight.status === "blocked") {
+        setPreflightError(formatPreflightFindings(preflight));
+        return;
+      }
       await sidecarFetch("/generate/submit", {
         method: "POST",
-        body: JSON.stringify({
-          shot_id: `${selectedShot.id}-ext-${direction}`,
-          prompt: selectedShot.prompt,
-          video_url: selectedShot.video_url,
-          extend_direction: direction,
-          duration: 5,
-          quality: pipeline.video_quality,
-          aspect_ratio: aspectRatio,
-          model: pipeline.video_model,
-          api_key: pipeline.video_api_key,
-          base_url: pipeline.video_base_url,
-        }),
+        body: JSON.stringify(payload),
       });
     } catch {
       // handled by toast
@@ -124,69 +134,53 @@ export function InspectorPanel() {
   }, [completedShots]);
 
   return (
-    <div className="flex h-48 flex-col border-t border-nc-border bg-nc-surface shadow-[0_-4px_16px_rgba(0,0,0,0.15)]">
+    <div className="flex h-full flex-col bg-nc-surface">
       {/* Tab bar */}
-      <div className="flex h-14 shrink-0 items-center border-b border-nc-border px-4">
-        <div className="flex gap-1 h-full">
-          {TABS.map((t) => (
-            <button
-              key={t.id}
-              onClick={() => setTab(t.id)}
-              className={cn(
-                "relative flex h-full items-center px-4 text-[13px] font-bold uppercase tracking-wider transition-colors",
-                tab === t.id
-                  ? "text-nc-text"
-                  : "text-nc-text-tertiary hover:text-nc-text-secondary hover:bg-nc-panel/50"
-              )}
-            >
-              {t.label}
-              {tab === t.id && (
-                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-nc-text" />
-              )}
-            </button>
-          ))}
-        </div>
+      <div className="flex min-h-[68px] shrink-0 items-center border-b border-nc-border px-5">
+        <Segmented<Tab> value={tab} onChange={setTab} options={TABS.map((item) => ({ value: item.id, label: item.label }))} />
 
         <div className="ml-auto flex items-center gap-3">
           {completedShots.length > 0 && (
-            <span className="rounded-lg border border-nc-success/30 bg-nc-success/10 px-3 py-1.5 text-[12px] font-bold tabular-nums text-nc-success shadow-sm">
+            <Pill tone="success" className="font-mono tabular-nums">
               {completedShots.length}/{shots.length}
-            </span>
+            </Pill>
           )}
           {selectedShot && (
-            <button
+            <Button
               onClick={regenerateShot}
               disabled={regenerating || isRunning}
-              className="flex h-9 items-center gap-1.5 rounded-lg border border-nc-text bg-nc-surface px-4 py-2 text-[13px] font-bold text-nc-text shadow-sm transition-all hover:bg-nc-panel disabled:opacity-40"
+              size="sm"
             >
               {regenerating ? (
                 <div className="h-3 w-3 animate-spin rounded-full border-2 border-nc-text border-t-transparent" />
               ) : (
-                <svg width="12" height="12" viewBox="0 0 8 8" fill="none" stroke="currentColor" strokeWidth="1.5">
-                  <path d="M7 4a3 3 0 1 1-.9-2.1" />
-                  <path d="M7 1v2H5" />
-                </svg>
+                <RefreshCw className="h-4 w-4" />
               )}
-              Regenerate
-            </button>
+              重生成
+            </Button>
           )}
         </div>
       </div>
+      {preflightError && (
+        <div className="mx-5 mt-4 whitespace-pre-line rounded-[14px] border border-nc-error/20 bg-nc-error/5 px-4 py-3 text-[13px] leading-6 text-nc-error">
+          {preflightError}
+        </div>
+      )}
 
       {/* Content */}
-      <div className="flex-1 overflow-auto p-3">
+      <div className="flex-1 overflow-auto p-5">
         {tab === "properties" && (
-          <div className="text-sm">
+          <div className="text-[14px]">
             {selectedShot ? (
-              <div className="flex flex-col gap-3">
-                <div className="rounded-lg border border-nc-border bg-nc-surface p-3 shadow-sm">
-                <div className="grid grid-cols-2 gap-x-4 gap-y-2">
-                  <Row label="Shot" value={selectedShot.id} mono accent />
-                  <Row label="Duration" value={`${selectedShot.duration}s`} mono />
-                  <Row label="Title" value={selectedShot.title} />
+              <div className="flex flex-col gap-4">
+                <Surface className="p-5">
+                <div className="grid grid-cols-1 gap-3">
+                  <Row label="镜头" value={selectedShotIndex >= 0 ? `S${selectedShotIndex + 1}` : "已选择"} mono accent />
+                  <Row label="时长" value={`${selectedShot.duration}s`} mono />
+                  <Row label="标题" value={selectedShot.title} />
                   <Row
-                    label="Status"
-                    value={selectedShot.video_url ? "Ready" : selectedShot.status}
+                    label="状态"
+                    value={selectedShot.video_url ? "已生成" : selectedShot.status === "planned" ? "已规划" : selectedShot.status}
                     className={cn(
                       selectedShot.video_url ? "text-nc-success" :
                       selectedShot.status === "failed" ? "text-nc-error" :
@@ -194,45 +188,40 @@ export function InspectorPanel() {
                     )}
                   />
                 </div>
-                </div>
+                </Surface>
 
-                <div className="mt-1 flex flex-wrap gap-2">
+                <div className="mt-1 flex flex-wrap gap-3">
                   {selectedShot.video_url && (
-                    <button
+                    <Button
                       onClick={() => downloadShot(selectedShot.video_url, selectedShot.id)}
-                      className="flex h-10 items-center gap-1.5 rounded-lg border border-nc-accent/25 bg-nc-accent/10 px-3 py-2 text-xs font-semibold text-nc-accent shadow-md transition-all hover:bg-nc-accent/20 hover:shadow-lg"
+                      variant="primary"
                     >
-                      <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.2">
-                        <path d="M5 1v6M2.5 5L5 7.5 7.5 5M1 9h8" />
-                      </svg>
-                      Download
-                    </button>
+                      <Download className="h-4 w-4" />
+                      下载
+                    </Button>
                   )}
-                  <button
+                  <Button
                     onClick={startEditing}
-                    className="flex h-10 items-center gap-1.5 rounded-lg border border-nc-border bg-nc-panel-hover px-3 py-2 text-xs text-nc-text-secondary shadow-sm transition-all hover:border-nc-border-strong hover:bg-nc-panel-active hover:shadow-md"
                   >
-                    <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.2">
-                      <path d="M7.5 1.5l1 1-5 5H2v-1.5l5.5-5.5z" />
-                    </svg>
-                    Edit Prompt
-                  </button>
+                    <Edit3 className="h-4 w-4" />
+                    编辑提示词
+                  </Button>
                 </div>
               </div>
             ) : (
-              <div className="flex items-center gap-2 rounded-lg border border-dashed border-nc-border px-4 py-3 text-sm text-nc-text-tertiary">
+              <div className="flex items-center gap-3 rounded-[14px] border border-dashed border-nc-border px-5 py-4 text-[14px] leading-6 text-nc-text-tertiary">
                 <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1" className="text-nc-text-tertiary/50">
                   <rect x="2" y="3" width="10" height="8" rx="1" />
                   <path d="M5 7h4" />
                 </svg>
-                Select a shot to inspect
+                选择一个镜头查看详情
               </div>
             )}
           </div>
         )}
 
         {tab === "prompt" && (
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-4">
             {selectedShot ? (
               <>
                 <textarea
@@ -244,9 +233,9 @@ export function InspectorPanel() {
                       setIsEditing(true);
                     }
                   }}
-                  placeholder="Shot prompt..."
+                  placeholder="镜头提示词..."
                   className={cn(
-                    "flex-1 resize-none rounded-lg border bg-nc-panel p-3 text-sm leading-relaxed text-nc-text shadow-sm outline-none transition-colors",
+                    "flex-1 resize-none rounded-[14px] border bg-nc-panel px-4 py-3.5 text-[14px] leading-7 text-nc-text shadow-sm outline-none transition-colors",
                     isEditing
                       ? "border-nc-accent/40 focus:ring-2 focus:ring-nc-accent/15"
                       : "border-nc-border hover:border-nc-border-strong"
@@ -254,55 +243,57 @@ export function InspectorPanel() {
                   rows={4}
                 />
                 {isEditing && (
-                  <div className="flex gap-2">
-                    <button
-                      onClick={savePrompt}
-                      className="rounded-lg bg-nc-accent px-4 py-2 text-xs font-semibold text-nc-bg shadow-md transition-all hover:bg-nc-accent-hover hover:shadow-lg"
-                    >
-                      Save
-                    </button>
-                    <button
-                      onClick={() => setIsEditing(false)}
-                      className="rounded-lg px-4 py-2 text-xs text-nc-text-tertiary transition-colors hover:text-nc-text-secondary"
-                    >
-                      Cancel
-                    </button>
+                  <div className="flex gap-3">
+                  <Button
+                    onClick={savePrompt}
+                    variant="primary"
+                    size="sm"
+                  >
+                    保存
+                  </Button>
+                  <Button
+                    onClick={() => setIsEditing(false)}
+                    variant="ghost"
+                    size="sm"
+                  >
+                    取消
+                  </Button>
                   </div>
                 )}
-                <div className="grid gap-2 md:grid-cols-[1fr_1fr]">
+                <div className="grid gap-3 md:grid-cols-[1fr_1fr]">
                   {selectedCard && (
-                    <div className="rounded-lg border border-nc-border bg-nc-panel/80 p-3 shadow-sm transition-shadow hover:shadow-md">
-                      <div className="mb-1 flex items-center justify-between gap-2">
-                        <span className="text-xs font-semibold uppercase tracking-[0.12em] text-nc-text-secondary">
-                          Generation card
+                    <div className="rounded-[14px] border border-nc-border bg-nc-panel/80 p-4 shadow-sm transition-shadow hover:shadow-md">
+                      <div className="mb-2 flex items-center justify-between gap-3">
+                        <span className="text-[13px] font-semibold uppercase tracking-[0.08em] text-nc-text-secondary">
+                          生成卡片
                         </span>
                         {selectedCard.risk_flags.length > 0 && (
-                          <span className="rounded-full border border-nc-warning/30 bg-nc-warning/15 px-2 py-0.5 text-[10px] text-nc-warning">
-                            {selectedCard.risk_flags.length} risks
+                          <span className="rounded-full border border-nc-warning/30 bg-nc-warning/15 px-2.5 py-1 text-[12px] leading-4 text-nc-warning">
+                            {selectedCard.risk_flags.length} 个风险
                           </span>
                         )}
                       </div>
-                      <p className="line-clamp-2 text-xs leading-relaxed text-nc-text-secondary">
+                      <p className="line-clamp-2 text-[13px] leading-6 text-nc-text-secondary">
                         {selectedCard.motion_contract || "One subject action"} · {selectedCard.camera_contract || selectedShot.camera}
                       </p>
-                      <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-nc-text-tertiary">
+                      <p className="mt-2 line-clamp-2 text-[13px] leading-6 text-nc-text-tertiary">
                         {selectedCard.reference_contract}
                       </p>
                     </div>
                   )}
 
                   {(selectedShot.generationParams || productionBible) && (
-                    <div className="rounded-lg border border-nc-border bg-nc-panel/80 p-3 shadow-sm transition-shadow hover:shadow-md">
-                      <span className="text-xs font-semibold uppercase tracking-[0.12em] text-nc-text-secondary">
-                        Render contract
+                    <div className="rounded-[14px] border border-nc-border bg-nc-panel/80 p-4 shadow-sm transition-shadow hover:shadow-md">
+                      <span className="text-[13px] font-semibold uppercase tracking-[0.08em] text-nc-text-secondary">
+                        渲染约束
                       </span>
-                      <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-nc-text-secondary">
+                      <p className="mt-2 line-clamp-2 text-[13px] leading-6 text-nc-text-secondary">
                         {selectedShot.generationParams?.constraints ||
                           productionBible?.reference_policy ||
                           "No render contract yet"}
                       </p>
                       {selectedShot.generationParams?.reference_instructions?.length ? (
-                        <p className="mt-1 truncate text-xs text-nc-accent">
+                        <p className="mt-2 truncate text-[13px] leading-5 text-nc-accent">
                           {selectedShot.generationParams.reference_instructions.join(" · ")}
                         </p>
                       ) : null}
@@ -311,12 +302,12 @@ export function InspectorPanel() {
                 </div>
 
                 {selectedFindings.length > 0 && (
-                  <div className="flex flex-col gap-1">
+                  <div className="flex flex-col gap-2">
                     {selectedFindings.map((finding) => (
                       <div
                         key={`${finding.code}-${finding.severity}`}
                         className={cn(
-                          "rounded-lg border px-3 py-2 text-xs leading-relaxed shadow-sm",
+                          "rounded-[12px] border px-4 py-3 text-[13px] leading-6 shadow-sm",
                           finding.severity === "critical"
                             ? "border-nc-error/30 bg-nc-error/8 text-nc-error"
                             : finding.severity === "warning"
@@ -331,76 +322,72 @@ export function InspectorPanel() {
                 )}
               </>
             ) : (
-              <span className="text-sm text-nc-text-tertiary">Select a shot to edit its prompt</span>
+              <span className="text-sm text-nc-text-tertiary">选择一个镜头编辑提示词</span>
             )}
           </div>
         )}
 
         {tab === "extend" && (
-          <div className="text-sm">
+          <div className="text-[14px]">
             {selectedShot?.video_url ? (
-              <div className="flex flex-col gap-3">
-                <p className="text-xs text-nc-text-secondary">
-                  Extend this shot forward or backward using Seedance 2.0 video continuation.
+              <div className="flex flex-col gap-4">
+                <p className="text-[14px] leading-6 text-nc-text-secondary">
+                  使用视频续写能力向前或向后扩展当前镜头。
                 </p>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
+                <div className="grid grid-cols-2 gap-3">
+                  <Button
                     onClick={() => handleExtend("forward")}
-                    className="flex flex-col items-center gap-2 rounded-lg border border-nc-border bg-nc-panel p-4 text-center shadow-sm transition-all hover:border-nc-accent/40 hover:bg-nc-accent/5 hover:shadow-md"
+                    variant="secondary"
+                    className="min-h-[128px] flex-col gap-3 p-5 text-center"
                   >
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.2" className="text-nc-accent">
-                      <path d="M3 8h10M10 5l3 3-3 3" />
-                    </svg>
-                    <span className="text-xs font-semibold text-nc-text">Extend Forward</span>
-                    <span className="text-[10px] text-nc-text-tertiary">Continue the action</span>
-                  </button>
-                  <button
+                    <ArrowRight className="h-5 w-5 text-nc-accent" />
+                    <span className="text-[14px] font-semibold leading-5 text-nc-text">向后续写</span>
+                    <span className="text-[13px] leading-5 text-nc-text-tertiary">延续当前动作</span>
+                  </Button>
+                  <Button
                     onClick={() => handleExtend("backward")}
-                    className="flex flex-col items-center gap-2 rounded-lg border border-nc-border bg-nc-panel p-4 text-center shadow-sm transition-all hover:border-nc-info/40 hover:bg-nc-info/5 hover:shadow-md"
+                    variant="secondary"
+                    className="min-h-[128px] flex-col gap-3 p-5 text-center"
                   >
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.2" className="text-nc-info">
-                      <path d="M13 8H3M6 5L3 8l3 3" />
-                    </svg>
-                    <span className="text-xs font-semibold text-nc-text">Extend Backward</span>
-                    <span className="text-[10px] text-nc-text-tertiary">Add a lead-in</span>
-                  </button>
+                    <ArrowLeft className="h-5 w-5 text-nc-info" />
+                    <span className="text-[14px] font-semibold leading-5 text-nc-text">向前补镜</span>
+                    <span className="text-[13px] leading-5 text-nc-text-tertiary">补充进入前奏</span>
+                  </Button>
                 </div>
-                <div className="rounded-lg border border-nc-accent/20 bg-nc-accent-muted p-3 text-xs leading-relaxed text-nc-text-secondary shadow-sm">
-                  Seedance 2.0 tip: Extended clips work best when the original is under 10s. The AI will maintain character appearance and scene consistency.
+                <div className="rounded-[14px] border border-nc-accent/20 bg-nc-accent-muted p-4 text-[13px] leading-6 text-nc-text-secondary shadow-sm">
+                  建议：单段 10 秒以内更适合续写。扩展时会优先保持角色外观、场景方向和运动连续性。
                 </div>
               </div>
             ) : (
-              <span className="text-nc-text-tertiary">Generate a video first to use extend</span>
+              <span className="text-nc-text-tertiary">先生成视频，再使用扩展</span>
             )}
           </div>
         )}
 
         {tab === "export" && (
-          <div className="text-sm">
+          <div className="text-[14px]">
             {shots.length === 0 ? (
-              <span className="text-nc-text-tertiary">No shots generated yet</span>
+              <span className="text-nc-text-tertiary">还没有镜头</span>
             ) : (
-              <div className="flex flex-col gap-3">
+              <div className="flex flex-col gap-4">
                 <div className="flex items-center justify-between">
                   <span className="text-nc-text-secondary">
-                    {completedShots.length} of {shots.length} clips ready
+                    {completedShots.length} / {shots.length} 个片段已就绪
                   </span>
                   {completedShots.length > 0 && (
-                    <button
+                    <Button
                       onClick={downloadAll}
-                      className="flex h-10 items-center gap-1.5 rounded-lg bg-nc-accent px-4 py-2 text-xs font-semibold text-nc-bg shadow-md transition-all hover:bg-nc-accent-hover hover:shadow-lg"
+                      variant="primary"
                     >
-                      <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5">
-                        <path d="M5 1v6M2.5 5L5 7.5 7.5 5M1 9h8" />
-                      </svg>
-                      Download All
-                    </button>
+                      <Download className="h-4 w-4" />
+                      全部下载
+                    </Button>
                   )}
                 </div>
 
                 {/* Export full video */}
                 {completedShots.length >= 2 && (
-                  <button
+                  <Button
                     onClick={async () => {
                       try {
                         const res = await sidecarFetch<any>("/generate/export", {
@@ -424,13 +411,12 @@ export function InspectorPanel() {
                         }
                       } catch { /* toast */ }
                     }}
-                    className="flex h-10 items-center gap-1.5 rounded-lg border border-nc-success/40 bg-nc-success/8 px-4 py-2 text-xs font-semibold text-nc-success shadow-sm transition-all hover:bg-nc-success/15 hover:shadow-md"
+                    variant="secondary"
+                    className="border-nc-success/40 bg-nc-success/10 text-nc-success hover:bg-nc-success/15"
                   >
-                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.2">
-                      <path d="M2 3h8v7H2zM4 1v2M8 1v2M2 6h8" />
-                    </svg>
-                    Export Full Video
-                  </button>
+                    <Film className="h-4 w-4" />
+                    导出完整视频
+                  </Button>
                 )}
 
                 {/* Progress bar */}
@@ -441,29 +427,29 @@ export function InspectorPanel() {
                       style={{ width: `${(completedShots.length / shots.length) * 100}%` }}
                     />
                   </div>
-                  <div className="text-xs text-nc-text-tertiary">
-                    {Math.round((completedShots.length / shots.length) * 100)}% complete
+                  <div className="text-[13px] leading-5 text-nc-text-tertiary">
+                    完成度 {Math.round((completedShots.length / shots.length) * 100)}%
                   </div>
                 </div>
 
-                <div className="flex flex-col gap-1">
+                <div className="flex flex-col gap-2">
                   {shots.map((s) => (
-                    <div key={s.id} className="flex items-center gap-2 rounded-lg border border-transparent px-3 py-2 text-xs shadow-sm hover:border-nc-border hover:bg-nc-panel-hover">
+                    <div key={s.id} className="flex min-h-10 items-center gap-3 rounded-[12px] border border-transparent px-3.5 py-2.5 text-[13px] leading-5 shadow-sm hover:border-nc-border hover:bg-nc-panel-hover">
                       <span className={cn(
                         "h-[6px] w-[6px] rounded-full",
                         s.video_url ? "bg-nc-success" : s.status === "failed" ? "bg-nc-error" : "bg-nc-text-tertiary/40"
                       )} />
                       <span className="flex-1 truncate text-nc-text-secondary">{s.title || s.id}</span>
-                      <span className="font-mono text-xs tabular-nums text-nc-text-tertiary">{s.duration}s</span>
+                      <span className="font-mono text-[13px] tabular-nums text-nc-text-tertiary">{s.duration}s</span>
                       {s.video_url ? (
-                        <button
+                        <Button
                           onClick={() => downloadShot(s.video_url, s.id)}
-                          className="text-nc-accent hover:text-nc-accent-hover"
+                          variant="ghost"
+                          size="icon"
+                          aria-label={`下载 ${s.title || s.id}`}
                         >
-                          <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.2">
-                            <path d="M5 1v6M2.5 5L5 7.5 7.5 5M1 9h8" />
-                          </svg>
-                        </button>
+                          <Download className="h-4 w-4" />
+                        </Button>
                       ) : (
                         <span className="text-nc-text-tertiary">{s.status}</span>
                       )}
@@ -487,10 +473,10 @@ function Row({ label, value, mono, accent, className }: {
   className?: string;
 }) {
   return (
-    <div className="flex items-center gap-2">
-      <span className="w-16 shrink-0 text-xs text-nc-text-tertiary">{label}</span>
+    <div className="flex min-h-8 items-center gap-3">
+      <span className="w-20 shrink-0 text-[13px] leading-5 text-nc-text-tertiary">{label}</span>
       <span className={cn(
-        "truncate text-sm",
+        "truncate text-[14px] leading-6",
         mono && "font-mono",
         accent ? "text-nc-accent" : "text-nc-text-secondary",
         className

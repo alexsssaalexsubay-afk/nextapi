@@ -1,7 +1,20 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { cn } from "@/lib/cn";
-import { useDirectorStore } from "@/stores/director-store";
-import { useI18nStore } from "@/stores/i18n-store";
+import { sidecarFetch } from "@/lib/sidecar";
+import { type AgentLLMConfig, type PipelineConfig, useDirectorStore } from "@/stores/director-store";
+import {
+  Button,
+  FieldLabel,
+  FieldShell,
+  PageHeader,
+  PageShell,
+  Pill,
+  SectionCard,
+  Segmented,
+  SelectField,
+  StatusBadge,
+  Surface,
+} from "@/components/ui/kit";
 
 const LLM_PROVIDERS = [
   { id: "openai", label: "OpenAI" },
@@ -10,241 +23,460 @@ const LLM_PROVIDERS = [
   { id: "deepseek", label: "DeepSeek" },
   { id: "minimax", label: "MiniMax" },
   { id: "qwen", label: "Qwen" },
-  { id: "ollama", label: "Ollama (Local)" },
-  { id: "custom", label: "Custom" },
+  { id: "ollama", label: "Ollama Local" },
+  { id: "custom", label: "自定义" },
 ];
 
 const VIDEO_MODELS = [
-  { id: "seedance-2.0-pro", label: "Seedance 2.0 Pro (references / multimodal)" },
+  { id: "seedance-2.0-pro", label: "Seedance 2.0 Pro" },
   { id: "seedance-2.0-fast", label: "Seedance 2.0 Fast" },
-  { id: "seedance-1.5-pro", label: "Seedance 1.5 Pro (compat)" },
+  { id: "seedance-1.5-pro", label: "Seedance 1.5 Pro" },
 ];
 
-const AGENTS = [
-  { key: "screenwriter", label: "Screenwriter" },
-  { key: "character_extractor", label: "Characters" },
-  { key: "storyboard_artist", label: "Storyboard" },
-  { key: "cinematographer", label: "Camera" },
-  { key: "audio_director", label: "Audio" },
-  { key: "editing_agent", label: "Editing" },
-  { key: "consistency_checker", label: "Checker" },
-  { key: "prompt_optimizer", label: "Optimizer" },
-] as const;
+const AGENTS: Array<{ key: keyof Pick<PipelineConfig, "screenwriter" | "character_extractor" | "storyboard_artist" | "cinematographer" | "audio_director" | "editing_agent" | "consistency_checker" | "prompt_optimizer">; label: string; role: string }> = [
+  { key: "screenwriter", label: "Alex", role: "编剧 / 需求理解" },
+  { key: "character_extractor", label: "Maya", role: "角色与一致性" },
+  { key: "storyboard_artist", label: "Jin", role: "分镜设计" },
+  { key: "cinematographer", label: "Leo", role: "摄影语言" },
+  { key: "audio_director", label: "Aria", role: "音乐与声音" },
+  { key: "editing_agent", label: "Sam", role: "剪辑与节奏" },
+  { key: "consistency_checker", label: "Mira", role: "质量巡检" },
+  { key: "prompt_optimizer", label: "Nova", role: "提示词优化" },
+];
+
+type Tab = "llm" | "models" | "video" | "agents" | "prompts";
+
+type ModelPreset = {
+  id: string;
+  provider: string;
+  label: string;
+  model: string;
+  base_url: string;
+  api_kind: string;
+  category: string;
+  notes?: string;
+};
+
+type RuntimePrompt = {
+  id: string;
+  label: string;
+  role: string;
+  prompt: string;
+  default_prompt: string;
+  is_custom: boolean;
+};
 
 export function SettingsPanel() {
   const { pipeline, setPipeline, setDefaultLLM } = useDirectorStore();
   const llm = pipeline.default_llm;
-  const { t } = useI18nStore();
-  const [activeTab, setActiveTab] = useState<"llm" | "video" | "agents">("llm");
+  const [activeTab, setActiveTab] = useState<Tab>("llm");
+  const [modelPresets, setModelPresets] = useState<ModelPreset[]>([]);
+  const [runtimePrompts, setRuntimePrompts] = useState<RuntimePrompt[]>([]);
+  const [selectedPromptId, setSelectedPromptId] = useState("screenwriter");
+  const [promptDraft, setPromptDraft] = useState("");
+  const [modelQuery, setModelQuery] = useState("");
+  const [notice, setNotice] = useState<{ tone: "success" | "info" | "warning"; text: string }>({
+    tone: "info",
+    text: "设置会自动保存在本地浏览器存储中。",
+  });
+
+  const configuredAgents = useMemo(() => AGENTS.filter((agent) => Boolean(pipeline[agent.key])).length, [pipeline]);
+  const filteredPresets = useMemo(() => {
+    const q = modelQuery.trim().toLowerCase();
+    if (!q) return modelPresets;
+    return modelPresets.filter((preset) => (
+      preset.label.toLowerCase().includes(q) ||
+      preset.provider.toLowerCase().includes(q) ||
+      preset.model.toLowerCase().includes(q) ||
+      preset.base_url.toLowerCase().includes(q)
+    ));
+  }, [modelPresets, modelQuery]);
+  const selectedPrompt = runtimePrompts.find((item) => item.id === selectedPromptId) || runtimePrompts[0] || null;
+
+  useEffect(() => {
+    void sidecarFetch<{ presets: ModelPreset[] }>("/config/llm-presets")
+      .then((res) => setModelPresets(res.presets || []))
+      .catch(() => setNotice({ tone: "warning", text: "模型预设暂时无法从 sidecar 读取。" }));
+    void sidecarFetch<{ prompts: RuntimePrompt[] }>("/config/prompts")
+      .then((res) => {
+        const prompts = res.prompts || [];
+        setRuntimePrompts(prompts);
+        const first = prompts[0];
+        if (first) {
+          setSelectedPromptId(first.id);
+          setPromptDraft(first.prompt);
+        }
+      })
+      .catch(() => setNotice({ tone: "warning", text: "提示词配置暂时无法从 sidecar 读取。" }));
+  }, []);
+
+  useEffect(() => {
+    if (selectedPrompt) setPromptDraft(selectedPrompt.prompt);
+  }, [selectedPrompt]);
+
+  const markSaved = () => {
+    setNotice({ tone: "success", text: "配置已保存到本地。后续生成任务会读取当前设置。" });
+  };
+
+  const testConnection = async () => {
+    try {
+      const res = await sidecarFetch<{ status: string; message: string }>("/config/test-llm", {
+        method: "POST",
+        body: JSON.stringify({
+          provider: llm.provider,
+          model: llm.model,
+          base_url: llm.base_url,
+          api_key: llm.api_key,
+        }),
+      });
+      setNotice({ tone: res.status === "configured" ? "success" : "warning", text: res.message });
+    } catch {
+      setNotice({ tone: "warning", text: "sidecar 配置检测失败，请确认后端服务已启动。" });
+    }
+  };
+
+  const applyModelPreset = (preset: ModelPreset) => {
+    setDefaultLLM({
+      provider: preset.provider,
+      model: preset.model,
+      base_url: preset.base_url,
+    });
+    setNotice({ tone: "success", text: `已套用 ${preset.label}。API Key 仍需你按供应商填写。` });
+  };
+
+  const saveRuntimePrompt = async () => {
+    if (!selectedPrompt) return;
+    const res = await sidecarFetch<{ prompt: RuntimePrompt }>(`/config/prompts/${selectedPrompt.id}`, {
+      method: "PUT",
+      body: JSON.stringify({ prompt: promptDraft }),
+    });
+    setRuntimePrompts((current) => current.map((item) => item.id === res.prompt.id ? res.prompt : item));
+    setNotice({ tone: "success", text: `${res.prompt.label} 的系统提示词已保存，后续 Agent 调用会使用新版。` });
+  };
+
+  const resetRuntimePrompt = async () => {
+    if (!selectedPrompt) return;
+    const res = await sidecarFetch<{ prompt: RuntimePrompt }>(`/config/prompts/${selectedPrompt.id}/reset`, {
+      method: "POST",
+    });
+    setRuntimePrompts((current) => current.map((item) => item.id === res.prompt.id ? res.prompt : item));
+    setPromptDraft(res.prompt.prompt);
+    setNotice({ tone: "success", text: `${res.prompt.label} 已恢复默认提示词。` });
+  };
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-auto bg-nc-bg p-8 lg:p-14">
-      <div className="mx-auto flex w-full max-w-[800px] flex-col gap-12">
-        
-        {/* Header & Tabs */}
-        <div className="flex flex-col gap-8 pb-4">
-          <h2 className="text-3xl font-extrabold tracking-tight text-nc-text">
-            Configuration
-          </h2>
-          <div className="flex gap-6">
-            <button
-              onClick={() => setActiveTab("llm")}
-              className={cn(
-                "pb-2 text-[15px] font-medium transition-all",
-                activeTab === "llm" ? "border-b-2 border-nc-text text-nc-text" : "border-b-2 border-transparent text-nc-text-tertiary hover:text-nc-text-secondary"
-              )}
-            >
-              {t("settings.llm")}
-            </button>
-            <button
-              onClick={() => setActiveTab("video")}
-              className={cn(
-                "pb-2 text-[15px] font-medium transition-all",
-                activeTab === "video" ? "border-b-2 border-nc-text text-nc-text" : "border-b-2 border-transparent text-nc-text-tertiary hover:text-nc-text-secondary"
-              )}
-            >
-              {t("settings.videoProvider")}
-            </button>
-            <button
-              onClick={() => setActiveTab("agents")}
-              className={cn(
-                "pb-2 text-[15px] font-medium transition-all",
-                activeTab === "agents" ? "border-b-2 border-nc-text text-nc-text" : "border-b-2 border-transparent text-nc-text-tertiary hover:text-nc-text-secondary"
-              )}
-            >
-              {t("settings.agentOverrides")}
-            </button>
-          </div>
+    <PageShell>
+      <PageHeader
+        eyebrow="Settings"
+        title="设置"
+        subtitle="连接语言模型、视频生成服务和 AI Team，让后续创作任务使用同一套可控配置。"
+        action={<Pill tone={notice.tone}>{notice.text}</Pill>}
+      />
+
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+        <Segmented<Tab>
+          value={activeTab}
+          onChange={setActiveTab}
+          options={[
+            { value: "llm", label: "语言模型" },
+            { value: "models", label: "模型库" },
+            { value: "video", label: "视频生成" },
+            { value: "agents", label: "AI Team" },
+            { value: "prompts", label: "提示词" },
+          ]}
+        />
+        <div className="flex items-center gap-2">
+          <StatusBadge tone="accent">{llm.provider || "未选择"} / {llm.model || "未填写模型"}</StatusBadge>
+          <StatusBadge tone={pipeline.generate_audio ? "success" : "neutral"}>{pipeline.generate_audio ? "生成音频" : "仅视频"}</StatusBadge>
         </div>
+      </div>
 
-        {/* Tab Contents */}
-        <div className="flex flex-col">
-          
-          {/* LLM Tab */}
-          {activeTab === "llm" && (
-            <div className="flex flex-col gap-10 animate-fade-in">
-              <div className="grid gap-8 sm:grid-cols-2">
-                <SelectInput label={t("settings.provider")} value={llm.provider} onChange={(v) => setDefaultLLM({ provider: v })} options={LLM_PROVIDERS} />
-                <div className="hidden sm:block" /> {/* spacer */}
-                
-                <TextInput label={t("settings.apiKey")} value={llm.api_key} onChange={(v) => setDefaultLLM({ api_key: v })} type="password" placeholder="sk-..." />
-                <TextInput label={t("settings.model")} value={llm.model} onChange={(v) => setDefaultLLM({ model: v })} placeholder="gpt-4o" />
-              </div>
-
-              <div className="flex items-center gap-4">
-                <button className="h-10 rounded-lg border border-nc-border bg-nc-surface px-6 text-[14px] font-medium text-nc-text hover:bg-nc-panel transition-colors shadow-sm">
-                  Test Connection
-                </button>
-                <button className="h-10 rounded-lg bg-nc-text px-6 text-[14px] font-medium text-nc-surface hover:bg-nc-text-secondary transition-colors shadow-sm">
-                  Save
-                </button>
-              </div>
-
-              <div className="mt-4 pt-8 border-t border-nc-border">
-                <h3 className="text-sm font-semibold text-nc-text mb-6">Advanced</h3>
-                <div className="grid gap-8 sm:grid-cols-2">
-                  <TextInput label={t("settings.baseUrl")} value={llm.base_url} onChange={(v) => setDefaultLLM({ base_url: v })} placeholder={t("settings.emptyDefault")} />
-                  <TextInput label={t("settings.temp")} value={String(llm.temperature)} onChange={(v) => setDefaultLLM({ temperature: parseFloat(v) || 0.7 })} type="number" />
-                </div>
-              </div>
+      {activeTab === "llm" && (
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+          <SectionCard title="默认语言模型" subtitle="用于脚本、角色、分镜、提示词优化等 AI Director 工作。">
+            <div className="grid gap-5 md:grid-cols-2">
+              <SelectInput label="服务商" value={llm.provider} onChange={(value) => setDefaultLLM({ provider: value })} options={LLM_PROVIDERS} />
+              <TextInput label="模型" value={llm.model} onChange={(value) => setDefaultLLM({ model: value })} placeholder="gpt-4o / claude-3.5 / deepseek-chat" />
+              <TextInput label="API Key" value={llm.api_key} onChange={(value) => setDefaultLLM({ api_key: value })} type="password" placeholder="sk-..." />
+              <TextInput label="Base URL" value={llm.base_url} onChange={(value) => setDefaultLLM({ base_url: value })} placeholder="留空使用默认端点" />
+              <TextInput label="Temperature" value={String(llm.temperature)} onChange={(value) => setDefaultLLM({ temperature: parseFloat(value) || 0.7 })} type="number" placeholder="0.7" />
             </div>
-          )}
+            <ActionRow onTest={testConnection} onSave={markSaved} />
+          </SectionCard>
 
-          {/* Video Tab */}
-          {activeTab === "video" && (
-            <div className="flex flex-col gap-10 animate-fade-in">
-              <div className="grid gap-8 sm:grid-cols-2">
-                <SelectInput label={t("settings.model")} value={pipeline.video_model} onChange={(v) => setPipeline({ video_model: v })} options={VIDEO_MODELS} />
-                <div className="hidden sm:block" /> {/* spacer */}
-                
-                <TextInput label={t("settings.apiKey")} value={pipeline.video_api_key} onChange={(v) => setPipeline({ video_api_key: v })} type="password" placeholder="sk_live_… or sk_test_…" />
-              </div>
-              
-              <div className="flex items-center gap-4 pt-2">
-                <label className="flex cursor-pointer items-center gap-3">
-                  <div className="relative flex items-center justify-center">
-                    <input type="checkbox" checked={pipeline.generate_audio} onChange={(e) => setPipeline({ generate_audio: e.target.checked })} className="peer sr-opacity-0 h-5 w-5 opacity-0 absolute z-10 cursor-pointer" />
-                    <div className="h-5 w-5 rounded border border-nc-border-strong bg-nc-surface peer-checked:bg-nc-text peer-checked:border-nc-text transition-all flex items-center justify-center">
-                      <svg className="h-3 w-3 text-white opacity-0 peer-checked:opacity-100 transition-opacity" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <polyline points="3 7.5 6 10.5 11 3" />
-                      </svg>
+          <GuidancePanel
+            title="配置建议"
+            items={[
+              "创意探索使用响应快的模型，最终分镜和提示词优化使用更稳定的模型。",
+              "团队项目建议固定 Base URL，减少成员之间生成结果差异。",
+              "API Key 仅保存在本地，不会写入代码仓库。",
+            ]}
+          />
+        </div>
+      )}
+
+      {activeTab === "models" && (
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+          <SectionCard
+            title="模型预设库"
+            subtitle="预置 30+ 个主流 LLM / 聚合网关配置。点击即可写入默认语言模型；Key 仍由你本地填写。"
+            action={<StatusBadge tone="accent">{modelPresets.length} 个预设</StatusBadge>}
+          >
+            <div className="mb-5">
+              <FieldShell>
+                <input
+                  value={modelQuery}
+                  onChange={(event) => setModelQuery(event.target.value)}
+                  placeholder="搜索 OpenAI / Claude / Gemini / DeepSeek / Qwen / OpenRouter..."
+                  className="w-full bg-transparent text-[14px] leading-6 text-nc-text outline-none placeholder:text-nc-text-tertiary"
+                />
+              </FieldShell>
+            </div>
+            <div className="grid gap-3 md:grid-cols-2">
+              {filteredPresets.map((preset) => (
+                <Surface key={preset.id} interactive className="p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="line-clamp-1 text-[15px] font-semibold leading-6 text-nc-text">{preset.label}</div>
+                      <div className="mt-1 line-clamp-1 font-mono text-[12px] leading-5 text-nc-text-secondary">{preset.model}</div>
                     </div>
+                    <StatusBadge tone={preset.provider === "custom" ? "neutral" : "accent"}>{preset.provider}</StatusBadge>
                   </div>
-                  <span className="text-[14px] font-medium text-nc-text">{t("settings.genAudio")}</span>
-                </label>
-              </div>
-
-              <div className="flex items-center gap-4">
-                <button className="h-10 rounded-lg border border-nc-border bg-nc-surface px-6 text-[14px] font-medium text-nc-text hover:bg-nc-panel transition-colors shadow-sm">
-                  Test Connection
-                </button>
-                <button className="h-10 rounded-lg bg-nc-text px-6 text-[14px] font-medium text-nc-surface hover:bg-nc-text-secondary transition-colors shadow-sm">
-                  Save
-                </button>
-              </div>
-
-              <div className="mt-4 pt-8 border-t border-nc-border">
-                <h3 className="text-sm font-semibold text-nc-text mb-6">API & Advanced Config</h3>
-                
-                <div className="grid gap-8 sm:grid-cols-2 mb-8">
-                  <TextInput label={t("settings.baseUrl")} value={pipeline.video_base_url} onChange={(v) => setPipeline({ video_base_url: v })} placeholder="https://api.nextapi.top/v1" />
-                  <SelectInput label={t("settings.quality")} value={pipeline.video_quality} onChange={(v) => setPipeline({ video_quality: v })} options={[
-                    { id: "480p", label: "480p" },
-                    { id: "720p", label: "720p" },
-                    { id: "1080p", label: "1080p" },
-                  ]} />
-                </div>
-
-                <div className="rounded-lg bg-nc-surface p-5 border border-nc-border">
-                  <p className="text-[13px] leading-relaxed text-nc-text-secondary">
-                    {t("settings.videoDesc1")}<br />
-                    <span className="my-2 inline-block rounded bg-nc-panel px-2 py-1 font-mono text-[12px] text-nc-text">POST /v1/videos</span><br />
-                    {t("settings.videoDesc2")}<br />
-                    <span className="my-2 inline-block rounded bg-nc-panel px-2 py-1 font-mono text-[12px] text-nc-text">Authorization: Bearer sk_live_…</span><br />
-                    {t("settings.videoDesc3")}<br />
-                    <span className="my-2 inline-block rounded bg-nc-panel px-2 py-1 font-mono text-[12px] text-nc-text">https://api.nextapi.top</span><br />
-                    {t("settings.videoDesc4")}<br />
-                    <span className="my-2 inline-block rounded bg-nc-panel px-2 py-1 font-mono text-[12px] text-nc-text">…/v1</span><br />
-                    {t("settings.videoDesc5")}
-                  </p>
-                </div>
-              </div>
+                  <div className="mt-3 line-clamp-1 rounded-[12px] bg-nc-panel px-3 py-2 font-mono text-[11px] leading-5 text-nc-text-tertiary">
+                    {preset.base_url}
+                  </div>
+                  {preset.notes && <p className="mt-2 line-clamp-2 text-[12px] leading-5 text-nc-text-secondary">{preset.notes}</p>}
+                  <Button className="mt-4 w-full" variant="secondary" onClick={() => applyModelPreset(preset)}>
+                    套用到默认模型
+                  </Button>
+                </Surface>
+              ))}
             </div>
-          )}
+          </SectionCard>
 
-          {/* Agents Tab */}
-          {activeTab === "agents" && (
-            <div className="flex flex-col gap-4 animate-fade-in">
-              <p className="mb-6 text-[15px] text-nc-text-secondary">
-                {t("settings.agentDesc")}
-              </p>
-              {AGENTS.map((a) => {
-                const override = pipeline[a.key as keyof typeof pipeline];
+          <GuidancePanel
+            title="模型库说明"
+            items={[
+              "非 OpenAI 原生协议的服务商保留 api_kind；当前主流程仍通过 OpenAI-compatible 客户端，custom 网关最稳。",
+              "Anthropic / Gemini 直连需要适配层或兼容网关；预设先保留官方 endpoint 与模型名，方便后台继续接。",
+              "模型名会经常更新，这里可继续扩展，不需要改业务页面。",
+            ]}
+          />
+        </div>
+      )}
+
+      {activeTab === "video" && (
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+          <SectionCard title="视频生成服务" subtitle="控制 Seedance / NextAPI 视频生成相关参数，避免把关键设置堆在一张拥挤表单里。">
+            <div className="grid gap-5 md:grid-cols-2">
+              <SelectInput label="视频模型" value={pipeline.video_model} onChange={(value) => setPipeline({ video_model: value })} options={VIDEO_MODELS} />
+              <SelectInput
+                label="输出质量"
+                value={pipeline.video_quality}
+                onChange={(value) => setPipeline({ video_quality: value })}
+                options={[
+                  { id: "480p", label: "480p 预览" },
+                  { id: "720p", label: "720p 标准" },
+                  { id: "1080p", label: "1080p 高清" },
+                ]}
+              />
+              <TextInput label="API Key" value={pipeline.video_api_key} onChange={(value) => setPipeline({ video_api_key: value })} type="password" placeholder="sk_live_..." />
+              <TextInput label="Base URL" value={pipeline.video_base_url} onChange={(value) => setPipeline({ video_base_url: value })} placeholder="https://api.nextapi.top/v1" />
+            </div>
+
+            <label className="mt-6 flex cursor-pointer items-center justify-between gap-5 rounded-[16px] border border-nc-border bg-nc-panel px-5 py-4">
+              <span>
+                <span className="block text-[14px] font-semibold leading-6 text-nc-text">生成中文音频 / 字幕</span>
+                <span className="mt-1 block text-[13px] leading-5 text-nc-text-secondary">在工作流生成时同步准备音频线索，适合短视频草案。</span>
+              </span>
+              <input
+                type="checkbox"
+                checked={pipeline.generate_audio}
+                onChange={(event) => setPipeline({ generate_audio: event.target.checked })}
+                className="h-5 w-5 accent-[#6C4DFF]"
+              />
+            </label>
+
+            <ActionRow onTest={testConnection} onSave={markSaved} />
+          </SectionCard>
+
+          <GuidancePanel
+            title="接口说明"
+            items={[
+              "默认请求路径为 POST /v1/videos。",
+              "授权头使用 Authorization: Bearer sk_live_...",
+              "如果自定义网关已包含 /v1，Base URL 不需要重复拼接。",
+            ]}
+          />
+        </div>
+      )}
+
+      {activeTab === "agents" && (
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+          <SectionCard
+            title="AI Director Team"
+            subtitle="每个 Agent 默认继承语言模型配置；需要单独模型时再覆盖，状态在卡片内明确展示。"
+            action={<StatusBadge tone={configuredAgents > 0 ? "accent" : "neutral"}>{configuredAgents} 个自定义</StatusBadge>}
+          >
+            <div className="grid gap-4 md:grid-cols-2">
+              {AGENTS.map((agent) => {
+                const override = pipeline[agent.key] as AgentLLMConfig | null;
                 const hasOverride = override !== null && typeof override === "object";
                 return (
-                  <button
-                    key={a.key}
-                    className={cn(
-                      "flex items-center justify-between rounded-xl border px-6 py-5 text-[15px] transition-all",
-                      hasOverride
-                        ? "border-nc-border-strong bg-nc-surface text-nc-text shadow-sm"
-                        : "border-transparent bg-nc-bg text-nc-text-secondary hover:bg-nc-surface hover:text-nc-text"
-                    )}
-                  >
-                    <span className="font-medium">{a.label}</span>
-                    <span className={cn(
-                      "text-[13px] px-3 py-1 rounded-full",
-                      hasOverride ? "bg-nc-panel text-nc-text" : "bg-nc-bg text-nc-text-tertiary"
-                    )}>
-                      {hasOverride ? t("settings.custom") : t("settings.default")}
-                    </span>
-                  </button>
+                  <Surface key={agent.key} interactive selected={hasOverride} className="p-5">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="min-w-0">
+                        <p className="text-[16px] font-semibold leading-6 text-nc-text">{agent.label}</p>
+                        <p className="mt-1 text-[13px] leading-5 text-nc-text-secondary">{agent.role}</p>
+                      </div>
+                      <StatusBadge tone={hasOverride ? "accent" : "neutral"}>{hasOverride ? "自定义" : "默认"}</StatusBadge>
+                    </div>
+                    <div className="mt-5 rounded-[14px] bg-nc-panel px-4 py-3 text-[13px] leading-5 text-nc-text-secondary">
+                      {hasOverride ? `${override.provider} / ${override.model}` : `继承 ${llm.provider || "默认服务商"} / ${llm.model || "默认模型"}`}
+                    </div>
+                  </Surface>
                 );
               })}
             </div>
-          )}
+          </SectionCard>
 
+          <GuidancePanel
+            title="团队策略"
+            items={[
+              "编剧、分镜和提示词优化最影响结果质量，适合优先配置强模型。",
+              "质量巡检可使用稳定低温度配置，减少评审波动。",
+              "覆盖配置后会在 Agent 卡片上显示自定义状态。",
+            ]}
+          />
         </div>
-      </div>
+      )}
+
+      {activeTab === "prompts" && (
+        <div className="grid gap-6 xl:grid-cols-[360px_minmax(0,1fr)]">
+          <SectionCard title="当前 Agent 提示词" subtitle="这里显示 sidecar 当前实际注册的系统提示词，不再是黑盒。">
+            <div className="grid gap-3">
+              {runtimePrompts.map((prompt) => (
+                <button
+                  key={prompt.id}
+                  type="button"
+                  onClick={() => setSelectedPromptId(prompt.id)}
+                  className={cn(
+                    "rounded-[16px] border px-4 py-3 text-left transition-all hover:-translate-y-0.5 hover:shadow-md",
+                    selectedPromptId === prompt.id ? "border-nc-accent bg-[#F5F3FF] ring-2 ring-nc-accent/10" : "border-nc-border bg-white"
+                  )}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-[15px] font-semibold leading-6 text-nc-text">{prompt.label}</span>
+                    <StatusBadge tone={prompt.is_custom ? "accent" : "neutral"}>{prompt.is_custom ? "已改" : "默认"}</StatusBadge>
+                  </div>
+                  <p className="mt-1 line-clamp-2 text-[13px] leading-5 text-nc-text-secondary">{prompt.role}</p>
+                </button>
+              ))}
+            </div>
+          </SectionCard>
+
+          <SectionCard
+            title={selectedPrompt ? `${selectedPrompt.label} 系统提示词` : "系统提示词"}
+            subtitle="修改后会写入 sidecar runtime prompt registry，并影响后续 Agent 调用。"
+            action={selectedPrompt && <StatusBadge tone={selectedPrompt.is_custom ? "accent" : "neutral"}>{selectedPrompt.id}</StatusBadge>}
+          >
+            <textarea
+              value={promptDraft}
+              onChange={(event) => setPromptDraft(event.target.value)}
+              spellCheck={false}
+              className="min-h-[520px] w-full resize-y rounded-[16px] border border-nc-border bg-white px-5 py-4 font-mono text-[12px] leading-6 text-nc-text outline-none transition focus:border-nc-accent focus:ring-2 focus:ring-nc-accent/10"
+            />
+            <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-nc-border pt-5">
+              <div className="text-[13px] leading-5 text-nc-text-secondary">
+                当前长度 {promptDraft.length.toLocaleString()} 字符。建议每次只改一个 Agent，便于回滚。
+              </div>
+              <div className="flex items-center gap-3">
+                <Button variant="secondary" onClick={resetRuntimePrompt} disabled={!selectedPrompt}>
+                  恢复默认
+                </Button>
+                <Button variant="primary" onClick={saveRuntimePrompt} disabled={!selectedPrompt || promptDraft.trim().length < 20}>
+                  保存提示词
+                </Button>
+              </div>
+            </div>
+          </SectionCard>
+        </div>
+      )}
+    </PageShell>
+  );
+}
+
+function ActionRow({ onTest, onSave }: { onTest: () => void | Promise<void>; onSave: () => void }) {
+  return (
+    <div className="mt-6 flex flex-wrap items-center gap-3 border-t border-nc-border pt-5">
+      <Button variant="secondary" onClick={onTest}>
+        <BoltIcon />
+        测试连接
+      </Button>
+      <Button variant="primary" onClick={onSave}>
+        <CheckIcon />
+        保存配置
+      </Button>
     </div>
   );
 }
 
 function TextInput({ label, value, onChange, type = "text", placeholder = "" }: {
-  label: string; value: string; onChange: (v: string) => void; type?: string; placeholder?: string;
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  type?: string;
+  placeholder?: string;
 }) {
   return (
-    <label className="flex flex-col gap-2.5">
-      <span className="text-[12px] font-bold text-nc-text-secondary uppercase tracking-wider">{label}</span>
-      <input
-        type={type}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        className="h-11 w-full rounded-xl border border-nc-border bg-nc-surface px-4 text-[15px] text-nc-text shadow-sm outline-none transition-all placeholder:text-nc-text-tertiary/60 focus:border-nc-text focus:ring-2 focus:ring-nc-text/10"
-      />
-    </label>
+    <FieldLabel label={label}>
+      <FieldShell>
+        <input
+          type={type}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          placeholder={placeholder}
+          className="w-full bg-transparent text-[14px] leading-6 text-nc-text outline-none placeholder:text-nc-text-tertiary"
+        />
+      </FieldShell>
+    </FieldLabel>
   );
 }
 
 function SelectInput({ label, value, onChange, options }: {
-  label: string; value: string; onChange: (v: string) => void; options: { id: string; label: string }[];
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  options: { id: string; label: string }[];
 }) {
   return (
-    <label className="flex flex-col gap-2.5">
-      <span className="text-[12px] font-bold text-nc-text-secondary uppercase tracking-wider">{label}</span>
-      <div className="relative">
-        <select
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          className="h-11 w-full cursor-pointer appearance-none rounded-xl border border-nc-border bg-nc-surface px-4 pr-10 text-[15px] text-nc-text shadow-sm outline-none transition-all focus:border-nc-text focus:ring-2 focus:ring-nc-text/10"
-        >
-          {options.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
-        </select>
-        <svg className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 h-4 w-4 text-nc-text-tertiary" viewBox="0 0 20 20" fill="none" stroke="currentColor">
-          <path d="M5 7l5 5 5-5" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      </div>
-    </label>
+    <FieldLabel label={label}>
+      <SelectField value={value} onChange={(event) => onChange(event.target.value)}>
+        {options.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}
+      </SelectField>
+    </FieldLabel>
   );
+}
+
+function GuidancePanel({ title, items }: { title: string; items: string[] }) {
+  return (
+    <SectionCard title={title} subtitle="轻量提示，不抢主内容。" contentClassName="p-5">
+      <div className="flex flex-col gap-3">
+        {items.map((item, index) => (
+          <div key={item} className="flex gap-3 rounded-[14px] bg-nc-panel px-4 py-3">
+            <span className={cn("mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[12px] font-bold", index === 0 ? "bg-nc-accent text-white" : "bg-white text-nc-text-secondary")}>{index + 1}</span>
+            <p className="text-[13px] leading-5 text-nc-text-secondary">{item}</p>
+          </div>
+        ))}
+      </div>
+    </SectionCard>
+  );
+}
+
+function BoltIcon() {
+  return <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M11 2 5 11h5l-1 7 6-9h-5l1-7Z" /></svg>;
+}
+
+function CheckIcon() {
+  return <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="m4 10.5 4 4L16 6" /></svg>;
 }

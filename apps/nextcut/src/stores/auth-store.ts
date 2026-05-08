@@ -108,7 +108,11 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: "nextcut-auth",
-      partialize: (state) => ({ user: state.user }),
+      partialize: () => ({ user: null, status: null }),
+      merge: (_persisted, current) => ({ ...current, user: null, status: null }),
+      onRehydrateStorage: () => () => {
+        if (typeof localStorage !== "undefined") localStorage.removeItem("nextcut-auth");
+      },
     }
   )
 );

@@ -1,183 +1,131 @@
 import { memo } from "react";
+import { CheckCircle2, CircleDashed, GitBranch, ShieldCheck, Timer } from "lucide-react";
 import { cn } from "@/lib/cn";
+import {
+  ORCHESTRATION_AGENTS,
+  getAgentProgressPercent,
+  getAgentRunStatus,
+  getDependencySummary,
+  getProgressMap,
+} from "@/lib/agent-orchestration";
+import { Pill } from "@/components/ui/kit";
 import { useDirectorStore } from "@/stores/director-store";
 
-interface AgentPersona {
-  id: string;
-  name: string;
-  nameZh: string;
-  role: string;
-  avatar: string;
-  color: string;
-  speciality: string;
-  thinkingPhrases: string[];
+function statusMeta(status: ReturnType<typeof getAgentRunStatus>) {
+  if (status === "complete") return { label: "已产出", tone: "success" as const, icon: CheckCircle2 };
+  if (status === "running") return { label: "运行中", tone: "accent" as const, icon: Timer };
+  if (status === "failed") return { label: "阻断", tone: "danger" as const, icon: ShieldCheck };
+  if (status === "ready") return { label: "可运行", tone: "info" as const, icon: GitBranch };
+  return { label: "等上游", tone: "neutral" as const, icon: CircleDashed };
 }
-
-const AGENTS: AgentPersona[] = [
-  {
-    id: "screenwriter",
-    name: "Alex",
-    nameZh: "编剧",
-    role: "Screenwriter",
-    avatar: "✍️",
-    color: "#6366f1",
-    speciality: "Story structure, character arcs, dialogue",
-    thinkingPhrases: ["Crafting the story arc...", "Writing scene dialogue...", "Developing character motivations..."],
-  },
-  {
-    id: "character_extractor",
-    name: "Maya",
-    nameZh: "角色",
-    role: "Character Designer",
-    avatar: "👤",
-    color: "#ec4899",
-    speciality: "Character identity, appearance consistency, casting",
-    thinkingPhrases: ["Analyzing character descriptions...", "Locking identity features...", "Building appearance profiles..."],
-  },
-  {
-    id: "storyboard_artist",
-    name: "Jin",
-    nameZh: "分镜",
-    role: "Storyboard Artist",
-    avatar: "🎨",
-    color: "#f59e0b",
-    speciality: "Visual composition, shot sequencing, scene breakdown",
-    thinkingPhrases: ["Sketching the storyboard...", "Decomposing into shots...", "Planning visual flow..."],
-  },
-  {
-    id: "cinematographer",
-    name: "Leo",
-    nameZh: "摄影",
-    role: "Cinematographer",
-    avatar: "🎥",
-    color: "#10b981",
-    speciality: "Camera movement, lighting, lens selection, composition",
-    thinkingPhrases: ["Choosing camera angles...", "Planning dolly movement...", "Setting lighting mood..."],
-  },
-  {
-    id: "audio_director",
-    name: "Aria",
-    nameZh: "音效",
-    role: "Audio Director",
-    avatar: "🎵",
-    color: "#3b82f6",
-    speciality: "Music, SFX, dialogue, ambient sound, lip-sync",
-    thinkingPhrases: ["Composing the soundscape...", "Syncing dialogue timing...", "Selecting ambient layers..."],
-  },
-  {
-    id: "prompt_optimizer",
-    name: "Nova",
-    nameZh: "提示词",
-    role: "Prompt Engineer",
-    avatar: "⚡",
-    color: "#f97316",
-    speciality: "Seedance prompt optimization, SVO structure, constraint writing",
-    thinkingPhrases: ["Optimizing for Seedance 2.0...", "Restructuring to SVO...", "Adding constraint guardrails..."],
-  },
-  {
-    id: "consistency_checker",
-    name: "Kai",
-    nameZh: "质检",
-    role: "Quality Inspector",
-    avatar: "🔍",
-    color: "#8b5cf6",
-    speciality: "Character drift detection, style consistency, prompt compliance",
-    thinkingPhrases: ["Scanning for drift...", "Verifying character identity...", "Checking cross-shot consistency..."],
-  },
-  {
-    id: "editing_agent",
-    name: "Sam",
-    nameZh: "剪辑",
-    role: "Film Editor",
-    avatar: "✂️",
-    color: "#14b8a6",
-    speciality: "Pacing, transitions, rhythm, color grading",
-    thinkingPhrases: ["Planning edit rhythm...", "Designing transitions...", "Setting color grade..."],
-  },
-];
 
 export const AgentCards = memo(function AgentCards() {
   const { agentProgress, isRunning } = useDirectorStore();
-
-  const progressMap = new Map(agentProgress.map((p) => [p.agent, p]));
+  const progressMap = getProgressMap(agentProgress);
 
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold text-nc-text">AI Director Team</h3>
+    <div className="flex flex-col gap-4">
+      <div className="flex items-center justify-between gap-4">
+        <div className="min-w-0">
+          <h3 className="text-lg font-semibold leading-7 text-nc-text">AI 导演组</h3>
+          <p className="mt-1 line-clamp-1 text-[12px] leading-5 text-nc-text-tertiary">
+            按依赖运行，产物会回写到分镜、参考、提示词和时间线。
+          </p>
+        </div>
         {isRunning && (
-          <span className="flex items-center gap-1.5 text-xs text-nc-accent">
-            <span className="inline-block h-[5px] w-[5px] animate-pulse rounded-full bg-nc-accent" />
-            Working
+          <span className="flex shrink-0 items-center gap-1.5 text-xs font-semibold text-nc-accent">
+            <span className="inline-block h-[6px] w-[6px] animate-pulse rounded-full bg-nc-accent" />
+            编排中
           </span>
         )}
       </div>
 
-      <div className="grid grid-cols-2 gap-2">
-        {AGENTS.map((agent) => {
-          const progress = progressMap.get(agent.id);
-          const isActive = progress?.status === "running" || progress?.status === "progress";
-          const isDone = progress?.status === "complete";
-          const pct = progress ? Math.round(progress.progress * 100) : 0;
+      <div className="grid grid-cols-2 gap-3">
+        {ORCHESTRATION_AGENTS.map((agent) => {
+          const runStatus = getAgentRunStatus(agent, progressMap);
+          const pct = getAgentProgressPercent(agent.id, progressMap);
+          const dependency = getDependencySummary(agent, progressMap);
+          const meta = statusMeta(runStatus);
+          const Icon = meta.icon;
+          const active = runStatus === "running";
+          const done = runStatus === "complete";
 
           return (
-            <div
+            <article
               key={agent.id}
               className={cn(
-                "relative overflow-hidden rounded-lg border border-nc-border bg-nc-surface p-3 shadow-sm transition-all duration-200 hover:shadow-md",
-                isActive ? "border-nc-accent/40 bg-nc-accent-muted shadow-md ring-1 ring-nc-accent/15" :
-                isDone ? "border-nc-success/30 bg-nc-surface shadow-sm" :
-                ""
+                "nc-card-safe group relative flex min-h-[214px] flex-col overflow-hidden rounded-[16px] border bg-white p-4 shadow-[0_2px_8px_rgba(15,23,42,0.05)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_14px_36px_rgba(15,23,42,0.08)]",
+                active && "border-nc-accent bg-[#F9F7FF] ring-2 ring-nc-accent/12",
+                done && "border-nc-success/30",
+                runStatus === "failed" && "border-nc-error/35 bg-nc-error/5",
+                !active && !done && runStatus !== "failed" && "border-nc-border"
               )}
             >
-              <div className="flex items-center gap-2">
+              <div className="flex items-start gap-3">
                 <div
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-lg shadow-inner"
-                  style={{ backgroundColor: agent.color + "15" }}
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[13px] text-[14px] font-bold text-white shadow-sm"
+                  style={{ backgroundColor: agent.accent }}
                 >
-                  {agent.avatar}
+                  {agent.initial}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-sm font-semibold text-nc-text">{agent.name}</span>
-                    <span className="text-xs text-nc-text-secondary">{agent.nameZh}</span>
-                    {isDone && (
-                      <svg width="8" height="8" viewBox="0 0 8 8" fill="none" stroke="#10b981" strokeWidth="1.5" className="ml-auto shrink-0">
-                        <path d="M1.5 4l2 2L6.5 2" />
-                      </svg>
-                    )}
+                  <div className="flex min-w-0 items-center gap-2">
+                    <span className="truncate text-[15px] font-semibold leading-6 text-nc-text">{agent.name}</span>
+                    <span className="truncate text-[12px] leading-5 text-nc-text-tertiary">{agent.phase}</span>
                   </div>
-                  <div className="text-xs leading-tight text-nc-text-secondary">{agent.role}</div>
+                  <div className="line-clamp-1 text-[12px] leading-5 text-nc-text-secondary">{agent.roleZh}</div>
+                </div>
+                <Pill tone={meta.tone} className="min-h-6 shrink-0 px-2.5 py-0.5 text-[11px]">
+                  <Icon className="h-3.5 w-3.5" />
+                  {meta.label}
+                </Pill>
+              </div>
+
+              <p className="mt-3 line-clamp-2 text-[12px] leading-5 text-nc-text-secondary">{agent.summary}</p>
+
+              <div className="mt-4 grid gap-3">
+                <div className="rounded-[13px] border border-nc-border bg-nc-bg px-3 py-2.5">
+                  <div className="mb-2 flex items-center justify-between gap-2 text-[11px] font-semibold leading-4 text-nc-text-tertiary">
+                    <span>依赖</span>
+                    <span>{dependency.total === 0 ? "入口代理" : `${dependency.complete}/${dependency.total}`}</span>
+                  </div>
+                  <div className="flex min-h-6 flex-wrap gap-1.5">
+                    {(agent.dependencies.length ? agent.dependencies : ["Brief"]).map((item) => (
+                      <span key={item} className="rounded-full bg-white px-2.5 py-1 text-[11px] font-medium leading-4 text-nc-text-secondary shadow-sm">
+                        {item.replace("_", " ")}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="rounded-[13px] border border-nc-border bg-white px-3 py-2.5">
+                  <div className="mb-2 text-[11px] font-semibold leading-4 text-nc-text-tertiary">核心产物</div>
+                  <div className="flex min-h-6 flex-wrap gap-1.5">
+                    {agent.produces.slice(0, 3).map((item) => (
+                      <span key={item} className="rounded-full bg-[#F5F3FF] px-2.5 py-1 text-[11px] font-semibold leading-4 text-nc-accent">
+                        {item}
+                      </span>
+                    ))}
+                  </div>
                 </div>
               </div>
 
-              {/* Thinking bubble when active */}
-              {isActive && (
-                <div className="mt-1.5 rounded-lg border border-nc-border/80 bg-nc-panel px-2.5 py-1.5 shadow-sm">
-                  <div className="flex items-center gap-1 text-xs italic text-nc-accent">
-                    <div className="flex gap-0.5">
-                      <span className="inline-block h-1 w-1 animate-bounce rounded-full bg-nc-accent" style={{ animationDelay: "0ms" }} />
-                      <span className="inline-block h-1 w-1 animate-bounce rounded-full bg-nc-accent" style={{ animationDelay: "200ms" }} />
-                      <span className="inline-block h-1 w-1 animate-bounce rounded-full bg-nc-accent" style={{ animationDelay: "400ms" }} />
-                    </div>
-                    {agent.thinkingPhrases[Math.floor(pct / 35) % agent.thinkingPhrases.length]}
-                  </div>
+              <div className="mt-auto pt-4">
+                <div className="mb-2 flex items-center justify-between text-[11px] font-semibold leading-4 text-nc-text-tertiary">
+                  <span>生产进度</span>
+                  <span className="font-mono tabular-nums">{pct}%</span>
                 </div>
-              )}
-
-              {/* Progress bar */}
-              {progress && (
-                <div className="mt-2 h-1 overflow-hidden rounded-full bg-nc-panel">
+                <div className="h-2 overflow-hidden rounded-full bg-nc-border">
                   <div
                     className={cn(
                       "h-full rounded-full transition-all duration-700",
-                      isDone ? "bg-nc-success" : "bg-nc-accent"
+                      runStatus === "failed" ? "bg-nc-error" : done ? "bg-nc-success" : "bg-nc-accent"
                     )}
                     style={{ width: `${pct}%` }}
                   />
                 </div>
-              )}
-            </div>
+              </div>
+            </article>
           );
         })}
       </div>

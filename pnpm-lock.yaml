@@ -177,6 +177,9 @@ importers:
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
+      lucide-react:
+        specifier: ^0.564.0
+        version: 0.564.0(react@19.2.5)
       react:
         specifier: ^19.1.0
         version: 19.2.5
@@ -8192,6 +8195,10 @@ snapshots:
   lucide-react@0.564.0(react@19.0.0):
     dependencies:
       react: 19.0.0
+
+  lucide-react@0.564.0(react@19.2.5):
+    dependencies:
+      react: 19.2.5
 
   magic-string@0.30.21:
     dependencies:
