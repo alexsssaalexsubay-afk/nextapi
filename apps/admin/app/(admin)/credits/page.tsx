@@ -2,7 +2,8 @@
 
 import { FormEvent, useEffect, useState } from "react"
 import { AdminShell } from "@/components/admin/admin-shell"
-import { adminFetch } from "@/lib/admin-api"
+import { OTPDialog, type OTPDialogResult } from "@/components/admin/otp-dialog"
+import { adminFetch, adminFetchWithOTP } from "@/lib/admin-api"
 import { cn } from "@/lib/utils"
 import { useTranslations } from "@/lib/i18n/context"
 
@@ -34,6 +35,32 @@ type ApiOrg = {
   name?: string
   PausedAt?: string | null
   paused_at?: string | null
+  CreditsBalance?: number
+  credits_balance?: number
+}
+
+type ApiUserOrg = {
+  id?: string
+  ID?: string
+  name?: string
+  Name?: string
+  role?: string
+  Role?: string
+  credits_balance?: number
+  CreditsBalance?: number
+}
+
+type ApiUser = {
+  id?: string
+  ID?: string
+  email?: string
+  Email?: string
+  credits_balance?: number
+  CreditsBalance?: number
+  primary_org_id?: string
+  PrimaryOrgID?: string
+  orgs?: ApiUserOrg[]
+  Orgs?: ApiUserOrg[]
 }
 
 const NUMBER_FMT = new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -42,12 +69,23 @@ function formatCredits(cents: number): string {
   return `$${NUMBER_FMT.format(cents / 100)}`
 }
 
+function orgID(o: ApiOrg | ApiUserOrg) { return o.ID ?? o.id ?? "" }
+function orgName(o: ApiOrg | ApiUserOrg) { return o.Name ?? o.name ?? orgID(o).slice(0, 8) }
+function orgBalance(o: ApiOrg | ApiUserOrg | undefined) { return o?.CreditsBalance ?? o?.credits_balance ?? 0 }
+function userID(u: ApiUser) { return u.ID ?? u.id ?? "" }
+function userEmail(u: ApiUser) { return u.Email ?? u.email ?? userID(u).slice(0, 8) }
+function userBalance(u: ApiUser) { return u.CreditsBalance ?? u.credits_balance ?? 0 }
+function userOrgs(u: ApiUser) { return u.Orgs ?? u.orgs ?? [] }
+
 export default function CreditsPage() {
   const t = useTranslations()
   const p = t.admin.creditsPage
   const [orgs, setOrgs] = useState<ApiOrg[]>([])
+  const [users, setUsers] = useState<ApiUser[]>([])
   const [orgsLoading, setOrgsLoading] = useState(true)
   const [orgsError, setOrgsError] = useState<string | null>(null)
+  const [targetKind, setTargetKind] = useState<"user" | "org">("user")
+  const [selectedUserId, setSelectedUserId] = useState("")
   const [selectedOrgId, setSelectedOrgId] = useState("")
   const [deltaInput, setDeltaInput] = useState("")
   const [adjustNote, setAdjustNote] = useState("")
@@ -56,6 +94,14 @@ export default function CreditsPage() {
   const [adjustOk, setAdjustOk] = useState(false)
   const [ledger, setLedger] = useState<Entry[]>([])
   const [ledgerLoading, setLedgerLoading] = useState(true)
+  const [otpOpen, setOtpOpen] = useState(false)
+  const [pendingAdjust, setPendingAdjust] = useState<{
+    targetKind: "user" | "org"
+    targetId: string
+    label: string
+    cents: number
+    note?: string
+  } | null>(null)
 
   function loadLedger() {
     setLedgerLoading(true)
@@ -75,13 +121,21 @@ export default function CreditsPage() {
       setOrgsLoading(true)
       setOrgsError(null)
       try {
-        const res = (await adminFetch("/orgs")) as { data?: ApiOrg[] }
-        const list = res.data ?? []
+        const [orgRes, userRes] = await Promise.all([
+          adminFetch("/orgs") as Promise<{ data?: ApiOrg[] }>,
+          adminFetch("/users") as Promise<{ data?: ApiUser[] }>,
+        ])
+        const list = orgRes.data ?? []
+        const userList = userRes.data ?? []
         if (!cancelled) {
           setOrgs(list)
+          setUsers(userList)
           const first = list[0]
           const fid = first?.ID ?? first?.id ?? ""
           if (fid) setSelectedOrgId(fid)
+          const firstUser = userList.find((u) => userOrgs(u).length > 0) ?? userList[0]
+          const uid = firstUser ? userID(firstUser) : ""
+          if (uid) setSelectedUserId(uid)
         }
       } catch (e) {
         console.error(e)
@@ -98,6 +152,7 @@ export default function CreditsPage() {
   }, [p.form.loadOrgsFailed])
 
   const orgCount = orgs.length
+  const userCount = users.length
   const pausedCount = orgs.filter((o) => (o.PausedAt ?? o.paused_at) != null).length
   // Sum positive/negative cents from the live ledger feed.
   const issuedCents = ledger.reduce((sum, entry) => {
@@ -116,7 +171,7 @@ export default function CreditsPage() {
     // Operators type a USD amount (1.00 = $1.00). Convert to cents for the
     // ledger so the on-disk unit stays aligned with the upstream invoice.
     const usd = Number(deltaInput)
-    if (!selectedOrgId || Number.isNaN(usd) || usd === 0) {
+    if (Number.isNaN(usd) || usd === 0) {
       setAdjustError(p.form.invalid)
       return
     }
@@ -125,25 +180,56 @@ export default function CreditsPage() {
       setAdjustError(p.form.invalid)
       return
     }
+    const targetId = targetKind === "user" ? selectedUserId : selectedOrgId
+    if (!targetId) {
+      setAdjustError(p.form.invalid)
+      return
+    }
+    const selectedUser = users.find((u) => userID(u) === selectedUserId)
+    const selectedOrg = orgs.find((o) => orgID(o) === selectedOrgId)
+    const label = targetKind === "user"
+      ? userEmail(selectedUser ?? { id: selectedUserId })
+      : orgName(selectedOrg ?? { id: selectedOrgId })
+    setPendingAdjust({
+      targetKind,
+      targetId,
+      label,
+      cents,
+      note: adjustNote.trim() || undefined,
+    })
+    setOtpOpen(true)
+  }
+
+  async function applyAdjust(result: OTPDialogResult) {
+    const op = pendingAdjust
+    setOtpOpen(false)
+    if (!op || !result.confirmed) {
+      setPendingAdjust(null)
+      return
+    }
     setAdjustSubmitting(true)
+    setAdjustError(null)
     try {
-      await adminFetch("/credits/adjust", {
+      await adminFetchWithOTP("/credits/adjust", result.otpId, result.otpCode, {
         method: "POST",
         body: JSON.stringify({
-          org_id: selectedOrgId,
-          delta: cents,
-          note: adjustNote.trim() || undefined,
+          [op.targetKind === "user" ? "user_id" : "org_id"]: op.targetId,
+          delta: op.cents,
+          note: op.note,
         }),
       })
       setAdjustOk(true)
       setDeltaInput("")
       setAdjustNote("")
       loadLedger()
+      const res = (await adminFetch("/users")) as { data?: ApiUser[] }
+      setUsers(res.data ?? [])
     } catch (err) {
       console.error(err)
       setAdjustError(err instanceof Error ? err.message : p.form.adjustFailed)
     } finally {
       setAdjustSubmitting(false)
+      setPendingAdjust(null)
     }
   }
 
@@ -198,6 +284,13 @@ export default function CreditsPage() {
         </>
       }
     >
+      <OTPDialog
+        open={otpOpen}
+        action="credits.adjust"
+        targetId={pendingAdjust?.targetId ?? ""}
+        hint={pendingAdjust ? `${pendingAdjust.label}: ${formatCredits(pendingAdjust.cents)}` : ""}
+        onResult={applyAdjust}
+      />
       <div className="space-y-6 p-6">
         {orgsError && (
           <div className="rounded-lg border border-status-failed/30 bg-status-failed/10 px-4 py-2 font-mono text-[11px] text-status-failed">
@@ -222,24 +315,61 @@ export default function CreditsPage() {
             <div className="flex flex-wrap items-end gap-3">
               <label className="flex min-w-[200px] flex-1 flex-col gap-1">
                 <span className="text-[10.5px] uppercase tracking-[0.14em] text-muted-foreground">
-                  {p.form.org}
+                  {p.form.target}
                 </span>
-                <select
-                  value={selectedOrgId}
-                  onChange={(ev) => setSelectedOrgId(ev.target.value)}
-                  className="rounded-md border border-border/80 bg-background/40 px-2 py-1.5 text-foreground"
-                  disabled={orgsLoading || orgCount === 0}
-                >
-                  {orgs.map((o) => {
-                    const id = o.ID ?? o.id ?? ""
-                    const name = o.Name ?? o.name ?? id.slice(0, 8)
-                    return (
-                      <option key={id} value={id}>
-                        {name}
-                      </option>
-                    )
-                  })}
-                </select>
+                <div className="grid grid-cols-[120px_minmax(0,1fr)] gap-2">
+                  <select
+                    value={targetKind}
+                    onChange={(ev) => setTargetKind(ev.target.value as "user" | "org")}
+                    className="rounded-md border border-border/80 bg-background/40 px-2 py-1.5 text-foreground"
+                  >
+                    <option value="user">{p.form.userTarget}</option>
+                    <option value="org">{p.form.orgTarget}</option>
+                  </select>
+                  {targetKind === "user" ? (
+                    <select
+                      value={selectedUserId}
+                      onChange={(ev) => setSelectedUserId(ev.target.value)}
+                      className="min-w-0 rounded-md border border-border/80 bg-background/40 px-2 py-1.5 text-foreground"
+                      disabled={orgsLoading || userCount === 0}
+                    >
+                      {users.map((u) => {
+                        const id = userID(u)
+                        return (
+                          <option key={id} value={id}>
+                            {userEmail(u)} · {formatCredits(userBalance(u))}
+                          </option>
+                        )
+                      })}
+                    </select>
+                  ) : (
+                    <select
+                      value={selectedOrgId}
+                      onChange={(ev) => setSelectedOrgId(ev.target.value)}
+                      className="min-w-0 rounded-md border border-border/80 bg-background/40 px-2 py-1.5 text-foreground"
+                      disabled={orgsLoading || orgCount === 0}
+                    >
+                      {orgs.map((o) => {
+                        const id = orgID(o)
+                        return (
+                          <option key={id} value={id}>
+                            {orgName(o)}
+                          </option>
+                        )
+                      })}
+                    </select>
+                  )}
+                </div>
+              </label>
+              <label className="flex min-w-[180px] flex-col gap-1">
+                <span className="text-[10.5px] uppercase tracking-[0.14em] text-muted-foreground">
+                  {p.form.currentBalance}
+                </span>
+                <div className="rounded-md border border-border/80 bg-background/40 px-2 py-1.5 font-mono text-foreground">
+                  {targetKind === "user"
+                    ? formatCredits(userBalance(users.find((u) => userID(u) === selectedUserId) ?? { id: selectedUserId }))
+                    : formatCredits(orgBalance(orgs.find((o) => orgID(o) === selectedOrgId)))}
+                </div>
               </label>
               <label className="flex w-36 flex-col gap-1">
                 <span className="text-[10.5px] uppercase tracking-[0.14em] text-muted-foreground">
@@ -271,7 +401,7 @@ export default function CreditsPage() {
               </label>
               <button
                 type="submit"
-                disabled={adjustSubmitting || orgCount === 0}
+                disabled={adjustSubmitting || (targetKind === "user" ? userCount === 0 : orgCount === 0)}
                 className="inline-flex h-8 items-center gap-1.5 rounded-md bg-foreground px-3 text-[12px] font-medium text-background hover:bg-foreground/90 disabled:opacity-50"
               >
                 {adjustSubmitting ? t.common.loading : p.newAdjustment}

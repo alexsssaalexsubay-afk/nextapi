@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useState } from "react"
 import {
+  Banknote,
   Copy,
   Dices,
   KeyRound,
@@ -16,6 +17,7 @@ import { OTPDialog, type OTPDialogResult } from "@/components/admin/otp-dialog"
 import { adminFetch, adminFetchWithOTP } from "@/lib/admin-api"
 import { useTranslations } from "@/lib/i18n/context"
 import { generateEmailLocal8, generateStrongPassword10 } from "@/lib/secure-random"
+import { cn } from "@/lib/utils"
 
 /* ── types ── */
 type ApiUser = {
@@ -23,10 +25,30 @@ type ApiUser = {
   Email?: string; email?: string
   CreatedAt?: string; created_at?: string
   DeletedAt?: string | null; deleted_at?: string | null
+  CreditsBalance?: number; credits_balance?: number
+  PrimaryOrgID?: string; primary_org_id?: string
+  Orgs?: ApiUserOrg[]; orgs?: ApiUserOrg[]
+}
+type ApiUserOrg = {
+  ID?: string; id?: string
+  Name?: string; name?: string
+  Role?: string; role?: string
+  CreditsBalance?: number; credits_balance?: number
+  PausedAt?: string | null; paused_at?: string | null
 }
 function uid(u: ApiUser) { return u.ID ?? u.id ?? "" }
 function uemail(u: ApiUser) { return u.Email ?? u.email ?? "" }
 function udate(u: ApiUser) { return u.CreatedAt ?? u.created_at ?? "" }
+function ubalance(u: ApiUser) { return u.CreditsBalance ?? u.credits_balance ?? 0 }
+function uorgs(u: ApiUser) { return u.Orgs ?? u.orgs ?? [] }
+function orgId(o: ApiUserOrg) { return o.ID ?? o.id ?? "" }
+function orgName(o: ApiUserOrg) { return o.Name ?? o.name ?? orgId(o).slice(0, 8) }
+
+const MONEY_FMT = new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+
+function formatMoney(cents: number) {
+  return `$${MONEY_FMT.format(cents / 100)}`
+}
 
 const EMAIL_DOMAIN = "nextapi.top" as const
 
@@ -66,6 +88,11 @@ export default function UsersPage() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
   const [error, setError] = useState<string | null>(null)
+  const [adjustTarget, setAdjustTarget] = useState<{ user: ApiUser; org?: ApiUserOrg } | null>(null)
+  const [adjustDelta, setAdjustDelta] = useState("")
+  const [adjustNote, setAdjustNote] = useState("")
+  const [adjustLoading, setAdjustLoading] = useState(false)
+  const [adjustError, setAdjustError] = useState<string | null>(null)
 
   /* create user dialog */
   const [showCreate, setShowCreate] = useState(false)
@@ -188,6 +215,61 @@ export default function UsersPage() {
     if (pendingOp) (pendingOp as any)(result)
     setPendingOp(null)
   }
+
+  function openAdjust(user: ApiUser, org?: ApiUserOrg) {
+    setAdjustTarget({ user, org: org ?? uorgs(user)[0] })
+    setAdjustDelta("")
+    setAdjustNote("")
+    setAdjustError(null)
+  }
+
+  async function handleAdjust(e: FormEvent) {
+    e.preventDefault()
+    if (!adjustTarget) return
+    const usd = Number(adjustDelta)
+    if (Number.isNaN(usd) || usd === 0) {
+      setAdjustError(u.adjustInvalid)
+      return
+    }
+    const cents = Math.round(usd * 100)
+    if (cents === 0) {
+      setAdjustError(u.adjustInvalid)
+      return
+    }
+    const userId = uid(adjustTarget.user)
+    const selectedOrgId = adjustTarget.org ? orgId(adjustTarget.org) : ""
+    setAdjustLoading(true)
+    setAdjustError(null)
+    const doAdjust = (otp: OTPDialogResult): Promise<void> => {
+      if (!otp.confirmed) {
+        setAdjustLoading(false)
+        return Promise.resolve()
+      }
+      return adminFetchWithOTP("/credits/adjust", otp.otpId, otp.otpCode, {
+        method: "POST",
+        body: JSON.stringify({
+          user_id: userId,
+          org_id: selectedOrgId || undefined,
+          delta: cents,
+          note: adjustNote.trim() || `admin user adjustment for ${uemail(adjustTarget.user)}`,
+        }),
+      })
+        .then(() => {
+          setAdjustTarget(null)
+          setAdjustDelta("")
+          setAdjustNote("")
+          load(search)
+        })
+        .catch((err: unknown) => setAdjustError(err instanceof Error ? err.message : "Failed"))
+        .finally(() => setAdjustLoading(false))
+    }
+    setOtpAction("credits.adjust")
+    setOtpTarget(userId)
+    setOtpHint(`${u.adjustCredits}: ${uemail(adjustTarget.user)} ${formatMoney(cents)}`)
+    setPendingOp(() => doAdjust)
+    setOtpOpen(true)
+  }
+
   const filtered = users.filter((usr) =>
     uemail(usr).toLowerCase().includes(search.toLowerCase()) || uid(usr).includes(search)
   )
@@ -229,7 +311,8 @@ export default function UsersPage() {
               <thead>
                 <tr className="border-b border-border bg-muted/40 text-left text-xs uppercase tracking-wider text-muted-foreground">
                   <th className="px-4 py-2.5">{u.colEmail}</th>
-                  <th className="px-4 py-2.5">{u.colId}</th>
+                  <th className="px-4 py-2.5">{u.colOrganization}</th>
+                  <th className="px-4 py-2.5">{u.colBalance}</th>
                   <th className="px-4 py-2.5">{u.colCreated}</th>
                   <th className="px-4 py-2.5">{u.colStatus}</th>
                   <th className="px-4 py-2.5 text-right">{u.colActions}</th>
@@ -237,15 +320,36 @@ export default function UsersPage() {
               </thead>
               <tbody>
                 {filtered.length === 0 && (
-                  <tr><td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">{u.noResults}</td></tr>
+                  <tr><td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">{u.noResults}</td></tr>
                 )}
                 {filtered.map((usr) => {
                   const id = uid(usr)
                   const deleted = usr.DeletedAt ?? usr.deleted_at
+                  const orgs = uorgs(usr)
+                  const primaryOrg = orgs[0]
                   return (
                     <tr key={id} className="border-b border-border last:border-0 hover:bg-muted/20">
-                      <td className="px-4 py-2.5 font-mono text-xs">{uemail(usr)}</td>
-                      <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">{id.slice(0, 12)}…</td>
+                      <td className="px-4 py-2.5">
+                        <div className="font-mono text-xs text-foreground">{uemail(usr)}</div>
+                        <div className="mt-0.5 font-mono text-[11px] text-muted-foreground">{id.slice(0, 12)}…</div>
+                      </td>
+                      <td className="px-4 py-2.5">
+                        {primaryOrg ? (
+                          <div className="max-w-[240px]">
+                            <div className="truncate text-xs font-medium">{orgName(primaryOrg)}</div>
+                            <div className="mt-0.5 font-mono text-[11px] text-muted-foreground">
+                              {orgId(primaryOrg).slice(0, 12)}… · {orgs.length} org{orgs.length === 1 ? "" : "s"}
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">{u.noOrganization}</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-2.5">
+                        <div className={cn("font-mono text-xs font-semibold", ubalance(usr) >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-destructive")}>
+                          {formatMoney(ubalance(usr))}
+                        </div>
+                      </td>
                       <td className="px-4 py-2.5 text-xs text-muted-foreground">{new Date(udate(usr)).toLocaleDateString()}</td>
                       <td className="px-4 py-2.5">
                         {deleted
@@ -253,6 +357,14 @@ export default function UsersPage() {
                           : <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs text-emerald-600 dark:text-emerald-400">{u.statusActive}</span>}
                       </td>
                       <td className="px-4 py-2.5 text-right">
+                        <button
+                          className="mr-1 inline-flex items-center gap-1 rounded px-2 py-1 text-xs text-primary hover:bg-primary/10"
+                          onClick={() => openAdjust(usr, primaryOrg)}
+                          disabled={!primaryOrg}
+                          title={!primaryOrg ? u.noOrganization : undefined}
+                        >
+                          <Banknote className="h-3 w-3" /> {u.adjustCredits}
+                        </button>
                         <button
                           className="inline-flex items-center gap-1 rounded px-2 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
                           onClick={() => { setResetUserId(id); setResetPassword(""); setResetError(null) }}
@@ -265,6 +377,71 @@ export default function UsersPage() {
                 })}
               </tbody>
             </table>
+          </div>
+        )}
+        {adjustTarget && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setAdjustTarget(null)}>
+            <div className="w-full max-w-md rounded-lg border border-border bg-background p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+              <div className="mb-4 flex items-center justify-between">
+                <div>
+                  <h3 className="text-base font-semibold">{u.adjustCredits}</h3>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {uemail(adjustTarget.user)} · {adjustTarget.org ? orgName(adjustTarget.org) : u.noOrganization}
+                  </p>
+                </div>
+                <button type="button" onClick={() => setAdjustTarget(null)} className="text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button>
+              </div>
+              {adjustError && <div className="mb-3 rounded border border-destructive/40 bg-destructive/10 px-3 py-1.5 text-xs text-destructive">{adjustError}</div>}
+              <form onSubmit={handleAdjust} className="space-y-3">
+                <div className="rounded-md border border-border bg-muted/20 p-3">
+                  <div className="text-[11px] uppercase tracking-wider text-muted-foreground">{u.currentBalance}</div>
+                  <div className="mt-1 font-mono text-lg font-semibold">{formatMoney(ubalance(adjustTarget.user))}</div>
+                </div>
+                {uorgs(adjustTarget.user).length > 1 && (
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-muted-foreground">{u.fieldOrgName}</label>
+                    <select
+                      className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus:ring-1 focus:ring-ring"
+                      value={adjustTarget.org ? orgId(adjustTarget.org) : ""}
+                      onChange={(event) => {
+                        const next = uorgs(adjustTarget.user).find((org) => orgId(org) === event.target.value)
+                        setAdjustTarget({ user: adjustTarget.user, org: next })
+                      }}
+                    >
+                      {uorgs(adjustTarget.user).map((org) => (
+                        <option key={orgId(org)} value={orgId(org)}>
+                          {orgName(org)} · {formatMoney(org.CreditsBalance ?? org.credits_balance ?? 0)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">{u.adjustAmount}</label>
+                  <input
+                    required
+                    type="number"
+                    step="0.01"
+                    className="h-9 w-full rounded-md border border-input bg-background px-3 font-mono text-sm outline-none focus:ring-1 focus:ring-ring"
+                    placeholder="100.00 / -20.00"
+                    value={adjustDelta}
+                    onChange={(e) => setAdjustDelta(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">{u.adjustNote}</label>
+                  <input
+                    className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus:ring-1 focus:ring-ring"
+                    placeholder={u.adjustNoteHint}
+                    value={adjustNote}
+                    onChange={(e) => setAdjustNote(e.target.value)}
+                  />
+                </div>
+                <button type="submit" disabled={adjustLoading} className="inline-flex h-9 w-full items-center justify-center gap-2 rounded-md bg-primary text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50">
+                  {adjustLoading && <Loader2 className="h-4 w-4 animate-spin" />} {u.confirmAdjust}
+                </button>
+              </form>
+            </div>
           </div>
         )}
         {/* create user dialog */}

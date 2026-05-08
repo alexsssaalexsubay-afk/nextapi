@@ -149,9 +149,75 @@ type AdminHandlers struct {
 	}
 }
 
+type adminUserOrg struct {
+	ID             string     `json:"id"`
+	Name           string     `json:"name"`
+	Role           string     `json:"role"`
+	CreditsBalance int64      `json:"credits_balance"`
+	PausedAt       *time.Time `json:"paused_at,omitempty"`
+	CreatedAt      *time.Time `json:"created_at,omitempty"`
+}
+
+type adminUserWithOrgs struct {
+	ID             string         `json:"id"`
+	Email          string         `json:"email"`
+	CreatedAt      time.Time      `json:"created_at"`
+	DeletedAt      *time.Time     `json:"deleted_at,omitempty"`
+	CreditsBalance int64          `json:"credits_balance"`
+	PrimaryOrgID   string         `json:"primary_org_id,omitempty"`
+	Orgs           []adminUserOrg `json:"orgs"`
+}
+
+type adminUserOrgRow struct {
+	UserID         string
+	Email          string
+	UserCreatedAt  time.Time
+	DeletedAt      *time.Time
+	OrgID          *string
+	OrgName        *string
+	OrgRole        *string
+	OrgPausedAt    *time.Time
+	OrgCreatedAt   *time.Time
+	CreditsBalance int64
+}
+
+type adminOrgWithBalance struct {
+	ID             string     `json:"id"`
+	Name           string     `json:"name"`
+	OwnerUserID    string     `json:"owner_user_id"`
+	PausedAt       *time.Time `json:"paused_at,omitempty"`
+	PauseReason    *string    `json:"pause_reason,omitempty"`
+	CompanyName    *string    `json:"company_name,omitempty"`
+	TaxID          *string    `json:"tax_id,omitempty"`
+	BillingEmail   *string    `json:"billing_email,omitempty"`
+	CountryRegion  *string    `json:"country_region,omitempty"`
+	CreatedAt      time.Time  `json:"created_at"`
+	CreditsBalance int64      `json:"credits_balance"`
+}
+
 func (h *AdminHandlers) Orgs(c *gin.Context) {
-	var rows []domain.Org
-	if err := h.DB.WithContext(c.Request.Context()).Order("created_at DESC").Limit(500).Find(&rows).Error; err != nil {
+	var rows []adminOrgWithBalance
+	if err := h.DB.WithContext(c.Request.Context()).Raw(`
+SELECT
+  o.id,
+  o.name,
+  o.owner_user_id,
+  o.paused_at,
+  o.pause_reason,
+  o.company_name,
+  o.tax_id,
+  o.billing_email,
+  o.country_region,
+  o.created_at,
+  COALESCE(b.balance_cents, 0) AS credits_balance
+FROM orgs o
+LEFT JOIN (
+  SELECT org_id, COALESCE(SUM(COALESCE(delta_cents, delta_credits, 0)), 0) AS balance_cents
+  FROM credits_ledger
+  GROUP BY org_id
+) b ON b.org_id = o.id
+ORDER BY o.created_at DESC
+LIMIT 500`).Scan(&rows).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "internal_error"}})
 		return
 	}
@@ -192,16 +258,86 @@ func (h *AdminHandlers) PauseOrg(c *gin.Context) {
 
 func (h *AdminHandlers) Users(c *gin.Context) {
 	q := strings.TrimSpace(c.Query("q"))
-	db := h.DB.WithContext(c.Request.Context()).Model(&domain.User{})
+	args := []any{}
+	where := ""
 	if q != "" {
-		db = db.Where("email ILIKE ?", "%"+q+"%")
+		like := "%" + q + "%"
+		where = `
+WHERE u.email ILIKE ?
+   OR u.id ILIKE ?
+   OR o.name ILIKE ?
+   OR CAST(o.id AS TEXT) ILIKE ?`
+		args = append(args, like, like, like, like)
 	}
-	var rows []domain.User
-	if err := db.Order("created_at DESC").Limit(200).Find(&rows).Error; err != nil {
+	args = append(args, 500)
+
+	var rows []adminUserOrgRow
+	query := `
+SELECT
+  u.id AS user_id,
+  u.email AS email,
+  u.created_at AS user_created_at,
+  u.deleted_at AS deleted_at,
+  o.id AS org_id,
+  o.name AS org_name,
+  om.role AS org_role,
+  o.paused_at AS org_paused_at,
+  o.created_at AS org_created_at,
+  COALESCE(b.balance_cents, 0) AS credits_balance
+FROM users u
+LEFT JOIN org_members om ON om.user_id = u.id
+LEFT JOIN orgs o ON o.id = om.org_id
+LEFT JOIN (
+  SELECT org_id, COALESCE(SUM(COALESCE(delta_cents, delta_credits, 0)), 0) AS balance_cents
+  FROM credits_ledger
+  GROUP BY org_id
+) b ON b.org_id = o.id
+` + where + `
+ORDER BY u.created_at DESC, o.created_at DESC
+LIMIT ?`
+
+	if err := h.DB.WithContext(c.Request.Context()).Raw(query, args...).Scan(&rows).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "internal_error"}})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"data": rows})
+
+	users := make([]adminUserWithOrgs, 0)
+	byID := map[string]int{}
+	for _, row := range rows {
+		idx, ok := byID[row.UserID]
+		if !ok {
+			byID[row.UserID] = len(users)
+			users = append(users, adminUserWithOrgs{
+				ID:        row.UserID,
+				Email:     row.Email,
+				CreatedAt: row.UserCreatedAt,
+				DeletedAt: row.DeletedAt,
+				Orgs:      []adminUserOrg{},
+			})
+			idx = len(users) - 1
+		}
+		if row.OrgID == nil || *row.OrgID == "" {
+			continue
+		}
+		org := adminUserOrg{
+			ID:             *row.OrgID,
+			CreditsBalance: row.CreditsBalance,
+			PausedAt:       row.OrgPausedAt,
+			CreatedAt:      row.OrgCreatedAt,
+		}
+		if row.OrgName != nil {
+			org.Name = *row.OrgName
+		}
+		if row.OrgRole != nil {
+			org.Role = *row.OrgRole
+		}
+		users[idx].Orgs = append(users[idx].Orgs, org)
+		users[idx].CreditsBalance += row.CreditsBalance
+		if users[idx].PrimaryOrgID == "" {
+			users[idx].PrimaryOrgID = org.ID
+		}
+	}
+	c.JSON(http.StatusOK, gin.H{"data": users})
 }
 
 func (h *AdminHandlers) AllLedger(c *gin.Context) {
@@ -268,20 +404,46 @@ func (h *AdminHandlers) Jobs(c *gin.Context) {
 }
 
 type adjustReq struct {
-	OrgID string `json:"org_id" binding:"required"`
-	Delta int64  `json:"delta" binding:"required"`
-	Note  string `json:"note"`
+	OrgID  string `json:"org_id"`
+	UserID string `json:"user_id"`
+	Delta  int64  `json:"delta" binding:"required"`
+	Note   string `json:"note"`
 }
 
 func (h *AdminHandlers) AdjustCredits(c *gin.Context) {
+	if !RequireOTP(c, h.DB) {
+		return
+	}
 	var r adjustReq
 	if err := c.ShouldBindJSON(&r); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "bad_request", "message": "invalid request body"}})
 		return
 	}
 	ctx := c.Request.Context()
+	orgID := strings.TrimSpace(r.OrgID)
+	userID := strings.TrimSpace(r.UserID)
+	targetType := "org"
+	targetID := orgID
+	if orgID == "" && userID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "bad_request", "message": "org_id or user_id is required"}})
+		return
+	}
+	if orgID == "" {
+		resolved, err := h.resolveUserAdjustmentOrg(ctx, userID)
+		if err != nil {
+			if err == gorm.ErrRecordNotFound {
+				c.JSON(http.StatusNotFound, gin.H{"error": gin.H{"code": "user_org_not_found", "message": "user has no organization to adjust"}})
+				return
+			}
+			c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "internal_error"}})
+			return
+		}
+		orgID = resolved
+		targetType = "user"
+		targetID = userID
+	}
 	err := h.Billing.AddCredits(ctx, billing.Entry{
-		OrgID:  r.OrgID,
+		OrgID:  orgID,
 		Delta:  r.Delta,
 		Reason: domain.ReasonAdjustment,
 		Note:   r.Note,
@@ -290,7 +452,9 @@ func (h *AdminHandlers) AdjustCredits(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "internal_error"}})
 		return
 	}
-	RecordAudit(ctx, h.DB, c, "credits.adjust", "org", r.OrgID, gin.H{
+	RecordAudit(ctx, h.DB, c, "credits.adjust", targetType, targetID, gin.H{
+		"org_id":      orgID,
+		"user_id":     userID,
 		"delta_cents": r.Delta,
 		"note":        r.Note,
 	})
@@ -298,12 +462,37 @@ func (h *AdminHandlers) AdjustCredits(c *gin.Context) {
 		// Always email — credits adjustments are real money and absent
 		// MFA we want a second pair of eyes (the inbox) on every change.
 		h.Notify.SendOwner(
-			fmt.Sprintf("[NextAPI] credits adjusted %+d¢ on %s", r.Delta, r.OrgID),
-			fmt.Sprintf("Operator %s adjusted credits by %+d cents on org %s.\nNote: %s\nLedger: SELECT * FROM credits_ledger WHERE org_id='%s' ORDER BY created_at DESC LIMIT 5;",
-				resolveActor(c), r.Delta, r.OrgID, r.Note, r.OrgID),
+			fmt.Sprintf("[NextAPI] credits adjusted %+d¢ on %s", r.Delta, orgID),
+			fmt.Sprintf("Operator %s adjusted credits by %+d cents on org %s.\nTarget user: %s\nNote: %s\nLedger: SELECT * FROM credits_ledger WHERE org_id='%s' ORDER BY created_at DESC LIMIT 5;",
+				resolveActor(c), r.Delta, orgID, userID, r.Note, orgID),
 		)
 	}
 	c.JSON(http.StatusOK, gin.H{"ok": true})
+}
+
+func (h *AdminHandlers) resolveUserAdjustmentOrg(ctx context.Context, userID string) (string, error) {
+	var out string
+	err := h.DB.WithContext(ctx).Raw(`
+SELECT o.id
+FROM orgs o
+LEFT JOIN org_members om ON om.org_id = o.id AND om.user_id = ?
+WHERE o.owner_user_id = ? OR om.user_id = ?
+ORDER BY
+  CASE
+    WHEN o.owner_user_id = ? THEN 0
+    WHEN om.role = 'owner' THEN 1
+    WHEN om.role = 'admin' THEN 2
+    ELSE 3
+  END,
+  o.created_at DESC
+LIMIT 1`, userID, userID, userID, userID).Scan(&out).Error
+	if err != nil {
+		return "", err
+	}
+	if out == "" {
+		return "", gorm.ErrRecordNotFound
+	}
+	return out, nil
 }
 
 func (h *AdminHandlers) CancelJob(c *gin.Context) {
