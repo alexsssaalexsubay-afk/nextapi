@@ -3,11 +3,9 @@ import { useDirectorStore } from "@/stores/director-store";
 import { useDirector } from "@/hooks/useDirector";
 import { sidecarFetch } from "@/lib/sidecar";
 import { cn } from "@/lib/cn";
-import { StructuredPromptBuilder } from "@/components/director/StructuredPromptBuilder";
 import { WorkflowPresets } from "@/components/director/WorkflowPresets";
 import { PipelineStepFlow } from "@/components/director/PipelineStepFlow";
 import { CharacterPanel } from "@/components/director/CharacterPanel";
-import { PromptQualityMeter } from "@/components/director/PromptQualityMeter";
 import { useI18nStore } from "@/stores/i18n-store";
 
 const STYLES = [
@@ -46,7 +44,7 @@ export function DirectorInput() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [expandedSection, setExpandedSection] = useState<string | null>("characters");
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { t, lang } = useI18nStore();
+  const { t } = useI18nStore();
 
   const inputMode: InputMode = useStructuredPrompt ? "structured" : "freeform";
   const hasPlan = shots.length > 0;
@@ -93,9 +91,6 @@ export function DirectorInput() {
     }
     if (fileInputRef.current) fileInputRef.current.value = "";
   }, [addReference]);
-
-  const toggleSection = (id: string) =>
-    setExpandedSection(expandedSection === id ? null : id);
 
   return (
     <div className="flex flex-1 flex-col overflow-auto">
@@ -438,61 +433,6 @@ export function DirectorInput() {
             </span>
           </div>
         )}
-      </div>
-    </div>
-  );
-}
-
-function CollapsibleSection({
-  title,
-  titleZh,
-  expanded,
-  onToggle,
-  badge,
-  children,
-}: {
-  title: string;
-  titleZh: string;
-  expanded: boolean;
-  onToggle: () => void;
-  badge?: string;
-  children: React.ReactNode;
-}) {
-  const { lang } = useI18nStore();
-  return (
-    <div className="border-b border-nc-border overflow-hidden transition-all duration-200">
-      <button
-        onClick={onToggle}
-        className={cn(
-          "flex w-full items-center justify-between py-4 transition-colors hover:text-nc-text outline-none",
-          expanded ? "text-nc-text" : "text-nc-text-secondary"
-        )}
-      >
-        <div className="flex items-center gap-3">
-          <span className="text-[13px] font-bold uppercase tracking-wider">
-            {title}
-          </span>
-          {lang === "zh" && <span className="text-[12px] font-medium opacity-60 ml-2">{titleZh}</span>}
-          {badge && (
-            <span className="rounded-full bg-nc-text px-2 py-0.5 font-mono text-[10px] font-bold text-nc-surface shadow-sm">
-              {badge}
-            </span>
-          )}
-        </div>
-        <svg
-          width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
-          className={cn("transition-transform duration-300 opacity-50", expanded ? "rotate-180" : "")}
-        >
-          <path d="M5 7l5 5 5-5" />
-        </svg>
-      </button>
-      <div
-        className={cn(
-          "transition-all duration-300 ease-in-out",
-          expanded ? "max-h-[1500px] opacity-100" : "max-h-0 opacity-0"
-        )}
-      >
-        <div className="pb-6 pt-2">{children}</div>
       </div>
     </div>
   );

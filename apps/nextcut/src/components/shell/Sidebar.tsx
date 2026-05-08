@@ -1,7 +1,6 @@
 import { cn } from "@/lib/cn";
 import { useAppStore, type SidebarPage } from "@/stores/app-store";
 import { useI18nStore } from "@/stores/i18n-store";
-import { useAuthStore } from "@/stores/auth-store";
 
 const NAV_ITEMS: { id: SidebarPage; labelKey: string; icon: (active: boolean) => React.ReactNode }[] = [
   {
@@ -93,8 +92,7 @@ const NAV_ITEMS: { id: SidebarPage; labelKey: string; icon: (active: boolean) =>
 
 export function Sidebar() {
   const { sidebarPage, setSidebarPage } = useAppStore();
-  const { t, lang, setLang } = useI18nStore();
-  const { user, logout } = useAuthStore();
+  const { t } = useI18nStore();
 
   return (
     <div className="flex w-[240px] shrink-0 flex-col border-r border-nc-border bg-nc-surface shadow-sm">

@@ -1,23 +1,14 @@
 import { useState, memo } from "react";
 import { useAppStore } from "@/stores/app-store";
-import { useDirectorStore, BUILTIN_TEMPLATES } from "@/stores/director-store";
-import { useI18nStore } from "@/stores/i18n-store";
+import { useDirectorStore } from "@/stores/director-store";
 import { useDirector } from "@/hooks/useDirector";
 import { cn } from "@/lib/cn";
 import { GuidedWizard } from "@/components/director/GuidedWizard";
 
-const EXAMPLE_PROMPTS = [
-  "A woman in a flowing red dress walks through a neon-lit Tokyo alley at night. Rain reflects the glow of signs above. She stops, turns, and smiles at the camera.",
-  "Product hero shot: a golden watch slowly rotates on a marble pedestal. Dramatic spotlight from above, particles of dust floating in the beam. Ultra close-up detail.",
-  "A cat sits on a windowsill watching snowfall. It reaches a paw toward a snowflake, then curls back into sleep. Warm amber interior light, cinematic soft focus.",
-  "Anime-style scene: two warriors face each other on a moonlit cliff. Wind blows cherry blossoms between them. The camera slowly circles from a low angle.",
-];
-
 export const HomePage = memo(function HomePage() {
   const { setSidebarPage } = useAppStore();
-  const { prompt, setPrompt, setStyle, setNumShots, setSelectedWorkflow, setUseStructuredPrompt, isRunning } = useDirectorStore();
+  const { prompt, setPrompt, setUseStructuredPrompt, isRunning } = useDirectorStore();
   const { runPipeline } = useDirector();
-  const { t } = useI18nStore();
   const [localPrompt, setLocalPrompt] = useState(prompt || "");
   const [showWizard, setShowWizard] = useState(false);
 
@@ -31,21 +22,6 @@ export const HomePage = memo(function HomePage() {
     if (localPrompt) setPrompt(localPrompt);
     setUseStructuredPrompt(true);
     setSidebarPage("agents");
-  };
-
-  const applyExample = (text: string) => {
-    setLocalPrompt(text);
-    setPrompt(text);
-  };
-
-  const applyTemplate = (tmplId: string) => {
-    const tmpl = BUILTIN_TEMPLATES.find((t) => t.id === tmplId);
-    if (tmpl) {
-      setSelectedWorkflow(tmpl.workflow);
-      setStyle(tmpl.style);
-      setNumShots(tmpl.shotCount);
-      setSidebarPage("agents");
-    }
   };
 
   return (

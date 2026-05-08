@@ -1,7 +1,6 @@
 import { memo, useCallback } from "react";
 import { cn } from "@/lib/cn";
 import { useDirectorStore, type StructuredPrompt } from "@/stores/director-store";
-import { sidecarFetch } from "@/lib/sidecar";
 import { useI18nStore } from "@/stores/i18n-store";
 
 const CAMERA_PRESETS = [
@@ -73,49 +72,13 @@ const FIELDS: {
   },
 ];
 
-interface PromptAction {
-  id: string;
-  label: string;
-  icon: React.ReactNode;
-}
-
-const PROMPT_ACTIONS: PromptAction[] = [
-  {
-    id: "simplify",
-    label: "Simplify",
-    icon: (
-      <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.2">
-        <path d="M2 5h6" />
-      </svg>
-    ),
-  },
-  {
-    id: "enhance",
-    label: "Enhance",
-    icon: (
-      <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.2">
-        <path d="M5 2v6M2 5h6" />
-      </svg>
-    ),
-  },
-  {
-    id: "translate",
-    label: "中/En",
-    icon: (
-      <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.2">
-        <path d="M1 3h5M3.5 1v5M6 6l1.5 3 1.5-3" />
-      </svg>
-    ),
-  },
-];
-
 export const StructuredPromptBuilder = memo(function StructuredPromptBuilder({
   disabled,
 }: {
   disabled?: boolean;
 }) {
   const { structuredPrompt, setStructuredPrompt, setPrompt } = useDirectorStore();
-  const { t, lang } = useI18nStore();
+  const { lang } = useI18nStore();
 
   const compileToText = useCallback(() => {
     const parts: string[] = [];
@@ -128,21 +91,6 @@ export const StructuredPromptBuilder = memo(function StructuredPromptBuilder({
     setPrompt(compiled);
     return compiled;
   }, [structuredPrompt, setPrompt]);
-
-  const handleAction = useCallback(async (actionId: string) => {
-    const compiled = compileToText();
-    try {
-      const res = await sidecarFetch<{ result: string }>("/director/prompt/action", {
-        method: "POST",
-        body: JSON.stringify({ prompt: compiled, action: actionId }),
-      });
-      if (res.result) {
-        setPrompt(res.result);
-      }
-    } catch {
-      // fallback: just use compiled
-    }
-  }, [compileToText, setPrompt]);
 
   const insertPreset = useCallback((field: keyof StructuredPrompt, preset: string) => {
     const current = structuredPrompt[field];
