@@ -18,13 +18,17 @@ export async function sidecarFetch<T>(
   try {
     for (let attempt = 0; attempt <= retries; attempt++) {
       try {
+        const isMultipart = typeof FormData !== "undefined" && init?.body instanceof FormData;
+        const headers: Record<string, string> = {
+          "X-NextCut-Client": "nextcut-renderer",
+          ...(init?.headers as Record<string, string> | undefined),
+        };
+        if (!isMultipart) {
+          headers["Content-Type"] = "application/json";
+        }
         const res = await fetch(`${SIDECAR_BASE}${path}`, {
           ...init,
-          headers: {
-            "Content-Type": "application/json",
-            "X-NextCut-Client": "nextcut-renderer",
-            ...init?.headers,
-          },
+          headers,
           signal: init?.signal || controller.signal,
         });
 

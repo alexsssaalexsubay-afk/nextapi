@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
+  AlertCircle,
+  CheckCircle2,
   FolderOpen,
   ImageIcon,
   Loader2,
@@ -41,6 +43,12 @@ type ListResponse = {
   ttl_seconds?: number
 }
 
+type UploadNotice = {
+  tone: "info" | "success" | "error"
+  title: string
+  detail?: string
+} | null
+
 const KIND_FILTERS: ReadonlyArray<{ id: "all" | AssetKind; key: string }> = [
   { id: "all", key: "all" },
   { id: "image", key: "image" },
@@ -74,6 +82,7 @@ export default function AssetLibraryPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [characterDraft, setCharacterDraft] = useState<{ asset: LibraryAsset; name: string } | null>(null)
   const [creatingCharacter, setCreatingCharacter] = useState(false)
+  const [uploadNotice, setUploadNotice] = useState<UploadNotice>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
 
   const refresh = useCallback(async () => {
@@ -100,26 +109,63 @@ export default function AssetLibraryPage() {
       const kind = classifyByMime(file)
       if (!kind) {
         toast.error(labels.unsupportedKind)
+        setUploadNotice({
+          tone: "error",
+          title: labels.unsupportedKind,
+          detail: `${file.name} · ${file.type || "unknown"}`,
+        })
         return
       }
       if (kind !== "image") {
         toast.error(labels.unsupportedKind)
+        setUploadNotice({
+          tone: "error",
+          title: labels.unsupportedKind,
+          detail: `${file.name} · ${file.type || kind}`,
+        })
+        return
+      }
+      if (file.size <= 0 || file.size > 30 * 1024 * 1024) {
+        const title = file.size <= 0 ? labels.uploadEmptyFile : labels.uploadTooLarge
+        toast.error(title)
+        setUploadNotice({
+          tone: "error",
+          title,
+          detail: `${file.name} · ${formatBytes(file.size)}`,
+        })
         return
       }
       setUploading(kind)
+      setUploadNotice({
+        tone: "info",
+        title: labels.uploadingDetail.replace("{name}", file.name),
+        detail: labels.uploadingNetworkHint,
+      })
       try {
         const body = new FormData()
         body.append("file", file)
-        await apiUpload("/v1/me/library/assets", body)
+        const uploaded = (await apiUpload("/v1/me/library/assets", body)) as LibraryAsset
         toast.success(labels.uploadSuccess)
+        setUploadNotice({
+          tone: "success",
+          title: labels.uploadSuccessDetail.replace("{name}", uploaded.filename || file.name),
+          detail: uploaded.seedance_rejection_reason || labels.uploadProviderHint,
+        })
         await refresh()
       } catch (e) {
         if (e instanceof ApiError && e.code === "library_full") {
           toast.error(labels.libraryFull)
+          setUploadNotice({ tone: "error", title: labels.libraryFull })
         } else if (e instanceof ApiError) {
           toast.error(e.message)
+          setUploadNotice({
+            tone: "error",
+            title: labels.uploadFailed,
+            detail: e.code === "network_unreachable" ? labels.uploadNetworkHint : e.message,
+          })
         } else {
           toast.error(labels.uploadFailed)
+          setUploadNotice({ tone: "error", title: labels.uploadFailed, detail: labels.uploadNetworkHint })
         }
       } finally {
         setUploading(null)
@@ -258,6 +304,39 @@ export default function AssetLibraryPage() {
             <p className="text-[12px] text-muted-foreground">{labels.dragSubhint}</p>
           </div>
         </div>
+
+        {uploadNotice ? (
+          <div
+            className={cn(
+              "flex items-start gap-3 rounded-[18px] border p-4 text-[13px]",
+              uploadNotice.tone === "info" && "border-blue-500/25 bg-blue-500/10 text-blue-700 dark:text-blue-200",
+              uploadNotice.tone === "success" && "border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-200",
+              uploadNotice.tone === "error" && "border-destructive/35 bg-destructive/10 text-destructive",
+            )}
+          >
+            {uploadNotice.tone === "success" ? (
+              <CheckCircle2 className="mt-0.5 size-4 shrink-0" />
+            ) : uploadNotice.tone === "info" ? (
+              <Loader2 className="mt-0.5 size-4 shrink-0 animate-spin" />
+            ) : (
+              <AlertCircle className="mt-0.5 size-4 shrink-0" />
+            )}
+            <div className="min-w-0 flex-1">
+              <div className="font-medium">{uploadNotice.title}</div>
+              {uploadNotice.detail ? (
+                <div className="mt-1 break-words text-[12px] opacity-80">{uploadNotice.detail}</div>
+              ) : null}
+            </div>
+            <button
+              type="button"
+              onClick={() => setUploadNotice(null)}
+              className="rounded-full p-1 opacity-70 transition hover:bg-background/60 hover:opacity-100"
+              aria-label={labels.close}
+            >
+              <X className="size-3.5" />
+            </button>
+          </div>
+        ) : null}
 
         <div className="flex flex-wrap items-center gap-2">
           {KIND_FILTERS.map((f) => {

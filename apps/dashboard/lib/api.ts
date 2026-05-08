@@ -329,11 +329,19 @@ export async function apiUpload(path: string, formData: FormData) {
     const headers: Record<string, string> = {
       ...(key ? { Authorization: `Bearer ${key}` } : {}),
     }
-    return fetch(`${API_URL}${path}`, {
-      method: "POST",
-      headers,
-      body: formData,
-    })
+    try {
+      return await fetch(`${API_URL}${path}`, {
+        method: "POST",
+        headers,
+        body: formData,
+      })
+    } catch (error) {
+      const message =
+        error instanceof Error && error.name === "AbortError"
+          ? "Upload timed out. Check the network or VPN/proxy and try again."
+          : "Upload request could not reach NextAPI. Check VPN/proxy, browser CORS, or network connectivity."
+      throw new ApiError(message, 0, "network_unreachable")
+    }
   }
 
   let key = requireDashboardKey(await getDashboardKey(false))
