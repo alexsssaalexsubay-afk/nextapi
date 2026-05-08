@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { HTMLAttributes, ReactNode } from "react";
 import { cn } from "@/lib/cn";
 
 type Tone = "neutral" | "accent" | "success" | "warning" | "danger" | "info";
@@ -188,13 +188,17 @@ export function Pill({
   children,
   tone = "neutral",
   className,
+  ...props
 }: {
   children: ReactNode;
   tone?: Tone;
   className?: string;
-}) {
+} & HTMLAttributes<HTMLSpanElement>) {
   return (
-    <span className={cn("inline-flex max-w-full min-h-7 items-center gap-1.5 rounded-[999px] border px-3 py-1 text-[12px] font-semibold leading-4", toneStyles[tone], className)}>
+    <span
+      {...props}
+      className={cn("inline-flex max-w-full min-h-7 items-center gap-1.5 rounded-[999px] border px-3 py-1 text-[12px] font-semibold leading-4", toneStyles[tone], className)}
+    >
       {children}
     </span>
   );
@@ -204,12 +208,13 @@ export function StatusBadge({
   children,
   tone = "neutral",
   className,
+  ...props
 }: {
   children: ReactNode;
   tone?: Tone;
   className?: string;
-}) {
-  return <Pill tone={tone} className={cn("min-h-6 px-2.5 py-0.5 text-[11px]", className)}>{children}</Pill>;
+} & HTMLAttributes<HTMLSpanElement>) {
+  return <Pill {...props} tone={tone} className={cn("min-h-6 px-2.5 py-0.5 text-[11px]", className)}>{children}</Pill>;
 }
 
 export function FieldShell({

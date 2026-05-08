@@ -133,6 +133,30 @@ The settings guide image documents the configurable production surface:
 - prompt template editor;
 - test connection and save actions.
 
+Capability labels now appear in Settings, AI Team cards, and Storyflow nodes:
+
+- `Text LLM`: script, character, storyboard, camera, audio, editing, prompt optimization, and quality-check agents.
+- `Image / Reference`: character asset packs, storyboard keyframes, first frame, last frame, and reference stacks.
+- `Video Generate`: shot/output generation through a configured video provider.
+- `Local Preflight`: deterministic validation before a generate request can submit.
+- `Local State`: workspace and version state that does not call a model.
+
+### Team Billing And Usage
+
+Settings now includes a `团队与扣点` page for signed-in desktop users.
+
+Rules:
+
+- NextAPI-hosted video generation uses the signed-in org dashboard key and deducts the team/org balance.
+- Local models, user-owned OpenAI-compatible endpoints, ComfyUI, RunningHub, and custom HTTP providers are marked as external/local spend and do not deduct NextAPI team credits unless routed through a metered NextAPI backend adapter.
+- Owner/admin users can view all team members' attributed generation usage.
+- Member users can view only their own attributed usage.
+- Owner/admin users can add members to the team. Owner users can promote/demote admins and remove non-owner members.
+- New desktop logins mint a member-scoped dashboard key named `dashboard-session:<user_id>` so multiple team members do not revoke each other's keys.
+- Historical jobs created by old shared dashboard keys are reported as shared usage because they cannot be safely attributed to a specific person.
+
+Product implication: all paid production surfaces must show the current charge source, provider type, team balance, and estimated cost before submitting a job.
+
 ## Page-by-page Usage
 
 ### Setup

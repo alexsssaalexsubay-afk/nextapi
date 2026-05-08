@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { cn } from "@/lib/cn";
+import { capabilityMeta } from "@/lib/capability-badges";
 import { sidecarFetch } from "@/lib/sidecar";
+import { useAuthStore } from "@/stores/auth-store";
 import { type AgentLLMConfig, type PipelineConfig, useDirectorStore } from "@/stores/director-store";
 import {
   Button,
@@ -44,7 +46,7 @@ const AGENTS: Array<{ key: keyof Pick<PipelineConfig, "screenwriter" | "characte
   { key: "prompt_optimizer", label: "Nova", role: "提示词优化" },
 ];
 
-type Tab = "llm" | "models" | "video" | "agents" | "prompts";
+type Tab = "llm" | "models" | "video" | "agents" | "prompts" | "team";
 
 type ModelPreset = {
   id: string;
@@ -66,8 +68,29 @@ type RuntimePrompt = {
   is_custom: boolean;
 };
 
+type TeamUsage = {
+  org?: { id: string; name: string };
+  viewer?: { user_id: string; email: string; role: string; can_manage: boolean };
+  members: Array<{
+    user_id: string;
+    email: string;
+    role: string;
+    created_at: string;
+    jobs_count: number;
+    credits_used: number;
+    last_used_at?: string | null;
+  }>;
+  shared_usage?: { jobs_count: number; credits_used: number };
+};
+
+function formatCents(value?: number) {
+  const cents = Number(value || 0);
+  return `$ ${(cents / 100).toFixed(2)}`;
+}
+
 export function SettingsPanel() {
   const { pipeline, setPipeline, setDefaultLLM } = useDirectorStore();
+  const { user, status } = useAuthStore();
   const llm = pipeline.default_llm;
   const [activeTab, setActiveTab] = useState<Tab>("llm");
   const [modelPresets, setModelPresets] = useState<ModelPreset[]>([]);
@@ -75,6 +98,9 @@ export function SettingsPanel() {
   const [selectedPromptId, setSelectedPromptId] = useState("screenwriter");
   const [promptDraft, setPromptDraft] = useState("");
   const [modelQuery, setModelQuery] = useState("");
+  const [teamUsage, setTeamUsage] = useState<TeamUsage | null>(null);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteRole, setInviteRole] = useState("member");
   const [notice, setNotice] = useState<{ tone: "success" | "info" | "warning"; text: string }>({
     tone: "info",
     text: "设置会自动保存在本地浏览器存储中。",
@@ -113,6 +139,53 @@ export function SettingsPanel() {
   useEffect(() => {
     if (selectedPrompt) setPromptDraft(selectedPrompt.prompt);
   }, [selectedPrompt]);
+
+  const refreshTeamUsage = async () => {
+    if (!user?.sessionToken) return;
+    const res = await sidecarFetch<TeamUsage>("/auth/team", {
+      headers: { "X-NextAPI-Session": user.sessionToken },
+    });
+    setTeamUsage({ ...res, members: res.members || [] });
+  };
+
+  useEffect(() => {
+    if (activeTab !== "team" || !user?.sessionToken) return;
+    void refreshTeamUsage()
+      .catch(() => setNotice({ tone: "warning", text: "团队用量暂时无法读取，请确认已登录团队账号。" }));
+  }, [activeTab, user?.sessionToken]);
+
+  const addTeamMember = async () => {
+    if (!user?.sessionToken || !inviteEmail.trim()) return;
+    await sidecarFetch<{ ok: boolean }>("/auth/team/members", {
+      method: "POST",
+      headers: { "X-NextAPI-Session": user.sessionToken },
+      body: JSON.stringify({ email: inviteEmail.trim(), role: inviteRole }),
+    });
+    setInviteEmail("");
+    setNotice({ tone: "success", text: "团队成员已添加，TA 可用邮箱验证码登录并共享团队余额。" });
+    await refreshTeamUsage();
+  };
+
+  const updateTeamMemberRole = async (userId: string, role: string) => {
+    if (!user?.sessionToken) return;
+    await sidecarFetch<{ ok: boolean }>(`/auth/team/members/${userId}`, {
+      method: "PATCH",
+      headers: { "X-NextAPI-Session": user.sessionToken },
+      body: JSON.stringify({ role }),
+    });
+    setNotice({ tone: "success", text: "成员角色已更新。" });
+    await refreshTeamUsage();
+  };
+
+  const removeTeamMember = async (userId: string) => {
+    if (!user?.sessionToken) return;
+    await sidecarFetch<{ ok: boolean }>(`/auth/team/members/${userId}`, {
+      method: "DELETE",
+      headers: { "X-NextAPI-Session": user.sessionToken },
+    });
+    setNotice({ tone: "success", text: "成员已移出团队。" });
+    await refreshTeamUsage();
+  };
 
   const markSaved = () => {
     setNotice({ tone: "success", text: "配置已保存到本地。后续生成任务会读取当前设置。" });
@@ -183,17 +256,122 @@ export function SettingsPanel() {
             { value: "video", label: "视频生成" },
             { value: "agents", label: "AI Team" },
             { value: "prompts", label: "提示词" },
+            { value: "team", label: "团队与扣点" },
           ]}
         />
         <div className="flex items-center gap-2">
+          <StatusBadge tone="info" title={capabilityMeta.text.hint}>文字 LLM</StatusBadge>
+          <StatusBadge tone="warning" title={capabilityMeta.image.hint}>图片 / 垫图</StatusBadge>
+          <StatusBadge tone="accent" title={capabilityMeta.video.hint}>视频生成</StatusBadge>
           <StatusBadge tone="accent">{llm.provider || "未选择"} / {llm.model || "未填写模型"}</StatusBadge>
           <StatusBadge tone={pipeline.generate_audio ? "success" : "neutral"}>{pipeline.generate_audio ? "生成音频" : "仅视频"}</StatusBadge>
         </div>
       </div>
 
+      {activeTab === "team" && (
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+          <SectionCard
+            title="团队账号与扣点"
+            subtitle="团队管理员可以查看成员生成用量；普通成员只显示自己的用量。NextAPI 托管生成扣团队余额，本地或自带 Key 不扣团队点数。"
+            action={<StatusBadge tone={teamUsage?.viewer?.can_manage ? "accent" : "neutral"}>{teamUsage?.viewer?.role || "未登录"}</StatusBadge>}
+          >
+            <div className="mb-5 grid gap-3 md:grid-cols-3">
+              <Surface className="p-4">
+                <div className="text-[12px] font-semibold uppercase tracking-[0.12em] text-nc-text-tertiary">团队</div>
+                <div className="mt-2 line-clamp-1 text-[18px] font-semibold leading-7 text-nc-text">{teamUsage?.org?.name || user?.orgName || "未连接"}</div>
+              </Surface>
+              <Surface className="p-4">
+                <div className="text-[12px] font-semibold uppercase tracking-[0.12em] text-nc-text-tertiary">余额</div>
+                <div className="mt-2 text-[18px] font-semibold leading-7 text-nc-text">{formatCents(status?.credits)}</div>
+              </Surface>
+              <Surface className="p-4">
+                <div className="text-[12px] font-semibold uppercase tracking-[0.12em] text-nc-text-tertiary">当前扣费源</div>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <StatusBadge tone={pipeline.video_provider === "nextapi" ? "accent" : "warning"}>{pipeline.video_provider}</StatusBadge>
+                  <StatusBadge tone={pipeline.video_provider === "nextapi" ? "success" : "neutral"}>
+                    {pipeline.video_provider === "nextapi" ? "扣团队点数" : "外部 / 本地自费"}
+                  </StatusBadge>
+                </div>
+              </Surface>
+            </div>
+
+            <div className="grid gap-3">
+              {teamUsage?.viewer?.can_manage && (
+                <Surface className="p-4">
+                  <div className="mb-3 text-[14px] font-semibold leading-6 text-nc-text">添加成员</div>
+                  <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_160px_auto]">
+                    <FieldShell>
+                      <input
+                        value={inviteEmail}
+                        onChange={(event) => setInviteEmail(event.target.value)}
+                        placeholder="member@example.com"
+                        className="w-full bg-transparent text-[14px] leading-6 text-nc-text outline-none placeholder:text-nc-text-tertiary"
+                      />
+                    </FieldShell>
+                    <SelectField
+                      value={inviteRole}
+                      onChange={(event) => setInviteRole(event.target.value)}
+                    >
+                      <option value="member">member</option>
+                      <option value="admin">admin</option>
+                    </SelectField>
+                    <Button variant="primary" onClick={addTeamMember} disabled={!inviteEmail.trim()}>
+                      添加
+                    </Button>
+                  </div>
+                </Surface>
+              )}
+              {(teamUsage?.members || []).map((member) => (
+                <Surface key={member.user_id} interactive className="p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-4">
+                    <div className="min-w-0">
+                      <div className="line-clamp-1 text-[15px] font-semibold leading-6 text-nc-text">{member.email}</div>
+                      <div className="mt-1 text-[12px] leading-5 text-nc-text-secondary">{member.user_id}</div>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <StatusBadge tone={member.role === "owner" || member.role === "admin" ? "accent" : "neutral"}>{member.role}</StatusBadge>
+                      <StatusBadge tone="info">{member.jobs_count} 个任务</StatusBadge>
+                      <StatusBadge tone="warning">已用 {formatCents(member.credits_used)}</StatusBadge>
+                      {teamUsage?.viewer?.role === "owner" && member.role !== "owner" && (
+                        <Button variant="secondary" onClick={() => updateTeamMemberRole(member.user_id, member.role === "admin" ? "member" : "admin")}>
+                          {member.role === "admin" ? "降为 member" : "设为 admin"}
+                        </Button>
+                      )}
+                      {teamUsage?.viewer?.can_manage && member.role !== "owner" && member.user_id !== teamUsage.viewer.user_id && (
+                        <Button variant="danger" onClick={() => removeTeamMember(member.user_id)}>
+                          移除
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </Surface>
+              ))}
+              {!teamUsage?.members?.length && (
+                <Surface className="p-5 text-[14px] leading-6 text-nc-text-secondary">
+                  登录团队账号后，这里会显示成员列表、角色和按成员归因的生成用量。
+                </Surface>
+              )}
+            </div>
+          </SectionCard>
+
+          <GuidancePanel
+            title="管理规则"
+            items={[
+              "owner/admin 可以查看全团队成员用量，member 只看自己的用量。",
+              "新客户端登录会生成成员专属 dashboard key，避免多人互相挤掉 key，并支持按成员归因。",
+              `历史共享 key 用量：${teamUsage?.shared_usage?.jobs_count || 0} 个任务，${formatCents(teamUsage?.shared_usage?.credits_used)}。这部分无法精确归因到个人。`,
+            ]}
+          />
+        </div>
+      )}
+
       {activeTab === "llm" && (
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
           <SectionCard title="默认语言模型" subtitle="用于脚本、角色、分镜、提示词优化等 AI Director 工作。">
+            <div className="mb-5 flex flex-wrap gap-2">
+              <StatusBadge tone="info" title={capabilityMeta.text.hint}>文字 LLM</StatusBadge>
+              <StatusBadge tone="neutral">不会直接生成图片或视频</StatusBadge>
+            </div>
             <div className="grid gap-5 md:grid-cols-2">
               <SelectInput label="服务商" value={llm.provider} onChange={(value) => setDefaultLLM({ provider: value })} options={LLM_PROVIDERS} />
               <TextInput label="模型" value={llm.model} onChange={(value) => setDefaultLLM({ model: value })} placeholder="gpt-4o / claude-3.5 / deepseek-chat" />
@@ -267,7 +445,17 @@ export function SettingsPanel() {
 
       {activeTab === "video" && (
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
-          <SectionCard title="视频生成服务" subtitle="控制 Seedance / NextAPI 视频生成相关参数，避免把关键设置堆在一张拥挤表单里。">
+          <SectionCard
+            title="视频生成服务"
+            subtitle="控制 Seedance / NextAPI / ComfyUI / RunningHub / 本地兼容服务的生成参数，和文字 LLM 分开配置。"
+            action={<StatusBadge tone="accent" title={capabilityMeta.video.hint}>视频生成</StatusBadge>}
+          >
+            <div className="mb-5 flex flex-wrap gap-2">
+              <StatusBadge tone="accent">视频 Provider</StatusBadge>
+              <StatusBadge tone="warning">可接收 image_urls 垫图</StatusBadge>
+              <StatusBadge tone="success">可接收 audio_urls</StatusBadge>
+              <StatusBadge tone="danger">生成前本地预检</StatusBadge>
+            </div>
             <div className="grid gap-5 md:grid-cols-2">
               <SelectInput label="视频模型" value={pipeline.video_model} onChange={(value) => setPipeline({ video_model: value })} options={VIDEO_MODELS} />
               <SelectInput
@@ -315,7 +503,7 @@ export function SettingsPanel() {
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
           <SectionCard
             title="AI Director Team"
-            subtitle="每个 Agent 默认继承语言模型配置；需要单独模型时再覆盖，状态在卡片内明确展示。"
+            subtitle="这些 Agent 都是文字 LLM 节点：负责规划、拆解、检查和编译参数，不直接跑生图或视频。"
             action={<StatusBadge tone={configuredAgents > 0 ? "accent" : "neutral"}>{configuredAgents} 个自定义</StatusBadge>}
           >
             <div className="grid gap-4 md:grid-cols-2">
@@ -329,7 +517,10 @@ export function SettingsPanel() {
                         <p className="text-[16px] font-semibold leading-6 text-nc-text">{agent.label}</p>
                         <p className="mt-1 text-[13px] leading-5 text-nc-text-secondary">{agent.role}</p>
                       </div>
-                      <StatusBadge tone={hasOverride ? "accent" : "neutral"}>{hasOverride ? "自定义" : "默认"}</StatusBadge>
+                      <div className="flex shrink-0 flex-col items-end gap-2">
+                        <StatusBadge tone="info">文字 LLM</StatusBadge>
+                        <StatusBadge tone={hasOverride ? "accent" : "neutral"}>{hasOverride ? "自定义" : "默认"}</StatusBadge>
+                      </div>
                     </div>
                     <div className="mt-5 rounded-[14px] bg-nc-panel px-4 py-3 text-[13px] leading-5 text-nc-text-secondary">
                       {hasOverride ? `${override.provider} / ${override.model}` : `继承 ${llm.provider || "默认服务商"} / ${llm.model || "默认模型"}`}
@@ -353,7 +544,7 @@ export function SettingsPanel() {
 
       {activeTab === "prompts" && (
         <div className="grid gap-6 xl:grid-cols-[360px_minmax(0,1fr)]">
-          <SectionCard title="当前 Agent 提示词" subtitle="这里显示 sidecar 当前实际注册的系统提示词，不再是黑盒。">
+          <SectionCard title="当前 Agent 提示词" subtitle="这里显示 sidecar 当前实际注册的文字 LLM 系统提示词，不再是黑盒。">
             <div className="grid gap-3">
               {runtimePrompts.map((prompt) => (
                 <button
@@ -367,7 +558,10 @@ export function SettingsPanel() {
                 >
                   <div className="flex items-center justify-between gap-3">
                     <span className="text-[15px] font-semibold leading-6 text-nc-text">{prompt.label}</span>
-                    <StatusBadge tone={prompt.is_custom ? "accent" : "neutral"}>{prompt.is_custom ? "已改" : "默认"}</StatusBadge>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <StatusBadge tone="info">文字 LLM</StatusBadge>
+                      <StatusBadge tone={prompt.is_custom ? "accent" : "neutral"}>{prompt.is_custom ? "已改" : "默认"}</StatusBadge>
+                    </div>
                   </div>
                   <p className="mt-1 line-clamp-2 text-[13px] leading-5 text-nc-text-secondary">{prompt.role}</p>
                 </button>

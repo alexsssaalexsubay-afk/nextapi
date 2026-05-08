@@ -3,7 +3,10 @@ import { persist } from "zustand/middleware";
 import { sidecarFetch, SidecarError } from "@/lib/sidecar";
 
 export interface UserInfo {
+  id?: string;
   email: string;
+  orgId?: string;
+  orgName?: string;
   sessionToken: string;
   dashboardKey: string;
 }
@@ -42,7 +45,13 @@ export const useAuthStore = create<AuthState>()(
       loginWithPassword: async (email, password) => {
         set({ isLoading: true, error: null });
         try {
-          const res = await sidecarFetch<{ session_token?: string; dashboard_key?: { secret?: string } }>(
+          const res = await sidecarFetch<{
+            session_token?: string;
+            dashboard_key?: { secret?: string };
+            user?: { id?: string; email?: string };
+            org?: { id?: string; name?: string };
+            balance?: number;
+          }>(
             "/auth/login",
             {
               method: "POST",
@@ -56,9 +65,21 @@ export const useAuthStore = create<AuthState>()(
 
           set({
             user: {
-              email,
+              id: res.user?.id,
+              email: res.user?.email || email,
+              orgId: res.org?.id,
+              orgName: res.org?.name,
               sessionToken: res.session_token,
               dashboardKey: res.dashboard_key.secret,
+            },
+            status: {
+              tier: "team",
+              authenticated: true,
+              email: res.user?.email || email,
+              credits: res.balance || 0,
+              maxProjects: 999,
+              maxShotsPerProject: 999,
+              watermark: false,
             },
             isLoading: false,
           });
@@ -85,8 +106,10 @@ export const useAuthStore = create<AuthState>()(
 
       fetchStatus: async () => {
         try {
-          // You could pass the token to the sidecar here to get user-specific status
-          const res = await sidecarFetch<any>("/auth/status");
+          const token = get().user?.sessionToken;
+          const res = await sidecarFetch<any>("/auth/status", {
+            headers: token ? { "X-NextAPI-Session": token } : undefined,
+          });
           
           set({
             status: {

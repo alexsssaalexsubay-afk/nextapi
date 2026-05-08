@@ -16,11 +16,13 @@ import { GuidePanel } from "@/components/panels/GuidePanel";
 import { StoryflowWorkspace } from "@/components/storyflow/StoryflowWorkspace";
 import { useI18nStore } from "@/stores/i18n-store";
 import { useAuthStore } from "@/stores/auth-store";
+import { useDirectorStore } from "@/stores/director-store";
 import { Button, FieldShell, Pill, Segmented } from "@/components/ui/kit";
 
 function MainHeader() {
   const { lang, setLang } = useI18nStore();
   const { user, logout } = useAuthStore();
+  const setPipeline = useDirectorStore((s) => s.setPipeline);
   const { setSidebarPage } = useAppStore();
   const uploadInputRef = useRef<HTMLInputElement>(null);
 
@@ -34,6 +36,11 @@ function MainHeader() {
     (window as Window & { __nextcutPendingImportFiles?: File[] }).__nextcutPendingImportFiles = selectedFiles;
     window.dispatchEvent(new CustomEvent("nextcut:import-files"));
     setSidebarPage("library");
+  };
+
+  const handleLogout = () => {
+    setPipeline({ video_api_key: "" });
+    logout();
   };
 
   return (
@@ -77,7 +84,7 @@ function MainHeader() {
 
         {user ? (
           <button
-            onClick={logout}
+            onClick={handleLogout}
             className="group relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-nc-accent text-[14px] font-bold text-white shadow-md transition-all hover:bg-nc-accent-hover hover:scale-105"
             title={`Logout (${user.email})`}
           >

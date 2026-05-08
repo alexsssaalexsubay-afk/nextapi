@@ -1,6 +1,7 @@
 import { memo } from "react";
 import { CheckCircle2, CircleDashed, GitBranch, ShieldCheck, Timer } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { capabilityMeta } from "@/lib/capability-badges";
 import {
   ORCHESTRATION_AGENTS,
   getAgentProgressPercent,
@@ -22,6 +23,7 @@ function statusMeta(status: ReturnType<typeof getAgentRunStatus>) {
 export const AgentCards = memo(function AgentCards() {
   const { agentProgress, isRunning } = useDirectorStore();
   const progressMap = getProgressMap(agentProgress);
+  const llmCapability = capabilityMeta.text;
 
   return (
     <div className="flex flex-col gap-4">
@@ -79,6 +81,13 @@ export const AgentCards = memo(function AgentCards() {
                   <Icon className="h-3.5 w-3.5" />
                   {meta.label}
                 </Pill>
+              </div>
+
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <Pill tone={llmCapability.tone} className="min-h-6 px-2.5 py-0.5 text-[11px]" title={llmCapability.hint}>
+                  {llmCapability.label}
+                </Pill>
+                <span className="text-[11px] font-semibold leading-4 text-nc-text-tertiary">可在设置里单独换模型</span>
               </div>
 
               <p className="mt-3 line-clamp-2 text-[12px] leading-5 text-nc-text-secondary">{agent.summary}</p>

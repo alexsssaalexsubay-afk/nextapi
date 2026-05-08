@@ -1,3 +1,4 @@
+import asyncio
 import unittest
 
 from app.api.generate import (
@@ -6,7 +7,7 @@ from app.api.generate import (
     _build_provider_config,
     preflight_generation_request,
 )
-from director_engine.interfaces.models import ProviderConfig
+from director_engine.interfaces.models import ProviderConfig, VideoGenerationParams
 from director_engine.providers.comfyui import ComfyUIProvider
 from director_engine.providers.http_adapters import (
     CustomHttpProvider,
@@ -78,6 +79,31 @@ class ProviderRegistryTest(unittest.TestCase):
     def test_normalizes_aliases(self):
         self.assertEqual(normalize_provider_name("lm-studio"), "local-openai-compatible")
         self.assertEqual(normalize_provider_name("running-hub"), "runninghub")
+
+    def test_custom_http_sync_result_is_terminal_success(self):
+        async def run():
+            provider = CustomHttpProvider(
+                ProviderConfig(provider="custom-http", base_url="http://localhost:8765")
+            )
+
+            async def fake_request_json(*args, **kwargs):
+                return {"status": "ok", "version": "smoke"}
+
+            provider._request_json = fake_request_json
+            submit = await provider.generate(
+                VideoGenerationParams(
+                    prompt="A local smoke render completes synchronously.",
+                    model="smoke-local-sync",
+                    provider_options={"sync": True},
+                )
+            )
+            final = await provider.wait_for_completion(submit["job_id"], timeout=0.1, interval=0.01)
+            return submit, final
+
+        submit, final = asyncio.run(run())
+
+        self.assertEqual(submit["status"], "succeeded")
+        self.assertEqual(final["status"], "succeeded")
 
 
 if __name__ == "__main__":

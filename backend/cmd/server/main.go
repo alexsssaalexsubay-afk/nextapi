@@ -180,6 +180,10 @@ func main() {
 	v1.POST("/auth/send-code", ratelimit.Middleware(rl, 10, time.Hour), accountAuth.SendOTP)
 	v1.POST("/auth/otp/send", ratelimit.Middleware(rl, 10, time.Hour), accountAuth.SendOTP)
 	v1.GET("/auth/session", accountAuth.Session)
+	v1.GET("/auth/team", accountAuth.Team)
+	v1.POST("/auth/team/members", accountAuth.AddTeamMember)
+	v1.PATCH("/auth/team/members/:user_id", accountAuth.UpdateTeamMember)
+	v1.DELETE("/auth/team/members/:user_id", accountAuth.RemoveTeamMember)
 	v1.POST("/auth/logout", accountAuth.Logout)
 
 	// Compatibility aliases for first-party web flows that are documented as

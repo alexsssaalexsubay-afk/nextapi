@@ -113,6 +113,31 @@ Shot sequence edges are animated, and edge state is recomputed from selected nod
 
 This means the workbench is partially connected to real production behavior, not only static UI. The current real closed loops are shot create/update/delete/reorder, prompt/reference/camera parameter writeback, preflight, and submit generation. Storyboard asset generation depends on the sidecar asset route being available and returning assets.
 
+## Capability Markers
+
+The UI must distinguish planning nodes from production nodes so users know what kind of model or API they are configuring.
+
+| Marker | Applies to | Meaning |
+|---|---|---|
+| Text LLM | Intent, Prompt Strategy, Camera Motion, Scene Group, AI Director agents, editable system prompts | Calls a language model or edits language-model output. It does not directly generate images or video. |
+| Image / Reference | Reference Stack, Character Asset Pack, Storyboard Keyframes | Reads or generates image assets and writes `image_urls`, storyboard, first-frame, or last-frame fields. |
+| Video Generate | Shot, Output, Generate Shot, video provider settings | Submits a provider job through Seedance, NextAPI, ComfyUI, RunningHub, local OpenAI-compatible, or custom HTTP adapters. |
+| Audio | Audio Director and generation payload audio refs | Produces or carries dialogue, music, SFX, subtitle cues, and optional `audio_urls`. |
+| Local Preflight | Review / Preflight Gate | Runs deterministic local validation before submit and blocks invalid payloads. |
+| Local State | Version snapshots and local workspace settings | Organizes client state without calling a model. |
+
+## Billing Boundary
+
+Every production action must expose where cost is charged:
+
+| Charge source | Applies to | Billing behavior |
+|---|---|---|
+| NextAPI team credits | Signed-in NextAPI provider / dashboard key | Reserves and reconciles credits against the org ledger. Team owner/admin can inspect member-attributed usage. |
+| External provider key | User-provided OpenAI-compatible, RunningHub, ComfyUI, custom HTTP, or local server | Does not touch NextAPI credits. The UI must label this as external/local spend. |
+| Local-only | Preflight, layout, timeline reorder, version snapshots | No model call and no credit charge. |
+
+Desktop login now receives a member-scoped dashboard key. This prevents one teammate from revoking another teammate's active client key and lets new video jobs be grouped by member in the team usage view. Older shared-key jobs stay under shared usage because they do not have reliable member attribution.
+
 ## Canvas Interaction
 
 Canvas implementation:
@@ -291,4 +316,3 @@ Manual smoke:
 7. Drag a timeline clip and confirm shot order changes.
 8. Run Prompt, Reference, Camera, Preflight nodes and confirm status messages.
 9. Press `P`, `F`, `Cmd/Ctrl+0`, `Cmd/Ctrl+D`, `Delete`, and `Esc`.
-

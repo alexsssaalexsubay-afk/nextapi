@@ -88,7 +88,7 @@ func (h *AccountAuthHandlers) Login(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "session_create_failed"}})
 		return
 	}
-	key, err := h.mintDashboardKey(c.Request.Context(), org.ID)
+	key, err := h.mintDashboardKey(c.Request.Context(), org.ID, user.ID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "dashboard_key_failed"}})
 		return
@@ -104,13 +104,218 @@ func (h *AccountAuthHandlers) Session(c *gin.Context) {
 	var key *auth.CreateKeyResult
 	if c.Query("mint_key") == "1" || c.Query("mint_key") == "true" {
 		var err error
-		key, err = h.mintDashboardKey(c.Request.Context(), org.ID)
+		key, err = h.mintDashboardKey(c.Request.Context(), org.ID, user.ID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "dashboard_key_failed"}})
 			return
 		}
 	}
 	h.accountSessionResponse(c, user, org, "", sess.ExpiresAt, key)
+}
+
+type accountTeamMemberUsage struct {
+	UserID      string    `json:"user_id"`
+	Email       string    `json:"email"`
+	Role        string    `json:"role"`
+	CreatedAt   time.Time `json:"created_at"`
+	JobsCount   int64     `json:"jobs_count"`
+	CreditsUsed int64     `json:"credits_used"`
+	LastUsedAt  *string   `json:"last_used_at"`
+}
+
+type accountTeamSharedUsage struct {
+	JobsCount   int64 `json:"jobs_count"`
+	CreditsUsed int64 `json:"credits_used"`
+}
+
+type accountTeamMemberReq struct {
+	Email string `json:"email"`
+	Role  string `json:"role"`
+}
+
+func (h *AccountAuthHandlers) Team(c *gin.Context) {
+	user, org, _, ok := h.requireAccountSession(c)
+	if !ok {
+		return
+	}
+	role := h.roleForUser(c.Request.Context(), org.ID, user.ID)
+	canManage := role == "owner" || role == "admin"
+	memberFilter := ""
+	args := []any{dashboardKeyName + ":%", dashboardKeyName + ":", org.ID, org.ID}
+	if !canManage {
+		memberFilter = "AND u.id = ?"
+		args = append(args, user.ID)
+	}
+
+	var members []accountTeamMemberUsage
+	if err := h.DB.WithContext(c.Request.Context()).Raw(`
+SELECT
+  u.id AS user_id,
+  u.email AS email,
+  om.role AS role,
+  u.created_at AS created_at,
+  COALESCE(usage.jobs_count, 0) AS jobs_count,
+  COALESCE(usage.credits_used, 0) AS credits_used,
+  usage.last_used_at AS last_used_at
+FROM org_members om
+JOIN users u ON u.id = om.user_id
+LEFT JOIN (
+  SELECT
+    CASE
+      WHEN k.name LIKE ? THEN replace(k.name, ?, '')
+      ELSE ''
+    END AS user_id,
+    COUNT(*) AS jobs_count,
+    COALESCE(SUM(COALESCE(j.cost_credits, j.reserved_credits, 0)), 0) AS credits_used,
+    MAX(j.created_at) AS last_used_at
+  FROM jobs j
+  LEFT JOIN api_keys k ON k.id = j.api_key_id
+  WHERE j.org_id = ?
+  GROUP BY 1
+) usage ON usage.user_id = u.id
+WHERE om.org_id = ? `+memberFilter+`
+ORDER BY
+  CASE om.role WHEN 'owner' THEN 0 WHEN 'admin' THEN 1 ELSE 2 END,
+  u.created_at ASC`, args...).Scan(&members).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "internal_error"}})
+		return
+	}
+
+	var shared accountTeamSharedUsage
+	_ = h.DB.WithContext(c.Request.Context()).Raw(`
+SELECT
+  COUNT(*) AS jobs_count,
+  COALESCE(SUM(COALESCE(j.cost_credits, j.reserved_credits, 0)), 0) AS credits_used
+FROM jobs j
+LEFT JOIN api_keys k ON k.id = j.api_key_id
+WHERE j.org_id = ?
+  AND (k.name IS NULL OR k.name NOT LIKE ?)`, org.ID, dashboardKeyName+":%").Scan(&shared).Error
+
+	c.JSON(http.StatusOK, gin.H{
+		"org": gin.H{"id": org.ID, "name": org.Name},
+		"viewer": gin.H{
+			"user_id":    user.ID,
+			"email":      user.Email,
+			"role":       role,
+			"can_manage": canManage,
+		},
+		"members":      members,
+		"shared_usage": shared,
+	})
+}
+
+func (h *AccountAuthHandlers) AddTeamMember(c *gin.Context) {
+	user, org, _, ok := h.requireAccountSession(c)
+	if !ok {
+		return
+	}
+	viewerRole := h.roleForUser(c.Request.Context(), org.ID, user.ID)
+	if viewerRole != "owner" && viewerRole != "admin" {
+		c.JSON(http.StatusForbidden, gin.H{"error": gin.H{"code": "team_admin_required"}})
+		return
+	}
+	var req accountTeamMemberReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "invalid_request"}})
+		return
+	}
+	email := normalizeEmail(req.Email)
+	role := normalizeTeamRole(req.Role)
+	if email == "" || !strings.Contains(email, "@") {
+		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "invalid_email"}})
+		return
+	}
+	if role == "owner" || (role == "admin" && viewerRole != "owner") {
+		c.JSON(http.StatusForbidden, gin.H{"error": gin.H{"code": "insufficient_role"}})
+		return
+	}
+	memberUser, err := h.findOrCreateTeamUser(c.Request.Context(), email)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "user_create_failed"}})
+		return
+	}
+	member := domain.OrgMember{OrgID: org.ID, UserID: memberUser.ID, Role: role}
+	if err := h.DB.WithContext(c.Request.Context()).
+		Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "org_id"}, {Name: "user_id"}},
+			DoUpdates: clause.Assignments(map[string]any{"role": role}),
+		}).
+		Create(&member).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "member_upsert_failed"}})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"ok": true})
+}
+
+func (h *AccountAuthHandlers) UpdateTeamMember(c *gin.Context) {
+	user, org, _, ok := h.requireAccountSession(c)
+	if !ok {
+		return
+	}
+	if h.roleForUser(c.Request.Context(), org.ID, user.ID) != "owner" {
+		c.JSON(http.StatusForbidden, gin.H{"error": gin.H{"code": "owner_required"}})
+		return
+	}
+	targetUserID := strings.TrimSpace(c.Param("user_id"))
+	var req accountTeamMemberReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "invalid_request"}})
+		return
+	}
+	role := normalizeTeamRole(req.Role)
+	if role == "owner" {
+		c.JSON(http.StatusForbidden, gin.H{"error": gin.H{"code": "owner_transfer_not_supported"}})
+		return
+	}
+	if targetUserID == "" || targetUserID == org.OwnerUserID {
+		c.JSON(http.StatusForbidden, gin.H{"error": gin.H{"code": "cannot_change_owner"}})
+		return
+	}
+	res := h.DB.WithContext(c.Request.Context()).
+		Model(&domain.OrgMember{}).
+		Where("org_id = ? AND user_id = ?", org.ID, targetUserID).
+		Update("role", role)
+	if res.Error != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "member_update_failed"}})
+		return
+	}
+	if res.RowsAffected == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": gin.H{"code": "member_not_found"}})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"ok": true})
+}
+
+func (h *AccountAuthHandlers) RemoveTeamMember(c *gin.Context) {
+	user, org, _, ok := h.requireAccountSession(c)
+	if !ok {
+		return
+	}
+	viewerRole := h.roleForUser(c.Request.Context(), org.ID, user.ID)
+	if viewerRole != "owner" && viewerRole != "admin" {
+		c.JSON(http.StatusForbidden, gin.H{"error": gin.H{"code": "team_admin_required"}})
+		return
+	}
+	targetUserID := strings.TrimSpace(c.Param("user_id"))
+	if targetUserID == "" || targetUserID == org.OwnerUserID || targetUserID == user.ID {
+		c.JSON(http.StatusForbidden, gin.H{"error": gin.H{"code": "cannot_remove_member"}})
+		return
+	}
+	targetRole := h.roleForUser(c.Request.Context(), org.ID, targetUserID)
+	if targetRole == "admin" && viewerRole != "owner" {
+		c.JSON(http.StatusForbidden, gin.H{"error": gin.H{"code": "owner_required"}})
+		return
+	}
+	res := h.DB.WithContext(c.Request.Context()).Where("org_id = ? AND user_id = ?", org.ID, targetUserID).Delete(&domain.OrgMember{})
+	if res.Error != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "member_remove_failed"}})
+		return
+	}
+	if res.RowsAffected == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": gin.H{"code": "member_not_found"}})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
 func (h *AccountAuthHandlers) Logout(c *gin.Context) {
@@ -160,7 +365,7 @@ func (h *AccountAuthHandlers) Signup(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "session_create_failed"}})
 		return
 	}
-	key, err := h.mintDashboardKey(c.Request.Context(), org.ID)
+	key, err := h.mintDashboardKey(c.Request.Context(), org.ID, user.ID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "dashboard_key_failed"}})
 		return
@@ -395,16 +600,58 @@ func (h *AccountAuthHandlers) createAccountSession(ctx context.Context, userID, 
 	return token, sess, nil
 }
 
-func (h *AccountAuthHandlers) mintDashboardKey(ctx context.Context, orgID string) (*auth.CreateKeyResult, error) {
+func (h *AccountAuthHandlers) roleForUser(ctx context.Context, orgID, userID string) string {
+	var org domain.Org
+	if err := h.DB.WithContext(ctx).Where("id = ?", orgID).First(&org).Error; err == nil && org.OwnerUserID == userID {
+		return "owner"
+	}
+	var member domain.OrgMember
+	if err := h.DB.WithContext(ctx).Where("org_id = ? AND user_id = ?", orgID, userID).First(&member).Error; err == nil {
+		return member.Role
+	}
+	return "member"
+}
+
+func normalizeTeamRole(role string) string {
+	switch strings.ToLower(strings.TrimSpace(role)) {
+	case "admin":
+		return "admin"
+	case "owner":
+		return "owner"
+	default:
+		return "member"
+	}
+}
+
+func (h *AccountAuthHandlers) findOrCreateTeamUser(ctx context.Context, email string) (*domain.User, error) {
+	var user domain.User
+	if err := h.DB.WithContext(ctx).Where("lower(email) = ? AND deleted_at IS NULL", email).First(&user).Error; err == nil {
+		return &user, nil
+	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, err
+	}
+	user = domain.User{ID: "usr_" + strings.ReplaceAll(uuid.NewString(), "-", ""), Email: email}
+	if err := h.DB.WithContext(ctx).Create(&user).Error; err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
+func dashboardKeyNameForUser(userID string) string {
+	return dashboardKeyName + ":" + userID
+}
+
+func (h *AccountAuthHandlers) mintDashboardKey(ctx context.Context, orgID, userID string) (*auth.CreateKeyResult, error) {
 	now := time.Now()
+	name := dashboardKeyNameForUser(userID)
 	if err := h.DB.WithContext(ctx).Model(&domain.APIKey{}).
-		Where("org_id = ? AND name = ? AND revoked_at IS NULL", orgID, dashboardKeyName).
+		Where("org_id = ? AND name = ? AND revoked_at IS NULL", orgID, name).
 		Update("revoked_at", now).Error; err != nil {
 		return nil, err
 	}
 	return h.Auth.CreateKey(ctx, auth.CreateKeyInput{
 		OrgID: orgID,
-		Name:  dashboardKeyName,
+		Name:  name,
 		Kind:  auth.KindBusiness,
 		Env:   auth.EnvLive,
 	})

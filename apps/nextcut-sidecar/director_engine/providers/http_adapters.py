@@ -83,7 +83,7 @@ class CustomHttpProvider:
             "status_body": options.get("status_body"),
         }
         if status in TERMINAL_SUCCESS or is_sync:
-            self._finals[job_id] = data
+            self._finals[job_id] = {**data, "status": "succeeded"}
 
         return {
             "job_id": job_id,

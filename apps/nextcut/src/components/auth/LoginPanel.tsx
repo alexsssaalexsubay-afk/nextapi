@@ -3,6 +3,7 @@ import { cn } from "@/lib/cn";
 import { useAuthStore } from "@/stores/auth-store";
 import { useAppStore } from "@/stores/app-store";
 import { useI18nStore } from "@/stores/i18n-store";
+import { useDirectorStore } from "@/stores/director-store";
 
 type AuthTab = "login" | "license";
 
@@ -16,6 +17,7 @@ export function LoginPanel() {
   const { loginWithPassword, isLoading, error, clearError, user } = useAuthStore();
   const { setSidebarPage } = useAppStore();
   const { t } = useI18nStore();
+  const { pipeline, setPipeline } = useDirectorStore();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -23,7 +25,14 @@ export function LoginPanel() {
     
     try {
       await loginWithPassword(email, password);
-      // Optional: Redirect to workspace on success
+      const dashboardKey = useAuthStore.getState().user?.dashboardKey;
+      if (dashboardKey && (!pipeline.video_api_key || pipeline.video_provider === "seedance" || pipeline.video_provider === "nextapi")) {
+        setPipeline({
+          video_provider: "nextapi",
+          video_base_url: "https://api.nextapi.top/v1",
+          video_api_key: dashboardKey,
+        });
+      }
       setSidebarPage("workspace");
     } catch (err) {
       // Error is handled in the store

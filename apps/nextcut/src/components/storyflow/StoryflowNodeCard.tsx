@@ -1,6 +1,7 @@
 import { Camera, CheckCircle2, Clock3, Copy, Crosshair, FileText, GitBranch, Image, Layers3, MessageSquareText, Play, Sparkles, Trash2 } from "lucide-react";
 import { Handle, Position, type NodeProps } from "@xyflow/react";
 import { cn } from "@/lib/cn";
+import { capabilityMeta, storyflowCapabilityForKind } from "@/lib/capability-badges";
 import { Button, MediaThumb, Pill } from "@/components/ui/kit";
 import { safeMediaSrc } from "./media";
 import type { StoryflowNode, StoryflowNodeKind } from "./storyflow-types";
@@ -33,6 +34,7 @@ export function StoryflowNodeCard({ data, selected }: NodeProps<StoryflowNode>) 
   const isShot = data.kind === "shot";
   const thumbnailSrc = typeof data.thumbnail === "string" ? safeMediaSrc(data.thumbnail) : undefined;
   const score = typeof data.score === "number" ? Math.round(data.score) : null;
+  const capability = capabilityMeta[storyflowCapabilityForKind(data.kind)];
   const runAction = (action: "focus" | "duplicate" | "delete") => (event: React.MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation();
     data.onAction?.(action, data);
@@ -67,6 +69,7 @@ export function StoryflowNodeCard({ data, selected }: NodeProps<StoryflowNode>) 
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
               <span className="nc-text-safe truncate text-[11px] font-semibold uppercase leading-4 tracking-[0.12em] text-nc-text-tertiary">{data.eyebrow}</span>
+              <Pill tone={capability.tone} className="min-h-6 px-2 py-0.5 text-[11px]" title={capability.hint}>{capability.shortLabel}</Pill>
               {data.metric && !isShot && <Pill tone="accent" className="min-h-6 px-2 py-0.5 text-[11px]">{data.metric}</Pill>}
             </div>
             <h3 className="nc-text-safe mt-1 line-clamp-1 text-[15px] font-semibold leading-6 text-nc-text">{data.title}</h3>
