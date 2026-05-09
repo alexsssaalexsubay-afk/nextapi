@@ -137,10 +137,8 @@ export type LibraryAsset = {
 }
 
 export function libraryAssetGenerationURL(asset: LibraryAsset): string {
-  const upstreamStatus = asset.seedance_asset_status?.trim().toLowerCase()
-  if (asset.kind === "image" && upstreamStatus && upstreamStatus !== "active" && upstreamStatus !== "ready") {
-    return ""
-  }
+  // Backend returns asset:// for active UpToken assets and a signed R2 URL
+  // otherwise. Both are valid generation references for image inputs.
   return asset.generation_url || asset.url || ""
 }
 

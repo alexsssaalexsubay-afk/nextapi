@@ -147,6 +147,12 @@ function providerImageTargetSize(width: number, height: number): { width: number
   }
 }
 
+function jpegFilename(filename: string): string {
+  const trimmed = filename.trim() || "image"
+  if (/\.[^./\\]+$/.test(trimmed)) return trimmed.replace(/\.[^./\\]+$/, ".jpg")
+  return `${trimmed}.jpg`
+}
+
 async function prepareLibraryImageForProvider(file: File): Promise<PreparedLibraryImage> {
   const image = await loadCanvasSource(file)
   try {
@@ -189,7 +195,7 @@ async function prepareLibraryImageForProvider(file: File): Promise<PreparedLibra
     }
 
     return {
-      file: new File([blob], file.name, { type: "image/jpeg", lastModified: file.lastModified }),
+      file: new File([blob], jpegFilename(file.name), { type: "image/jpeg", lastModified: file.lastModified }),
       normalized: true,
       width: target.width,
       height: target.height,

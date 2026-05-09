@@ -8,6 +8,7 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+	"net/textproto"
 	"strings"
 	"time"
 )
@@ -68,7 +69,7 @@ func NewAssetClientFromEnv() (*AssetClient, error) {
 func (c *AssetClient) UploadAsset(ctx context.Context, filename string, contentType string, data []byte) (*Asset, error) {
 	var body bytes.Buffer
 	writer := multipart.NewWriter(&body)
-	part, err := writer.CreateFormFile("file", filename)
+	part, err := writer.CreatePart(assetFilePartHeader(filename, contentType))
 	if err != nil {
 		return nil, fmt.Errorf("uptoken asset form: %w", err)
 	}
@@ -86,6 +87,20 @@ func (c *AssetClient) UploadAsset(ctx context.Context, filename string, contentT
 	req.Header.Set("Authorization", "Bearer "+c.apiKey)
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 	return c.doAsset(req)
+}
+
+func assetFilePartHeader(filename string, contentType string) textproto.MIMEHeader {
+	if strings.TrimSpace(contentType) == "" {
+		contentType = "application/octet-stream"
+	}
+	header := make(textproto.MIMEHeader)
+	header.Set("Content-Disposition", fmt.Sprintf(`form-data; name="file"; filename="%s"`, escapeMultipartFilename(filename)))
+	header.Set("Content-Type", strings.TrimSpace(contentType))
+	return header
+}
+
+func escapeMultipartFilename(filename string) string {
+	return strings.NewReplacer(`\`, `\\`, `"`, `\"`).Replace(filename)
 }
 
 func (c *AssetClient) GetAsset(ctx context.Context, virtualID string) (*Asset, error) {

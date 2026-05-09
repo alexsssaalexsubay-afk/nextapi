@@ -326,6 +326,12 @@ func (h *MediaLibraryHandlers) Create(c *gin.Context) {
 
 	var upAsset *uptoken.Asset
 	if h.UpTokenAssets != nil {
+		log.Printf(
+			"library: registering uptoken asset mode=multipart_file filename=%s content_type=%s size_bytes=%d",
+			fh.Filename,
+			detected,
+			len(data),
+		)
 		if uploaded, upErr := h.UpTokenAssets.UploadAsset(c.Request.Context(), fh.Filename, detected, data); upErr == nil && uploaded != nil {
 			upAsset = uploaded
 			if uploaded.VirtualID != "" {

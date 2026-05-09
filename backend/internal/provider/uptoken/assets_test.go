@@ -3,6 +3,7 @@ package uptoken
 import (
 	"context"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -67,5 +68,50 @@ func TestAssetClientReturnsSanitizedUpstreamError(t *testing.T) {
 	}
 	if assetErr.Message != "image at position 1 resource download failed." {
 		t.Fatalf("Message = %q", assetErr.Message)
+	}
+}
+
+func TestAssetClientUploadSendsDeclaredFileContentType(t *testing.T) {
+	t.Parallel()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || r.URL.Path != "/assets" {
+			t.Fatalf("request = %s %s", r.Method, r.URL.Path)
+		}
+		if got := r.Header.Get("Authorization"); got != "Bearer ut-test" {
+			t.Fatalf("Authorization = %q", got)
+		}
+		if err := r.ParseMultipartForm(1 << 20); err != nil {
+			t.Fatalf("ParseMultipartForm: %v", err)
+		}
+		file, fh, err := r.FormFile("file")
+		if err != nil {
+			t.Fatalf("FormFile: %v", err)
+		}
+		defer file.Close()
+		raw, _ := io.ReadAll(file)
+		if string(raw) != "jpeg-bytes" {
+			t.Fatalf("file bytes = %q", string(raw))
+		}
+		if fh.Filename != "portrait.jpg" {
+			t.Fatalf("filename = %q", fh.Filename)
+		}
+		if got := fh.Header.Get("Content-Type"); got != "image/jpeg" {
+			t.Fatalf("file content type = %q", got)
+		}
+		if got := r.FormValue("content_type"); got != "image/jpeg" {
+			t.Fatalf("content_type field = %q", got)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"virtual_id":"ut-asset-uploaded","asset_url":"asset://ut-asset-uploaded","status":"pending"}`))
+	}))
+	defer srv.Close()
+
+	client := &AssetClient{apiKey: "ut-test", base: srv.URL, http: srv.Client()}
+	asset, err := client.UploadAsset(context.Background(), "portrait.jpg", "image/jpeg", []byte("jpeg-bytes"))
+	if err != nil {
+		t.Fatalf("UploadAsset: %v", err)
+	}
+	if asset.VirtualID != "ut-asset-uploaded" {
+		t.Fatalf("VirtualID = %q", asset.VirtualID)
 	}
 }
