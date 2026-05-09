@@ -11,6 +11,7 @@ import {
 } from "@/lib/agent-orchestration";
 import { Pill } from "@/components/ui/kit";
 import { useDirectorStore } from "@/stores/director-store";
+import { AgentGlyph } from "@/components/director/AgentGlyph";
 
 function statusMeta(status: ReturnType<typeof getAgentRunStatus>) {
   if (status === "complete") return { label: "已产出", tone: "success" as const, icon: CheckCircle2 };
@@ -35,7 +36,7 @@ export const AgentCards = memo(function AgentCards() {
           </p>
         </div>
         {isRunning && (
-          <span className="flex shrink-0 items-center gap-1.5 text-xs font-semibold text-nc-accent">
+          <span className="flex shrink-0 items-center gap-1.5 text-[12px] font-semibold text-nc-accent">
             <span className="inline-block h-[6px] w-[6px] animate-pulse rounded-full bg-nc-accent" />
             编排中
           </span>
@@ -64,12 +65,7 @@ export const AgentCards = memo(function AgentCards() {
               )}
             >
               <div className="flex items-start gap-3">
-                <div
-                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[13px] text-[14px] font-bold text-white shadow-sm"
-                  style={{ backgroundColor: agent.accent }}
-                >
-                  {agent.initial}
-                </div>
+                <AgentGlyph agentId={agent.id} accent={agent.accent} active={active} />
                 <div className="min-w-0 flex-1">
                   <div className="flex min-w-0 items-center gap-2">
                     <span className="truncate text-[15px] font-semibold leading-6 text-nc-text">{agent.name}</span>
@@ -77,30 +73,30 @@ export const AgentCards = memo(function AgentCards() {
                   </div>
                   <div className="line-clamp-1 text-[12px] leading-5 text-nc-text-secondary">{agent.roleZh}</div>
                 </div>
-                <Pill tone={meta.tone} className="min-h-6 shrink-0 px-2.5 py-0.5 text-[11px]">
+                <Pill tone={meta.tone} className="min-h-7 shrink-0 px-3 py-1 text-[12px]">
                   <Icon className="h-3.5 w-3.5" />
                   {meta.label}
                 </Pill>
               </div>
 
               <div className="mt-3 flex flex-wrap items-center gap-2">
-                <Pill tone={llmCapability.tone} className="min-h-6 px-2.5 py-0.5 text-[11px]" title={llmCapability.hint}>
+                <Pill tone={llmCapability.tone} className="min-h-7 px-3 py-1 text-[12px]" title={llmCapability.hint}>
                   {llmCapability.label}
                 </Pill>
-                <span className="text-[11px] font-semibold leading-4 text-nc-text-tertiary">可在设置里单独换模型</span>
+                <span className="text-[12px] font-semibold leading-5 text-nc-text-tertiary">可在设置里单独换模型</span>
               </div>
 
               <p className="mt-3 line-clamp-2 text-[12px] leading-5 text-nc-text-secondary">{agent.summary}</p>
 
               <div className="mt-4 grid gap-3">
                 <div className="rounded-[13px] border border-nc-border bg-nc-bg px-3 py-2.5">
-                  <div className="mb-2 flex items-center justify-between gap-2 text-[11px] font-semibold leading-4 text-nc-text-tertiary">
+                  <div className="mb-2 flex items-center justify-between gap-2 text-[12px] font-semibold leading-5 text-nc-text-tertiary">
                     <span>依赖</span>
                     <span>{dependency.total === 0 ? "入口代理" : `${dependency.complete}/${dependency.total}`}</span>
                   </div>
                   <div className="flex min-h-6 flex-wrap gap-1.5">
                     {(agent.dependencies.length ? agent.dependencies : ["Brief"]).map((item) => (
-                      <span key={item} className="rounded-full bg-white px-2.5 py-1 text-[11px] font-medium leading-4 text-nc-text-secondary shadow-sm">
+                      <span key={item} className="rounded-full bg-white px-3 py-1 text-[12px] font-medium leading-5 text-nc-text-secondary shadow-sm">
                         {item.replace("_", " ")}
                       </span>
                     ))}
@@ -108,10 +104,10 @@ export const AgentCards = memo(function AgentCards() {
                 </div>
 
                 <div className="rounded-[13px] border border-nc-border bg-white px-3 py-2.5">
-                  <div className="mb-2 text-[11px] font-semibold leading-4 text-nc-text-tertiary">核心产物</div>
+                  <div className="mb-2 text-[12px] font-semibold leading-5 text-nc-text-tertiary">核心产物</div>
                   <div className="flex min-h-6 flex-wrap gap-1.5">
                     {agent.produces.slice(0, 3).map((item) => (
-                      <span key={item} className="rounded-full bg-[#F5F3FF] px-2.5 py-1 text-[11px] font-semibold leading-4 text-nc-accent">
+                      <span key={item} className="rounded-full bg-[#F5F3FF] px-3 py-1 text-[12px] font-semibold leading-5 text-nc-accent">
                         {item}
                       </span>
                     ))}
@@ -120,7 +116,7 @@ export const AgentCards = memo(function AgentCards() {
               </div>
 
               <div className="mt-auto pt-4">
-                <div className="mb-2 flex items-center justify-between text-[11px] font-semibold leading-4 text-nc-text-tertiary">
+                <div className="mb-2 flex items-center justify-between text-[12px] font-semibold leading-5 text-nc-text-tertiary">
                   <span>生产进度</span>
                   <span className="font-mono tabular-nums">{pct}%</span>
                 </div>

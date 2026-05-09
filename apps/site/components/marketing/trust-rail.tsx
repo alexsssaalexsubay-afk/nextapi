@@ -23,7 +23,7 @@ export function TrustRail() {
       icon: ReceiptText,
       title: t.trust.billing.title,
       copy: t.trust.billing.description,
-      mono: "reserved 1.00 → billed 0.84",
+      mono: "reserved 1.00 to billed 0.84",
     },
     {
       icon: Eye,

@@ -1,6 +1,7 @@
 import { memo, useState, useCallback, useRef } from "react";
+import { UserRound } from "lucide-react";
 import { cn } from "@/lib/cn";
-import { useDirectorStore, type CharacterProfile } from "@/stores/director-store";
+import { useDirectorStore, type CharacterAssetRef, type CharacterProfile } from "@/stores/director-store";
 import { sidecarFetch } from "@/lib/sidecar";
 import { useI18nStore } from "@/stores/i18n-store";
 
@@ -38,13 +39,14 @@ function createCharacter(name?: string): CharacterProfile {
     personality: "",
     voice: "",
     referenceImages: [],
+    assetPack: [],
     color: CHARACTER_COLORS[(charCounter - 1) % CHARACTER_COLORS.length],
     locked: false,
   };
 }
 
 export const CharacterPanel = memo(function CharacterPanel() {
-  const { characters, addCharacter, updateCharacter, removeCharacter, shots, updateShot, addReference } = useDirectorStore();
+  const { characters, addCharacter, updateCharacter, removeCharacter, references, shots, updateShot, addReference } = useDirectorStore();
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadTarget, setUploadTarget] = useState<string | null>(null);
@@ -74,16 +76,20 @@ export const CharacterPanel = memo(function CharacterPanel() {
         }),
       });
       if (res.image_url) {
+        const nextReferenceImages = uniqueCompact([...char.referenceImages, res.image_url]);
         updateCharacter(charId, {
-          referenceImages: [...char.referenceImages, res.image_url],
+          referenceImages: nextReferenceImages,
         });
+        if (char.locked) {
+          applyIdentityLockToShots(char, nextReferenceImages, char.assetPack || [], shots, updateShot);
+        }
       }
     } catch {
       // handled by toast
     } finally {
       setGenerating(null);
     }
-  }, [characters, updateCharacter]);
+  }, [characters, shots, updateCharacter, updateShot]);
 
   const handleGenerateAssetPack = useCallback(async (charId: string) => {
     const char = characters.find((c) => c.id === charId);
@@ -106,12 +112,16 @@ export const CharacterPanel = memo(function CharacterPanel() {
       if (!assets.length) return;
       const urls = assets.map((asset) => asset.url);
       const nextReferenceImages = uniqueCompact([...char.referenceImages, ...urls]);
+      const nextAssetPack = mergeCharacterAssets(char.assetPack, assets.map(toCharacterAssetRef));
       updateCharacter(charId, {
         referenceImages: nextReferenceImages,
+        assetPack: nextAssetPack,
         locked: true,
       });
 
+      const existingRefIds = new Set(references.map((reference) => reference.id).filter(Boolean));
       assets.forEach((asset, index) => {
+        if (existingRefIds.has(asset.id)) return;
         addReference({
           id: asset.id,
           name: `${char.name} · ${asset.description}`,
@@ -124,27 +134,19 @@ export const CharacterPanel = memo(function CharacterPanel() {
         });
       });
 
-      shots.forEach((shot) => {
-        if (!shotMatchesCharacter(shot.title, shot.prompt, char.name)) return;
-        const imageUrls = uniqueCompact([...(shot.generationParams?.image_urls || []), ...urls]).slice(0, 9);
-        const referenceInstructions = uniqueCompact([
-          ...(shot.generationParams?.reference_instructions || []),
-          `Use the character reference images for ${char.name} as an identity lock. Preserve face, body proportions, outfit logic, and silhouette across this shot.`,
-        ]);
-        updateShot(shot.id, {
-          generationParams: {
-            ...shot.generationParams,
-            image_urls: imageUrls,
-            reference_instructions: referenceInstructions,
-          },
-        });
-      });
+      applyIdentityLockToShots(
+        { ...char, referenceImages: nextReferenceImages, assetPack: nextAssetPack, locked: true },
+        nextReferenceImages,
+        nextAssetPack,
+        shots,
+        updateShot,
+      );
     } catch {
       // handled by toast
     } finally {
       setAssetPackGenerating(null);
     }
-  }, [addReference, assetPackGenerating, characters, shots, updateCharacter, updateShot]);
+  }, [addReference, assetPackGenerating, characters, references, shots, updateCharacter, updateShot]);
 
   const handleFileUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -152,12 +154,16 @@ export const CharacterPanel = memo(function CharacterPanel() {
     const char = characters.find((c) => c.id === uploadTarget);
     if (!char) return;
     const urls = Array.from(files).map((f) => URL.createObjectURL(f));
+    const nextReferenceImages = uniqueCompact([...char.referenceImages, ...urls]);
     updateCharacter(uploadTarget, {
-      referenceImages: [...char.referenceImages, ...urls],
+      referenceImages: nextReferenceImages,
     });
+    if (char.locked) {
+      applyIdentityLockToShots(char, nextReferenceImages, char.assetPack || [], shots, updateShot);
+    }
     if (fileInputRef.current) fileInputRef.current.value = "";
     setUploadTarget(null);
-  }, [uploadTarget, characters, updateCharacter]);
+  }, [uploadTarget, characters, shots, updateCharacter, updateShot]);
 
   const removeRefImage = useCallback((charId: string, imgIndex: number) => {
     const char = characters.find((c) => c.id === charId);
@@ -166,6 +172,14 @@ export const CharacterPanel = memo(function CharacterPanel() {
       referenceImages: char.referenceImages.filter((_, i) => i !== imgIndex),
     });
   }, [characters, updateCharacter]);
+
+  const handleToggleIdentityLock = useCallback((char: CharacterProfile) => {
+    const locked = !char.locked;
+    updateCharacter(char.id, { locked });
+    if (locked) {
+      applyIdentityLockToShots(char, char.referenceImages, char.assetPack || [], shots, updateShot);
+    }
+  }, [shots, updateCharacter, updateShot]);
 
   const getCharacterShotCount = useCallback((charName: string) => {
     return shots.filter((s) =>
@@ -251,15 +265,13 @@ export const CharacterPanel = memo(function CharacterPanel() {
                 >
                   {/* Avatar / first ref image */}
                   <div
-                    className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full"
-                    style={{ backgroundColor: char.color + "20", borderColor: char.color + "40", borderWidth: "2px" }}
+                    className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-[12px]"
+                    style={{ backgroundColor: char.color + "14", borderColor: char.color + "38", borderWidth: "1px" }}
                   >
                     {char.referenceImages.length > 0 ? (
                       <img src={char.referenceImages[0]} alt={char.name} className="h-full w-full object-cover" />
                     ) : (
-                      <span className="text-sm font-bold" style={{ color: char.color }}>
-                        {char.name.charAt(0).toUpperCase()}
-                      </span>
+                      <UserRound className="h-4 w-4" style={{ color: char.color }} aria-hidden="true" />
                     )}
                   </div>
 
@@ -391,8 +403,20 @@ export const CharacterPanel = memo(function CharacterPanel() {
                         )}
                       </div>
                       <div className="mt-1 text-xs text-nc-text-secondary">
-                        {t("char.refHint")} 资产包会自动进入 Reference Stack，并注入匹配角色名的镜头。
+                        {t("char.refHint")} 资产包会自动进入 Reference Stack，并作为 Identity Lock 注入每个镜头。
                       </div>
+                      {(char.assetPack?.length || 0) > 0 && (
+                        <div className="mt-2 flex flex-wrap gap-1.5">
+                          {char.assetPack?.map((asset) => (
+                            <span
+                              key={asset.id}
+                              className="rounded-full border border-nc-accent/20 bg-nc-accent/10 px-2 py-1 text-[11px] font-semibold text-nc-accent"
+                            >
+                              {assetRoleLabel(asset.role)}
+                            </span>
+                          ))}
+                        </div>
+                      )}
                     </div>
 
                     {/* Personality & Voice (optional) */}
@@ -426,7 +450,7 @@ export const CharacterPanel = memo(function CharacterPanel() {
                         </div>
                       </div>
                       <button
-                        onClick={() => updateCharacter(char.id, { locked: !char.locked })}
+                        onClick={() => handleToggleIdentityLock(char)}
                         className={cn(
                           "flex h-6 w-11 items-center rounded-full px-0.5 transition-all",
                           char.locked ? "bg-nc-accent" : "bg-nc-border"
@@ -480,4 +504,100 @@ function shotMatchesCharacter(title: string, prompt: string, characterName: stri
 
 function uniqueCompact(values: Array<string | undefined | null>) {
   return Array.from(new Set(values.map((item) => item?.trim()).filter((item): item is string => Boolean(item))));
+}
+
+function toCharacterAssetRef(asset: GeneratedCharacterAsset): CharacterAssetRef {
+  return {
+    id: asset.id,
+    url: asset.url,
+    role: asset.role,
+    description: asset.description,
+    prompt: asset.prompt,
+  };
+}
+
+function mergeCharacterAssets(
+  current: CharacterAssetRef[] | undefined,
+  incoming: CharacterAssetRef[],
+) {
+  const byId = new Map<string, CharacterAssetRef>();
+  [...(current || []), ...incoming].forEach((asset) => byId.set(asset.id, asset));
+  return Array.from(byId.values());
+}
+
+function assetRoleLabel(role: string) {
+  const labels: Record<string, string> = {
+    turnaround: "三视图",
+    character_turnaround: "三视图",
+    expressions: "表情集",
+    character_expressions: "表情集",
+    outfits: "服装集",
+    character_outfits: "服装集",
+    poses: "姿态集",
+    character_poses: "姿态集",
+  };
+  return labels[role] || role;
+}
+
+function applyIdentityLockToShots(
+  char: CharacterProfile,
+  referenceImages: string[],
+  assetPack: CharacterAssetRef[],
+  shots: ReturnType<typeof useDirectorStore.getState>["shots"],
+  updateShot: ReturnType<typeof useDirectorStore.getState>["updateShot"],
+) {
+  const lockUrls = uniqueCompact(referenceImages).slice(0, 9);
+  if (!char.name.trim() || lockUrls.length === 0) return;
+  const assetRoles = uniqueCompact(assetPack.map((asset) => asset.role));
+  const instruction = [
+    `Identity Lock for ${char.name}: use the attached character references on every shot.`,
+    "Preserve the same face, body proportions, silhouette, outfit continuity, expression language, and recognizable identity.",
+    assetRoles.length ? `Reference pack roles: ${assetRoles.map(assetRoleLabel).join(", ")}.` : "",
+  ].filter(Boolean).join(" ");
+
+  shots.forEach((shot) => {
+    const existingLocks = (shot.generationParams?.identity_locks || [])
+      .filter((lock) => lock.character_id !== char.id);
+    const existingProviderOptions = shot.generationParams?.provider_options || {};
+    const providerIdentityLocks = Array.isArray(existingProviderOptions.identity_locks)
+      ? existingProviderOptions.identity_locks.filter((lock) => {
+          return typeof lock === "object" && lock !== null && (lock as { character_id?: string }).character_id !== char.id;
+        })
+      : [];
+    const shotReferences = shotMatchesCharacter(shot.title, shot.prompt, char.name)
+      ? lockUrls
+      : lockUrls.slice(0, Math.min(6, lockUrls.length));
+    const imageUrls = uniqueCompact([...shotReferences, ...(shot.generationParams?.image_urls || [])]).slice(0, 9);
+    updateShot(shot.id, {
+      generationParams: {
+        ...shot.generationParams,
+        image_urls: imageUrls,
+        identity_locks: [
+          ...existingLocks,
+          {
+            character_id: char.id,
+            character_name: char.name,
+            reference_urls: shotReferences,
+            asset_roles: assetRoles,
+          },
+        ],
+        reference_instructions: uniqueCompact([
+          ...(shot.generationParams?.reference_instructions || []),
+          instruction,
+        ]),
+        provider_options: {
+          ...existingProviderOptions,
+          identity_locks: [
+            ...providerIdentityLocks,
+            {
+              character_id: char.id,
+              character_name: char.name,
+              reference_urls: shotReferences,
+              asset_roles: assetRoles,
+            },
+          ],
+        },
+      },
+    });
+  });
 }

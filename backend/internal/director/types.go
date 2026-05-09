@@ -60,8 +60,12 @@ type Shot struct {
 	NegativePrompt        string             `json:"negativePrompt"`
 	PromptEnhancement     *PromptEnhancement `json:"promptEnhancement,omitempty"`
 	ReferenceAssets       []string           `json:"referenceAssets"`
+	ReferenceVideoURLs    []string           `json:"referenceVideoUrls,omitempty"`
+	ReferenceAudioURLs    []string           `json:"referenceAudioUrls,omitempty"`
 	ReferenceImageAssetID string             `json:"referenceImageAssetId,omitempty"`
 	ReferenceImageURL     string             `json:"referenceImageUrl,omitempty"`
+	FirstFrameImageURL    string             `json:"firstFrameImageUrl,omitempty"`
+	LastFrameImageURL     string             `json:"lastFrameImageUrl,omitempty"`
 }
 
 type Storyboard struct {

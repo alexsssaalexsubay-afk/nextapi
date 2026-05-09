@@ -55,6 +55,10 @@ def build():
         "langchain_openai",
         "--collect-submodules",
         "langchain_community",
+        "--collect-data",
+        "imageio_ffmpeg",
+        "--hidden-import",
+        "imageio_ffmpeg",
         str(ROOT / "app" / "main.py"),
     ]
 

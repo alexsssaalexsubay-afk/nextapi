@@ -18,6 +18,7 @@ import {
   Plus,
   Route,
   Sparkles,
+  UserRound,
   UsersRound,
   Workflow,
 } from "lucide-react"
@@ -1327,10 +1328,12 @@ function CanvasNode({
 
 function CanvasEmptyState({ labels }: { labels: ReturnType<typeof useTranslations>["directorPage"] }) {
   return (
-    <div className="mt-3 rounded-lg border border-dashed border-border bg-background/60 px-4 py-5 text-center">
-      <Sparkles className="mx-auto size-5 text-signal" />
+    <div className="mt-3 rounded-lg border border-dashed border-border bg-card/70 px-5 py-7 text-center">
+      <span className="mx-auto grid size-10 place-items-center rounded-lg border border-signal/20 bg-signal/10 text-signal">
+        <Sparkles className="size-5" aria-hidden="true" />
+      </span>
       <h3 className="mt-3 text-sm font-medium text-foreground">{labels.emptyTitle}</h3>
-      <p className="mt-2 text-[12px] leading-relaxed text-muted-foreground">{labels.emptyBody}</p>
+      <p className="mx-auto mt-2 max-w-[360px] text-sm leading-relaxed text-muted-foreground">{labels.emptyBody}</p>
     </div>
   )
 }
@@ -1912,8 +1915,8 @@ function MemoryBindingPanel({ labels, selectedCharacters }: { labels: ReturnType
                 {cover ? (
                   <img src={cover} alt="" className="size-10 shrink-0 rounded-md object-cover" />
                 ) : (
-                  <span className="grid size-10 shrink-0 place-items-center rounded-md bg-background text-xs text-muted-foreground">
-                    {character.name.slice(0, 1).toUpperCase()}
+                  <span className="grid size-10 shrink-0 place-items-center rounded-md border border-border bg-background text-muted-foreground">
+                    <UserRound className="size-4" aria-hidden="true" />
                   </span>
                 )}
                 <div className="min-w-0 flex-1">
@@ -2011,8 +2014,8 @@ function CharacterMemoryPicker({
                 {cover ? (
                   <img src={cover} alt="" className="size-9 shrink-0 rounded-md object-cover" />
                 ) : (
-                  <span className="grid size-9 shrink-0 place-items-center rounded-md bg-background text-xs text-muted-foreground">
-                    {character.name.slice(0, 1).toUpperCase()}
+                  <span className="grid size-9 shrink-0 place-items-center rounded-md border border-border bg-background text-muted-foreground">
+                    <UserRound className="size-4" aria-hidden="true" />
                   </span>
                 )}
                 <span className="min-w-0">

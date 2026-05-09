@@ -10,6 +10,7 @@ import {
   getProgressMap,
   type OrchestrationAgent,
 } from "@/lib/agent-orchestration";
+import { AgentGlyph } from "@/components/director/AgentGlyph";
 import { useAppStore } from "@/stores/app-store";
 import { useDirectorStore } from "@/stores/director-store";
 
@@ -48,14 +49,13 @@ export function AgentLogPanel() {
         const meta = ORCHESTRATION_AGENTS.find((agent) => agent.id === progress.agent);
         const label = meta?.name || progress.agent;
         const role = meta ? `${meta.phase} / ${meta.roleZh}` : "自定义代理";
-        const icon = meta?.initial || "?";
         const pct = Math.round(progress.progress * 100);
         const message = progress.status === "complete"
           ? `${role} 已完成，输出已写入导演链。`
           : progress.status === "running" || progress.status === "progress"
           ? `${role} 正在处理，当前进度 ${pct}%。`
           : `${role} 等待上游结果。`;
-        return { progress, meta: { label, role, icon }, pct, message };
+        return { progress, agent: meta, meta: { label, role }, pct, message };
       })
       .filter((row) => {
         if (filter === "running" && !(row.progress.status === "running" || row.progress.status === "progress")) return false;
@@ -151,7 +151,7 @@ export function AgentLogPanel() {
               <div className="mt-1 text-[13px] leading-6 text-nc-text-secondary">调整筛选条件或先运行一次生成规划。</div>
             </div>
           </Surface>
-        ) : logRows.map(({ progress, meta, pct, message }) => {
+        ) : logRows.map(({ progress, agent, meta, pct, message }) => {
           const active = progress.status === "running" || progress.status === "progress";
           const done = progress.status === "complete";
           const failed = progress.status === "failed";
@@ -166,15 +166,13 @@ export function AgentLogPanel() {
               )}
             >
               <div className="flex min-w-0 items-center gap-4">
-                <div className={cn(
-                  "flex h-11 w-11 shrink-0 items-center justify-center rounded-[13px] text-[14px] font-bold",
-                  active ? "bg-nc-accent text-white shadow-sm" :
-                  done ? "bg-nc-success/10 text-nc-success" :
-                  failed ? "bg-nc-error/10 text-nc-error" :
-                  "bg-nc-bg text-nc-text-tertiary"
-                )}>
-                  {meta.icon}
-                </div>
+                {agent ? (
+                  <AgentGlyph agentId={agent.id} accent={agent.accent} active={active || done} className="h-11 w-11" />
+                ) : (
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] bg-nc-bg text-nc-text-tertiary">
+                    <Activity className="h-5 w-5" />
+                  </div>
+                )}
                 <div className="min-w-0">
                   <div className="flex min-w-0 items-center gap-2">
                     <span className="truncate text-[15px] font-semibold leading-6 text-nc-text">{meta.label}</span>
@@ -290,16 +288,11 @@ function OrchestrationNode({
         />
       )}
       <div className="flex items-start gap-3">
-        <span
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[13px] text-[14px] font-bold text-white shadow-sm"
-          style={{ backgroundColor: agent.accent }}
-        >
-          {agent.initial}
-        </span>
+        <AgentGlyph agentId={agent.id} accent={agent.accent} active={active || complete} />
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-2">
             <span className="truncate text-[14px] font-semibold leading-5 text-nc-text">{agent.name}</span>
-            <Pill tone={statusTone(rawStatus)} className="min-h-6 shrink-0 px-2.5 py-0.5 text-[11px]">
+            <Pill tone={statusTone(rawStatus)} className="min-h-7 shrink-0 px-3 py-1 text-[12px]">
               {runStatus === "ready" ? "可运行" : statusLabel(rawStatus)}
             </Pill>
           </div>
@@ -309,16 +302,16 @@ function OrchestrationNode({
 
       <div className="mt-3 grid gap-2">
         <div className="rounded-[12px] bg-white px-3 py-2">
-          <div className="mb-1 text-[11px] font-semibold leading-4 text-nc-text-tertiary">输入</div>
+          <div className="mb-1 text-[12px] font-semibold leading-5 text-nc-text-tertiary">输入</div>
           <div className="line-clamp-2 text-[12px] leading-5 text-nc-text-secondary">{agent.consumes.join(" / ")}</div>
         </div>
         <div className="rounded-[12px] bg-white px-3 py-2">
-          <div className="mb-1 text-[11px] font-semibold leading-4 text-nc-text-tertiary">产物</div>
+          <div className="mb-1 text-[12px] font-semibold leading-5 text-nc-text-tertiary">产物</div>
           <div className="line-clamp-2 text-[12px] leading-5 text-nc-text-secondary">{agent.produces.join(" / ")}</div>
         </div>
       </div>
 
-      <div className="mt-3 flex items-center justify-between gap-3 text-[11px] font-semibold leading-4 text-nc-text-tertiary">
+      <div className="mt-3 flex items-center justify-between gap-3 text-[12px] font-semibold leading-5 text-nc-text-tertiary">
         <span>依赖 {dependency.total === 0 ? "入口" : `${dependency.complete}/${dependency.total}`}</span>
         <span className="font-mono tabular-nums">{pct}%</span>
       </div>

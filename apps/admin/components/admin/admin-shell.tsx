@@ -21,6 +21,7 @@ import {
   ScrollText,
   ShieldCheck,
   Terminal,
+  UserCog,
   Users,
   Wallet,
 } from "lucide-react"
@@ -267,8 +268,8 @@ export function AdminShell({
               <span className="font-mono text-[10px] text-muted-foreground">manual</span>
             </div>
             <div className="mt-1.5 flex items-center gap-2">
-              <div className="flex size-5 items-center justify-center rounded-full bg-signal/15 font-mono text-[9.5px] text-signal">
-                OP
+              <div className="flex size-5 items-center justify-center rounded-md bg-signal/15 text-signal">
+                <UserCog className="size-3.5" aria-hidden="true" />
               </div>
               <span className="text-[12px] text-foreground">{t.admin.shell.prodBadge.toLowerCase()}</span>
             </div>

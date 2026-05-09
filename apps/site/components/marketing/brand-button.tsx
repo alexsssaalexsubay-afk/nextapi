@@ -16,7 +16,7 @@ type Props = {
 
 /**
  * Shared brand CTA used across the landing page and marketing pages
- * (/, /pricing, /docs). Primary = indigo→purple gradient pill,
+ * (/, /pricing, /docs). Primary = indigo to purple gradient pill,
  * outline = bordered pill that adapts to the current theme.
  * Dashboard/admin buttons keep their neutral product-UI style.
  */

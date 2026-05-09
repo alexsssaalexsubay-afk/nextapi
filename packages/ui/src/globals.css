@@ -89,6 +89,18 @@
   --sidebar-ring: oklch(0.52 0.22 275);
 }
 
+/* Visual cleanup guardrail: utility classes below 12px made dense shells feel
+   noisy and hard to scan. Keep captions readable without touching icons. */
+:where([class*="text-[9.5px]"], [class*="text-[10px]"], [class*="text-[10.5px]"], [class*="text-[11px]"], [class*="text-[11.5px]"]) {
+  font-size: 0.75rem;
+  line-height: 1rem;
+}
+
+.text-xs {
+  font-size: 0.8125rem;
+  line-height: 1.125rem;
+}
+
 /* ═══════════════════════════════════════════════════════════════
    DARK MODE — Resend / Stripe / Vercel dev-infra aesthetic
    ═══════════════════════════════════════════════════════════════ */

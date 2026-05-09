@@ -7,6 +7,7 @@ import {
   Activity,
   Bot,
   BookOpen,
+  Building2,
   Clapperboard,
   CreditCard,
   FolderOpen,
@@ -18,6 +19,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Search,
+  UserRound,
   Webhook,
   Workflow,
 } from "lucide-react"
@@ -52,7 +54,6 @@ export function DashboardShell({
   const compactChrome = workspace || immersive
   const [orgName, setOrgName] = useState<string | null>(null)
   const [balance, setBalance] = useState<number | null>(null)
-  const [initials, setInitials] = useState<string>("—")
   const [signingOut, setSigningOut] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(compactChrome)
   const [navigationOpen, setNavigationOpen] = useState(false)
@@ -85,13 +86,6 @@ export function DashboardShell({
       const data = res as { org?: { name?: string }; balance?: number } | null
       if (data?.org?.name) {
         setOrgName(data.org.name)
-        setInitials(
-          data.org.name
-            .split(/[\s-_]+/)
-            .slice(0, 2)
-            .map((w: string) => w[0]?.toUpperCase() ?? "")
-            .join("") || "–",
-        )
       }
       if (typeof data?.balance === "number") {
         setBalance(data.balance)
@@ -214,11 +208,11 @@ export function DashboardShell({
           <div className="flex items-center gap-2 border-b border-sidebar-border px-3 py-2.5">
             <div className="flex flex-1 items-center justify-between rounded-lg border border-sidebar-border bg-background/60 px-2 py-1.5">
               <div className="flex items-center gap-2">
-                <div className="flex size-5 items-center justify-center rounded-md border border-sidebar-border bg-sidebar font-mono text-[10px] font-medium text-signal">
-                  {initials[0] ?? "–"}
+                <div className="flex size-5 items-center justify-center rounded-md border border-sidebar-border bg-sidebar text-signal">
+                  <Building2 className="size-3.5" aria-hidden="true" />
                 </div>
                 <span className={cn("max-w-[130px] truncate text-[12.5px] text-foreground", sidebarCollapsed && "hidden")}>
-                  {orgName ?? "—"}
+                  {orgName ?? t.dashboard.command.workspace}
                 </span>
               </div>
               <span className={cn("font-mono text-[10px] uppercase tracking-wider text-muted-foreground", sidebarCollapsed && "hidden")}>
@@ -446,8 +440,8 @@ export function DashboardShell({
               <LocaleToggle />
               <ThemeToggle />
             </div>
-            <div className="flex size-7 items-center justify-center rounded-lg border border-border bg-card font-mono text-[11px] text-foreground">
-              {initials.slice(0, 2) || "–"}
+            <div className="flex size-7 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground">
+              <UserRound className="size-4" aria-hidden="true" />
             </div>
           </div>
         </header>

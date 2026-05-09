@@ -206,6 +206,8 @@ class VideoGenerationParams(BaseModel):
     image_urls: list[str] = Field(default_factory=list)
     video_urls: list[str] = Field(default_factory=list)
     audio_urls: list[str] = Field(default_factory=list)
+    first_frame_url: str = ""
+    last_frame_url: str = ""
     provider_options: dict[str, Any] = Field(
         default_factory=dict,
         description="Provider-specific passthrough options. Adapters may merge safe keys into their native request body.",

@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Bell, Globe2, Search, Upload, UserRound } from "lucide-react";
+import { Bell, Globe2, Search, Upload, UserRound, X } from "lucide-react";
 import { useAppStore, type WorkspaceView } from "@/stores/app-store";
 import { NodeCanvas } from "@/components/canvas/NodeCanvas";
 import { PreviewMonitor } from "@/components/preview/PreviewMonitor";
@@ -249,7 +249,7 @@ export function WorkspaceLayout() {
             <div className="mb-4 flex items-center justify-between gap-4">
               <h2 className="text-[16px] font-semibold leading-6 text-nc-text">工作区快捷键</h2>
               <button onClick={() => setShowShortcuts(false)} className="flex h-8 w-8 items-center justify-center rounded-[10px] text-nc-text-tertiary hover:bg-nc-bg hover:text-nc-text" aria-label="关闭快捷键">
-                ×
+                <X className="h-4 w-4" aria-hidden="true" />
               </button>
             </div>
             <div className="grid gap-2">
@@ -257,7 +257,7 @@ export function WorkspaceLayout() {
                 ["⌘/Ctrl + 1", "切换到分镜"],
                 ["⌘/Ctrl + 2", "切换到流程画布"],
                 ["⌘/Ctrl + 3", "切换到分屏"],
-                ["← / →", "切换上一个 / 下一个镜头"],
+                ["Left / Right", "切换上一个 / 下一个镜头"],
                 ["Esc", "取消当前镜头选择"],
               ].map(([key, label]) => (
                 <div key={key} className="flex min-h-10 items-center justify-between gap-4 rounded-[12px] bg-nc-bg px-3 py-2">

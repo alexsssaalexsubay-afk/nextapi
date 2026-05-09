@@ -265,6 +265,90 @@ func TestBuildWorkflowFromShotsAddsCharacterMemoryRefs(t *testing.T) {
 	}
 }
 
+func TestBuildWorkflowFromShotsAddsFrameVideoAndAudioRefs(t *testing.T) {
+	def, err := BuildWorkflowFromShots(
+		Storyboard{
+			Title: "T",
+			Shots: []Shot{{
+				ShotIndex:          1,
+				Title:              "A",
+				Duration:           5,
+				VideoPrompt:        "p",
+				NegativePrompt:     "n",
+				FirstFrameImageURL: "https://cdn.nextapi.test/first.png",
+				LastFrameImageURL:  "https://cdn.nextapi.test/last.png",
+				ReferenceAssets: []string{
+					"https://cdn.nextapi.test/ref.mp4?token=abc",
+					"https://cdn.nextapi.test/ref.wav?token=abc",
+				},
+				ReferenceVideoURLs: []string{
+					"asset://ut-asset-video-reference",
+				},
+				ReferenceAudioURLs: []string{
+					"asset://ut-asset-audio-reference",
+				},
+			}},
+		},
+		WorkflowOptions{Ratio: "16:9", Resolution: "720p"},
+	)
+	if err != nil {
+		t.Fatalf("BuildWorkflowFromShots: %v", err)
+	}
+	var parsed struct {
+		Nodes []struct {
+			Type string          `json:"type"`
+			Data json.RawMessage `json:"data"`
+		} `json:"nodes"`
+	}
+	if err := json.Unmarshal(def, &parsed); err != nil {
+		t.Fatalf("json: %v", err)
+	}
+	var foundFirst, foundLast, foundVideo, foundAudio bool
+	for _, n := range parsed.Nodes {
+		switch n.Type {
+		case "image.input":
+			var data struct {
+				ImageURL  string `json:"image_url"`
+				ImageType string `json:"image_type"`
+			}
+			if err := json.Unmarshal(n.Data, &data); err != nil {
+				t.Fatalf("image node data: %v", err)
+			}
+			foundFirst = foundFirst || data.ImageType == "first_frame" && data.ImageURL == "https://cdn.nextapi.test/first.png"
+			foundLast = foundLast || data.ImageType == "last_frame" && data.ImageURL == "https://cdn.nextapi.test/last.png"
+		case "video.input":
+			var data struct {
+				VideoURL string `json:"video_url"`
+			}
+			if err := json.Unmarshal(n.Data, &data); err != nil {
+				t.Fatalf("video node data: %v", err)
+			}
+			foundVideo = foundVideo || data.VideoURL == "https://cdn.nextapi.test/ref.mp4?token=abc"
+		case "audio.input":
+			var data struct {
+				AudioURL string `json:"audio_url"`
+			}
+			if err := json.Unmarshal(n.Data, &data); err != nil {
+				t.Fatalf("audio node data: %v", err)
+			}
+			foundAudio = foundAudio || data.AudioURL == "https://cdn.nextapi.test/ref.wav?token=abc"
+		}
+	}
+	if !foundFirst || !foundLast || !foundVideo || !foundAudio {
+		t.Fatalf("expected frame/video/audio refs, got %+v", parsed.Nodes)
+	}
+	payload, req, _, err := workflow.WorkflowToExistingVideoPayload(def)
+	if err != nil {
+		t.Fatalf("WorkflowToExistingVideoPayload: %v", err)
+	}
+	if payload.Input.FirstFrameURL == nil || *payload.Input.FirstFrameURL != "https://cdn.nextapi.test/first.png" {
+		t.Fatalf("first_frame_url = %v", payload.Input.FirstFrameURL)
+	}
+	if req.LastFrameURL == nil || *req.LastFrameURL != "https://cdn.nextapi.test/last.png" || len(req.VideoURLs) != 2 || len(req.AudioURLs) != 2 {
+		t.Fatalf("provider request missing refs: %+v", req)
+	}
+}
+
 func TestGenerateShotsClampsDurationsForVideoProvider(t *testing.T) {
 	valid := `{"title":"Launch","summary":"A quick launch","shots":[{"shotIndex":1,"title":"Open","duration":99,"scene":"studio","camera":"push in","emotion":"hopeful","action":"founder looks at prototype","videoPrompt":"founder in studio","imagePrompt":"founder portrait","negativePrompt":"blur","referenceAssets":[]}]}`
 	svc := NewService(&fakeText{responses: []string{valid}})

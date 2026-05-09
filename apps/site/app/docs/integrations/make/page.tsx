@@ -39,7 +39,7 @@ export default function MakeIntegrationPage() {
   }
 }`}
         steps={[
-          "In Make, create a new scenario and add an HTTP → \"Make a request\" module.",
+          "In Make, create a new scenario and add an HTTP > \"Make a request\" module.",
           "Set the URL to https://api.nextapi.top/v1/videos and method to POST.",
           "Add the Authorization header with your Bearer token.",
           "Set the body type to JSON and configure model plus an input object containing prompt, duration_seconds, and resolution.",

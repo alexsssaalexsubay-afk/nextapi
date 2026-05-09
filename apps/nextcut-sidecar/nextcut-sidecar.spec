@@ -1,12 +1,14 @@
 # -*- mode: python ; coding: utf-8 -*-
 
+from PyInstaller.utils.hooks import collect_data_files
+
 
 a = Analysis(
     ['app/main.py'],
     pathex=[],
     binaries=[],
-    datas=[],
-    hiddenimports=['director_engine'],
+    datas=collect_data_files('imageio_ffmpeg'),
+    hiddenimports=['director_engine', 'imageio_ffmpeg'],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],

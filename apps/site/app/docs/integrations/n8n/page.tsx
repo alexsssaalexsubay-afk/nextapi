@@ -44,7 +44,7 @@ export default function N8nIntegrationPage() {
   }
 }`}
         steps={[
-          "In n8n, go to Settings → Credentials and create a new \"Header Auth\" credential with your NextAPI key.",
+          "In n8n, go to Settings > Credentials and create a new \"Header Auth\" credential with your NextAPI key.",
           "Add an HTTP Request node to your workflow.",
           "Set the method to POST and the URL to https://api.nextapi.top/v1/videos.",
           "Configure the authentication to use your Header Auth credential with header name \"Authorization\" and value \"Bearer {key}\".",

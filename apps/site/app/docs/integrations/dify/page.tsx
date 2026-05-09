@@ -92,7 +92,7 @@ paths:
                   error:
                     type: string`}
         steps={[
-          "In Dify Studio, navigate to Tools → Custom and click \"Create Custom Tool\".",
+          "In Dify Studio, navigate to Tools > Custom and click \"Create Custom Tool\".",
           "Paste the OpenAPI schema above into the schema editor.",
           "Configure the authentication: select \"API Key\" and set the header to \"Authorization\" with prefix \"Bearer\".",
           "Enter your NextAPI API key and save the tool.",

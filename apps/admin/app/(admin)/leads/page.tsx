@@ -219,8 +219,9 @@ function LeadRow({
         <div className="mt-1.5 font-mono text-[10.5px] text-muted-foreground/60">
           {relTime(lcreated(lead))}
           {contacted && lcontacted(lead) && (
-            <span className="ml-2 text-status-success">
-              ✓ {labels.contactedAt} {relTime(lcontacted(lead)!)}
+            <span className="ml-2 inline-flex items-center gap-1 text-status-success">
+              <CheckCircle2 className="size-3" aria-hidden="true" />
+              {labels.contactedAt} {relTime(lcontacted(lead)!)}
             </span>
           )}
         </div>

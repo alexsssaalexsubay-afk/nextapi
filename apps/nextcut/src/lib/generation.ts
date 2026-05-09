@@ -16,6 +16,8 @@ export type GeneratePayload = {
   image_urls: string[];
   video_urls: string[];
   audio_urls: string[];
+  first_frame_url?: string;
+  last_frame_url?: string;
   provider: string;
   model: string;
   api_key: string;
@@ -85,11 +87,13 @@ export function buildGeneratePayload({
   extraAudioUrls?: string[];
 }): GeneratePayload {
   const params = shot.generationParams;
-  const imageUrls = uniqueCompact([
+  const firstFrameUrl = params?.first_frame_image_url?.trim() || "";
+  const lastFrameUrl = params?.last_frame_image_url?.trim() || "";
+  const rawImageUrls = uniqueCompact([
     ...(params?.image_urls || []),
     ...(shot.thumbnail_url ? [shot.thumbnail_url] : []),
     ...extraImageUrls,
-  ]);
+  ]).filter((url) => url !== firstFrameUrl && url !== lastFrameUrl);
   const videoUrls = uniqueCompact([
     ...(params?.video_urls || []),
     ...(shot.video_url ? [shot.video_url] : []),
@@ -109,9 +113,11 @@ export function buildGeneratePayload({
     quality: pipeline.video_quality,
     aspect_ratio: aspectRatio,
     generate_audio: pipeline.generate_audio,
-    image_urls: imageUrls.slice(0, 9),
+    image_urls: firstFrameUrl ? [] : rawImageUrls.slice(0, 9),
     video_urls: videoUrls.slice(0, 3),
     audio_urls: audioUrls.slice(0, 3),
+    first_frame_url: firstFrameUrl || undefined,
+    last_frame_url: firstFrameUrl && lastFrameUrl ? lastFrameUrl : undefined,
     provider: pipeline.video_provider,
     model: pipeline.video_model,
     api_key: pipeline.video_api_key,

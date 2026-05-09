@@ -37,10 +37,15 @@ class IdentityManager:
     def register_character(
         self, character: Character, master_ref_url: str = ""
     ) -> IdentityAnchor:
+        master_reference = master_ref_url or (character.reference_images[0] if character.reference_images else "")
+        additional_references = [
+            ref for ref in character.reference_images
+            if ref and ref != master_reference
+        ][:8]
         anchor = IdentityAnchor(
             character_name=character.name,
-            master_reference=master_ref_url,
-            additional_references=character.reference_images[:8],
+            master_reference=master_reference,
+            additional_references=additional_references,
             appearance_lock=character.appearance,
             consistency_notes=f"Maintain exact appearance: {character.appearance}",
         )
@@ -66,12 +71,15 @@ class IdentityManager:
                     role=f"character_identity:{char_name}",
                     description=f"Master reference for {char_name}. {anchor.appearance_lock}",
                 ))
-            for i, ref_url in enumerate(anchor.additional_references[:2]):
+            for i, ref_url in enumerate(anchor.additional_references[:8]):
                 refs.append(ReferenceAsset(
                     url=ref_url,
                     type="image",
                     role=f"character_supplement:{char_name}",
-                    description=f"Additional angle/expression for {char_name}",
+                    description=(
+                        f"Identity lock supplement {i + 1} for {char_name}: "
+                        "turnaround, expression, outfit, or pose reference."
+                    ),
                 ))
         return refs[:9]
 

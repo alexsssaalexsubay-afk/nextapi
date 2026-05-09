@@ -198,7 +198,21 @@ class DirectorPipeline:
 
             local_idx = len([s for s in shots if s.scene_id == scene.id])
 
-            shot_characters = [c.name for c in characters if c.name.lower() in decomposition.visual_desc.lower()]
+            shot_text = " ".join([
+                decomposition.visual_desc,
+                decomposition.first_frame_desc,
+                decomposition.last_frame_desc,
+                decomposition.motion_desc,
+                brief.visual_description,
+                brief.action,
+                brief.dialogue,
+            ]).lower()
+            mentioned_characters = [c.name for c in characters if c.name.lower() in shot_text]
+            scene_characters = [
+                name for name in scene.characters
+                if any(c.name == name for c in characters)
+            ]
+            shot_characters = mentioned_characters or scene_characters or [c.name for c in characters]
             identity_refs = self.identity_manager.get_references_for_shot(shot_characters)
             consistency_suffix = self.identity_manager.build_consistency_prompt_suffix(shot_characters)
 
@@ -342,6 +356,7 @@ class DirectorPipeline:
                 "identity_anchors": {
                     name: {
                         "master_reference": a.master_reference,
+                        "additional_references": a.additional_references,
                         "appearance_lock": a.appearance_lock,
                     }
                     for name, a in self.identity_manager.all_anchors.items()

@@ -208,7 +208,7 @@ export const TEMPLATE_CATALOG: WorkflowTemplate[] = [
     thumbnail: "/templates/ugc-unboxing.jpg",
     difficulty: "专业",
     deliverables: ["三视图", "表情集", "服装参考", "竖屏分镜"],
-    chain: ["Character Anchor", "Image Generation", "Identity Lock", "Storyboard"],
+    chain: ["Character Anchor", "Reference Image Pipeline", "Identity Lock", "Storyboard"],
     variables: ["角色名", "外观", "服装", "口播主题"],
   },
   {

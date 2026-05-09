@@ -1,4 +1,4 @@
-/** Client-side helpers for Batch Studio CSV → POST /v1/videos. */
+/** Client-side helpers for Batch Studio CSV submissions to POST /v1/videos. */
 
 export const VALID_ASPECT_RATIOS = new Set([
   "16:9",

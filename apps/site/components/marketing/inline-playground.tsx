@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Play, Loader2 } from "lucide-react"
+import { AlertTriangle, ArrowRight, Play, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { useTranslations } from "@/lib/i18n/context"
@@ -55,13 +55,14 @@ export function InlinePlayground() {
 
         {/* ─── Demo preview banner ─── */}
         <div className="mb-5 flex items-center gap-2 rounded-lg border border-amber-400/60 bg-amber-400/10 px-4 py-2.5 text-[12.5px] text-amber-700 dark:border-amber-400/40 dark:bg-amber-400/10 dark:text-amber-300">
-          <span className="shrink-0 text-base">⚠</span>
+          <AlertTriangle className="size-4 shrink-0" aria-hidden="true" />
           <span>{t.playground.marketing.previewBanner}</span>
           <a
             href="https://app.nextapi.top/sign-up"
-            className="ml-auto shrink-0 underline underline-offset-2 hover:opacity-80"
+            className="ml-auto inline-flex shrink-0 items-center gap-1.5 underline underline-offset-2 hover:opacity-80"
           >
-            Sign up →
+            Sign up
+            <ArrowRight className="size-3.5" aria-hidden="true" />
           </a>
         </div>
 
@@ -176,7 +177,7 @@ export function InlinePlayground() {
                 )}
               </p>
               <span className="shrink-0 font-mono text-[11px] text-signal">
-                {phase === "done" ? "4.8s · 1.00cr" : "—"}
+                {phase === "done" ? "4.8s · 1.00cr" : "pending"}
               </span>
             </div>
           </div>

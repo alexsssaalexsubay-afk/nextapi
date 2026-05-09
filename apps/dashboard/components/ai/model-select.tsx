@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useRef, useState } from "react"
-import { Check, ChevronDown, Search } from "lucide-react"
+import { Bot, Check, ChevronDown, Clapperboard, FileText, Image as ImageIcon, Search, Sparkles, UserRound, Video } from "lucide-react"
 import { AI_MODEL_CATALOG, type AIModelCatalogItem, type AIModelCategory } from "@/lib/ai-model-catalog"
 import { cn } from "@/lib/utils"
 
@@ -23,9 +23,21 @@ type ModelSelectStatusLabels = {
 }
 
 export function ProviderLogo({ item, className }: { item: AIModelCatalogItem; className?: string }) {
+  const Icon =
+    item.category === "text" ? FileText :
+      item.category === "image" ? ImageIcon :
+        item.category === "video" ? Video :
+          item.category === "avatar" ? UserRound :
+            item.provider === "BytePlus" ? Clapperboard :
+              item.provider === "OpenAI" ? Bot :
+                Sparkles
+
   return (
-    <span className={cn("grid size-7 shrink-0 place-items-center rounded-lg border border-border bg-muted text-[11px] font-semibold text-foreground", className)}>
-      {item.provider === "BytePlus" ? "B+" : item.provider === "OpenAI" ? "AI" : item.provider.slice(0, 1)}
+    <span
+      className={cn("grid size-7 shrink-0 place-items-center rounded-lg border border-border bg-muted text-muted-foreground", className)}
+      title={item.provider}
+    >
+      <Icon className="size-4" aria-hidden="true" />
     </span>
   )
 }
@@ -114,7 +126,7 @@ export function ModelSelect({
 
   return (
     <div ref={rootRef} className="relative min-w-0">
-      {label && <div className="mb-1 text-[11px] text-muted-foreground">{label}</div>}
+      {label && <div className="mb-1 text-xs text-muted-foreground">{label}</div>}
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
@@ -128,13 +140,13 @@ export function ModelSelect({
         <ProviderLogo item={selected} className={cn(dense ? "size-7" : "size-8")} />
         <span className="min-w-0 flex-1">
           <span className="block truncate font-medium text-foreground">{selected.name}</span>
-          <span className="block truncate text-[11px] text-muted-foreground">
+          <span className="block truncate text-xs text-muted-foreground">
             {selected.provider} · {modelStatusLabel(selected, statusLabels)}
           </span>
         </span>
         <ChevronDown className={cn("size-4 text-muted-foreground transition", open && "rotate-180")} />
       </button>
-      {helper && <div className="mt-1 text-[11px] leading-relaxed text-muted-foreground">{helper}</div>}
+      {helper && <div className="mt-1 text-xs leading-relaxed text-muted-foreground">{helper}</div>}
       {open && (
         <div className={dropdownClassName}>
           {items.length > 4 && (
@@ -160,7 +172,7 @@ export function ModelSelect({
           )}
           {recommendedItems.length > 0 && (
             <div className="mb-2 rounded-lg border border-signal/20 bg-background p-1">
-              <div className="flex items-center justify-between px-2 py-1 text-[10px] font-medium uppercase tracking-[0.14em] text-signal">
+              <div className="flex items-center justify-between px-2 py-1 text-xs font-medium uppercase tracking-[0.14em] text-signal">
                 <span>{statusLabels?.recommended ?? "Recommended"}</span>
                 <span>{statusLabels?.bestForFlow ?? "Best fit"}</span>
               </div>
@@ -180,7 +192,7 @@ export function ModelSelect({
           )}
           {groupedItems.map((group) => (
             <div key={group.provider} className="mt-1.5 first:mt-0">
-              <div className="flex items-center justify-between px-2 py-1 text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+              <div className="flex items-center justify-between px-2 py-1 text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
                 <span>{group.provider}</span>
                 <span>{group.items.length}</span>
               </div>
@@ -231,19 +243,19 @@ function ModelOption({
       <span className="min-w-0 flex-1">
         <span className="flex min-w-0 items-center gap-2">
           <span className="truncate text-[13px] font-medium">{item.name}</span>
-          <span className="shrink-0 rounded-md border border-border bg-background px-1.5 py-0.5 text-[10px] text-muted-foreground">
+          <span className="shrink-0 rounded-md border border-border bg-background px-1.5 py-0.5 text-xs text-muted-foreground">
             {modelStatusLabel(item, statusLabels)}
           </span>
         </span>
-        <span className="mt-0.5 block truncate text-[11px] text-muted-foreground">{item.description}</span>
+        <span className="mt-0.5 block truncate text-xs text-muted-foreground">{item.description}</span>
         <span className="mt-1 flex flex-wrap gap-1">
           {item.tier && (
-            <span className="rounded-md border border-border bg-card px-1.5 py-0.5 text-[10px] text-muted-foreground">
+            <span className="rounded-md border border-border bg-card px-1.5 py-0.5 text-xs text-muted-foreground">
               {tierLabel(item.tier, statusLabels)}
             </span>
           )}
           {(item.capabilities ?? []).slice(0, 2).map((capability) => (
-            <span key={capability} className="rounded-md border border-border bg-background px-1.5 py-0.5 text-[10px] text-muted-foreground">
+            <span key={capability} className="rounded-md border border-border bg-background px-1.5 py-0.5 text-xs text-muted-foreground">
               {capability.replace("_", " ")}
             </span>
           ))}

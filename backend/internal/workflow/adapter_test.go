@@ -170,6 +170,64 @@ func TestWorkflowToExistingVideoPayload_SingleCharacterUsesFirstFrame(t *testing
 	}
 }
 
+func TestWorkflowToExistingVideoPayload_FirstLastVideoAudioRefs(t *testing.T) {
+	raw := mustJSON(t, Definition{
+		Model: "seedance-2.0-pro",
+		Nodes: []Node{
+			node(t, "first", NodeImageInput, ImageInputData{
+				ImageURL:  "https://cdn.nextapi.top/first.png",
+				ImageType: "first_frame",
+			}),
+			node(t, "last", NodeImageInput, ImageInputData{
+				ImageURL:  "https://cdn.nextapi.top/last.png",
+				ImageType: "last_frame",
+			}),
+			node(t, "video-ref", NodeVideoInput, VideoInputData{
+				VideoURL:  "https://cdn.nextapi.top/ref.mp4",
+				VideoType: "reference",
+			}),
+			node(t, "audio-ref", NodeAudioInput, AudioInputData{
+				AudioURL:  "https://cdn.nextapi.top/ref.wav",
+				AudioType: "reference",
+			}),
+			node(t, "prompt", NodePromptInput, PromptInputData{Prompt: "A cinematic image-to-video shot"}),
+			node(t, "params", NodeVideoParams, VideoParamsData{Duration: 5, Resolution: "720p", AspectRatio: "16:9"}),
+			node(t, "video", NodeSeedanceVideo, SeedanceVideoData{}),
+		},
+		Edges: []Edge{
+			{Source: "first", Target: "video"},
+			{Source: "last", Target: "video"},
+			{Source: "video-ref", Target: "video"},
+			{Source: "audio-ref", Target: "video"},
+			{Source: "prompt", Target: "video"},
+			{Source: "params", Target: "video"},
+		},
+	})
+
+	payload, req, _, err := WorkflowToExistingVideoPayload(raw)
+	if err != nil {
+		t.Fatalf("WorkflowToExistingVideoPayload returned error: %v", err)
+	}
+	if payload.Input.FirstFrameURL == nil || *payload.Input.FirstFrameURL != "https://cdn.nextapi.top/first.png" {
+		t.Fatalf("first_frame_url = %v", payload.Input.FirstFrameURL)
+	}
+	if payload.Input.LastFrameURL == nil || *payload.Input.LastFrameURL != "https://cdn.nextapi.top/last.png" {
+		t.Fatalf("last_frame_url = %v", payload.Input.LastFrameURL)
+	}
+	if len(payload.Input.ImageURLs) != 0 {
+		t.Fatalf("image_urls = %#v; want empty when first_frame_url is used", payload.Input.ImageURLs)
+	}
+	if len(payload.Input.VideoURLs) != 1 || payload.Input.VideoURLs[0] != "https://cdn.nextapi.top/ref.mp4" {
+		t.Fatalf("video_urls = %#v", payload.Input.VideoURLs)
+	}
+	if len(payload.Input.AudioURLs) != 1 || payload.Input.AudioURLs[0] != "https://cdn.nextapi.top/ref.wav" {
+		t.Fatalf("audio_urls = %#v", payload.Input.AudioURLs)
+	}
+	if req.LastFrameURL == nil || *req.LastFrameURL != "https://cdn.nextapi.top/last.png" || len(req.VideoURLs) != 1 || len(req.AudioURLs) != 1 {
+		t.Fatalf("provider request missing media refs: %+v", req)
+	}
+}
+
 func TestWorkflowToExistingVideoPayload_AllowsPromptOnly(t *testing.T) {
 	raw := mustJSON(t, Definition{
 		Nodes: []Node{

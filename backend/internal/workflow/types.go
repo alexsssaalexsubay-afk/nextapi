@@ -4,6 +4,8 @@ import "encoding/json"
 
 const (
 	NodeImageInput    = "image.input"
+	NodeVideoInput    = "video.input"
+	NodeAudioInput    = "audio.input"
 	NodePromptInput   = "prompt.input"
 	NodeVideoParams   = "video.params"
 	NodeDirectorLLM   = "director.llm"
@@ -35,9 +37,25 @@ type Edge struct {
 }
 
 type ImageInputData struct {
+	AssetID       string `json:"asset_id,omitempty"`
+	ImageURL      string `json:"image_url,omitempty"`
+	ImageType     string `json:"image_type,omitempty"`
+	CharacterName string `json:"character_name,omitempty"`
+	Label         string `json:"label,omitempty"`
+}
+
+type VideoInputData struct {
 	AssetID   string `json:"asset_id,omitempty"`
-	ImageURL  string `json:"image_url,omitempty"`
-	ImageType string `json:"image_type,omitempty"`
+	VideoURL  string `json:"video_url,omitempty"`
+	VideoType string `json:"video_type,omitempty"`
+	Label     string `json:"label,omitempty"`
+}
+
+type AudioInputData struct {
+	AssetID   string `json:"asset_id,omitempty"`
+	AudioURL  string `json:"audio_url,omitempty"`
+	AudioType string `json:"audio_type,omitempty"`
+	Label     string `json:"label,omitempty"`
 }
 
 type PromptInputData struct {
@@ -52,6 +70,7 @@ type VideoParamsData struct {
 	ConsistencyMode string `json:"consistency_mode,omitempty"`
 	NegativePrompt  string `json:"negative_prompt,omitempty"`
 	Seed            *int64 `json:"seed,omitempty"`
+	FPS             int    `json:"fps,omitempty"`
 	GenerateAudio   *bool  `json:"generate_audio,omitempty"`
 	Draft           *bool  `json:"draft,omitempty"`
 }
@@ -71,9 +90,13 @@ type ExistingVideoInputData struct {
 	Resolution      string   `json:"resolution"`
 	Mode            string   `json:"mode"`
 	AspectRatio     string   `json:"aspect_ratio,omitempty"`
+	FPS             int      `json:"fps,omitempty"`
 	GenerateAudio   *bool    `json:"generate_audio,omitempty"`
 	Draft           *bool    `json:"draft,omitempty"`
 	Seed            *int64   `json:"seed,omitempty"`
 	FirstFrameURL   *string  `json:"first_frame_url,omitempty"`
+	LastFrameURL    *string  `json:"last_frame_url,omitempty"`
 	ImageURLs       []string `json:"image_urls,omitempty"`
+	VideoURLs       []string `json:"video_urls,omitempty"`
+	AudioURLs       []string `json:"audio_urls,omitempty"`
 }

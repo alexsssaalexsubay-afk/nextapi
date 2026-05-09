@@ -18,9 +18,39 @@ export interface OllamaInfo {
   recommended_model: string;
 }
 
+export interface LocalRuntimeStatus {
+  sidecar: boolean;
+  ffmpeg: boolean;
+  ffmpeg_path: string;
+  ffmpeg_source: string;
+  exports_dir: string;
+  exports_writable: boolean;
+  packaged_video_tools: boolean;
+}
+
+export interface ProductionLineStatus {
+  id: string;
+  label: string;
+  provider: string;
+  category: string;
+  modalities: string[];
+  installed: boolean;
+  configured: boolean;
+  ready: boolean;
+  billing: string;
+  key_source: string;
+  endpoint: string;
+  model_hint: string;
+  local_resource: string;
+  blockers: string[];
+  capabilities: string[];
+  notes: string;
+}
+
 export interface SetupStatus {
   first_launch: boolean;
   system: SystemInfo;
+  runtime: LocalRuntimeStatus;
   ollama: OllamaInfo;
   comfyui: { available: boolean; url: string };
   api_keys: {
@@ -30,6 +60,7 @@ export interface SetupStatus {
     deepseek: boolean;
     google: boolean;
   };
+  production_lines: ProductionLineStatus[];
   ready: boolean;
   issues: string[];
   recommendations: string[];

@@ -111,18 +111,23 @@ func videoNodeToPayload(def Definition, seedance Node) (*ExistingVideoPayload, p
 	}
 
 	imageNodes := connectedNodes(def, seedance.ID, NodeImageInput)
+	videoNodes := connectedNodes(def, seedance.ID, NodeVideoInput)
+	audioNodes := connectedNodes(def, seedance.ID, NodeAudioInput)
 	input := ExistingVideoInputData{
 		Prompt:          prompt,
 		DurationSeconds: paramsData.Duration,
 		Resolution:      paramsData.Resolution,
 		Mode:            "normal",
 		AspectRatio:     paramsData.AspectRatio,
+		FPS:             paramsData.FPS,
 		GenerateAudio:   paramsData.GenerateAudio,
 		Draft:           paramsData.Draft,
 		Seed:            paramsData.Seed,
 	}
 
 	images := make([]ImageInputData, 0, len(imageNodes))
+	var firstFrameURL *string
+	var lastFrameURL *string
 	for _, node := range imageNodes {
 		var image ImageInputData
 		if err := decodeNodeData(node, &image); err != nil {
@@ -138,13 +143,40 @@ func videoNodeToPayload(def Definition, seedance Node) (*ExistingVideoPayload, p
 		image.ImageURL = imageURL
 		images = append(images, image)
 	}
-	if len(images) == 1 && images[0].ImageType == "character" {
+	for _, image := range images {
+		imageType := strings.TrimSpace(strings.ToLower(image.ImageType))
+		switch imageType {
+		case "first_frame":
+			url := image.ImageURL
+			firstFrameURL = &url
+		case "last_frame":
+			url := image.ImageURL
+			lastFrameURL = &url
+		}
+	}
+	if firstFrameURL != nil {
+		input.FirstFrameURL = firstFrameURL
+		input.LastFrameURL = lastFrameURL
+	} else if lastFrameURL != nil {
+		return nil, provider.GenerationRequest{}, nil, fmt.Errorf("%w: last_frame image requires a first_frame image", ErrInvalidWorkflow)
+	} else if len(images) == 1 && strings.TrimSpace(strings.ToLower(images[0].ImageType)) == "character" {
 		input.FirstFrameURL = &images[0].ImageURL
 	} else {
 		input.ImageURLs = make([]string, 0, len(images))
 		for _, image := range images {
 			input.ImageURLs = append(input.ImageURLs, image.ImageURL)
 		}
+	}
+	input.VideoURLs, err = mediaURLsFromVideoNodes(videoNodes)
+	if err != nil {
+		return nil, provider.GenerationRequest{}, nil, err
+	}
+	input.AudioURLs, err = mediaURLsFromAudioNodes(audioNodes)
+	if err != nil {
+		return nil, provider.GenerationRequest{}, nil, err
+	}
+	if err := validateWorkflowMediaLimits(input); err != nil {
+		return nil, provider.GenerationRequest{}, nil, err
 	}
 
 	model := strings.TrimSpace(def.Model)
@@ -174,17 +206,81 @@ func videoNodeToPayload(def Definition, seedance Node) (*ExistingVideoPayload, p
 		Resolution:      input.Resolution,
 		Mode:            input.Mode,
 		AspectRatio:     input.AspectRatio,
+		FPS:             input.FPS,
 		GenerateAudio:   input.GenerateAudio,
 		Draft:           input.Draft,
 		Seed:            input.Seed,
 		FirstFrameURL:   input.FirstFrameURL,
+		LastFrameURL:    input.LastFrameURL,
 		ImageURLs:       input.ImageURLs,
+		VideoURLs:       input.VideoURLs,
+		AudioURLs:       input.AudioURLs,
 	}
 	if err := validateWorkflowPromptOrMedia(req); err != nil {
 		return nil, provider.GenerationRequest{}, nil, err
 	}
 
 	return &payload, req, inputJSON, nil
+}
+
+func validateWorkflowMediaLimits(input ExistingVideoInputData) error {
+	if len(input.ImageURLs) > 9 {
+		return fmt.Errorf("%w: image_urls max 9", ErrInvalidWorkflow)
+	}
+	if len(input.VideoURLs) > 3 {
+		return fmt.Errorf("%w: video_urls max 3", ErrInvalidWorkflow)
+	}
+	if len(input.AudioURLs) > 3 {
+		return fmt.Errorf("%w: audio_urls max 3", ErrInvalidWorkflow)
+	}
+	if input.LastFrameURL != nil && strings.TrimSpace(*input.LastFrameURL) != "" &&
+		(input.FirstFrameURL == nil || strings.TrimSpace(*input.FirstFrameURL) == "") {
+		return fmt.Errorf("%w: last_frame_url requires first_frame_url", ErrInvalidWorkflow)
+	}
+	hasVisual := len(input.ImageURLs) > 0 || len(input.VideoURLs) > 0 ||
+		(input.FirstFrameURL != nil && strings.TrimSpace(*input.FirstFrameURL) != "")
+	if len(input.AudioURLs) > 0 && !hasVisual {
+		return fmt.Errorf("%w: audio_urls requires image, video, or first_frame input", ErrInvalidWorkflow)
+	}
+	return nil
+}
+
+func mediaURLsFromVideoNodes(nodes []Node) ([]string, error) {
+	out := make([]string, 0, len(nodes))
+	for _, node := range nodes {
+		var video VideoInputData
+		if err := decodeNodeData(node, &video); err != nil {
+			return nil, err
+		}
+		videoURL := strings.TrimSpace(video.VideoURL)
+		if videoURL == "" {
+			return nil, fmt.Errorf("%w: video.input video_url is required", ErrInvalidWorkflow)
+		}
+		if err := abuse.ValidatePublicOrAssetURL(videoURL); err != nil {
+			return nil, fmt.Errorf("%w: video.input video_url must be public https or active asset", ErrInvalidWorkflow)
+		}
+		out = append(out, videoURL)
+	}
+	return out, nil
+}
+
+func mediaURLsFromAudioNodes(nodes []Node) ([]string, error) {
+	out := make([]string, 0, len(nodes))
+	for _, node := range nodes {
+		var audio AudioInputData
+		if err := decodeNodeData(node, &audio); err != nil {
+			return nil, err
+		}
+		audioURL := strings.TrimSpace(audio.AudioURL)
+		if audioURL == "" {
+			return nil, fmt.Errorf("%w: audio.input audio_url is required", ErrInvalidWorkflow)
+		}
+		if err := abuse.ValidatePublicOrAssetURL(audioURL); err != nil {
+			return nil, fmt.Errorf("%w: audio.input audio_url must be public https or active asset", ErrInvalidWorkflow)
+		}
+		out = append(out, audioURL)
+	}
+	return out, nil
 }
 
 func validateWorkflowPromptOrMedia(req provider.GenerationRequest) error {
@@ -275,6 +371,9 @@ func validateVideoParams(params VideoParamsData) error {
 		if _, ok := allowedAspectRatios[params.AspectRatio]; !ok {
 			return fmt.Errorf("%w: aspect_ratio is unsupported", ErrInvalidWorkflow)
 		}
+	}
+	if params.FPS != 0 && params.FPS != 24 && params.FPS != 30 {
+		return fmt.Errorf("%w: fps must be 24 or 30", ErrInvalidWorkflow)
 	}
 	if _, ok := provider.AllowedResolutions()[strings.TrimSpace(params.Resolution)]; !ok {
 		return fmt.Errorf("%w: resolution is unsupported", ErrInvalidWorkflow)

@@ -7,6 +7,8 @@ from app.api.generate import (
     _sanitize_upstream_payload,
 )
 from director_engine.providers.seedance import _safe_provider_options
+from director_engine.interfaces.models import ProviderConfig, VideoGenerationParams
+from director_engine.providers.seedance import SeedanceProvider
 
 
 class ProviderEnvelopeTest(unittest.TestCase):
@@ -79,6 +81,21 @@ class ProviderEnvelopeTest(unittest.TestCase):
         self.assertEqual(by_url["https://cdn.test/last-frame.webp"]["type"], "image")
         self.assertEqual(by_url["https://cdn.test/dialogue.wav"]["type"], "audio")
         self.assertEqual(by_url["https://cdn.test/thumb.jpg"]["type"], "image")
+
+    def test_seedance_payload_uses_first_last_frame_fields(self):
+        provider = SeedanceProvider(ProviderConfig())
+        body = provider._video_create_body(VideoGenerationParams(
+            prompt="A smooth product reveal.",
+            image_urls=["https://cdn.test/ignored-reference.png"],
+            first_frame_url="https://cdn.test/first.png",
+            last_frame_url="https://cdn.test/last.png",
+            duration=5,
+            quality="720p",
+        ))
+
+        self.assertEqual(body["input"]["first_frame_url"], "https://cdn.test/first.png")
+        self.assertEqual(body["input"]["last_frame_url"], "https://cdn.test/last.png")
+        self.assertNotIn("image_urls", body["input"])
 
 
 if __name__ == "__main__":

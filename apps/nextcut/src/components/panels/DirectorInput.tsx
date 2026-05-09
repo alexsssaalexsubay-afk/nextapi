@@ -5,6 +5,7 @@ import { Button, Pill, Segmented, SelectField, Surface } from "@/components/ui/k
 import { StructuredPromptBuilder } from "@/components/director/StructuredPromptBuilder";
 import { CharacterPanel } from "@/components/director/CharacterPanel";
 import { PipelineStepFlow } from "@/components/director/PipelineStepFlow";
+import { AgentGlyph } from "@/components/director/AgentGlyph";
 import { ORCHESTRATION_AGENTS, ORCHESTRATION_ORDER } from "@/lib/agent-orchestration";
 import {
   DIRECTOR_KNOWLEDGE_SOURCES,
@@ -1016,7 +1017,7 @@ export function DirectorInput() {
                     {agentTeam.slice(0, 6).map((agent, index) => (
                       <div key={agent.id} className="rounded-[14px] border border-nc-border bg-nc-bg p-5">
                         <div className="mb-3 flex items-center gap-3">
-                          <div className="flex h-10 w-10 items-center justify-center rounded-[12px] bg-white text-[14px] font-bold text-nc-accent shadow-sm">{agent.initial}</div>
+                          <AgentGlyph agentId={agent.id} accent={agent.accent} className="h-10 w-10" />
                           <div>
                             <div className="text-[15px] font-semibold leading-6 text-nc-text">{agent.name} · {agent.roleZh}</div>
                             <div className="text-[13px] leading-5 text-nc-text-tertiary">{index === 0 ? "负责起点理解" : `${agent.dependencies.length} 个上游依赖`}</div>
@@ -1140,7 +1141,7 @@ export function DirectorInput() {
                                 <div className="text-[14px] font-semibold leading-5 text-nc-text">{source.name}</div>
                                 <div className="mt-1 text-[12px] uppercase tracking-[0.08em] leading-4 text-nc-text-tertiary">{source.status} · {source.scope}</div>
                               </div>
-                              <span className={cn("flex h-5 w-5 items-center justify-center rounded-full border text-[10px] font-bold", enabled ? "border-nc-accent bg-nc-accent text-white" : "border-nc-border text-nc-text-tertiary")}>{enabled ? <Check className="h-3 w-3" /> : null}</span>
+                              <span className={cn("flex h-6 w-6 items-center justify-center rounded-full border text-[12px] font-bold", enabled ? "border-nc-accent bg-nc-accent text-white" : "border-nc-border text-nc-text-tertiary")}>{enabled ? <Check className="h-3.5 w-3.5" /> : null}</span>
                             </div>
                             <p className="mt-2 line-clamp-2 text-[12px] leading-5 text-nc-text-secondary">{source.value}</p>
                             <div className="mt-3 text-[12px] font-semibold leading-4 text-nc-accent">{source.metric}</div>
@@ -1164,7 +1165,7 @@ export function DirectorInput() {
                         >
                           <div className="flex items-start justify-between gap-2">
                             <div className="min-w-0 text-[13px] font-semibold leading-5 text-nc-text">{pack.label}</div>
-                            <span className={cn("flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-[10px] font-bold", enabled ? "border-nc-accent bg-nc-accent text-white" : "border-nc-border text-nc-text-tertiary")}>{enabled ? <Check className="h-3 w-3" /> : null}</span>
+                            <span className={cn("flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-[12px] font-bold", enabled ? "border-nc-accent bg-nc-accent text-white" : "border-nc-border text-nc-text-tertiary")}>{enabled ? <Check className="h-3.5 w-3.5" /> : null}</span>
                           </div>
                           <p className="mt-2 line-clamp-2 text-[12px] leading-5 text-nc-text-tertiary">{pack.description}</p>
                         </button>
@@ -1301,7 +1302,7 @@ export function DirectorInput() {
               const done = shots.length > 0 || (isRunning && index < activeStepIndex);
               return (
                 <div key={step.id} className="flex min-h-9 items-center gap-3">
-                  <span className={cn("flex h-5 w-5 items-center justify-center rounded-full border text-[10px] font-bold", done ? "border-nc-success bg-nc-success text-white" : current ? "border-nc-accent text-nc-accent" : "border-nc-border text-nc-text-tertiary")}>{done ? <Check className="h-3 w-3" /> : index + 1}</span>
+                  <span className={cn("flex h-6 w-6 items-center justify-center rounded-full border text-[12px] font-bold", done ? "border-nc-success bg-nc-success text-white" : current ? "border-nc-accent text-nc-accent" : "border-nc-border text-nc-text-tertiary")}>{done ? <Check className="h-3.5 w-3.5" /> : index + 1}</span>
                   <span className={cn("flex-1 text-[14px] font-medium leading-5", current ? "text-nc-text" : "text-nc-text-secondary")}>{done ? step.doneLabel : step.label}</span>
                   <span className="font-mono text-[12px] text-nc-text-tertiary">{done ? "00:32" : "--:--"}</span>
                 </div>
@@ -1340,7 +1341,7 @@ export function DirectorInput() {
               const active = isRunning ? index <= activeStepIndex + 2 : shots.length > 0;
               return (
                 <div key={agent.id} className="flex min-h-[56px] items-center gap-3 rounded-[13px] border border-nc-border bg-nc-bg px-4 py-3">
-                  <span className={cn("flex h-9 w-9 items-center justify-center rounded-full text-[13px] font-bold", active ? "bg-[#F5F3FF] text-nc-accent" : "bg-white text-nc-text-tertiary")}>{agent.initial}</span>
+                  <AgentGlyph agentId={agent.id} accent={agent.accent} active={active} className="h-9 w-9 rounded-[13px]" />
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-[14px] font-semibold leading-5 text-nc-text">{agent.name} <span className="text-nc-text-tertiary">{agent.roleZh}</span></span>
                     <span className="block truncate text-[13px] leading-5 text-nc-text-tertiary">{agent.produces.slice(0, 2).join(" / ")}</span>

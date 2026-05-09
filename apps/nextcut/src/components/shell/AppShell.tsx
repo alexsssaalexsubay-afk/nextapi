@@ -2,7 +2,6 @@ import { Sidebar } from "@/components/shell/Sidebar";
 import { WorkspaceLayout } from "@/components/shell/WorkspaceLayout";
 import { UpdateBanner } from "@/components/shell/UpdateBanner";
 import { Toast } from "@/components/shell/Toast";
-import { WindowTitleBar } from "@/components/shell/WindowTitleBar";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useAppStore } from "@/stores/app-store";
 
@@ -14,7 +13,6 @@ export function AppShell() {
 
   return (
     <div className="flex h-screen flex-col bg-nc-bg text-sm select-none antialiased">
-      <WindowTitleBar />
       <UpdateBanner />
       <div className="flex min-h-0 flex-1 overflow-hidden">
         {!hideSidebar && <Sidebar />}

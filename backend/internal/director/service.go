@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
 	"strings"
 
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/aiprovider"
@@ -153,7 +154,7 @@ func BuildWorkflowFromShots(storyboard Storyboard, options WorkflowOptions) (jso
 			"negative_prompt":    shot.NegativePrompt,
 			"prompt_enhancement": shot.PromptEnhancement,
 		})
-		paramsData, _ := json.Marshal(map[string]any{"label": "Video params", "duration": shot.Duration, "aspect_ratio": ratio, "resolution": resolution, "generate_audio": options.GenerateAudio, "negative_prompt": shot.NegativePrompt})
+		paramsData, _ := json.Marshal(map[string]any{"label": "Video params", "duration": shot.Duration, "aspect_ratio": ratio, "resolution": resolution, "generate_audio": options.GenerateAudio, "negative_prompt": shot.NegativePrompt, "camera_motion": shot.Camera})
 		videoData, _ := json.Marshal(map[string]any{"label": "Seedance video", "model": model})
 		nodes = append(nodes,
 			workflow.Node{ID: promptID, Type: workflow.NodePromptInput, Position: position(col, 80), Data: promptData},
@@ -175,6 +176,28 @@ func BuildWorkflowFromShots(storyboard Storyboard, options WorkflowOptions) (jso
 			})
 			nodes = append(nodes, workflow.Node{ID: imageID, Type: workflow.NodeImageInput, Position: position(col, 400+refIndex*120), Data: imageData})
 			edges = append(edges, workflow.Edge{ID: "edge_" + imageID + "_" + videoID, Source: imageID, Target: videoID})
+		}
+		for refIndex, ref := range referenceVideoInputs(shot) {
+			videoRefID := fmt.Sprintf("shot_%d_video_ref_%d", shot.ShotIndex, refIndex+1)
+			videoRefData, _ := json.Marshal(map[string]any{
+				"label":      ref.Label,
+				"asset_id":   ref.AssetID,
+				"video_url":  ref.URL,
+				"video_type": ref.MediaType,
+			})
+			nodes = append(nodes, workflow.Node{ID: videoRefID, Type: workflow.NodeVideoInput, Position: position(col+160, 420+refIndex*120), Data: videoRefData})
+			edges = append(edges, workflow.Edge{ID: "edge_" + videoRefID + "_" + videoID, Source: videoRefID, Target: videoID})
+		}
+		for refIndex, ref := range referenceAudioInputs(shot) {
+			audioRefID := fmt.Sprintf("shot_%d_audio_ref_%d", shot.ShotIndex, refIndex+1)
+			audioRefData, _ := json.Marshal(map[string]any{
+				"label":      ref.Label,
+				"asset_id":   ref.AssetID,
+				"audio_url":  ref.URL,
+				"audio_type": ref.MediaType,
+			})
+			nodes = append(nodes, workflow.Node{ID: audioRefID, Type: workflow.NodeAudioInput, Position: position(col+320, 420+refIndex*120), Data: audioRefData})
+			edges = append(edges, workflow.Edge{ID: "edge_" + audioRefID + "_" + videoID, Source: audioRefID, Target: videoID})
 		}
 	}
 	outputData, _ := json.Marshal(map[string]any{"label": "Output preview"})
@@ -298,12 +321,19 @@ type workflowImageInput struct {
 	CharacterName string
 }
 
+type workflowMediaInput struct {
+	URL       string
+	AssetID   string
+	Label     string
+	MediaType string
+}
+
 func referenceImageInputs(shot Shot, characters []CharacterInput) []workflowImageInput {
-	out := make([]workflowImageInput, 0, len(shot.ReferenceAssets)+len(characters)+1)
+	out := make([]workflowImageInput, 0, len(shot.ReferenceAssets)+len(characters)+3)
 	seen := map[string]struct{}{}
 	add := func(raw string, assetID string, label string, imageType string, characterName string) {
 		raw = strings.TrimSpace(raw)
-		if !isWorkflowImageReference(raw) {
+		if !isWorkflowMediaReference(raw) || inferWorkflowMediaKind(raw) != "image" {
 			return
 		}
 		if _, ok := seen[raw]; ok {
@@ -318,6 +348,8 @@ func referenceImageInputs(shot Shot, characters []CharacterInput) []workflowImag
 		}
 		out = append(out, workflowImageInput{URL: raw, AssetID: strings.TrimSpace(assetID), Label: label, ImageType: imageType, CharacterName: strings.TrimSpace(characterName)})
 	}
+	add(shot.FirstFrameImageURL, "", "First frame", "first_frame", "")
+	add(shot.LastFrameImageURL, "", "Last frame", "last_frame", "")
 	add(shot.ReferenceImageURL, shot.ReferenceImageAssetID, "Reference image", "reference", "")
 	for _, ref := range shot.ReferenceAssets {
 		add(ref, "", "Reference image", "reference", "")
@@ -335,8 +367,74 @@ func referenceImageInputs(shot Shot, characters []CharacterInput) []workflowImag
 	return out
 }
 
-func isWorkflowImageReference(raw string) bool {
+func referenceVideoInputs(shot Shot) []workflowMediaInput {
+	return referenceMediaInputs(shot.ReferenceVideoURLs, shot.ReferenceAssets, "video", "Reference video")
+}
+
+func referenceAudioInputs(shot Shot) []workflowMediaInput {
+	return referenceMediaInputs(shot.ReferenceAudioURLs, shot.ReferenceAssets, "audio", "Reference audio")
+}
+
+func referenceMediaInputs(explicitRefs []string, inferredRefs []string, kind string, label string) []workflowMediaInput {
+	out := make([]workflowMediaInput, 0)
+	seen := map[string]struct{}{}
+	add := func(ref string, requireInferredKind bool) {
+		ref = strings.TrimSpace(ref)
+		if !isWorkflowMediaReference(ref) {
+			return
+		}
+		if requireInferredKind && inferWorkflowMediaKind(ref) != kind {
+			return
+		}
+		if _, ok := seen[ref]; ok {
+			return
+		}
+		seen[ref] = struct{}{}
+		out = append(out, workflowMediaInput{URL: ref, Label: label, MediaType: kind})
+	}
+	for _, ref := range explicitRefs {
+		add(ref, false)
+	}
+	for _, ref := range inferredRefs {
+		add(ref, true)
+	}
+	return out
+}
+
+func isWorkflowMediaReference(raw string) bool {
 	return strings.HasPrefix(raw, "https://") || strings.HasPrefix(raw, "asset://ut-asset-")
+}
+
+func inferWorkflowMediaKind(raw string) string {
+	lowerRaw := strings.ToLower(strings.TrimSpace(raw))
+	lower := lowerRaw
+	if parsed, err := url.Parse(lowerRaw); err == nil {
+		for _, key := range []string{"media_type", "mediaType", "type", "kind"} {
+			switch strings.ToLower(parsed.Query().Get(key)) {
+			case "video":
+				return "video"
+			case "audio":
+				return "audio"
+			case "image":
+				return "image"
+			}
+		}
+		if parsed.Host != "" || parsed.Path != "" {
+			lower = parsed.Host + parsed.Path
+		}
+	}
+	switch {
+	case strings.HasSuffix(lower, ".mp4"), strings.HasSuffix(lower, ".mov"), strings.HasSuffix(lower, ".webm"), strings.HasSuffix(lower, ".m4v"):
+		return "video"
+	case strings.HasSuffix(lower, ".mp3"), strings.HasSuffix(lower, ".wav"), strings.HasSuffix(lower, ".m4a"), strings.HasSuffix(lower, ".aac"), strings.HasSuffix(lower, ".flac"):
+		return "audio"
+	case strings.HasPrefix(lowerRaw, "asset://") && strings.Contains(lower, "video"):
+		return "video"
+	case strings.HasPrefix(lowerRaw, "asset://") && strings.Contains(lower, "audio"):
+		return "audio"
+	default:
+		return "image"
+	}
 }
 
 func applyEngineDefaults(out *Storyboard, requestedEngine string) *Storyboard {
@@ -647,7 +745,9 @@ const systemPrompt = `你是一个专业短剧导演、分镜师和 AI 视频提
         "quality_terms": string[],
         "audio_cue": string
       },
-      "referenceAssets": string[]
+      "referenceAssets": string[],
+      "referenceVideoUrls": string[],
+      "referenceAudioUrls": string[]
     }
   ]
 }`

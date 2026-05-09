@@ -95,7 +95,7 @@ export default function KeysPage() {
       setShowCreate(false)
       setFormName(""); setFormSpendCap(""); setFormRPM(""); setFormConcurrency("5"); setFormIPAllowlist(""); setFormModels("")
       fetchKeys()
-      toast.success(t.keys.create + " ✓")
+      toast.success(t.keys.toasts.createSuccess)
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : t.keys.toasts.createFailed)
     } finally {

@@ -1,5 +1,5 @@
 import { memo, useMemo, useState, useCallback } from "react";
-import { Download, Filter, Grid2X2, ListVideo, Plus, Sparkles } from "lucide-react";
+import { Download, Filter, Grid2X2, ListVideo, Plus, Sparkles, Star } from "lucide-react";
 import { useDirectorStore, type Shot, type QualityScore } from "@/stores/director-store";
 import { useAppStore } from "@/stores/app-store";
 import { sidecarFetch } from "@/lib/sidecar";
@@ -285,7 +285,7 @@ export const StoryboardPanel = memo(function StoryboardPanel() {
             {[...Array(10)].map((_, i) => (
               <div key={i} className="aspect-video w-full rounded-[var(--radius-lg)] bg-nc-surface border border-nc-border shadow-sm flex flex-col justify-between p-4">
                 <div className="flex justify-between items-start w-full">
-                  <div className="h-5 w-5 bg-nc-panel rounded flex items-center justify-center text-[10px] font-bold text-nc-text-tertiary">{i + 1}</div>
+                  <div className="flex h-6 w-6 items-center justify-center rounded-[8px] bg-nc-panel text-[12px] font-bold text-nc-text-tertiary">{i + 1}</div>
                   <div className="h-4 w-12 bg-nc-panel rounded-sm" />
                 </div>
                 <div className="space-y-1.5 w-full mt-auto">
@@ -308,7 +308,7 @@ export const StoryboardPanel = memo(function StoryboardPanel() {
             <div className="flex items-center gap-3">
               <h1 className="text-[28px] font-semibold leading-9 text-nc-text">分镜板</h1>
               <button type="button" aria-label="收藏分镜板" className="flex h-9 w-9 items-center justify-center rounded-[10px] text-nc-text-tertiary hover:bg-nc-bg hover:text-nc-accent">
-                ☆
+                <Star className="h-4 w-4" />
               </button>
             </div>
             <p className="mt-1 text-[14px] leading-6 text-nc-text-secondary">
@@ -427,10 +427,10 @@ export const StoryboardPanel = memo(function StoryboardPanel() {
             >
               <div className="relative aspect-video overflow-hidden rounded-[9px] bg-nc-bg">
                 <MediaThumb src={shot.thumbnail_url || undefined} title={shot.title} className="h-full rounded-[9px] border-0" />
-                <span className="absolute left-1.5 top-1.5 rounded-[7px] bg-white/90 px-1.5 py-0.5 font-mono text-[10px] font-bold text-nc-accent">0{index + 1}</span>
+                <span className="absolute left-1.5 top-1.5 rounded-[8px] bg-white/90 px-2 py-1 font-mono text-[12px] font-bold text-nc-accent">0{index + 1}</span>
               </div>
-              <span className="truncate text-[11px] font-semibold leading-4 text-nc-text">{shot.title}</span>
-              <span className="font-mono text-[10px] text-nc-text-tertiary">{shot.duration}s</span>
+              <span className="truncate text-[12px] font-semibold leading-5 text-nc-text">{shot.title}</span>
+              <span className="font-mono text-[12px] text-nc-text-tertiary">{shot.duration}s</span>
             </button>
           ))}
         </div>

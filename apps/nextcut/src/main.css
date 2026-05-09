@@ -536,3 +536,15 @@ video {
 [title] {
   position: relative;
 }
+
+/* Keep dense production panels readable; avoid sub-caption type unless a
+   component opts into a stronger local rule. */
+.nc-text-safe:where([class*="text-[9.5px]"], [class*="text-[10px]"], [class*="text-[10.5px]"], [class*="text-[11px]"], [class*="text-[11.5px]"]) {
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.nc-text-safe.text-xs {
+  font-size: 13px;
+  line-height: 18px;
+}

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react"
 import {
   AlertTriangle,
+  Check,
   Copy,
   Download,
   ExternalLink,
@@ -243,7 +244,7 @@ export function JobDetail({ jobId }: { jobId: string }) {
               className="inline-flex size-6 items-center justify-center rounded-md text-muted-foreground hover:text-foreground"
             >
               {copied
-                ? <span className="text-[10px] text-status-success">✓</span>
+                ? <Check className="size-3.5 text-status-success" aria-hidden="true" />
                 : <Copy className="size-3.5" />
               }
             </button>

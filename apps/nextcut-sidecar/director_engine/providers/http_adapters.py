@@ -167,6 +167,8 @@ class CustomHttpProvider:
                 "image_urls": params.image_urls,
                 "video_urls": params.video_urls,
                 "audio_urls": params.audio_urls,
+                "first_frame_url": params.first_frame_url,
+                "last_frame_url": params.last_frame_url,
                 "reference_instructions": params.reference_instructions,
             }
         extra_body = options.get("extra_body")
@@ -216,7 +218,7 @@ class RunningHubProvider(CustomHttpProvider):
 
     def __init__(self, config: ProviderConfig) -> None:
         if not config.base_url:
-            config = config.model_copy(update={"base_url": "https://www.runninghub.ai"})
+            config = config.model_copy(update={"base_url": "https://www.runninghub.cn"})
         super().__init__(config)
 
     def _build_submit_body(

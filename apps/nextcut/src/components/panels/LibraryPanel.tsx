@@ -51,6 +51,20 @@ function mediaLabel(type: MediaAsset["type"]) {
   return type === "video" ? "视频" : type === "audio" ? "音频" : "图片";
 }
 
+function characterAssetLabel(role: string) {
+  const labels: Record<string, string> = {
+    turnaround: "三视图",
+    character_turnaround: "三视图",
+    expressions: "表情集",
+    character_expressions: "表情集",
+    outfits: "服装集",
+    character_outfits: "服装集",
+    poses: "姿态集",
+    character_poses: "姿态集",
+  };
+  return labels[role] || role;
+}
+
 function formatBytes(bytes: number) {
   if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";
   const units = ["B", "KB", "MB", "GB"];
@@ -80,6 +94,7 @@ export const LibraryPanel = memo(function LibraryPanel() {
   const setSelectedShotId = useAppStore((s) => s.setSelectedShotId);
   const setSidebarPage = useAppStore((s) => s.setSidebarPage);
   const shots = useDirectorStore((s) => s.shots);
+  const characters = useDirectorStore((s) => s.characters);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [filter, setFilter] = useState<MediaFilter>("all");
@@ -144,13 +159,43 @@ export const LibraryPanel = memo(function LibraryPanel() {
       shot_id: shot.id,
       tags: ["分镜", shot.video_url ? "已生成" : "已规划", shot.video_url ? "视频" : "规划"].filter(Boolean),
       size: shot.video_url ? "128 MB" : "2.4 MB",
-      resolution: shot.video_url ? "1920×1080" : "分镜规划",
+      resolution: shot.video_url ? "1920x1080" : "分镜规划",
       source: shot.video_url ? "生成视频" : "AI 导演规划",
       description: shot.generationParams?.shot_script || shot.prompt || "由 AI Director 生成的镜头资产，可继续进入分镜和编辑页。",
     }));
 
-    return [...localAssets, ...shotAssets];
-  }, [localAssets, shots]);
+    const characterAssets = characters.flatMap((character, characterIndex) => {
+      const structuredAssets = (character.assetPack || []).map((asset, assetIndex) => ({
+        id: `character_${character.id}_${asset.id}`,
+        type: "image" as const,
+        url: asset.url,
+        thumbnail_url: asset.url,
+        name: `${character.name} · ${characterAssetLabel(asset.role)}`,
+        created_at: new Date(Date.now() - (characterIndex * 20 + assetIndex) * 30_000).toISOString(),
+        tags: ["角色资产", "Identity Lock", characterAssetLabel(asset.role)],
+        size: "AI 生成",
+        resolution: "1024x1024",
+        source: "角色资产包",
+        description: asset.description || `用于 ${character.name} 的身份一致性锁定。`,
+      }));
+      if (structuredAssets.length) return structuredAssets;
+      return character.referenceImages.map((url, index) => ({
+        id: `character_${character.id}_ref_${index}`,
+        type: "image" as const,
+        url,
+        thumbnail_url: url,
+        name: `${character.name} · 身份参考 ${index + 1}`,
+        created_at: new Date(Date.now() - (characterIndex * 20 + index) * 30_000).toISOString(),
+        tags: ["角色资产", "Identity Lock", index === 0 ? "Master" : "Reference"],
+        size: "参考图",
+        resolution: "角色参考",
+        source: "角色身份锁",
+        description: `${character.name} 的身份锁参考图，会注入生成链路以保持角色一致性。`,
+      }));
+    });
+
+    return [...localAssets, ...characterAssets, ...shotAssets];
+  }, [characters, localAssets, shots]);
 
   const collections = useMemo(() => {
     const items = [

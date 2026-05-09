@@ -259,7 +259,7 @@ export async function apiFetch(path: string, options: RequestInit = {}) {
   let key = requireDashboardKey(await getDashboardKey(false))
   let res = await doFetch(key)
 
-  // Stale or revoked session key → force re-bootstrap once and retry.
+  // Stale or revoked session key: force re-bootstrap once and retry.
   if (res.status === 401) {
     key = requireDashboardKey(await getDashboardKey(true))
     res = await doFetch(key)

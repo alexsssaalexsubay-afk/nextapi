@@ -60,6 +60,39 @@ class GeneratePreflightTest(unittest.TestCase):
         self.assertIn("Reference instructions", params.prompt)
         self.assertEqual(params.reference_instructions, shot.reference_instructions)
 
+    def test_allows_first_last_frame_workflow(self):
+        shot = GenerateRequest(
+            shot_id="shot_04",
+            prompt="Use the first frame and last frame to create a smooth product reveal.",
+            workflow="image_to_video",
+            first_frame_url="https://cdn.test/first.png",
+            last_frame_url="https://cdn.test/last.png",
+            duration=5,
+            quality="720p",
+        )
+
+        result = preflight_generation_request(BatchGenerateRequest(shots=[shot]))
+        params = _build_params(shot)
+
+        self.assertEqual(result.status, "allowed")
+        self.assertEqual(params.first_frame_url, "https://cdn.test/first.png")
+        self.assertEqual(params.last_frame_url, "https://cdn.test/last.png")
+
+    def test_blocks_first_frame_conflicting_with_image_urls(self):
+        result = preflight_generation_request(BatchGenerateRequest(shots=[
+            GenerateRequest(
+                shot_id="shot_05",
+                prompt="Use image 1 as the first frame for a controlled camera push.",
+                first_frame_url="https://cdn.test/first.png",
+                image_urls=["https://cdn.test/ref.png"],
+                duration=5,
+                quality="720p",
+            )
+        ]))
+
+        self.assertEqual(result.status, "blocked")
+        self.assertTrue(any(f.code == "first_frame_conflicts_images" for f in result.findings))
+
 
 if __name__ == "__main__":
     unittest.main()

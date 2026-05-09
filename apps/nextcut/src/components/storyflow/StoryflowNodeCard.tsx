@@ -68,9 +68,9 @@ export function StoryflowNodeCard({ data, selected }: NodeProps<StoryflowNode>) 
           </span>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
-              <span className="nc-text-safe truncate text-[11px] font-semibold uppercase leading-4 tracking-[0.12em] text-nc-text-tertiary">{data.eyebrow}</span>
-              <Pill tone={capability.tone} className="min-h-6 px-2 py-0.5 text-[11px]" title={capability.hint}>{capability.shortLabel}</Pill>
-              {data.metric && !isShot && <Pill tone="accent" className="min-h-6 px-2 py-0.5 text-[11px]">{data.metric}</Pill>}
+              <span className="nc-text-safe truncate text-[12px] font-semibold leading-5 text-nc-text-tertiary">{data.eyebrow}</span>
+              <Pill tone={capability.tone} className="min-h-7 px-3 py-1 text-[12px]" title={capability.hint}>{capability.shortLabel}</Pill>
+              {data.metric && !isShot && <Pill tone="accent" className="min-h-7 px-3 py-1 text-[12px]">{data.metric}</Pill>}
             </div>
             <h3 className="nc-text-safe mt-1 line-clamp-1 text-[15px] font-semibold leading-6 text-nc-text">{data.title}</h3>
           </div>
@@ -101,11 +101,11 @@ export function StoryflowNodeCard({ data, selected }: NodeProps<StoryflowNode>) 
 
         <div className="flex flex-wrap gap-2">
           {(data.tags || []).filter(Boolean).slice(0, 3).map((tag: string) => (
-            <span key={tag} className="nc-text-safe max-w-full rounded-full border border-nc-border bg-nc-bg px-2.5 py-1 text-[11px] font-semibold leading-4 text-nc-text-tertiary">
+            <span key={tag} className="nc-text-safe max-w-full rounded-full border border-nc-border bg-nc-bg px-3 py-1 text-[12px] font-semibold leading-5 text-nc-text-tertiary">
               {tag}
             </span>
           ))}
-          {score !== null && <span className="rounded-full border border-nc-success/25 bg-nc-success/10 px-2.5 py-1 text-[11px] font-semibold leading-4 text-nc-success">{score}/100</span>}
+          {score !== null && <span className="rounded-full border border-nc-success/25 bg-nc-success/10 px-3 py-1 text-[12px] font-semibold leading-5 text-nc-success">{score}/100</span>}
         </div>
       </div>
 

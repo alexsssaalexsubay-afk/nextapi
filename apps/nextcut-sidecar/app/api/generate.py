@@ -26,6 +26,7 @@ from pydantic import BaseModel, Field
 
 from app.core.config import settings
 from app.core.events import event_bus, Event, EventType
+from app.core.media_tools import resolve_ffmpeg_exe
 from director_engine.interfaces.models import ProviderConfig, VideoGenerationParams
 from director_engine.providers.registry import create_video_provider, list_video_providers, normalize_provider_name
 
@@ -51,6 +52,8 @@ class GenerateRequest(BaseModel):
     image_urls: list[str] = Field(default_factory=list)
     video_urls: list[str] = Field(default_factory=list)
     audio_urls: list[str] = Field(default_factory=list)
+    first_frame_url: str = ""
+    last_frame_url: str = ""
     provider: str = "seedance"
     model: str = ""
     api_key: str = ""
@@ -260,6 +263,8 @@ def _build_params(req: GenerateRequest) -> VideoGenerationParams:
         image_urls=req.image_urls,
         video_urls=req.video_urls,
         audio_urls=req.audio_urls,
+        first_frame_url=req.first_frame_url,
+        last_frame_url=req.last_frame_url,
         provider_options=req.provider_options,
     )
 
@@ -292,6 +297,8 @@ def preflight_generation_request(req: BatchGenerateRequest) -> PreflightResponse
             "video": shot.video_urls,
             "audio": shot.audio_urls,
         }
+        has_first_frame = bool(shot.first_frame_url.strip())
+        has_last_frame = bool(shot.last_frame_url.strip())
 
         if not shot.prompt.strip():
             findings.append(_finding(shot.shot_id, "critical", "empty_prompt", "镜头 prompt 为空。", "补充主体、动作、场景和镜头运动。"))
@@ -310,8 +317,12 @@ def preflight_generation_request(req: BatchGenerateRequest) -> PreflightResponse
             findings.append(_finding(shot.shot_id, "critical", "too_many_videos", "Seedance 最多接收 3 个 video reference。", "减少视频参考数量。"))
         if provider_name in {"seedance", "nextapi"} and len(shot.audio_urls) > 3:
             findings.append(_finding(shot.shot_id, "critical", "too_many_audio", "Seedance 最多接收 3 个 audio reference。", "减少音频参考数量。"))
+        if provider_name in {"seedance", "nextapi"} and has_first_frame and shot.image_urls:
+            findings.append(_finding(shot.shot_id, "critical", "first_frame_conflicts_images", "Seedance 的 first_frame_url 不能和 image_urls 同时提交。", "首尾帧工作流只保留 first_frame_url/last_frame_url，其他参考放入 reference instructions 或改用 image_urls。"))
+        if has_last_frame and not has_first_frame:
+            findings.append(_finding(shot.shot_id, "critical", "last_frame_without_first_frame", "last_frame_url 需要同时提供 first_frame_url。", "先生成或选择首帧图，再提交尾帧图。"))
 
-        if shot.workflow == "image_to_video" and not shot.image_urls:
+        if shot.workflow == "image_to_video" and not shot.image_urls and not has_first_frame:
             findings.append(_finding(shot.shot_id, "critical", "missing_image_reference", "image_to_video 工作流缺少 image_urls。", "生成或上传首帧/产品图/角色图后再提交。"))
 
         for media_kind, urls in refs.items():
@@ -324,10 +335,19 @@ def preflight_generation_request(req: BatchGenerateRequest) -> PreflightResponse
                         f"{media_kind}_urls 中包含 provider 无法访问的本地地址。",
                         "先上传到素材库或换成可被服务端访问的 https/asset URL。",
                     ))
+        for frame_kind, url in (("first_frame", shot.first_frame_url), ("last_frame", shot.last_frame_url)):
+            if url and _is_local_only_url(url):
+                findings.append(_finding(
+                    shot.shot_id,
+                    "critical",
+                    f"local_{frame_kind}",
+                    f"{frame_kind}_url 是 provider 无法访问的本地地址。",
+                    "先上传到素材库或换成可被服务端访问的 https/asset URL。",
+                ))
 
         lowered_prompt = prompt.lower()
-        if ("image 1" in lowered_prompt or "first frame" in lowered_prompt or "last frame" in lowered_prompt) and not shot.image_urls:
-            findings.append(_finding(shot.shot_id, "critical", "referenced_image_missing", "prompt 引用了图像参考，但 payload 没有 image_urls。", "把角色图、分镜图、首帧或尾帧写入 generationParams.image_urls。"))
+        if ("image 1" in lowered_prompt or "first frame" in lowered_prompt or "last frame" in lowered_prompt) and not shot.image_urls and not has_first_frame:
+            findings.append(_finding(shot.shot_id, "critical", "referenced_image_missing", "prompt 引用了图像参考，但 payload 没有 image_urls 或 first_frame_url。", "把角色图、分镜图、首帧或尾帧写入 generationParams。"))
         if "video 1" in lowered_prompt and not shot.video_urls:
             findings.append(_finding(shot.shot_id, "critical", "referenced_video_missing", "prompt 引用了视频参考，但 payload 没有 video_urls。", "把参考视频写入 generationParams.video_urls。"))
         if "audio 1" in lowered_prompt and not shot.audio_urls:
@@ -733,8 +753,9 @@ async def export_assembly(req: ExportRequest):
                 f.write(f"file '{tf.name}'\n")
                 
         # 3. Run FFmpeg to concatenate videos
+        ffmpeg_exe = resolve_ffmpeg_exe()
         cmd = [
-            "ffmpeg", "-y", "-f", "concat", "-safe", "0", 
+            ffmpeg_exe, "-y", "-f", "concat", "-safe", "0",
             "-i", concat_file.name, 
             "-c", "copy", output_filename
         ]
@@ -768,7 +789,11 @@ async def export_assembly(req: ExportRequest):
         }
     except Exception as e:
         logger.error(f"Export error: {e}")
-        return {"status": "error", "message": str(e)}
+        return {
+            "status": "error",
+            "message": str(e),
+            "code": "ffmpeg_unavailable" if "FFmpeg is not available" in str(e) else "export_failed",
+        }
 
 
 async def _run_batch(shots: list[GenerateRequest], sequential: bool) -> None:

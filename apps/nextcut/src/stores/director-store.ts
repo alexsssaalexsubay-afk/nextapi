@@ -72,7 +72,7 @@ export const WORKFLOW_PRESETS: WorkflowPreset[] = [
     id: "text_to_video",
     label: "Quick Concept",
     labelZh: "快速概念稿",
-    description: "Text → Video. Fast iteration for idea exploration.",
+    description: "Text to video. Fast iteration for idea exploration.",
     descriptionZh: "纯文本生成视频，快速验证创意方向",
     duration: "4-10s",
     needsRefImage: false,
@@ -88,7 +88,7 @@ export const WORKFLOW_PRESETS: WorkflowPreset[] = [
     id: "image_to_video",
     label: "Product / Ad",
     labelZh: "广告 / 产品展示",
-    description: "Image + Text → Video. Best for product shots and ads.",
+    description: "Image plus text to video. Best for product shots and ads.",
     descriptionZh: "参考图 + 文案生成视频，适合产品和广告",
     duration: "5-10s",
     needsRefImage: true,
@@ -136,8 +136,17 @@ export interface CharacterProfile {
   personality: string;
   voice: string;
   referenceImages: string[];
+  assetPack?: CharacterAssetRef[];
   color: string;
   locked: boolean;
+}
+
+export interface CharacterAssetRef {
+  id: string;
+  url: string;
+  role: "turnaround" | "expressions" | "outfits" | "poses" | string;
+  description: string;
+  prompt?: string;
 }
 
 export interface SceneOutline {
@@ -176,9 +185,17 @@ export interface ShotGenerationParams {
   image_urls?: string[];
   video_urls?: string[];
   audio_urls?: string[];
+  identity_locks?: ShotIdentityLock[];
   provider_options?: Record<string, unknown>;
   provider_score?: number;
   provider_reason?: string;
+}
+
+export interface ShotIdentityLock {
+  character_id: string;
+  character_name: string;
+  reference_urls: string[];
+  asset_roles: string[];
 }
 
 export interface Shot {
@@ -745,6 +762,10 @@ function sanitizeCharacterProfile(character: CharacterProfile): CharacterProfile
   return {
     ...character,
     referenceImages: sanitizeMediaList(character.referenceImages) || [],
+    assetPack: character.assetPack?.map((asset) => ({
+      ...asset,
+      url: safeMediaSrc(asset.url) || "",
+    })).filter((asset) => asset.url),
   };
 }
 
@@ -760,6 +781,10 @@ function sanitizeShotMedia(shot: Shot): Shot {
           image_urls: sanitizeMediaList(params.image_urls),
           video_urls: sanitizeMediaList(params.video_urls),
           audio_urls: sanitizeMediaList(params.audio_urls),
+          identity_locks: params.identity_locks?.map((lock) => ({
+            ...lock,
+            reference_urls: sanitizeMediaList(lock.reference_urls) || [],
+          })),
         }
       : params,
   };
@@ -775,6 +800,10 @@ function sanitizeShotPatch(patch: Partial<Shot>): Partial<Shot> {
       image_urls: sanitizeMediaList(sanitized.generationParams.image_urls),
       video_urls: sanitizeMediaList(sanitized.generationParams.video_urls),
       audio_urls: sanitizeMediaList(sanitized.generationParams.audio_urls),
+      identity_locks: sanitized.generationParams.identity_locks?.map((lock) => ({
+        ...lock,
+        reference_urls: sanitizeMediaList(lock.reference_urls) || [],
+      })),
     };
   }
   return sanitized;

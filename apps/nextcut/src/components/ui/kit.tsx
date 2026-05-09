@@ -214,7 +214,7 @@ export function StatusBadge({
   tone?: Tone;
   className?: string;
 } & HTMLAttributes<HTMLSpanElement>) {
-  return <Pill {...props} tone={tone} className={cn("min-h-6 px-2.5 py-0.5 text-[11px]", className)}>{children}</Pill>;
+  return <Pill {...props} tone={tone} className={cn("min-h-7 px-3 py-1 text-[12px]", className)}>{children}</Pill>;
 }
 
 export function FieldShell({

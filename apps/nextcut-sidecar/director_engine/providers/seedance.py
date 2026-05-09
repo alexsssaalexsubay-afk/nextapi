@@ -128,6 +128,11 @@ class SeedanceProvider:
             inp["video_urls"] = params.video_urls[:3]
         if params.audio_urls:
             inp["audio_urls"] = params.audio_urls[:3]
+        if params.first_frame_url:
+            inp.pop("image_urls", None)
+            inp["first_frame_url"] = params.first_frame_url
+        if params.last_frame_url:
+            inp["last_frame_url"] = params.last_frame_url
         inp.update(_safe_provider_options(params.provider_options))
         return {"model": model, "input": inp}
 

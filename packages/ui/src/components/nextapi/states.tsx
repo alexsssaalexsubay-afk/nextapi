@@ -16,7 +16,7 @@ function StateFrame({ tone = "neutral", className, children }: StateFrameProps) 
   return (
     <div
       className={cn(
-        "flex flex-col items-center justify-center rounded-xl border px-6 py-14 text-center",
+        "flex flex-col items-center justify-center rounded-xl border px-6 py-10 text-center",
         tone === "danger"
           ? "border-status-failed/25 bg-status-failed-dim/10"
           : "border-border/80 bg-card/40",
@@ -55,7 +55,7 @@ export function EmptyState({
       <h3 className="text-[15px] font-medium tracking-tight text-foreground">
         {title ?? t.jobs.empty.title}
       </h3>
-      <p className="mt-2 max-w-[440px] text-[12.5px] leading-relaxed text-muted-foreground">
+      <p className="mt-2 max-w-[440px] text-sm leading-relaxed text-muted-foreground">
         {description ?? t.jobs.empty.description}
       </p>
       <div className="mt-5 flex items-center gap-2">
@@ -129,7 +129,7 @@ export function ErrorState({
       <h3 className="text-[15px] font-medium tracking-tight text-foreground">
         {title ?? t.jobs.error.title}
       </h3>
-      <p className="mt-2 max-w-[460px] text-[12.5px] leading-relaxed text-muted-foreground">
+      <p className="mt-2 max-w-[460px] text-sm leading-relaxed text-muted-foreground">
         {description ?? t.jobs.error.description}
       </p>
 

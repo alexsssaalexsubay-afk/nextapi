@@ -17,6 +17,8 @@ dependencies = [
     "aiofiles>=24.0.0",
     "python-multipart>=0.0.20",
     "pyyaml>=6.0",
+    "imageio-ffmpeg>=0.5.1",
+    "psutil>=5.9.0",
 ]
 
 [project.optional-dependencies]

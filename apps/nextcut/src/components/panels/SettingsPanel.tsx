@@ -1,9 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
+import type { ReactNode } from "react";
+import { AlertTriangle, CheckCircle2, Cloud, Cpu, Download, ExternalLink, FolderPlus, Image, KeyRound, RefreshCw, Route, Server, Settings2, Video, WalletCards, Workflow } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { capabilityMeta } from "@/lib/capability-badges";
 import { sidecarFetch } from "@/lib/sidecar";
+import { openExternalUrl } from "@/lib/open-external";
 import { useAuthStore } from "@/stores/auth-store";
 import { type AgentLLMConfig, type PipelineConfig, useDirectorStore } from "@/stores/director-store";
+import { type ProductionLineStatus, type SetupStatus, useSetupStore } from "@/stores/setup-store";
 import {
   Button,
   FieldLabel,
@@ -33,6 +37,15 @@ const VIDEO_MODELS = [
   { id: "seedance-2.0-pro", label: "Seedance 2.0 Pro" },
   { id: "seedance-2.0-fast", label: "Seedance 2.0 Fast" },
   { id: "seedance-1.5-pro", label: "Seedance 1.5 Pro" },
+];
+
+const VIDEO_PROVIDERS = [
+  { id: "nextapi", label: "NextAPI 托管视频（扣团队点数）" },
+  { id: "seedance", label: "Seedance 直连 / NextAPI Relay" },
+  { id: "comfyui", label: "ComfyUI 本地工作流" },
+  { id: "runninghub", label: "RunningHub 云端工作流" },
+  { id: "local-openai-compatible", label: "本地 OpenAI 兼容服务" },
+  { id: "custom-http", label: "自定义 HTTP Provider" },
 ];
 
 const AGENTS: Array<{ key: keyof Pick<PipelineConfig, "screenwriter" | "character_extractor" | "storyboard_artist" | "cinematographer" | "audio_director" | "editing_agent" | "consistency_checker" | "prompt_optimizer">; label: string; role: string }> = [
@@ -90,7 +103,8 @@ function formatCents(value?: number) {
 
 export function SettingsPanel() {
   const { pipeline, setPipeline, setDefaultLLM } = useDirectorStore();
-  const { user, status } = useAuthStore();
+  const { user, status: authStatus } = useAuthStore();
+  const { setupStatus, setSetupStatus } = useSetupStore();
   const llm = pipeline.default_llm;
   const [activeTab, setActiveTab] = useState<Tab>("llm");
   const [modelPresets, setModelPresets] = useState<ModelPreset[]>([]);
@@ -118,6 +132,9 @@ export function SettingsPanel() {
     ));
   }, [modelPresets, modelQuery]);
   const selectedPrompt = runtimePrompts.find((item) => item.id === selectedPromptId) || runtimePrompts[0] || null;
+  const productionLines = setupStatus?.production_lines || [];
+  const readyLines = productionLines.filter((line) => line.ready).length;
+  const teamBillingLines = productionLines.filter((line) => line.billing === "team_credits").length;
 
   useEffect(() => {
     void sidecarFetch<{ presets: ModelPreset[] }>("/config/llm-presets")
@@ -134,6 +151,9 @@ export function SettingsPanel() {
         }
       })
       .catch(() => setNotice({ tone: "warning", text: "提示词配置暂时无法从 sidecar 读取。" }));
+    void sidecarFetch<SetupStatus>("/setup/detect")
+      .then((res) => setSetupStatus(res))
+      .catch(() => setNotice({ tone: "warning", text: "生产线路状态暂时无法从 sidecar 读取。" }));
   }, []);
 
   useEffect(() => {
@@ -205,6 +225,23 @@ export function SettingsPanel() {
       setNotice({ tone: res.status === "configured" ? "success" : "warning", text: res.message });
     } catch {
       setNotice({ tone: "warning", text: "sidecar 配置检测失败，请确认后端服务已启动。" });
+    }
+  };
+
+  const runSetupAction = async (action: string, payload: Record<string, string> = {}) => {
+    try {
+      const res = await sidecarFetch<{ status: string; message: string; url?: string }>("/setup/actions", {
+        method: "POST",
+        body: JSON.stringify({ action, ...payload }),
+      });
+      if (res.url) {
+        await openExternalUrl(res.url);
+      }
+      setNotice({ tone: res.status === "error" ? "warning" : "success", text: res.message });
+      const status = await sidecarFetch<SetupStatus>("/setup/detect");
+      setSetupStatus(status);
+    } catch {
+      setNotice({ tone: "warning", text: "配置动作失败，请确认 sidecar 已启动。" });
     }
   };
 
@@ -282,7 +319,7 @@ export function SettingsPanel() {
               </Surface>
               <Surface className="p-4">
                 <div className="text-[12px] font-semibold uppercase tracking-[0.12em] text-nc-text-tertiary">余额</div>
-                <div className="mt-2 text-[18px] font-semibold leading-7 text-nc-text">{formatCents(status?.credits)}</div>
+                <div className="mt-2 text-[18px] font-semibold leading-7 text-nc-text">{formatCents(authStatus?.credits)}</div>
               </Surface>
               <Surface className="p-4">
                 <div className="text-[12px] font-semibold uppercase tracking-[0.12em] text-nc-text-tertiary">当前扣费源</div>
@@ -395,51 +432,118 @@ export function SettingsPanel() {
 
       {activeTab === "models" && (
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
-          <SectionCard
-            title="模型预设库"
-            subtitle="预置 30+ 个主流 LLM / 聚合网关配置。点击即可写入默认语言模型；Key 仍由你本地填写。"
-            action={<StatusBadge tone="accent">{modelPresets.length} 个预设</StatusBadge>}
-          >
-            <div className="mb-5">
-              <FieldShell>
-                <input
-                  value={modelQuery}
-                  onChange={(event) => setModelQuery(event.target.value)}
-                  placeholder="搜索 OpenAI / Claude / Gemini / DeepSeek / Qwen / OpenRouter..."
-                  className="w-full bg-transparent text-[14px] leading-6 text-nc-text outline-none placeholder:text-nc-text-tertiary"
-                />
-              </FieldShell>
-            </div>
-            <div className="grid gap-3 md:grid-cols-2">
-              {filteredPresets.map((preset) => (
-                <Surface key={preset.id} interactive className="p-4">
-                  <div className="flex items-start justify-between gap-3">
+          <div className="grid gap-6">
+            <ModelCenterHero
+              readyLines={readyLines}
+              totalLines={productionLines.length || 6}
+              onPrepare={() => runSetupAction("prepare_local_factory")}
+              onPrepareImage={() => runSetupAction("prepare_image_pipeline")}
+              onPrepareFfmpeg={() => runSetupAction("prepare_ffmpeg")}
+              onDefaults={() => runSetupAction("apply_default_routes")}
+              onRefresh={async () => {
+                const status = await sidecarFetch<SetupStatus>("/setup/detect");
+                setSetupStatus(status);
+                setNotice({ tone: "success", text: "生产线路状态已刷新。" });
+              }}
+            />
+            <SectionCard
+              title="生产线路 / 模型中心"
+              subtitle="把本地视频模型、本地生图、ComfyUI、RunningHub、NextAPI 和自定义接口分开看：能不能跑、扣谁的钱、Key 从哪里来。"
+              action={<StatusBadge tone={readyLines ? "success" : "warning"}>{readyLines}/{productionLines.length || 6} 可用</StatusBadge>}
+            >
+              <div className="mb-5 grid gap-3 md:grid-cols-3">
+                <Surface className="p-4">
+                  <div className="flex items-center gap-3">
+                    <WalletCards className="h-5 w-5 shrink-0 text-nc-accent" />
                     <div className="min-w-0">
-                      <div className="line-clamp-1 text-[15px] font-semibold leading-6 text-nc-text">{preset.label}</div>
-                      <div className="mt-1 line-clamp-1 font-mono text-[12px] leading-5 text-nc-text-secondary">{preset.model}</div>
+                      <div className="text-[12px] font-semibold uppercase tracking-[0.12em] text-nc-text-tertiary">团队扣点线路</div>
+                      <div className="mt-1 text-[20px] font-bold leading-7 text-nc-text">{teamBillingLines}</div>
                     </div>
-                    <StatusBadge tone={preset.provider === "custom" ? "neutral" : "accent"}>{preset.provider}</StatusBadge>
                   </div>
-                  <div className="mt-3 line-clamp-1 rounded-[12px] bg-nc-panel px-3 py-2 font-mono text-[11px] leading-5 text-nc-text-tertiary">
-                    {preset.base_url}
-                  </div>
-                  {preset.notes && <p className="mt-2 line-clamp-2 text-[12px] leading-5 text-nc-text-secondary">{preset.notes}</p>}
-                  <Button className="mt-4 w-full" variant="secondary" onClick={() => applyModelPreset(preset)}>
-                    套用到默认模型
-                  </Button>
                 </Surface>
-              ))}
-            </div>
-          </SectionCard>
+                <Surface className="p-4">
+                  <div className="flex items-center gap-3">
+                    <Cpu className="h-5 w-5 shrink-0 text-nc-info" />
+                    <div className="min-w-0">
+                      <div className="text-[12px] font-semibold uppercase tracking-[0.12em] text-nc-text-tertiary">本地资源</div>
+                      <div className="mt-1 line-clamp-1 text-[15px] font-semibold leading-7 text-nc-text">{setupStatus?.system.gpu_backend || "CPU / 外部服务"}</div>
+                    </div>
+                  </div>
+                </Surface>
+                <Surface className="p-4">
+                  <div className="flex items-center gap-3">
+                    <KeyRound className="h-5 w-5 shrink-0 text-nc-warning" />
+                    <div className="min-w-0">
+                      <div className="text-[12px] font-semibold uppercase tracking-[0.12em] text-nc-text-tertiary">当前视频扣费</div>
+                      <div className="mt-1 line-clamp-1 text-[15px] font-semibold leading-7 text-nc-text">{currentBillingLabel(pipeline.video_provider)}</div>
+                    </div>
+                  </div>
+                </Surface>
+              </div>
 
-          <GuidancePanel
-            title="模型库说明"
-            items={[
-              "非 OpenAI 原生协议的服务商保留 api_kind；当前主流程仍通过 OpenAI-compatible 客户端，custom 网关最稳。",
-              "Anthropic / Gemini 直连需要适配层或兼容网关；预设先保留官方 endpoint 与模型名，方便后台继续接。",
-              "模型名会经常更新，这里可继续扩展，不需要改业务页面。",
-            ]}
-          />
+              <div className="grid gap-4 xl:grid-cols-2">
+                {(productionLines.length ? productionLines : fallbackProductionLines(pipeline.video_provider)).map((line) => (
+                  <ProductionLineCard key={line.id} line={line} active={isLineActive(line, pipeline.video_provider)} onAction={runSetupAction} />
+                ))}
+              </div>
+            </SectionCard>
+
+            <SectionCard
+              title="语言模型预设库"
+              subtitle="预置 30+ 个主流 LLM / 聚合网关配置。点击即可写入默认语言模型；Key 仍由你本地填写。"
+              action={<StatusBadge tone="accent">{modelPresets.length} 个预设</StatusBadge>}
+            >
+              <div className="mb-5">
+                <FieldShell>
+                  <input
+                    value={modelQuery}
+                    onChange={(event) => setModelQuery(event.target.value)}
+                    placeholder="搜索 OpenAI / Claude / Gemini / DeepSeek / Qwen / OpenRouter..."
+                    className="w-full bg-transparent text-[14px] leading-6 text-nc-text outline-none placeholder:text-nc-text-tertiary"
+                  />
+                </FieldShell>
+              </div>
+              <div className="grid gap-3 md:grid-cols-2">
+                {filteredPresets.map((preset) => (
+                  <Surface key={preset.id} interactive className="p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="line-clamp-1 text-[15px] font-semibold leading-6 text-nc-text">{preset.label}</div>
+                        <div className="mt-1 line-clamp-1 font-mono text-[12px] leading-5 text-nc-text-secondary">{preset.model}</div>
+                      </div>
+                      <StatusBadge tone={preset.provider === "custom" ? "neutral" : "accent"}>{preset.provider}</StatusBadge>
+                    </div>
+                    <div className="mt-3 line-clamp-1 rounded-[12px] bg-nc-panel px-3 py-2 font-mono text-[11px] leading-5 text-nc-text-tertiary">
+                      {preset.base_url}
+                    </div>
+                    {preset.notes && <p className="mt-2 line-clamp-2 text-[12px] leading-5 text-nc-text-secondary">{preset.notes}</p>}
+                    <Button className="mt-4 w-full" variant="secondary" onClick={() => applyModelPreset(preset)}>
+                      套用到默认模型
+                    </Button>
+                  </Surface>
+                ))}
+              </div>
+            </SectionCard>
+          </div>
+
+          <div className="grid gap-6">
+            <GuidancePanel
+              title="线路规则"
+              items={[
+                "NextAPI 托管视频统一扣团队余额，适合多人团队、用量归因和后台管理。",
+                "ComfyUI、RunningHub、本地 OpenAI 兼容服务和本地模型走用户自己的资源或 Key，不扣团队点数。",
+                "自定义 HTTP Provider 保留上游原始响应 envelope，方便后续接入新模型而不改业务页面。",
+              ]}
+            />
+            <GuidancePanel
+              title="模型库说明"
+              items={[
+                "文字 LLM 负责导演、分镜、提示词和预检，不直接生成图片或视频。",
+                "图片/视频线路必须在生成前显示扣费归属和 Key 来源，避免用户不知道扣哪里。",
+                "本地视频模型包体积大，当前只检测目录；后续模型中心负责下载、校验和启用。",
+              ]}
+            />
+          </div>
         </div>
       )}
 
@@ -457,6 +561,7 @@ export function SettingsPanel() {
               <StatusBadge tone="danger">生成前本地预检</StatusBadge>
             </div>
             <div className="grid gap-5 md:grid-cols-2">
+              <SelectInput label="生产线路" value={pipeline.video_provider} onChange={(value) => setPipeline({ video_provider: value })} options={VIDEO_PROVIDERS} />
               <SelectInput label="视频模型" value={pipeline.video_model} onChange={(value) => setPipeline({ video_model: value })} options={VIDEO_MODELS} />
               <SelectInput
                 label="输出质量"
@@ -598,6 +703,329 @@ export function SettingsPanel() {
       )}
     </PageShell>
   );
+}
+
+function ModelCenterHero({
+  readyLines,
+  totalLines,
+  onPrepare,
+  onPrepareImage,
+  onPrepareFfmpeg,
+  onDefaults,
+  onRefresh,
+}: {
+  readyLines: number;
+  totalLines: number;
+  onPrepare: () => void;
+  onPrepareImage: () => void;
+  onPrepareFfmpeg: () => void;
+  onDefaults: () => void;
+  onRefresh: () => void | Promise<void>;
+}) {
+  return (
+    <section className="relative overflow-hidden rounded-[24px] border border-nc-border bg-white shadow-[0_22px_70px_rgba(15,23,42,0.08)]">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_82%_18%,rgba(108,77,255,0.16),transparent_34%),linear-gradient(180deg,rgba(255,255,255,0.92),rgba(247,248,252,0.70))]" />
+      <div className="relative grid gap-5 p-5 lg:grid-cols-[minmax(0,0.9fr)_minmax(380px,1.1fr)]">
+        <div className="flex min-w-0 flex-col justify-center px-1 py-3">
+          <div className="mb-3 inline-flex w-fit min-h-8 items-center rounded-full border border-nc-accent/20 bg-[#F5F3FF] px-3 text-[12px] font-bold uppercase tracking-[0.12em] text-nc-accent">
+            Model Center
+          </div>
+          <h2 className="nc-text-safe text-[30px] font-bold leading-[1.16] text-nc-text">
+            本地模型、云端 Key、团队扣点分开管理
+          </h2>
+          <p className="mt-3 max-w-[560px] text-[14px] leading-6 text-nc-text-secondary">
+            不把模型字段写死在页面里。视频、生图线路、FFmpeg、ComfyUI、RunningHub 和 Custom HTTP 都走统一线路状态。
+          </p>
+          <div className="mt-5 flex flex-wrap gap-3">
+            <Button variant="primary" onClick={onPrepare}>
+              <FolderPlus className="h-4 w-4" />
+              一键准备本地工厂
+            </Button>
+            <Button variant="secondary" onClick={onPrepareImage}>
+              <Image className="h-4 w-4" />
+              准备生图线路
+            </Button>
+            <Button variant="secondary" onClick={onPrepareFfmpeg}>
+              <Download className="h-4 w-4" />
+              修复 FFmpeg
+            </Button>
+            <Button variant="secondary" onClick={onDefaults}>
+              <Settings2 className="h-4 w-4" />
+              套用默认端点
+            </Button>
+            <Button variant="secondary" onClick={onRefresh}>
+              <RefreshCw className="h-4 w-4" />
+              刷新检测
+            </Button>
+          </div>
+          <div className="mt-5 flex flex-wrap gap-2">
+            <StatusBadge tone={readyLines ? "success" : "warning"}>{readyLines}/{totalLines} 条线路可用</StatusBadge>
+            <StatusBadge tone="accent">团队扣点 / 本地资源分离</StatusBadge>
+            <StatusBadge tone="info">Provider Envelope</StatusBadge>
+          </div>
+        </div>
+        <div className="relative min-h-[230px] overflow-hidden rounded-[22px] border border-white/70 bg-white/55 shadow-[0_18px_54px_rgba(15,23,42,0.08)]">
+          <img
+            src="/onboarding/local-factory-hero.png"
+            alt=""
+            draggable={false}
+            className="absolute inset-0 h-full w-full object-cover"
+          />
+          <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(255,255,255,0.18),transparent_44%),linear-gradient(180deg,transparent_64%,rgba(255,255,255,0.24))]" />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function ProductionLineCard({ line, active, onAction }: { line: ProductionLineStatus; active?: boolean; onAction: (action: string, payload?: Record<string, string>) => void }) {
+  const statusTone = line.ready ? "success" : line.configured ? "warning" : line.blockers.length ? "danger" : "neutral";
+  const Icon = productionLineIcon(line);
+  const action = productionLineAction(line);
+  return (
+    <Surface interactive selected={active} className="flex min-h-[260px] flex-col p-5">
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex min-w-0 items-start gap-3">
+          <span className={cn("flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] border", active ? "border-nc-accent/30 bg-[#F5F3FF] text-nc-accent" : "border-nc-border bg-nc-panel text-nc-text-secondary")}>
+            <Icon className="h-5 w-5" />
+          </span>
+          <div className="min-w-0">
+            <div className="line-clamp-1 text-[16px] font-semibold leading-6 text-nc-text">{line.label}</div>
+            <div className="mt-1 line-clamp-1 font-mono text-[12px] leading-5 text-nc-text-tertiary">{line.provider}</div>
+          </div>
+        </div>
+        <StatusBadge tone={statusTone}>{line.ready ? "可用" : line.configured ? "待校验" : line.blockers.length ? "需配置" : "可选"}</StatusBadge>
+      </div>
+
+      <div className="mt-4 flex flex-wrap gap-2">
+        {line.modalities.slice(0, 4).map((modality) => (
+          <StatusBadge key={modality} tone={modalityTone(modality)}>{modalityLabel(modality)}</StatusBadge>
+        ))}
+      </div>
+
+      <div className="mt-4 grid gap-3">
+        <LineFact icon={<WalletCards className="h-4 w-4" />} label="扣费归属" value={billingLabel(line.billing)} tone={billingTone(line.billing)} />
+        <LineFact icon={<KeyRound className="h-4 w-4" />} label="Key 来源" value={keySourceLabel(line.key_source)} />
+        <LineFact icon={<Route className="h-4 w-4" />} label="端点 / 模型" value={line.model_hint || line.endpoint || "待配置"} mono />
+      </div>
+
+      <p className="mt-4 line-clamp-2 text-[13px] leading-5 text-nc-text-secondary">{line.notes}</p>
+
+      <div className="mt-auto border-t border-nc-border pt-4">
+        {line.blockers.length ? (
+          <div className="grid gap-3">
+            <div className="flex items-start gap-2 rounded-[14px] bg-nc-error/10 px-3 py-2 text-[12px] leading-5 text-nc-error">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+              <span className="line-clamp-2">{line.blockers.map(blockerLabel).join(" / ")}</span>
+            </div>
+            {action && (
+              <Button variant="secondary" className="w-full" onClick={() => onAction(action.action, action.payload)}>
+                {action.icon}
+                {action.label}
+              </Button>
+            )}
+          </div>
+        ) : (
+          <div className="grid gap-3">
+            <div className="flex items-start gap-2 rounded-[14px] bg-nc-success/10 px-3 py-2 text-[12px] leading-5 text-nc-success">
+              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+              <span className="line-clamp-2">{line.capabilities.slice(0, 2).join(" · ") || "线路已可用"}</span>
+            </div>
+            {action && !line.ready && (
+              <Button variant="secondary" className="w-full" onClick={() => onAction(action.action, action.payload)}>
+                {action.icon}
+                {action.label}
+              </Button>
+            )}
+          </div>
+        )}
+      </div>
+    </Surface>
+  );
+}
+
+function LineFact({
+  icon,
+  label,
+  value,
+  tone = "neutral",
+  mono,
+}: {
+  icon: ReactNode;
+  label: string;
+  value: string;
+  tone?: "neutral" | "accent" | "success" | "warning" | "danger" | "info";
+  mono?: boolean;
+}) {
+  return (
+    <div className="flex min-w-0 items-center gap-3 rounded-[14px] bg-nc-panel px-3 py-2.5">
+      <span className={cn("shrink-0", tone === "accent" ? "text-nc-accent" : tone === "success" ? "text-nc-success" : tone === "warning" ? "text-nc-warning" : tone === "danger" ? "text-nc-error" : tone === "info" ? "text-nc-info" : "text-nc-text-tertiary")}>{icon}</span>
+      <div className="min-w-0">
+        <div className="text-[11px] font-semibold leading-4 text-nc-text-tertiary">{label}</div>
+        <div className={cn("line-clamp-1 text-[12px] font-semibold leading-5 text-nc-text", mono && "font-mono font-medium text-nc-text-secondary")}>{value}</div>
+      </div>
+    </div>
+  );
+}
+
+function productionLineIcon(line: ProductionLineStatus) {
+  if (line.category.includes("image")) return Image;
+  if (line.category.includes("video")) return Video;
+  if (line.category.includes("workflow")) return Workflow;
+  if (line.provider.includes("local") || line.provider === "comfyui") return Cpu;
+  if (line.provider.includes("nextapi") || line.provider.includes("runninghub")) return Cloud;
+  return Server;
+}
+
+function productionLineAction(line: ProductionLineStatus): { label: string; action: string; payload?: Record<string, string>; icon: ReactNode } | null {
+  const blockers = new Set(line.blockers);
+  if (blockers.has("missing_nextapi_key")) {
+    return { label: "打开 NextAPI 获取 Key", action: "open_nextapi_key", icon: <ExternalLink className="h-4 w-4" /> };
+  }
+  if (blockers.has("comfyui_not_running")) {
+    return { label: "一键准备生图线路", action: "prepare_image_pipeline", icon: <Image className="h-4 w-4" /> };
+  }
+  if (blockers.has("missing_runninghub_key")) {
+    return { label: "打开 RunningHub", action: "open_runninghub", icon: <ExternalLink className="h-4 w-4" /> };
+  }
+  if (blockers.has("local_video_model_pack_missing")) {
+    return { label: "创建本地视频模型目录", action: "prepare_model_dir", payload: { kind: "video" }, icon: <FolderPlus className="h-4 w-4" /> };
+  }
+  if (blockers.has("ffmpeg_unavailable")) {
+    return { label: "修复 FFmpeg", action: "prepare_ffmpeg", icon: <Download className="h-4 w-4" /> };
+  }
+  if (blockers.has("missing_llm_source")) {
+    return { label: "安装 Ollama / 本地 LLM", action: "open_ollama", icon: <Download className="h-4 w-4" /> };
+  }
+  if (blockers.has("missing_custom_http_endpoint")) {
+    return { label: "套用默认端点", action: "apply_default_routes", icon: <Settings2 className="h-4 w-4" /> };
+  }
+  if (!line.configured && (line.provider.includes("local") || line.provider === "custom-http")) {
+    return { label: "套用默认端点", action: "apply_default_routes", icon: <Settings2 className="h-4 w-4" /> };
+  }
+  return null;
+}
+
+function isLineActive(line: ProductionLineStatus, provider: string) {
+  const normalized = provider === "seedance" ? "nextapi" : provider;
+  return line.provider === normalized || line.id.includes(normalized);
+}
+
+function currentBillingLabel(provider: string) {
+  if (provider === "nextapi" || provider === "seedance") return "扣团队点数";
+  if (provider === "comfyui" || provider === "local-openai-compatible") return "本地资源";
+  if (provider === "runninghub") return "用户 RunningHub Key";
+  return "外部 / 自定义";
+}
+
+function billingLabel(billing: string) {
+  const labels: Record<string, string> = {
+    team_credits: "扣 NextAPI 团队点数",
+    local_or_user_key: "本地资源 / 用户 Key",
+    user_provider_key: "用户上游 Key",
+    local_resource: "本机资源",
+    external: "外部服务自费",
+  };
+  return labels[billing] || billing || "未声明";
+}
+
+function billingTone(billing: string): "neutral" | "accent" | "success" | "warning" | "danger" | "info" {
+  if (billing === "team_credits") return "accent";
+  if (billing === "local_resource") return "success";
+  if (billing === "local_or_user_key") return "info";
+  if (billing === "user_provider_key") return "warning";
+  return "neutral";
+}
+
+function keySourceLabel(source: string) {
+  const labels: Record<string, string> = {
+    "NextAPI team dashboard key": "NextAPI 团队 Key",
+    "user RunningHub key": "用户 RunningHub Key",
+    "local service": "本地服务",
+    "local service / user api key": "本地服务 / 用户 Key",
+    "not_required": "无需 Key",
+    "user custom key": "用户自定义 Key",
+  };
+  return labels[source] || source || "待配置";
+}
+
+function modalityLabel(modality: string) {
+  const labels: Record<string, string> = {
+    text: "文字",
+    prompt: "提示词",
+    agent_planning: "AI 导演",
+    image: "图片",
+    storyboard_keyframe: "分镜图",
+    character_assets: "角色资产",
+    video: "视频",
+    image_to_video: "图生视频",
+    image_refs: "垫图",
+    audio_refs: "音频参考",
+    workflow: "工作流",
+    audio: "音频",
+  };
+  return labels[modality] || modality;
+}
+
+function modalityTone(modality: string): "neutral" | "accent" | "success" | "warning" | "danger" | "info" {
+  if (modality.includes("video")) return "accent";
+  if (modality.includes("image") || modality.includes("storyboard") || modality.includes("character")) return "warning";
+  if (modality.includes("text") || modality.includes("prompt") || modality.includes("agent")) return "info";
+  if (modality.includes("audio")) return "success";
+  return "neutral";
+}
+
+function blockerLabel(blocker: string) {
+  const labels: Record<string, string> = {
+    missing_nextapi_key: "缺 NextAPI Key",
+    comfyui_not_running: "ComfyUI 未运行",
+    missing_runninghub_key: "缺 RunningHub Key",
+    local_video_model_pack_missing: "本地视频模型包未安装",
+    missing_llm_source: "缺文字 LLM 来源",
+    missing_custom_http_endpoint: "缺自定义端点",
+  };
+  return labels[blocker] || blocker;
+}
+
+function fallbackProductionLines(provider: string): ProductionLineStatus[] {
+  return [
+    {
+      id: "nextapi-video",
+      label: "NextAPI 托管视频",
+      provider: "nextapi",
+      category: "cloud_video",
+      modalities: ["video", "image_refs", "audio_refs"],
+      installed: true,
+      configured: provider === "nextapi" || provider === "seedance",
+      ready: false,
+      billing: "team_credits",
+      key_source: "NextAPI team dashboard key",
+      endpoint: "https://api.nextapi.top/v1",
+      model_hint: "seedance-2.0-pro",
+      local_resource: "",
+      blockers: ["missing_nextapi_key"],
+      capabilities: ["托管视频生成", "团队余额扣点"],
+      notes: "适合正式视频生成和团队统一结算。",
+    },
+    {
+      id: "comfyui-image",
+      label: "ComfyUI 本地生图",
+      provider: "comfyui",
+      category: "local_image",
+      modalities: ["image", "storyboard_keyframe", "character_assets"],
+      installed: false,
+      configured: false,
+      ready: false,
+      billing: "local_or_user_key",
+      key_source: "local service",
+      endpoint: "ws://localhost:8188",
+      model_hint: "checkpoint / LoRA",
+      local_resource: "GPU / VRAM",
+      blockers: ["comfyui_not_running"],
+      capabilities: ["分镜图", "角色资产"],
+      notes: "用户自己的本地服务，不扣 NextAPI 团队点数。",
+    },
+  ];
 }
 
 function ActionRow({ onTest, onSave }: { onTest: () => void | Promise<void>; onSave: () => void }) {

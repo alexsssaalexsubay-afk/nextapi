@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import type { Edge, ReactFlowInstance } from "@xyflow/react";
 import {
   AlertTriangle,
@@ -9,8 +9,10 @@ import {
   ChevronLeft,
   ChevronRight,
   Command,
+  EyeOff,
   FileText,
   GitBranch,
+  GripVertical,
   Image,
   KeyRound,
   LibraryBig,
@@ -832,7 +834,9 @@ export function StoryflowWorkspace() {
               runState={runState}
               message={runMessage}
               selectedShot={selectedShot}
-              className={cn("absolute top-5 z-20", inspectorOpen ? "right-[420px]" : "right-5")}
+              storageKey="nextcut.storyflow.runDock.storyflow"
+              defaultPlacement="top-right"
+              rightInset={inspectorOpen ? 420 : 24}
               onRun={(key) => void executeCanvasNode(key)}
               onRunChain={() => void runProductionPrepChain()}
             />
@@ -923,7 +927,9 @@ export function StoryflowWorkspace() {
             runState={runState}
             message={runMessage}
             selectedShot={selectedShot}
-            className="absolute right-6 top-6 z-30"
+            storageKey="nextcut.storyflow.runDock.focus"
+            defaultPlacement="top-right"
+            rightInset={24}
             onRun={(key) => void executeCanvasNode(key)}
             onRunChain={() => void runProductionPrepChain()}
           />
@@ -1145,18 +1151,45 @@ function NodeLibraryDrawer({
   );
 }
 
+type DockPlacement = "top-left" | "top-right";
+type DockPosition = { x: number; y: number };
+
+const RUN_DOCK_FULL_SIZE = { width: 338, height: 286 };
+const RUN_DOCK_COLLAPSED_SIZE = { width: 286, height: 112 };
+const RUN_DOCK_HIDDEN_SIZE = { width: 182, height: 50 };
+
+function clampDockPosition(position: DockPosition, bounds: DOMRect | null, size: { width: number; height: number }): DockPosition {
+  const width = bounds?.width || window.innerWidth;
+  const height = bounds?.height || window.innerHeight;
+  const margin = 12;
+  return {
+    x: Math.min(Math.max(position.x, margin), Math.max(margin, width - size.width - margin)),
+    y: Math.min(Math.max(position.y, margin), Math.max(margin, height - size.height - margin)),
+  };
+}
+
+function defaultDockPosition(bounds: DOMRect | null, placement: DockPlacement, rightInset: number, size: { width: number; height: number }): DockPosition {
+  const width = bounds?.width || window.innerWidth;
+  const x = placement === "top-right" ? width - size.width - rightInset : 24;
+  return clampDockPosition({ x, y: 24 }, bounds, size);
+}
+
 function CanvasRunDock({
   runState,
   message,
   selectedShot,
-  className,
+  storageKey,
+  defaultPlacement = "top-right",
+  rightInset = 24,
   onRun,
   onRunChain,
 }: {
   runState: Record<CanvasRunKey, CanvasRunStatus>;
   message: string;
   selectedShot: Shot | null;
-  className?: string;
+  storageKey: string;
+  defaultPlacement?: DockPlacement;
+  rightInset?: number;
   onRun: (key: CanvasRunKey) => void;
   onRunChain: () => void;
 }) {
@@ -1164,11 +1197,127 @@ function CanvasRunDock({
   const active = chain.find((key) => runState[key] === "running");
   const failed = chain.find((key) => runState[key] === "failed");
   const completed = chain.filter((key) => runState[key] === "complete").length;
+  const dockRef = useRef<HTMLDivElement>(null);
+  const dragRef = useRef<{ startX: number; startY: number; originX: number; originY: number } | null>(null);
+  const [initialized, setInitialized] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
+  const [hidden, setHidden] = useState(false);
+  const [position, setPosition] = useState<DockPosition>({ x: 24, y: 24 });
+  const currentSize = hidden ? RUN_DOCK_HIDDEN_SIZE : collapsed ? RUN_DOCK_COLLAPSED_SIZE : RUN_DOCK_FULL_SIZE;
+
+  useEffect(() => {
+    const parentBounds = dockRef.current?.parentElement?.getBoundingClientRect() ?? null;
+    try {
+      const saved = localStorage.getItem(storageKey);
+      if (saved) {
+        const parsed = JSON.parse(saved) as Partial<{ position: DockPosition; collapsed: boolean; hidden: boolean }>;
+        const nextCollapsed = Boolean(parsed.collapsed);
+        const nextHidden = Boolean(parsed.hidden);
+        const nextSize = nextHidden ? RUN_DOCK_HIDDEN_SIZE : nextCollapsed ? RUN_DOCK_COLLAPSED_SIZE : RUN_DOCK_FULL_SIZE;
+        setCollapsed(nextCollapsed);
+        setHidden(nextHidden);
+        setPosition(clampDockPosition(parsed.position || defaultDockPosition(parentBounds, defaultPlacement, rightInset, nextSize), parentBounds, nextSize));
+      } else {
+        setPosition(defaultDockPosition(parentBounds, defaultPlacement, rightInset, RUN_DOCK_FULL_SIZE));
+      }
+    } catch {
+      setPosition(defaultDockPosition(parentBounds, defaultPlacement, rightInset, RUN_DOCK_FULL_SIZE));
+    }
+    setInitialized(true);
+  }, [defaultPlacement, rightInset, storageKey]);
+
+  useEffect(() => {
+    if (!initialized) return;
+    localStorage.setItem(storageKey, JSON.stringify({ position, collapsed, hidden }));
+  }, [collapsed, hidden, initialized, position, storageKey]);
+
+  useEffect(() => {
+    const handleResize = () => {
+      const parentBounds = dockRef.current?.parentElement?.getBoundingClientRect() ?? null;
+      setPosition((current) => clampDockPosition(current, parentBounds, currentSize));
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [currentSize]);
+
+  const beginDrag = (event: ReactPointerEvent<HTMLElement>) => {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    dragRef.current = {
+      startX: event.clientX,
+      startY: event.clientY,
+      originX: position.x,
+      originY: position.y,
+    };
+    const parentBounds = dockRef.current?.parentElement?.getBoundingClientRect() ?? null;
+    const handleMove = (moveEvent: PointerEvent) => {
+      const drag = dragRef.current;
+      if (!drag) return;
+      setPosition(clampDockPosition({
+        x: drag.originX + moveEvent.clientX - drag.startX,
+        y: drag.originY + moveEvent.clientY - drag.startY,
+      }, parentBounds, currentSize));
+    };
+    const handleUp = () => {
+      dragRef.current = null;
+      window.removeEventListener("pointermove", handleMove);
+      window.removeEventListener("pointerup", handleUp);
+    };
+    window.addEventListener("pointermove", handleMove);
+    window.addEventListener("pointerup", handleUp);
+  };
+
+  const tone = failed ? "danger" : active ? "accent" : completed === chain.length ? "success" : "neutral";
+  const statusLabel = failed ? "有阻断" : active ? "运行中" : `${completed}/${chain.length}`;
+  const panelStyle = { left: position.x, top: position.y, opacity: initialized ? 1 : 0 };
+
+  if (hidden) {
+    return (
+      <div ref={dockRef} style={panelStyle} className="absolute z-40 transition-opacity">
+        <div className="flex h-12 min-w-[182px] items-center gap-1 rounded-full border border-nc-border bg-white/92 px-2 shadow-[0_14px_38px_rgba(15,23,42,0.12)] backdrop-blur transition-all hover:-translate-y-0.5 hover:border-nc-accent/35">
+          <button
+            type="button"
+            onPointerDown={beginDrag}
+            className="flex h-8 w-8 shrink-0 cursor-grab items-center justify-center rounded-full text-nc-text-tertiary transition hover:bg-nc-bg hover:text-nc-accent active:cursor-grabbing"
+            aria-label="拖动生产链路恢复按钮"
+          >
+            <GripVertical className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => setHidden(false)}
+            className="flex min-w-0 flex-1 items-center gap-2 rounded-full px-1.5 text-left"
+            aria-label="显示生产链路浮窗"
+          >
+          <KeyRound className="h-4 w-4 text-nc-accent" />
+          <span className="min-w-0 flex-1 text-[13px] font-semibold leading-5 text-nc-text">生产链路</span>
+          <Pill tone={tone} className="min-h-6 px-2 py-0.5 text-[11px]">{statusLabel}</Pill>
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className={cn("pointer-events-auto w-[338px] rounded-[20px] border border-nc-border bg-white/92 p-4 shadow-[0_18px_52px_rgba(15,23,42,0.12)] backdrop-blur", className)}>
-      <div className="mb-3 flex items-start justify-between gap-3">
-        <div className="min-w-0">
+    <div
+      ref={dockRef}
+      style={panelStyle}
+      className={cn(
+        "pointer-events-auto absolute z-40 rounded-[20px] border border-nc-border bg-white/92 shadow-[0_18px_52px_rgba(15,23,42,0.12)] backdrop-blur transition-[opacity,box-shadow,transform] duration-200",
+        collapsed ? "w-[286px] p-3" : "w-[338px] p-4"
+      )}
+      aria-live="polite"
+    >
+      <div className={cn("flex items-start justify-between gap-3", collapsed ? "mb-2" : "mb-3")}>
+        <button
+          type="button"
+          onPointerDown={beginDrag}
+          className="mt-0.5 flex h-8 w-8 shrink-0 cursor-grab items-center justify-center rounded-[10px] border border-nc-border bg-white text-nc-text-tertiary transition hover:border-nc-accent/35 hover:text-nc-accent active:cursor-grabbing"
+          aria-label="拖动生产链路浮窗"
+        >
+          <GripVertical className="h-4 w-4" />
+        </button>
+        <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 text-[14px] font-semibold leading-5 text-nc-text">
             <KeyRound className="h-4 w-4 text-nc-accent" />
             生产链路
@@ -1177,9 +1326,25 @@ function CanvasRunDock({
             {selectedShot ? selectedShot.title : "未选择镜头"}
           </div>
         </div>
-        <Pill tone={failed ? "danger" : active ? "accent" : completed === chain.length ? "success" : "neutral"} className="min-h-6 px-2.5 py-0.5 text-[11px]">
-          {failed ? "有阻断" : active ? "运行中" : `${completed}/${chain.length}`}
-        </Pill>
+        <div className="flex shrink-0 items-center gap-1.5">
+          <Pill tone={tone} className="min-h-6 px-2.5 py-0.5 text-[11px]">{statusLabel}</Pill>
+          <button
+            type="button"
+            onClick={() => setCollapsed((value) => !value)}
+            className="flex h-8 w-8 items-center justify-center rounded-[10px] border border-nc-border bg-white text-nc-text-tertiary transition hover:border-nc-accent/35 hover:text-nc-accent"
+            aria-label={collapsed ? "展开生产链路浮窗" : "缩小生产链路浮窗"}
+          >
+            {collapsed ? <Maximize2 className="h-4 w-4" /> : <Minimize2 className="h-4 w-4" />}
+          </button>
+          <button
+            type="button"
+            onClick={() => setHidden(true)}
+            className="flex h-8 w-8 items-center justify-center rounded-[10px] border border-nc-border bg-white text-nc-text-tertiary transition hover:border-nc-accent/35 hover:text-nc-accent"
+            aria-label="隐藏生产链路浮窗"
+          >
+            <EyeOff className="h-4 w-4" />
+          </button>
+        </div>
       </div>
       <div className="mb-3 flex items-center gap-1.5">
         {chain.map((key, index) => (
@@ -1200,34 +1365,49 @@ function CanvasRunDock({
           </div>
         ))}
       </div>
-      {message && (
+      {collapsed ? (
+        <div className="flex items-center gap-2">
+          <Button size="sm" variant="secondary" onClick={onRunChain} className="min-w-0 flex-1 px-3">
+            <GitBranch className="h-4 w-4" />
+            整链
+          </Button>
+          <Button size="sm" variant="primary" onClick={() => onRun("generate")} className="min-w-0 flex-1 px-3">
+            <Play className="h-4 w-4 fill-current" />
+            生成
+          </Button>
+        </div>
+      ) : (
+        <>
+          {message && (
         <div className={cn(
           "nc-text-safe mb-3 line-clamp-2 rounded-[14px] border px-3 py-2 text-[12px] leading-5",
           failed ? "border-nc-error/20 bg-nc-error/10 text-nc-error" : "border-nc-border bg-nc-bg text-nc-text-secondary"
         )}>
           {message}
         </div>
+          )}
+          <div className="grid grid-cols-[1.15fr_1fr_1fr] gap-2">
+            <Button size="sm" variant="secondary" onClick={onRunChain} className="px-3">
+              <GitBranch className="h-4 w-4" />
+              整链
+            </Button>
+            <Button size="sm" variant="secondary" onClick={() => onRun("storyboard")} className="px-3">
+              <WandSparkles className="h-4 w-4" />
+              分镜
+            </Button>
+            <Button size="sm" variant="secondary" onClick={() => onRun("preflight")} className="px-3">
+              <ShieldCheck className="h-4 w-4" />
+              预检
+            </Button>
+          </div>
+          <div className="mt-2">
+            <Button size="sm" variant="primary" onClick={() => onRun("generate")} className="px-3">
+              <Play className="h-4 w-4 fill-current" />
+              提交生成
+            </Button>
+          </div>
+        </>
       )}
-      <div className="grid grid-cols-[1.15fr_1fr_1fr] gap-2">
-        <Button size="sm" variant="secondary" onClick={onRunChain} className="px-3">
-          <GitBranch className="h-4 w-4" />
-          整链
-        </Button>
-        <Button size="sm" variant="secondary" onClick={() => onRun("storyboard")} className="px-3">
-          <WandSparkles className="h-4 w-4" />
-          分镜
-        </Button>
-        <Button size="sm" variant="secondary" onClick={() => onRun("preflight")} className="px-3">
-          <ShieldCheck className="h-4 w-4" />
-          预检
-        </Button>
-      </div>
-      <div className="mt-2">
-        <Button size="sm" variant="primary" onClick={() => onRun("generate")} className="px-3">
-          <Play className="h-4 w-4 fill-current" />
-          提交生成
-        </Button>
-      </div>
     </div>
   );
 }
@@ -1480,7 +1660,9 @@ function ShortcutsPopover({ onClose }: { onClose: () => void }) {
     <div className="absolute right-8 top-24 z-50 w-[360px] rounded-[20px] border border-nc-border bg-white p-5 shadow-[0_24px_70px_rgba(15,23,42,0.18)]">
       <div className="mb-4 flex items-center justify-between">
         <h2 className="text-[16px] font-semibold leading-6 text-nc-text">Storyflow 快捷键</h2>
-        <Button size="icon" variant="ghost" className="h-8 w-8" onClick={onClose}>×</Button>
+        <Button size="icon" variant="ghost" className="h-8 w-8" onClick={onClose} aria-label="关闭快捷键">
+          <X className="h-4 w-4" aria-hidden="true" />
+        </Button>
       </div>
       <div className="grid gap-2">
         {rows.map(([key, label]) => (
