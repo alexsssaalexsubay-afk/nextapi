@@ -49,12 +49,26 @@ type UploadNotice = {
   detail?: string
 } | null
 
+type PreparedLibraryImage = {
+  file: File
+  normalized: boolean
+  width: number
+  height: number
+  originalWidth: number
+  originalHeight: number
+}
+
 const KIND_FILTERS: ReadonlyArray<{ id: "all" | AssetKind; key: string }> = [
   { id: "all", key: "all" },
   { id: "image", key: "image" },
   { id: "video", key: "video" },
   { id: "audio", key: "audio" },
 ]
+
+const PROVIDER_IMAGE_MIN_SIDE = 300
+const PROVIDER_IMAGE_MAX_SIDE = 6000
+const PROVIDER_IMAGE_MIN_RATIO = 0.4
+const PROVIDER_IMAGE_MAX_RATIO = 2.5
 
 function formatBytes(n: number): string {
   if (!Number.isFinite(n) || n <= 0) return "—"
@@ -69,6 +83,122 @@ function classifyByMime(file: File): AssetKind | null {
   if (file.type.startsWith("video/")) return "video"
   if (file.type.startsWith("audio/")) return "audio"
   return null
+}
+
+async function loadCanvasSource(file: File): Promise<{
+  source: CanvasImageSource
+  width: number
+  height: number
+  close: () => void
+}> {
+  if (typeof createImageBitmap === "function") {
+    const bitmap = await createImageBitmap(file)
+    return {
+      source: bitmap,
+      width: bitmap.width,
+      height: bitmap.height,
+      close: () => bitmap.close(),
+    }
+  }
+
+  const url = URL.createObjectURL(file)
+  const image = new Image()
+  image.decoding = "async"
+  image.src = url
+  await image.decode()
+  return {
+    source: image,
+    width: image.naturalWidth,
+    height: image.naturalHeight,
+    close: () => URL.revokeObjectURL(url),
+  }
+}
+
+function providerImageTargetSize(width: number, height: number): { width: number; height: number; normalized: boolean } {
+  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
+    return { width, height, normalized: false }
+  }
+
+  let scale = 1
+  const minScale = Math.max(PROVIDER_IMAGE_MIN_SIDE / width, PROVIDER_IMAGE_MIN_SIDE / height)
+  if (minScale > 1) {
+    scale = minScale
+  }
+  const maxScale = Math.min(PROVIDER_IMAGE_MAX_SIDE / width, PROVIDER_IMAGE_MAX_SIDE / height)
+  if (maxScale < scale) {
+    scale = maxScale
+  }
+
+  const scaledWidth = Math.max(1, Math.round(width * scale))
+  const scaledHeight = Math.max(1, Math.round(height * scale))
+  let canvasWidth = scaledWidth
+  let canvasHeight = scaledHeight
+  const ratio = scaledWidth / scaledHeight
+  if (ratio > PROVIDER_IMAGE_MAX_RATIO) {
+    canvasHeight = Math.ceil(scaledWidth / PROVIDER_IMAGE_MAX_RATIO)
+  } else if (ratio < PROVIDER_IMAGE_MIN_RATIO) {
+    canvasWidth = Math.ceil(scaledHeight * PROVIDER_IMAGE_MIN_RATIO)
+  }
+
+  return {
+    width: canvasWidth,
+    height: canvasHeight,
+    normalized: canvasWidth !== width || canvasHeight !== height || scaledWidth !== width || scaledHeight !== height,
+  }
+}
+
+async function prepareLibraryImageForProvider(file: File): Promise<PreparedLibraryImage> {
+  const image = await loadCanvasSource(file)
+  try {
+    const target = providerImageTargetSize(image.width, image.height)
+    if (!target.normalized) {
+      return {
+        file,
+        normalized: false,
+        width: image.width,
+        height: image.height,
+        originalWidth: image.width,
+        originalHeight: image.height,
+      }
+    }
+
+    const canvas = document.createElement("canvas")
+    canvas.width = target.width
+    canvas.height = target.height
+    const ctx = canvas.getContext("2d")
+    if (!ctx) {
+      throw new Error("canvas_unavailable")
+    }
+
+    ctx.fillStyle = "#ffffff"
+    ctx.fillRect(0, 0, target.width, target.height)
+    ctx.imageSmoothingEnabled = true
+    ctx.imageSmoothingQuality = "high"
+    const drawScale = Math.min(target.width / image.width, target.height / image.height)
+    const drawWidth = Math.round(image.width * drawScale)
+    const drawHeight = Math.round(image.height * drawScale)
+    const offsetX = Math.floor((target.width - drawWidth) / 2)
+    const offsetY = Math.floor((target.height - drawHeight) / 2)
+    ctx.drawImage(image.source, offsetX, offsetY, drawWidth, drawHeight)
+
+    const blob = await new Promise<Blob | null>((resolve) => {
+      canvas.toBlob(resolve, "image/jpeg", 0.92)
+    })
+    if (!blob) {
+      throw new Error("canvas_encode_failed")
+    }
+
+    return {
+      file: new File([blob], file.name, { type: "image/jpeg", lastModified: file.lastModified }),
+      normalized: true,
+      width: target.width,
+      height: target.height,
+      originalWidth: image.width,
+      originalHeight: image.height,
+    }
+  } finally {
+    image.close()
+  }
 }
 
 function isRejectedProviderUpload(asset: LibraryAsset): boolean {
@@ -149,12 +279,46 @@ export default function AssetLibraryPage() {
       setUploading(kind)
       setUploadNotice({
         tone: "info",
+        title: labels.uploadPreparingDetail.replace("{name}", file.name),
+        detail: labels.uploadPreparingHint,
+      })
+      let prepared: PreparedLibraryImage
+      try {
+        prepared = await prepareLibraryImageForProvider(file)
+      } catch {
+        toast.error(labels.uploadNormalizeFailed)
+        setUploadNotice({
+          tone: "error",
+          title: labels.uploadNormalizeFailed,
+          detail: file.name,
+        })
+        setUploading(null)
+        return
+      }
+      if (prepared.file.size <= 0 || prepared.file.size > 30 * 1024 * 1024) {
+        const title = prepared.file.size <= 0 ? labels.uploadEmptyFile : labels.uploadTooLarge
+        toast.error(title)
+        setUploadNotice({
+          tone: "error",
+          title,
+          detail: `${file.name} · ${formatBytes(prepared.file.size)}`,
+        })
+        setUploading(null)
+        return
+      }
+      const normalizedHint = prepared.normalized
+        ? labels.uploadNormalizedHint
+            .replace("{from}", `${prepared.originalWidth}×${prepared.originalHeight}`)
+            .replace("{to}", `${prepared.width}×${prepared.height}`)
+        : null
+      setUploadNotice({
+        tone: "info",
         title: labels.uploadingDetail.replace("{name}", file.name),
-        detail: labels.uploadingNetworkHint,
+        detail: normalizedHint || labels.uploadingNetworkHint,
       })
       try {
         const body = new FormData()
-        body.append("file", file)
+        body.append("file", prepared.file)
         const uploaded = (await apiUpload("/v1/me/library/assets", body)) as LibraryAsset
         const uploadedName = uploaded.filename || file.name
         const rejectionReason = uploaded.seedance_rejection_reason?.trim()
@@ -171,7 +335,7 @@ export default function AssetLibraryPage() {
           setUploadNotice({
             tone: "success",
             title: labels.uploadSuccessDetail.replace("{name}", uploadedName),
-            detail: labels.uploadProviderHint,
+            detail: normalizedHint || labels.uploadProviderHint,
           })
         }
         await refresh()
