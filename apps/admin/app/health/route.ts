@@ -8,6 +8,15 @@ const headers = {
   "Cache-Control": "no-store",
 }
 
+type ProcessLike = {
+  env?: Record<string, string | undefined>
+}
+
+function env(name: string) {
+  const processLike = (globalThis as typeof globalThis & { process?: ProcessLike }).process
+  return processLike?.env?.[name] || ""
+}
+
 export function OPTIONS() {
   return new Response(null, { status: 204, headers })
 }
@@ -16,7 +25,7 @@ export function GET() {
   return new Response(JSON.stringify({
     status: "ok",
     app: "nextapi-admin",
-    build_sha: (process.env.NEXT_PUBLIC_BUILD_SHA || "dev").slice(0, 7),
-    build_time: process.env.NEXT_PUBLIC_BUILD_TIME || "",
+    build_sha: (env("NEXT_PUBLIC_BUILD_SHA") || "dev").slice(0, 7),
+    build_time: env("NEXT_PUBLIC_BUILD_TIME"),
   }), { status: 200, headers })
 }
