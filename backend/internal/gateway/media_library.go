@@ -333,6 +333,15 @@ func (h *MediaLibraryHandlers) Create(c *gin.Context) {
 					upAsset = active
 				}
 			}
+			if upAsset != nil && strings.EqualFold(strings.TrimSpace(upAsset.Status), "failed") {
+				log.Printf(
+					"library: uptoken asset rejected filename=%s virtual_id=%s processing_status=%s reason=%s",
+					fh.Filename,
+					upAsset.VirtualID,
+					upAsset.ProcessingStatus,
+					upAsset.RejectionReason,
+				)
+			}
 		} else if upErr != nil {
 			log.Printf("library: uptoken asset upload failed filename=%s err=%v", fh.Filename, upErr)
 			var assetErr *uptoken.AssetError

@@ -1567,6 +1567,8 @@ export const en = {
     uploadingNetworkHint: "Connecting to NextAPI and the asset library. A VPN/proxy can block this step.",
     uploadSuccessDetail: "\"{name}\" has been added to the asset library.",
     uploadProviderHint: "Saved to the team library. If upstream asset review takes time, the status will refresh in the list.",
+    uploadRejectedTitle: "\"{name}\" was saved, but provider review failed.",
+    uploadRejectedDetail: "The asset remains in the team library, but cannot be used as a stable generation reference yet.",
     uploadNetworkHint: "The request did not reach NextAPI. Disable or switch VPN/proxy, refresh, and try again. For local dev, confirm the current Origin is allowed by backend CORS.",
     libraryFull: "Library is full. Delete unused items to free space.",
     unsupportedKind: "The permanent library only supports images. Use temporary upload for video and audio.",

@@ -1550,6 +1550,8 @@ export const zh: Messages = {
     uploadingNetworkHint: "正在连接 NextAPI 与素材库。若开启 VPN/代理，这一步可能会被网络策略拦截。",
     uploadSuccessDetail: "「{name}」已加入素材库。",
     uploadProviderHint: "已保存到团队素材库；若上游素材审核需要时间，状态会在列表里刷新。",
+    uploadRejectedTitle: "「{name}」已保存，但素材审核未通过。",
+    uploadRejectedDetail: "素材已保留在团队素材库，但暂不能作为稳定生成引用。",
     uploadNetworkHint: "请求没有到达 NextAPI。请关闭或切换 VPN/代理，刷新页面后重试；如果是本地调试，请确认当前 Origin 已被后端 CORS 放行。",
     libraryFull: "素材库已满，请删除不再使用的项目以腾出空间。",
     unsupportedKind: "永久素材库仅支持图片；视频和音频请在任务创建页临时上传。",

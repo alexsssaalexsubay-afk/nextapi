@@ -71,6 +71,17 @@ function classifyByMime(file: File): AssetKind | null {
   return null
 }
 
+function isRejectedProviderUpload(asset: LibraryAsset): boolean {
+  const status = asset.seedance_asset_status?.trim().toLowerCase()
+  const processingStatus = asset.seedance_processing_status?.trim().toLowerCase()
+  return (
+    status === "failed" ||
+    processingStatus === "failed" ||
+    processingStatus === "rejected" ||
+    Boolean(asset.seedance_rejection_reason?.trim())
+  )
+}
+
 export default function AssetLibraryPage() {
   const t = useTranslations()
   const labels = t.library
@@ -145,12 +156,24 @@ export default function AssetLibraryPage() {
         const body = new FormData()
         body.append("file", file)
         const uploaded = (await apiUpload("/v1/me/library/assets", body)) as LibraryAsset
-        toast.success(labels.uploadSuccess)
-        setUploadNotice({
-          tone: "success",
-          title: labels.uploadSuccessDetail.replace("{name}", uploaded.filename || file.name),
-          detail: uploaded.seedance_rejection_reason || labels.uploadProviderHint,
-        })
+        const uploadedName = uploaded.filename || file.name
+        const rejectionReason = uploaded.seedance_rejection_reason?.trim()
+        if (isRejectedProviderUpload(uploaded)) {
+          const detail = rejectionReason || labels.uploadRejectedDetail
+          toast.error(detail)
+          setUploadNotice({
+            tone: "error",
+            title: labels.uploadRejectedTitle.replace("{name}", uploadedName),
+            detail,
+          })
+        } else {
+          toast.success(labels.uploadSuccess)
+          setUploadNotice({
+            tone: "success",
+            title: labels.uploadSuccessDetail.replace("{name}", uploadedName),
+            detail: labels.uploadProviderHint,
+          })
+        }
         await refresh()
       } catch (e) {
         if (e instanceof ApiError && e.code === "library_full") {
