@@ -274,6 +274,8 @@ func TestLiveProvider_GetJobStatus_SucceededShape(t *testing.T) {
 		_, _ = w.Write([]byte(`{
 			"id": "ut-task-123",
 			"status": "succeeded",
+			"billable_quantity": 97605,
+			"billable_unit": "per_token",
 			"content": {"video_url": "https://cdn.example.com/out.mp4"},
 			"usage": {"total_tokens": 97605}
 		}`))
@@ -299,6 +301,12 @@ func TestLiveProvider_GetJobStatus_SucceededShape(t *testing.T) {
 	}
 	if st.ActualTokensUsed == nil || *st.ActualTokensUsed != 97605 {
 		t.Errorf("total_tokens: %+v", st.ActualTokensUsed)
+	}
+	if st.BillableQuantity == nil || *st.BillableQuantity != 97605 {
+		t.Errorf("billable_quantity: %+v", st.BillableQuantity)
+	}
+	if st.BillableUnit == nil || *st.BillableUnit != "per_token" {
+		t.Errorf("billable_unit: %+v", st.BillableUnit)
 	}
 }
 

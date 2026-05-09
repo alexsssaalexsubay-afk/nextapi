@@ -252,8 +252,9 @@ func (p *Processor) succeed(ctx context.Context, j *domain.Job, st *provider.Job
 	if j.UpstreamEstimateCents != nil {
 		upstreamActual = *j.UpstreamEstimateCents
 	}
-	if st.ActualTokensUsed != nil && *st.ActualTokensUsed > 0 {
-		if usdCents := seedance.USDCentsFromTokens(req, *st.ActualTokensUsed); usdCents > 0 {
+	billableTokens := statusBillableTokens(st)
+	if billableTokens != nil && *billableTokens > 0 {
+		if usdCents := seedance.USDCentsFromTokens(req, *billableTokens); usdCents > 0 {
 			upstreamActual = usdCents
 		}
 	}
@@ -266,7 +267,7 @@ func (p *Processor) succeed(ctx context.Context, j *domain.Job, st *provider.Job
 		jobUpdates := map[string]any{
 			"status":       domain.JobSucceeded,
 			"video_url":    st.VideoURL,
-			"tokens_used":  st.ActualTokensUsed,
+			"tokens_used":  billableTokens,
 			"cost_credits": actualCredits,
 			"completed_at": now,
 		}
@@ -298,7 +299,7 @@ func (p *Processor) succeed(ctx context.Context, j *domain.Job, st *provider.Job
 			"status":            "succeeded",
 			"output":            outputJSON,
 			"actual_cost_cents": actualCredits,
-			"upstream_tokens":   st.ActualTokensUsed,
+			"upstream_tokens":   billableTokens,
 			"video_seconds":     videoSeconds,
 			"finished_at":       now,
 		}
@@ -349,6 +350,22 @@ func (p *Processor) succeed(ctx context.Context, j *domain.Job, st *provider.Job
 		}
 	}
 	return err
+}
+
+func statusBillableTokens(st *provider.JobStatus) *int64 {
+	if st == nil {
+		return nil
+	}
+	if st.ActualTokensUsed != nil && *st.ActualTokensUsed > 0 {
+		return st.ActualTokensUsed
+	}
+	if st.BillableQuantity == nil || *st.BillableQuantity <= 0 || st.BillableUnit == nil {
+		return nil
+	}
+	if strings.EqualFold(strings.TrimSpace(*st.BillableUnit), "per_token") {
+		return st.BillableQuantity
+	}
+	return nil
 }
 
 func (p *Processor) finalQuote(ctx context.Context, j *domain.Job, upstreamCents int64) (pricingsvc.Quote, error) {

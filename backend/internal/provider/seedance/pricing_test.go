@@ -29,3 +29,43 @@ func TestEstimate(t *testing.T) {
 		})
 	}
 }
+
+func TestUSDCentsFromTokens_AudioVisualUsesCurrentPerTokenRate(t *testing.T) {
+	audio := true
+	req := provider.GenerationRequest{
+		Mode:          "normal",
+		ImageURLs:     []string{"asset://ut-asset-example"},
+		GenerateAudio: &audio,
+	}
+
+	got := USDCentsFromTokens(req, 54_737)
+	if got != 40 {
+		t.Fatalf("audio visual charge = %d cents; want 40", got)
+	}
+}
+
+func TestUSDCentsFromTokens_VisualDefaultsAudioOn(t *testing.T) {
+	req := provider.GenerationRequest{
+		Mode:      "normal",
+		ImageURLs: []string{"asset://ut-asset-example"},
+	}
+
+	got := USDCentsFromTokens(req, 54_737)
+	if got != 40 {
+		t.Fatalf("visual default-audio charge = %d cents; want 40", got)
+	}
+}
+
+func TestUSDCentsFromTokens_VisualWithoutAudioKeepsVisualRate(t *testing.T) {
+	audio := false
+	req := provider.GenerationRequest{
+		Mode:          "normal",
+		ImageURLs:     []string{"asset://ut-asset-example"},
+		GenerateAudio: &audio,
+	}
+
+	got := USDCentsFromTokens(req, 54_737)
+	if got != 24 {
+		t.Fatalf("visual-only charge = %d cents; want 24", got)
+	}
+}

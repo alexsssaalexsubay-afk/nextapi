@@ -11,12 +11,13 @@ import (
 
 // Pricing per 1K tokens (USD), mirrored from the upstream price card so our
 // estimates and post-completion reconciliation align with what the upstream
-// charges per generation.
+// charges per generation. UpToken treats omitted generate_audio as true, so
+// visual jobs only use image-reference pricing when audio is explicitly off.
 const (
 	priceFastImage   = 0.0033
 	priceFastText    = 0.0056
 	priceNormalImage = 0.0043
-	priceNormalText  = 0.0070
+	priceNormalText  = 0.00714
 )
 
 func resolutionScale(r string) float64 {
@@ -42,7 +43,7 @@ func estimateTokens(req provider.GenerationRequest) int64 {
 
 func pricePer1K(req provider.GenerationRequest) float64 {
 	fast := req.Mode == "fast"
-	img := provider.HasVisualInput(req)
+	img := provider.HasVisualInput(req) && !generatesAudio(req)
 	switch {
 	case fast && img:
 		return priceFastImage
@@ -53,6 +54,13 @@ func pricePer1K(req provider.GenerationRequest) float64 {
 	default:
 		return priceNormalText
 	}
+}
+
+func generatesAudio(req provider.GenerationRequest) bool {
+	if len(req.AudioURLs) > 0 {
+		return true
+	}
+	return req.GenerateAudio == nil || *req.GenerateAudio
 }
 
 // Estimate returns (tokens, USD cents), rounded up. 100 cents = $1.00 USD.

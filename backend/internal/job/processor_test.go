@@ -398,8 +398,8 @@ func TestHandlePoll_ProviderSucceeded_CreditsReconciled(t *testing.T) {
 	db := setupProcessorDB(t)
 
 	url := "https://mock.nextapi.top/result.mp4"
-	// Upstream actually used 300 tokens. With the standard text-to-video price
-	// of $0.0070/1k tokens that's $0.0021 → 1 USD cent (rounded up).
+	// Upstream actually used 300 tokens. At the standard text-to-video
+	// per-token price this is below one cent, so it rounds up to 1 USD cent.
 	actualTokens := int64(300)
 	prov := &controlledProvider{
 		statusResult: &provider.JobStatus{
@@ -474,7 +474,7 @@ func TestHandlePoll_ProviderSucceeded_UnderestimatedReservation(t *testing.T) {
 	db := setupProcessorDB(t)
 
 	url := "https://mock.nextapi.top/result.mp4"
-	actualTokens := int64(120_545) // ~$0.84 at the normal text price
+	actualTokens := int64(120_545) // ~$0.86 at the normal text price
 	prov := &controlledProvider{
 		statusResult: &provider.JobStatus{
 			Status:           "succeeded",
@@ -507,7 +507,7 @@ func TestHandlePoll_ProviderSucceeded_UnderestimatedReservation(t *testing.T) {
 
 	var j domain.Job
 	db.First(&j, "id = ?", "job_underbill")
-	const expectedBilled = int64(85) // ceil(120545/1000 * 0.0070 * 100)
+	const expectedBilled = int64(87) // ceil(120545/1000 * 0.00714 * 100)
 	const expectedDebit = expectedBilled - reserved
 	if j.CostCredits == nil || *j.CostCredits != expectedBilled {
 		t.Fatalf("cost_credits must follow upstream tokens: want=%d got=%v",
@@ -517,6 +517,76 @@ func TestHandlePoll_ProviderSucceeded_UnderestimatedReservation(t *testing.T) {
 	if balAfter != balBefore-expectedDebit {
 		t.Fatalf("expected -%d cents debit on shortfall: before=%d after=%d",
 			expectedDebit, balBefore, balAfter)
+	}
+}
+
+func TestHandlePoll_ProviderSucceeded_UsesBillableQuantityForAudioVisual(t *testing.T) {
+	db := setupProcessorDB(t)
+
+	url := "https://mock.nextapi.top/audio-visual.mp4"
+	billableTokens := int64(54_737)
+	unit := "per_token"
+	prov := &controlledProvider{
+		statusResult: &provider.JobStatus{
+			Status:           "succeeded",
+			VideoURL:         &url,
+			BillableQuantity: &billableTokens,
+			BillableUnit:     &unit,
+		},
+	}
+	proc, _ := newProcessorWithRedis(t, db, prov)
+
+	const orgID = "org_billable_quantity"
+	const jobID = "job_billable_quantity"
+	const reserved = int64(59)
+	generateAudio := true
+	req, _ := json.Marshal(provider.GenerationRequest{
+		DurationSeconds: 5,
+		Resolution:      "480p",
+		Mode:            "normal",
+		ImageURLs:       []string{"asset://ut-asset-example"},
+		GenerateAudio:   &generateAudio,
+	})
+
+	db.Create(&domain.CreditsLedger{OrgID: orgID, DeltaCredits: 1_000, Reason: domain.ReasonTopup})
+	db.Create(&domain.CreditsLedger{
+		OrgID: orgID, DeltaCredits: -reserved, Reason: domain.ReasonReservation,
+		JobID: ptr(jobID),
+	})
+	db.Exec(`INSERT INTO jobs (id, org_id, status, reserved_credits, request, provider, provider_job_id)
+		VALUES (?, ?, 'running', ?, ?, 'mock', 'ut-billable-quantity')`, jobID, orgID, reserved, req)
+	db.Exec(`INSERT INTO videos (id, org_id, upstream_job_id, status)
+		VALUES ('video_billable_quantity', ?, ?, 'running')`, orgID, jobID)
+
+	bill := billing.NewService(db)
+	balBefore, _ := bill.GetBalance(context.Background(), orgID)
+
+	if err := proc.HandlePoll(context.Background(), makePollTask(jobID)); err != nil {
+		t.Fatalf("HandlePoll failed: %v", err)
+	}
+
+	var j domain.Job
+	db.First(&j, "id = ?", jobID)
+	const expectedBilled = int64(40) // ceil(54737/1000 * 0.00714 * 100)
+	const expectedRefund = reserved - expectedBilled
+	if j.TokensUsed == nil || *j.TokensUsed != billableTokens {
+		t.Fatalf("tokens_used should follow billable_quantity: got=%v", j.TokensUsed)
+	}
+	if j.CostCredits == nil || *j.CostCredits != expectedBilled {
+		t.Fatalf("cost_credits should follow billable_quantity: want=%d got=%v",
+			expectedBilled, j.CostCredits)
+	}
+	balAfter, _ := bill.GetBalance(context.Background(), orgID)
+	if balAfter != balBefore+expectedRefund {
+		t.Fatalf("expected %d cents refund: before=%d after=%d", expectedRefund, balBefore, balAfter)
+	}
+	var videoCost, videoTokens int64
+	if err := db.Raw(`SELECT actual_cost_cents, upstream_tokens FROM videos WHERE id = 'video_billable_quantity'`).
+		Row().Scan(&videoCost, &videoTokens); err != nil {
+		t.Fatalf("reload video: %v", err)
+	}
+	if videoCost != expectedBilled || videoTokens != billableTokens {
+		t.Fatalf("video metering mismatch: cost=%d tokens=%d", videoCost, videoTokens)
 	}
 }
 

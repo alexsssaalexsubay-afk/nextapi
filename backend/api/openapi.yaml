@@ -2027,7 +2027,9 @@ components:
         duration_seconds: { type: integer }
         fps: { type: integer }
         mode: { type: string, enum: [fast, normal] }
-        generate_audio: { type: boolean }
+        generate_audio:
+          type: boolean
+          description: "Upstream default is true when omitted; set false explicitly for silent visual generations."
         watermark: { type: boolean }
         seed: { type: integer }
         camera_fixed: { type: boolean }

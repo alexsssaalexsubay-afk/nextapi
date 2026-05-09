@@ -178,6 +178,95 @@ func TestUpTokenWebhookApplySucceededStoresVideoURL(t *testing.T) {
 	}
 }
 
+func TestUpTokenWebhookApplySucceededUsesBillableQuantityFallback(t *testing.T) {
+	db := setupUpTokenWebhookDB(t)
+	providerID := "ut-task-billable"
+	jobID := "99999999-9999-9999-9999-999999999999"
+	orgID := "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+	const reserved = int64(59)
+	if err := db.Create(&domain.Job{
+		ID:              jobID,
+		OrgID:           orgID,
+		Provider:        "seedance-relay",
+		ProviderJobID:   &providerID,
+		Request:         []byte(`{"DurationSeconds":5,"Resolution":"480p","Mode":"normal","ImageURLs":["asset://ut-asset-example"],"GenerateAudio":true}`),
+		Status:          domain.JobRunning,
+		ReservedCredits: reserved,
+	}).Error; err != nil {
+		t.Fatalf("create job: %v", err)
+	}
+	if err := db.Create(&domain.Video{
+		ID:                 "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+		OrgID:              orgID,
+		Model:              "seedance-2.0-pro",
+		Status:             "running",
+		Input:              []byte(`{}`),
+		Metadata:           []byte(`{}`),
+		UpstreamJobID:      &jobID,
+		EstimatedCostCents: reserved,
+		ReservedCents:      reserved,
+	}).Error; err != nil {
+		t.Fatalf("create video: %v", err)
+	}
+	if err := db.Create(&domain.CreditsLedger{
+		OrgID: orgID, DeltaCredits: 1_000, Reason: domain.ReasonTopup,
+	}).Error; err != nil {
+		t.Fatalf("create topup ledger: %v", err)
+	}
+	if err := db.Create(&domain.CreditsLedger{
+		OrgID: orgID, DeltaCredits: -reserved, Reason: domain.ReasonReservation,
+		JobID: &jobID,
+	}).Error; err != nil {
+		t.Fatalf("create reservation ledger: %v", err)
+	}
+
+	h := &UpTokenWebhookHandlers{DB: db}
+	billableTokens := int64(54_737)
+	unit := "per_token"
+	processed, err := h.apply(context.Background(), uptokenWebhookPayload{
+		TaskID:           providerID,
+		Status:           "succeeded",
+		VideoURL:         "https://cdn.example.com/audio-visual.mp4",
+		BillableQuantity: &billableTokens,
+		BillableUnit:     &unit,
+	})
+	if err != nil {
+		t.Fatalf("apply: %v", err)
+	}
+	if !processed {
+		t.Fatal("expected webhook to process")
+	}
+
+	var job domain.Job
+	if err := db.First(&job, "id = ?", jobID).Error; err != nil {
+		t.Fatalf("reload job: %v", err)
+	}
+	const expectedBilled = int64(40) // ceil(54737/1000 * 0.00714 * 100)
+	if job.TokensUsed == nil || *job.TokensUsed != billableTokens {
+		t.Fatalf("tokens_used should follow billable_quantity: got=%v", job.TokensUsed)
+	}
+	if job.CostCredits == nil || *job.CostCredits != expectedBilled {
+		t.Fatalf("cost_credits should follow billable_quantity: want=%d got=%v",
+			expectedBilled, job.CostCredits)
+	}
+	var balance int64
+	if err := db.Raw(`SELECT COALESCE(SUM(delta_credits), 0) FROM credits_ledger WHERE org_id = ?`, orgID).
+		Row().Scan(&balance); err != nil {
+		t.Fatalf("sum ledger: %v", err)
+	}
+	if balance != 1_000-expectedBilled {
+		t.Fatalf("ledger balance should net to billed cost: got=%d", balance)
+	}
+	var videoCost, videoTokens int64
+	if err := db.Raw(`SELECT actual_cost_cents, upstream_tokens FROM videos WHERE upstream_job_id = ?`, jobID).
+		Row().Scan(&videoCost, &videoTokens); err != nil {
+		t.Fatalf("reload video: %v", err)
+	}
+	if videoCost != expectedBilled || videoTokens != billableTokens {
+		t.Fatalf("video metering mismatch: cost=%d tokens=%d", videoCost, videoTokens)
+	}
+}
+
 func insertDirectorRunAudit(t *testing.T, db *gorm.DB, orgID string, directorJobID string, jobID string, reserved int64) {
 	t.Helper()
 	if err := db.Create(&domain.DirectorJob{

@@ -39,12 +39,14 @@ type UpTokenWebhookHandlers struct {
 }
 
 type uptokenWebhookPayload struct {
-	Event     string `json:"event"`
-	TaskID    string `json:"task_id"`
-	Status    string `json:"status"`
-	VideoURL  string `json:"video_url"`
-	Timestamp int64  `json:"timestamp"`
-	Usage     *struct {
+	Event            string  `json:"event"`
+	TaskID           string  `json:"task_id"`
+	Status           string  `json:"status"`
+	VideoURL         string  `json:"video_url"`
+	Timestamp        int64   `json:"timestamp"`
+	BillableQuantity *int64  `json:"billable_quantity"`
+	BillableUnit     *string `json:"billable_unit"`
+	Usage            *struct {
 		TotalTokens int64 `json:"total_tokens"`
 	} `json:"usage"`
 	Error *struct {
@@ -171,13 +173,11 @@ func (h *UpTokenWebhookHandlers) apply(ctx context.Context, ev uptokenWebhookPay
 			if jobRow.UpstreamEstimateCents != nil {
 				upstreamActual = *jobRow.UpstreamEstimateCents
 			}
-			var tokens *int64
-			if ev.Usage != nil && ev.Usage.TotalTokens > 0 {
-				t := ev.Usage.TotalTokens
-				tokens = &t
+			tokens := webhookBillableTokens(ev)
+			if tokens != nil && *tokens > 0 {
 				var req provider.GenerationRequest
 				if err := json.Unmarshal(jobRow.Request, &req); err == nil {
-					if cents := seedance.USDCentsFromTokens(req, t); cents > 0 {
+					if cents := seedance.USDCentsFromTokens(req, *tokens); cents > 0 {
 						upstreamActual = cents
 					}
 				}
@@ -502,6 +502,20 @@ func updateBatchWorkflowRunStatus(ctx context.Context, tx *gorm.DB, batchID stri
 	_ = tx.WithContext(ctx).Model(&domain.WorkflowRun{}).
 		Where("batch_run_id = ?", batchID).
 		Updates(updates).Error
+}
+
+func webhookBillableTokens(ev uptokenWebhookPayload) *int64 {
+	if ev.Usage != nil && ev.Usage.TotalTokens > 0 {
+		t := ev.Usage.TotalTokens
+		return &t
+	}
+	if ev.BillableQuantity == nil || *ev.BillableQuantity <= 0 || ev.BillableUnit == nil {
+		return nil
+	}
+	if strings.EqualFold(strings.TrimSpace(*ev.BillableUnit), "per_token") {
+		return ev.BillableQuantity
+	}
+	return nil
 }
 
 func updateDirectorVideoMetering(ctx context.Context, tx *gorm.DB, jobRow domain.Job, status string, actualCents int64, creditsDelta int64, usage map[string]any) {
