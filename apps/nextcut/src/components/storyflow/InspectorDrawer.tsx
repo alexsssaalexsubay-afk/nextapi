@@ -8,14 +8,14 @@ import type { StoryflowNodeData } from "./storyflow-types";
 type SectionId = "info" | "prompt" | "camera" | "references" | "style" | "status" | "version" | "actions";
 
 const sectionMeta: Record<SectionId, { title: string; icon: React.ReactNode }> = {
-  info: { title: "Shot Info", icon: <Sparkles className="h-4 w-4" /> },
-  prompt: { title: "Prompt", icon: <FileText className="h-4 w-4" /> },
-  camera: { title: "Camera Motion", icon: <Camera className="h-4 w-4" /> },
-  references: { title: "References", icon: <Image className="h-4 w-4" /> },
-  style: { title: "Style / Mood / Tags", icon: <Tags className="h-4 w-4" /> },
-  status: { title: "Generation Status", icon: <CheckCircle2 className="h-4 w-4" /> },
-  version: { title: "Version History", icon: <History className="h-4 w-4" /> },
-  actions: { title: "Quick Actions", icon: <Wand2 className="h-4 w-4" /> },
+  info: { title: "镜头信息", icon: <Sparkles className="h-4 w-4" /> },
+  prompt: { title: "提示词", icon: <FileText className="h-4 w-4" /> },
+  camera: { title: "镜头语言", icon: <Camera className="h-4 w-4" /> },
+  references: { title: "参考素材", icon: <Image className="h-4 w-4" /> },
+  style: { title: "风格 / 情绪 / 标签", icon: <Tags className="h-4 w-4" /> },
+  status: { title: "生成状态", icon: <CheckCircle2 className="h-4 w-4" /> },
+  version: { title: "版本记录", icon: <History className="h-4 w-4" /> },
+  actions: { title: "快捷操作", icon: <Wand2 className="h-4 w-4" /> },
 };
 
 function limitText(value: string, max: number) {
@@ -94,7 +94,7 @@ export function InspectorDrawer({
     )}>
       <div className="flex min-h-[72px] items-start justify-between gap-4 border-b border-nc-border bg-white px-5 py-4">
         <div className="min-w-0">
-          <div className="text-[12px] font-semibold uppercase tracking-[0.12em] text-nc-accent">Context Inspector</div>
+          <div className="text-[12px] font-semibold uppercase tracking-[0.12em] text-nc-accent">上下文检查</div>
           <h2 className="nc-text-safe mt-1 line-clamp-1 text-[18px] font-semibold leading-7 text-nc-text">{title}</h2>
         </div>
         <Button size="icon" variant="ghost" className="h-9 w-9" onClick={onClose} aria-label="关闭检查器">

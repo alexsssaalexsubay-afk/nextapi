@@ -30,8 +30,8 @@ function scorePrompt(prompt: string): PromptScore {
     tips.push("Consider adding more specific visual details");
   } else if (wordCount > 80) {
     score -= 10;
-    issues.push("Prompt is long — Seedance may ignore parts beyond 80 words");
-    tips.push("Focus on the single most important action");
+    issues.push("提示词偏长，Seedance 可能忽略 80 个词之后的部分");
+    tips.push("聚焦一个最重要的动作");
   } else {
     score += 15;
   }

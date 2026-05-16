@@ -139,7 +139,7 @@ export function SettingsPanel() {
   useEffect(() => {
     void sidecarFetch<{ presets: ModelPreset[] }>("/config/llm-presets")
       .then((res) => setModelPresets(res.presets || []))
-      .catch(() => setNotice({ tone: "warning", text: "模型预设暂时无法从 sidecar 读取。" }));
+      .catch(() => setNotice({ tone: "warning", text: "模型预设暂时无法从本地引擎读取。" }));
     void sidecarFetch<{ prompts: RuntimePrompt[] }>("/config/prompts")
       .then((res) => {
         const prompts = res.prompts || [];
@@ -150,10 +150,10 @@ export function SettingsPanel() {
           setPromptDraft(first.prompt);
         }
       })
-      .catch(() => setNotice({ tone: "warning", text: "提示词配置暂时无法从 sidecar 读取。" }));
+      .catch(() => setNotice({ tone: "warning", text: "提示词配置暂时无法从本地引擎读取。" }));
     void sidecarFetch<SetupStatus>("/setup/detect")
       .then((res) => setSetupStatus(res))
-      .catch(() => setNotice({ tone: "warning", text: "生产线路状态暂时无法从 sidecar 读取。" }));
+      .catch(() => setNotice({ tone: "warning", text: "生产线路状态暂时无法从本地引擎读取。" }));
   }, []);
 
   useEffect(() => {
@@ -224,7 +224,7 @@ export function SettingsPanel() {
       });
       setNotice({ tone: res.status === "configured" ? "success" : "warning", text: res.message });
     } catch {
-      setNotice({ tone: "warning", text: "sidecar 配置检测失败，请确认后端服务已启动。" });
+      setNotice({ tone: "warning", text: "本地引擎配置检测失败，请确认服务已启动。" });
     }
   };
 
@@ -241,7 +241,7 @@ export function SettingsPanel() {
       const status = await sidecarFetch<SetupStatus>("/setup/detect");
       setSetupStatus(status);
     } catch {
-      setNotice({ tone: "warning", text: "配置动作失败，请确认 sidecar 已启动。" });
+      setNotice({ tone: "warning", text: "配置动作失败，请确认本地引擎已启动。" });
     }
   };
 
@@ -261,7 +261,7 @@ export function SettingsPanel() {
       body: JSON.stringify({ prompt: promptDraft }),
     });
     setRuntimePrompts((current) => current.map((item) => item.id === res.prompt.id ? res.prompt : item));
-    setNotice({ tone: "success", text: `${res.prompt.label} 的系统提示词已保存，后续 Agent 调用会使用新版。` });
+    setNotice({ tone: "success", text: `${res.prompt.label} 的系统提示词已保存，后续 AI 导演会使用新版。` });
   };
 
   const resetRuntimePrompt = async () => {
@@ -279,7 +279,7 @@ export function SettingsPanel() {
       <PageHeader
         eyebrow="Settings"
         title="设置"
-        subtitle="连接语言模型、视频生成服务和 AI Team，让后续创作任务使用同一套可控配置。"
+        subtitle="连接语言模型、视频生成服务和 AI 导演团队，让后续创作任务使用同一套可控配置。"
         action={<Pill tone={notice.tone}>{notice.text}</Pill>}
       />
 
@@ -291,13 +291,13 @@ export function SettingsPanel() {
             { value: "llm", label: "语言模型" },
             { value: "models", label: "模型库" },
             { value: "video", label: "视频生成" },
-            { value: "agents", label: "AI Team" },
+            { value: "agents", label: "导演团队" },
             { value: "prompts", label: "提示词" },
             { value: "team", label: "团队与扣点" },
           ]}
         />
         <div className="flex items-center gap-2">
-          <StatusBadge tone="info" title={capabilityMeta.text.hint}>文字 LLM</StatusBadge>
+          <StatusBadge tone="info" title={capabilityMeta.text.hint}>文字模型</StatusBadge>
           <StatusBadge tone="warning" title={capabilityMeta.image.hint}>图片 / 垫图</StatusBadge>
           <StatusBadge tone="accent" title={capabilityMeta.video.hint}>视频生成</StatusBadge>
           <StatusBadge tone="accent">{llm.provider || "未选择"} / {llm.model || "未填写模型"}</StatusBadge>
@@ -395,8 +395,8 @@ export function SettingsPanel() {
             title="管理规则"
             items={[
               "owner/admin 可以查看全团队成员用量，member 只看自己的用量。",
-              "新客户端登录会生成成员专属 dashboard key，避免多人互相挤掉 key，并支持按成员归因。",
-              `历史共享 key 用量：${teamUsage?.shared_usage?.jobs_count || 0} 个任务，${formatCents(teamUsage?.shared_usage?.credits_used)}。这部分无法精确归因到个人。`,
+              "新设备登录会生成成员专属访问凭证，避免多人互相挤掉配置，并支持按成员归因。",
+              `历史共享凭证用量：${teamUsage?.shared_usage?.jobs_count || 0} 个任务，${formatCents(teamUsage?.shared_usage?.credits_used)}。这部分无法精确归因到个人。`,
             ]}
           />
         </div>
@@ -404,9 +404,9 @@ export function SettingsPanel() {
 
       {activeTab === "llm" && (
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
-          <SectionCard title="默认语言模型" subtitle="用于脚本、角色、分镜、提示词优化等 AI Director 工作。">
+          <SectionCard title="默认语言模型" subtitle="用于脚本、角色、分镜、提示词优化等 AI 导演工作。">
             <div className="mb-5 flex flex-wrap gap-2">
-              <StatusBadge tone="info" title={capabilityMeta.text.hint}>文字 LLM</StatusBadge>
+              <StatusBadge tone="info" title={capabilityMeta.text.hint}>文字模型</StatusBadge>
               <StatusBadge tone="neutral">不会直接生成图片或视频</StatusBadge>
             </div>
             <div className="grid gap-5 md:grid-cols-2">
@@ -490,7 +490,7 @@ export function SettingsPanel() {
 
             <SectionCard
               title="语言模型预设库"
-              subtitle="预置 30+ 个主流 LLM / 聚合网关配置。点击即可写入默认语言模型；Key 仍由你本地填写。"
+              subtitle="预置 30+ 个主流语言模型和聚合服务配置。点击即可写入默认语言模型；Key 仍由你本地填写。"
               action={<StatusBadge tone="accent">{modelPresets.length} 个预设</StatusBadge>}
             >
               <div className="mb-5">
@@ -532,13 +532,13 @@ export function SettingsPanel() {
               items={[
                 "NextAPI 托管视频统一扣团队余额，适合多人团队、用量归因和后台管理。",
                 "ComfyUI、RunningHub、本地 OpenAI 兼容服务和本地模型走用户自己的资源或 Key，不扣团队点数。",
-                "自定义 HTTP Provider 保留上游原始响应 envelope，方便后续接入新模型而不改业务页面。",
+                "自定义 HTTP 服务会保留上游原始返回结果，方便后续接入新模型而不改业务页面。",
               ]}
             />
             <GuidancePanel
               title="模型库说明"
               items={[
-                "文字 LLM 负责导演、分镜、提示词和预检，不直接生成图片或视频。",
+                "文字模型负责导演、分镜、提示词和预检，不直接生成图片或视频。",
                 "图片/视频线路必须在生成前显示扣费归属和 Key 来源，避免用户不知道扣哪里。",
                 "本地视频模型包体积大，当前只检测目录；后续模型中心负责下载、校验和启用。",
               ]}
@@ -551,13 +551,13 @@ export function SettingsPanel() {
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
           <SectionCard
             title="视频生成服务"
-            subtitle="控制 Seedance / NextAPI / ComfyUI / RunningHub / 本地兼容服务的生成参数，和文字 LLM 分开配置。"
+            subtitle="控制 Seedance、NextAPI、ComfyUI、RunningHub 和本地兼容服务的生成参数，和文字模型分开配置。"
             action={<StatusBadge tone="accent" title={capabilityMeta.video.hint}>视频生成</StatusBadge>}
           >
             <div className="mb-5 flex flex-wrap gap-2">
-              <StatusBadge tone="accent">视频 Provider</StatusBadge>
-              <StatusBadge tone="warning">可接收 image_urls 垫图</StatusBadge>
-              <StatusBadge tone="success">可接收 audio_urls</StatusBadge>
+              <StatusBadge tone="accent">视频生成服务</StatusBadge>
+              <StatusBadge tone="warning">可接收参考图</StatusBadge>
+              <StatusBadge tone="success">可接收音频参考</StatusBadge>
               <StatusBadge tone="danger">生成前本地预检</StatusBadge>
             </div>
             <div className="grid gap-5 md:grid-cols-2">
@@ -607,8 +607,8 @@ export function SettingsPanel() {
       {activeTab === "agents" && (
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
           <SectionCard
-            title="AI Director Team"
-            subtitle="这些 Agent 都是文字 LLM 节点：负责规划、拆解、检查和编译参数，不直接跑生图或视频。"
+            title="AI 导演团队"
+            subtitle="这些角色都由文字模型驱动：负责规划、拆解、检查和整理参数，不直接跑生图或视频。"
             action={<StatusBadge tone={configuredAgents > 0 ? "accent" : "neutral"}>{configuredAgents} 个自定义</StatusBadge>}
           >
             <div className="grid gap-4 md:grid-cols-2">
@@ -623,7 +623,7 @@ export function SettingsPanel() {
                         <p className="mt-1 text-[13px] leading-5 text-nc-text-secondary">{agent.role}</p>
                       </div>
                       <div className="flex shrink-0 flex-col items-end gap-2">
-                        <StatusBadge tone="info">文字 LLM</StatusBadge>
+                        <StatusBadge tone="info">文字模型</StatusBadge>
                         <StatusBadge tone={hasOverride ? "accent" : "neutral"}>{hasOverride ? "自定义" : "默认"}</StatusBadge>
                       </div>
                     </div>
@@ -641,7 +641,7 @@ export function SettingsPanel() {
             items={[
               "编剧、分镜和提示词优化最影响结果质量，适合优先配置强模型。",
               "质量巡检可使用稳定低温度配置，减少评审波动。",
-              "覆盖配置后会在 Agent 卡片上显示自定义状态。",
+              "覆盖配置后会在角色卡片上显示自定义状态。",
             ]}
           />
         </div>
@@ -649,7 +649,7 @@ export function SettingsPanel() {
 
       {activeTab === "prompts" && (
         <div className="grid gap-6 xl:grid-cols-[360px_minmax(0,1fr)]">
-          <SectionCard title="当前 Agent 提示词" subtitle="这里显示 sidecar 当前实际注册的文字 LLM 系统提示词，不再是黑盒。">
+          <SectionCard title="当前 AI 导演提示词" subtitle="这里显示本地引擎当前使用的文字模型提示词，不再是黑盒。">
             <div className="grid gap-3">
               {runtimePrompts.map((prompt) => (
                 <button
@@ -664,7 +664,7 @@ export function SettingsPanel() {
                   <div className="flex items-center justify-between gap-3">
                     <span className="text-[15px] font-semibold leading-6 text-nc-text">{prompt.label}</span>
                     <div className="flex shrink-0 items-center gap-2">
-                      <StatusBadge tone="info">文字 LLM</StatusBadge>
+                      <StatusBadge tone="info">文字模型</StatusBadge>
                       <StatusBadge tone={prompt.is_custom ? "accent" : "neutral"}>{prompt.is_custom ? "已改" : "默认"}</StatusBadge>
                     </div>
                   </div>
@@ -676,7 +676,7 @@ export function SettingsPanel() {
 
           <SectionCard
             title={selectedPrompt ? `${selectedPrompt.label} 系统提示词` : "系统提示词"}
-            subtitle="修改后会写入 sidecar runtime prompt registry，并影响后续 Agent 调用。"
+            subtitle="修改后会写入本地引擎，并影响后续 AI 导演调用。"
             action={selectedPrompt && <StatusBadge tone={selectedPrompt.is_custom ? "accent" : "neutral"}>{selectedPrompt.id}</StatusBadge>}
           >
             <textarea
@@ -687,7 +687,7 @@ export function SettingsPanel() {
             />
             <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-nc-border pt-5">
               <div className="text-[13px] leading-5 text-nc-text-secondary">
-                当前长度 {promptDraft.length.toLocaleString()} 字符。建议每次只改一个 Agent，便于回滚。
+                当前长度 {promptDraft.length.toLocaleString()} 字符。建议每次只改一个角色，便于回滚。
               </div>
               <div className="flex items-center gap-3">
                 <Button variant="secondary" onClick={resetRuntimePrompt} disabled={!selectedPrompt}>
@@ -728,13 +728,13 @@ function ModelCenterHero({
       <div className="relative grid gap-5 p-5 lg:grid-cols-[minmax(0,0.9fr)_minmax(380px,1.1fr)]">
         <div className="flex min-w-0 flex-col justify-center px-1 py-3">
           <div className="mb-3 inline-flex w-fit min-h-8 items-center rounded-full border border-nc-accent/20 bg-[#F5F3FF] px-3 text-[12px] font-bold uppercase tracking-[0.12em] text-nc-accent">
-            Model Center
+            模型中心
           </div>
           <h2 className="nc-text-safe text-[30px] font-bold leading-[1.16] text-nc-text">
             本地模型、云端 Key、团队扣点分开管理
           </h2>
           <p className="mt-3 max-w-[560px] text-[14px] leading-6 text-nc-text-secondary">
-            不把模型字段写死在页面里。视频、生图线路、FFmpeg、ComfyUI、RunningHub 和 Custom HTTP 都走统一线路状态。
+            不把模型配置写死在页面里。视频、生图线路、FFmpeg、ComfyUI、RunningHub 和自定义接口都走统一线路状态。
           </p>
           <div className="mt-5 flex flex-wrap gap-3">
             <Button variant="primary" onClick={onPrepare}>
@@ -761,7 +761,7 @@ function ModelCenterHero({
           <div className="mt-5 flex flex-wrap gap-2">
             <StatusBadge tone={readyLines ? "success" : "warning"}>{readyLines}/{totalLines} 条线路可用</StatusBadge>
             <StatusBadge tone="accent">团队扣点 / 本地资源分离</StatusBadge>
-            <StatusBadge tone="info">Provider Envelope</StatusBadge>
+            <StatusBadge tone="info">统一返回结果</StatusBadge>
           </div>
         </div>
         <div className="relative min-h-[230px] overflow-hidden rounded-[22px] border border-white/70 bg-white/55 shadow-[0_18px_54px_rgba(15,23,42,0.08)]">
@@ -895,7 +895,7 @@ function productionLineAction(line: ProductionLineStatus): { label: string; acti
     return { label: "修复 FFmpeg", action: "prepare_ffmpeg", icon: <Download className="h-4 w-4" /> };
   }
   if (blockers.has("missing_llm_source")) {
-    return { label: "安装 Ollama / 本地 LLM", action: "open_ollama", icon: <Download className="h-4 w-4" /> };
+    return { label: "安装 Ollama / 本地语言模型", action: "open_ollama", icon: <Download className="h-4 w-4" /> };
   }
   if (blockers.has("missing_custom_http_endpoint")) {
     return { label: "套用默认端点", action: "apply_default_routes", icon: <Settings2 className="h-4 w-4" /> };
@@ -939,7 +939,7 @@ function billingTone(billing: string): "neutral" | "accent" | "success" | "warni
 
 function keySourceLabel(source: string) {
   const labels: Record<string, string> = {
-    "NextAPI team dashboard key": "NextAPI 团队 Key",
+    "NextAPI team dashboard key": "NextAPI 团队凭证",
     "user RunningHub key": "用户 RunningHub Key",
     "local service": "本地服务",
     "local service / user api key": "本地服务 / 用户 Key",
@@ -981,7 +981,7 @@ function blockerLabel(blocker: string) {
     comfyui_not_running: "ComfyUI 未运行",
     missing_runninghub_key: "缺 RunningHub Key",
     local_video_model_pack_missing: "本地视频模型包未安装",
-    missing_llm_source: "缺文字 LLM 来源",
+    missing_llm_source: "缺文字模型来源",
     missing_custom_http_endpoint: "缺自定义端点",
   };
   return labels[blocker] || blocker;

@@ -113,7 +113,7 @@ MODEL_PRESETS: list[ModelPreset] = [
 CAPABILITIES = [
     {"id": "director_plan", "label": "AI Director Plan", "method": "POST", "path": "/director/plan", "configurable": ["pipeline.default_llm", "agent overrides", "references", "style", "duration"]},
     {"id": "prompt_action", "label": "Prompt rewrite actions", "method": "POST", "path": "/director/prompt/action", "configurable": ["action prompt", "target language"]},
-    {"id": "generate_preflight", "label": "Generation Preflight", "method": "POST", "path": "/generate/preflight", "configurable": ["provider limits", "reference policy"]},
+    {"id": "generate_preflight", "label": "生成前检查", "method": "POST", "path": "/generate/preflight", "configurable": ["生成服务限制", "参考素材策略"]},
     {"id": "video_generate", "label": "Seedance Video Generate", "method": "POST", "path": "/generate/submit", "configurable": ["video_base_url", "video_model", "video_api_key", "quality"]},
     {"id": "video_batch", "label": "Batch Video Generate", "method": "POST", "path": "/generate/batch", "configurable": ["sequential", "shot payloads"]},
     {"id": "character_assets", "label": "Character Asset Pack", "method": "POST", "path": "/agents/generate-character-assets", "configurable": ["image model", "turnaround/expression/outfit/pose prompts"]},

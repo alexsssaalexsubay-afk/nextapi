@@ -14,13 +14,13 @@ const translations = {
       settings: "Settings",
     },
     canvas: {
-      pipeline: "Pipeline",
-      storyboard: "Storyboard",
+      pipeline: "Workflow",
+      storyboard: "Shot board",
       split: "Split",
     },
     director: {
       title: "AI Video Director",
-      description: "Describe your vision and the AI crew will break it down into a professional storyboard.",
+      description: "Describe your vision and NextAPI Studio will break it down into a polished shot plan.",
     },
     // Add more as needed
   },

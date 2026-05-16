@@ -18,12 +18,12 @@ export function Titlebar() {
           </svg>
         </div>
         <span className="text-[14px] font-extrabold tracking-tight text-nc-text pr-2">
-          NextCut
+          NextAPI Studio
         </span>
         {isRunning && (
           <span className="flex items-center gap-1.5 rounded-full bg-nc-surface px-2.5 py-1 text-xs font-medium text-nc-text shadow-sm border border-nc-border">
             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-nc-text" />
-            Processing
+            处理中
           </span>
         )}
       </div>

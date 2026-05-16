@@ -1,4 +1,4 @@
-"""Build script for NextCut sidecar binary via PyInstaller."""
+"""Build script for the NextAPI Studio sidecar binary via PyInstaller."""
 
 import platform
 import subprocess

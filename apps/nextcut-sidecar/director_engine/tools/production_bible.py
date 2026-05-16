@@ -156,7 +156,7 @@ def bible_context_for_prompt(bible: ProductionBible, shot: DirectorShot) -> str:
     )
     return "\n".join(
         [
-            "=== NEXTCUT PRODUCTION BIBLE ===",
+            "=== NEXTAPI STUDIO PRODUCTION BIBLE ===",
             f"Style contract: {bible.style_contract}",
             f"Reference policy: {bible.reference_policy}",
             scene_line,

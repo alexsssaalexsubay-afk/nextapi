@@ -1,4 +1,4 @@
-"""NextCut Director Engine — AI-powered video production pipeline.
+"""NextAPI Studio Director Engine — AI-powered video production pipeline.
 
 The Director Engine orchestrates a multi-agent chain that transforms
 ideas, scripts, or storyboards into production-ready video generation

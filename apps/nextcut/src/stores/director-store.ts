@@ -111,10 +111,10 @@ export const WORKFLOW_PRESETS: WorkflowPreset[] = [
     needsRefVideo: true,
     model: "seedance-2.0-pro",
     tips: [
-      "Use character reference images for identity anchoring",
-      "Change only ONE variable per shot (action OR camera, not both)",
-      "Reference images matter more than prompt sophistication",
-      "Keep individual clips under 10s for best quality",
+      "使用角色参考图锁定外观",
+      "每个镜头只改变一个变量：动作或运镜",
+      "参考图比文字描述更能决定画面",
+      "单个镜头控制在 10 秒内更稳定",
     ],
   },
 ];

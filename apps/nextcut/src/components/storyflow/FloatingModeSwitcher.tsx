@@ -3,10 +3,10 @@ import { cn } from "@/lib/cn";
 import type { StoryflowMode } from "@/stores/app-store";
 
 const MODES: Array<{ id: StoryflowMode; label: string; desc: string; icon: React.ReactNode }> = [
-  { id: "storyflow", label: "Storyflow", desc: "结构编排", icon: <GitBranch className="h-4 w-4" /> },
-  { id: "focus", label: "Focus Canvas", desc: "沉浸创作", icon: <Focus className="h-4 w-4" /> },
-  { id: "review", label: "Split Review", desc: "分屏复核", icon: <Columns3 className="h-4 w-4" /> },
-  { id: "timeline", label: "Timeline Edit", desc: "精修时间线", icon: <Rows3 className="h-4 w-4" /> },
+  { id: "storyflow", label: "流程编排", desc: "结构编排", icon: <GitBranch className="h-4 w-4" /> },
+  { id: "focus", label: "沉浸画布", desc: "沉浸创作", icon: <Focus className="h-4 w-4" /> },
+  { id: "review", label: "分屏复核", desc: "分屏复核", icon: <Columns3 className="h-4 w-4" /> },
+  { id: "timeline", label: "时间线精修", desc: "精修时间线", icon: <Rows3 className="h-4 w-4" /> },
 ];
 
 export function FloatingModeSwitcher({

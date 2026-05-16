@@ -1,4 +1,4 @@
-"""ComfyUI WebSocket bridge — connects NextCut to a running ComfyUI instance.
+"""ComfyUI WebSocket bridge — connects NextAPI Studio to a running ComfyUI instance.
 
 Supports:
 - Status check (is ComfyUI reachable?)

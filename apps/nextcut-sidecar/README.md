@@ -1,4 +1,4 @@
-# NextCut Sidecar
+# NextAPI Studio Sidecar
 
 The checked-in macOS arm64 sidecar binary is intentionally larger than the
 earlier Python-only build because packaged desktop exports need a bundled

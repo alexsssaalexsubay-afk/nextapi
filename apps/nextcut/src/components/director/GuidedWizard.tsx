@@ -205,11 +205,11 @@ export const GuidedWizard = memo(function GuidedWizard({
               </h2>
               <p className="nc-text-safe mt-2 max-w-[640px] text-[15px] leading-7 text-nc-text-secondary">
                 {step === "goal"
-                  ? "选择一个创作目标，NextCut 会自动配置工作流、镜头数量和默认生产链路。"
+                  ? "选择一个创作目标，NextAPI Studio 会自动配置工作流、镜头数量和默认生产链路。"
                   : step === "content"
                     ? "用中文也可以。写清主体、场景、动作、情绪和用途，AI 导演会扩展成可执行分镜。"
                     : step === "style"
-                      ? "选择风格和画幅，后续仍可以在 Storyflow、分镜板和时间线里逐镜头修改。"
+                      ? "选择风格和画幅，后续仍可以在流程画布、分镜板和时间线里逐镜头修改。"
                       : "确认后会进入 AI 导演流程，生成分镜、镜头语言、提示词和预检建议。"}
               </p>
             </div>
@@ -292,7 +292,7 @@ export const GuidedWizard = memo(function GuidedWizard({
                       <Sparkles className="h-4 w-4" />
                       语言不用担心
                     </div>
-                    <p className="text-[13px] leading-6 text-nc-text-secondary">中文、英文或混合输入都可以。NextCut 会在后续提示词节点里生成更适合视频模型的结构化英文提示。</p>
+                    <p className="text-[13px] leading-6 text-nc-text-secondary">中文、英文或混合输入都可以。NextAPI Studio 会在后续提示词节点里生成更适合视频模型的结构化英文提示。</p>
                   </div>
                 </div>
               </div>
@@ -432,8 +432,8 @@ export const GuidedWizard = memo(function GuidedWizard({
               <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0.55))]" />
               <div className="absolute bottom-4 left-4 right-4">
                 <div className="rounded-[18px] border border-white/70 bg-white/80 p-3 shadow-sm backdrop-blur">
-                  <div className="text-[13px] font-bold text-nc-text">NextCut 会为你编排</div>
-                  <div className="mt-1 text-[12px] leading-5 text-nc-text-secondary">Prompt、Reference、Camera Motion、Storyboard 和 Timeline</div>
+                  <div className="text-[13px] font-bold text-nc-text">NextAPI Studio 会为你编排</div>
+                  <div className="mt-1 text-[12px] leading-5 text-nc-text-secondary">提示词、参考素材、运镜、分镜和时间线</div>
                 </div>
               </div>
             </div>
@@ -447,14 +447,14 @@ export const GuidedWizard = memo(function GuidedWizard({
                 <PreviewFact label="目标" value={goal ? (lang === "zh" ? goal.labelZh : goal.label) : "待选择"} />
                 <PreviewFact label="风格" value={selectedStyleMeta ? (lang === "zh" ? selectedStyleMeta.labelZh : selectedStyleMeta.label) : selectedStyle} />
                 <PreviewFact label="画幅" value={ratio} />
-                <PreviewFact label="镜头" value={goal ? `${goal.defaultShots} clips` : "-"} />
+                <PreviewFact label="镜头" value={goal ? `${goal.defaultShots} 个镜头` : "-"} />
               </div>
             </div>
 
             <div className="rounded-[22px] border border-nc-border bg-white p-4 shadow-sm">
               <div className="mb-3 text-[14px] font-bold text-nc-text">生产链路</div>
               <div className="space-y-2">
-                {["Brief", "Screenwriter", "Storyboard", "Camera", "Preflight"].map((item, index) => (
+                {["创意简报", "脚本生成", "分镜", "镜头语言", "生成前检查"].map((item, index) => (
                   <div key={item} className="flex items-center gap-2">
                     <span className={cn("h-2.5 w-2.5 rounded-full", activeStepIndex >= Math.min(index, 3) ? "bg-nc-accent" : "bg-nc-border-strong")} />
                     <span className="text-[12px] font-semibold text-nc-text-secondary">{item}</span>

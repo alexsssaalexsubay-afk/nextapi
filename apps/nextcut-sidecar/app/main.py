@@ -34,7 +34,7 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
 
 
 app = FastAPI(
-    title="NextCut Sidecar",
+    title="NextAPI Studio Local Engine",
     version="0.1.0",
     docs_url="/docs" if settings.debug else None,
     lifespan=lifespan,
@@ -56,7 +56,7 @@ async def enforce_renderer_request_binding(request: Request, call_next):
         if origin and origin not in TRUSTED_ORIGINS:
             return JSONResponse({"detail": "Untrusted origin"}, status_code=403)
         if request.headers.get("x-nextcut-client") != "nextcut-renderer":
-            return JSONResponse({"detail": "Missing NextCut client binding"}, status_code=403)
+            return JSONResponse({"detail": "Missing NextAPI Studio client binding"}, status_code=403)
     return await call_next(request)
 
 app.include_router(director_router, prefix="/director", tags=["director"])

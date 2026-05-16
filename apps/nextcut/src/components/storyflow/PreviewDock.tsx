@@ -40,7 +40,7 @@ export function PreviewDock({
     <div className="nc-card-safe flex min-h-0 flex-col overflow-hidden rounded-[20px] border border-nc-border bg-white shadow-[0_14px_42px_rgba(15,23,42,0.08)]">
       <div className="flex min-h-12 items-center justify-between border-b border-nc-border px-4">
         <div>
-          <div className="text-[14px] font-semibold leading-5 text-nc-text">Preview</div>
+          <div className="text-[14px] font-semibold leading-5 text-nc-text">预览</div>
           <div className="text-[12px] leading-4 text-nc-text-tertiary">{shot ? `S${index + 1} / ${total}` : "未选择镜头"}</div>
         </div>
         <Pill tone={hasVideo ? "success" : shot?.status === "failed" ? "danger" : "neutral"}>
@@ -62,7 +62,7 @@ export function PreviewDock({
               <div>
                 <p className="nc-text-safe line-clamp-2 text-[15px] font-semibold leading-6 text-white">{shot?.title || "选择镜头查看预览"}</p>
                 <p className="nc-text-safe mx-auto mt-2 line-clamp-4 max-w-[320px] text-[13px] leading-6 text-white/72">
-                  {shot?.generationParams?.shot_script || shot?.prompt || "预览会跟随 Storyflow 节点和 Timeline clip 同步。"}
+                  {shot?.generationParams?.shot_script || shot?.prompt || "预览会跟随创作流程节点和时间线片段同步。"}
                 </p>
               </div>
             </>

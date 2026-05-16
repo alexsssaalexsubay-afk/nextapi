@@ -9,10 +9,10 @@ export const capabilityMeta: Record<CapabilityKind, {
   hint: string;
 }> = {
   text: {
-    label: "文字 LLM",
-    shortLabel: "LLM",
+    label: "文字模型",
+    shortLabel: "文字",
     tone: "info",
-    hint: "调用语言模型，产出脚本、分镜、镜头语言、提示词或检查建议。",
+    hint: "调用语言模型，产出脚本、分镜、镜头语言、创作指令或检查建议。",
   },
   image: {
     label: "图片 / 垫图",
@@ -24,7 +24,7 @@ export const capabilityMeta: Record<CapabilityKind, {
     label: "视频生成",
     shortLabel: "视频",
     tone: "accent",
-    hint: "调用视频生成 provider，提交 prompt、参考图、参考视频、音频和参数。",
+    hint: "调用视频生成服务，提交创作指令、参考图、参考视频、音频和参数。",
   },
   audio: {
     label: "音频",
@@ -36,7 +36,7 @@ export const capabilityMeta: Record<CapabilityKind, {
     label: "本地预检",
     shortLabel: "预检",
     tone: "danger",
-    hint: "在提交生成前本地检查 provider 限制、垫图缺失和参数冲突。",
+    hint: "在提交生成前检查服务限制、垫图缺失和参数冲突。",
   },
   local: {
     label: "本地状态",
@@ -48,7 +48,7 @@ export const capabilityMeta: Record<CapabilityKind, {
     label: "云端任务",
     shortLabel: "云端",
     tone: "accent",
-    hint: "会向远程 API 或队列提交任务，成本和排队时间取决于 provider。",
+    hint: "会向云端生成服务提交任务，成本和排队时间取决于所选线路。",
   },
 };
 

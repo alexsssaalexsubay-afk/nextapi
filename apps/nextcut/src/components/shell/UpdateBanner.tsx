@@ -8,7 +8,7 @@ export function UpdateBanner() {
   return (
     <div className="flex h-9 items-center justify-between border-b border-nc-accent/20 bg-nc-accent-muted px-4 shadow-sm">
       <span className="text-sm text-nc-accent">
-        NextCut {update.version} available
+        NextAPI Studio {update.version} available
       </span>
       <button
         onClick={installUpdate}

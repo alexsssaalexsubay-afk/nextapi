@@ -185,8 +185,8 @@ export function useDirector() {
     } catch (err) {
       if (controller.signal.aborted) return;
       const msg = err instanceof SidecarError
-        ? `Engine error (${err.status})`
-        : "Could not reach the engine. Check that the sidecar is running.";
+        ? `本地引擎错误（${err.status}）`
+        : "无法连接本地引擎，请确认 NextAPI Studio 本地引擎已启动。";
       store.setLastError(msg);
       store.setIsRunning(false);
       store.setPipelineStep("idle");

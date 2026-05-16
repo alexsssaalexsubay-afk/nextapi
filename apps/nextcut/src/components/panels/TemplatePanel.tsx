@@ -42,6 +42,34 @@ const CATEGORY_OPTIONS: Array<{ value: Category; label: string }> = [
   { value: "account", label: "我的模板" },
 ];
 
+const CHAIN_LABELS: Record<string, string> = {
+  Brief: "创意简报",
+  "Shot Decomposition": "镜头拆解",
+  "Scene Group": "场景分组",
+  "Prompt Decomposition": "提示词拆解",
+  "Prompt Strategy": "提示词策略",
+  "Reference Stack": "参考素材",
+  "Reference Image Pipeline": "参考图链路",
+  "Camera Motion": "运镜设计",
+  Storyboard: "分镜",
+  Subtitle: "字幕",
+  Timeline: "时间线",
+  Output: "输出",
+  "Character Extractor": "角色提取",
+  "Character Anchor": "角色锚点",
+  "Identity Lock": "身份锁定",
+  "Quality Check": "质量检查",
+  "Production Bible": "制作约束",
+  Review: "复核",
+  Version: "版本",
+  "Media Library": "素材库",
+  "Editing Agent": "剪辑师",
+  "Audio Director": "声音导演",
+  Screenwriter: "编剧",
+  "Batch Generate": "批量生成",
+  Preflight: "生成前检查",
+};
+
 const BUILTIN_TEMPLATES = TEMPLATE_CATALOG;
 const CASE_STARTERS = TEMPLATE_CATALOG.slice(0, 4);
 
@@ -106,14 +134,14 @@ export const TemplatePanel = memo(function TemplatePanel() {
           <div className="flex min-w-0 flex-col justify-center px-8 py-8 lg:px-10">
             <div className="mb-5 flex flex-wrap gap-2">
               <StatusBadge tone="accent">{BUILTIN_TEMPLATES.length} 个生产模板</StatusBadge>
-              <StatusBadge tone="info">Storyflow Ready</StatusBadge>
+              <StatusBadge tone="info">流程画布就绪</StatusBadge>
               <StatusBadge tone="success">可写入 AI 导演</StatusBadge>
             </div>
             <h2 className="nc-text-safe max-w-[560px] text-[30px] font-bold leading-[38px] text-nc-text">
               从成熟视频生产链路开始，而不是从空白表单开始
             </h2>
             <p className="nc-text-safe mt-3 max-w-[620px] text-[15px] leading-7 text-nc-text-secondary">
-              每个模板都预置 Brief、Prompt Strategy、Reference Stack、Camera Motion、Storyboard、Preflight 和交付物，点击后直接进入 AI 导演继续细化。
+              每个模板都预置创意简报、提示词策略、参考素材、镜头语言、分镜、生成前检查和交付物，点击后直接进入 AI 导演继续细化。
             </p>
             <div className="mt-6 flex flex-wrap gap-3">
               <Button variant="primary" onClick={() => applyTemplate(TEMPLATE_CATALOG[0])}>
@@ -137,7 +165,7 @@ export const TemplatePanel = memo(function TemplatePanel() {
             <div className="absolute bottom-6 left-6 right-6 rounded-[20px] border border-white/70 bg-white/80 p-4 shadow-[0_18px_50px_rgba(15,23,42,0.12)] backdrop-blur-md">
               <p className="text-[13px] font-semibold leading-5 text-nc-text">生产链路预置</p>
               <div className="mt-3 flex flex-wrap gap-2">
-                {["Reference", "Storyboard", "Camera", "Preflight", "Timeline"].map((item) => (
+                {["参考素材", "分镜", "运镜", "生成前检查", "时间线"].map((item) => (
                   <Pill key={item} tone="accent">{item}</Pill>
                 ))}
               </div>
@@ -294,7 +322,7 @@ function TemplateCard({
               <p className="text-[12px] font-semibold leading-4 text-nc-text-tertiary">链路</p>
               <div className="flex flex-wrap gap-2">
                 {template.chain.slice(0, 4).map((item) => (
-                  <StatusBadge key={item} tone="neutral">{item}</StatusBadge>
+                  <StatusBadge key={item} tone="neutral">{CHAIN_LABELS[item] || item}</StatusBadge>
                 ))}
               </div>
             </div>

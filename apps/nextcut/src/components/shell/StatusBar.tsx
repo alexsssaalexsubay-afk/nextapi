@@ -33,19 +33,19 @@ export function StatusBar() {
   return (
     <div className="flex h-8 shrink-0 items-center justify-between border-t border-nc-border bg-nc-sidebar px-4 text-xs shadow-[0_-1px_0_0_rgba(0,0,0,0.03)]">
       <div className="flex items-center gap-5">
-        <StatusIndicator status={sidecarStatus} label="Engine" />
+        <StatusIndicator status={sidecarStatus} label="本地引擎" />
         <StatusIndicator status={comfyuiStatus} label="ComfyUI" />
         {isRunning && (
           <span className="flex items-center gap-1.5 text-nc-accent">
             <span className="inline-block h-[5px] w-[5px] animate-pulse rounded-full bg-nc-accent" />
-            Pipeline active
+            生成流程运行中
           </span>
         )}
       </div>
       <div className="flex items-center gap-4">
         {totalShots > 0 && (
           <span className="tabular-nums text-nc-text-tertiary">
-            {completedShots}/{totalShots} shots
+            {completedShots}/{totalShots} 镜头
           </span>
         )}
         <span className="text-nc-text-tertiary">v0.1.0</span>

@@ -24,17 +24,17 @@ type DurationPreset = "5" | "10" | "15";
 type StylePreset = "cinematic" | "commercial" | "vlog";
 
 const PRODUCTION_STAGES = [
-  { label: "Brief", detail: "创意约束" },
-  { label: "Director", detail: "镜头合同" },
-  { label: "Storyflow", detail: "画布编排" },
-  { label: "Review", detail: "提示词质检" },
-  { label: "Render", detail: "交付输出" },
+  { label: "创意", detail: "创意约束" },
+  { label: "导演", detail: "镜头约束" },
+  { label: "流程", detail: "画布编排" },
+  { label: "复核", detail: "提示词质检" },
+  { label: "生成", detail: "交付输出" },
 ];
 
 const QUALITY_SIGNALS = [
-  { label: "镜头级规划", value: "Shot Contract" },
-  { label: "一致性链路", value: "Identity Lock" },
-  { label: "可审阅状态", value: "Prompt QA" },
+  { label: "镜头级规划", value: "镜头约束" },
+  { label: "一致性链路", value: "身份锁定" },
+  { label: "可审阅状态", value: "提示词质检" },
 ];
 
 export const HomePage = memo(function HomePage() {
@@ -94,9 +94,9 @@ export const HomePage = memo(function HomePage() {
       {showWizard && <GuidedWizard onClose={() => setShowWizard(false)} />}
 
       <PageHeader
-        eyebrow="NextCut Studio"
+        eyebrow="NextAPI Studio"
         title="从一句创意到可交付影片"
-        subtitle="NextCut 把 Brief、AI 导演、Storyflow 画布、提示词质检与剪辑时间线收进同一个生产驾驶舱，让团队看到每个镜头如何被规划、审阅和交付。"
+        subtitle="NextAPI Studio 把创意简报、AI 导演、分镜画布、提示词检查和剪辑时间线收进同一个创作工作台，让团队看清每个镜头如何被规划、审阅和交付。"
         action={
           <>
             <Button variant="secondary" onClick={() => setShowWizard(true)}>
@@ -115,14 +115,14 @@ export const HomePage = memo(function HomePage() {
         <div className="grid gap-5 rounded-[24px] border border-white/10 bg-white/[0.06] p-5 text-white backdrop-blur-xl lg:grid-cols-[minmax(0,1.2fr)_minmax(340px,0.8fr)]">
           <div className="min-w-0 p-2 sm:p-4">
             <div className="flex flex-wrap items-center gap-2">
-              <StatusBadge tone="info" className="border-white/20 bg-white/12 text-white">Executive Preview</StatusBadge>
-              <StatusBadge tone="accent" className="border-white/20 bg-white/12 text-white">Closed-loop Video OS</StatusBadge>
+              <StatusBadge tone="info" className="border-white/20 bg-white/12 text-white">高阶预览</StatusBadge>
+              <StatusBadge tone="accent" className="border-white/20 bg-white/12 text-white">闭环视频工作台</StatusBadge>
             </div>
             <h2 className="mt-5 max-w-[760px] text-[36px] font-bold leading-[44px] tracking-[-0.03em] sm:text-[44px] sm:leading-[52px]">
               不是表单生成器，是镜头级 AI 生产中控台。
             </h2>
             <p className="mt-4 max-w-[680px] text-[15px] leading-7 text-white/72">
-              首页直接呈现从创意到分镜、质检和交付的主航道，减少廉价占位感；所有入口都回到真实可执行的 AI 导演、Storyflow、素材库和剪辑流程。
+              首页直接呈现从创意到分镜、质检和交付的主航道，减少廉价占位感；所有入口都回到真实可执行的 AI 导演、流程画布、素材库和剪辑流程。
             </p>
             <div className="mt-7 flex flex-wrap gap-3">
               <Button variant="primary" onClick={handleDirectorPath} className="bg-white text-[#351a74] shadow-[0_18px_42px_rgba(255,255,255,0.22)] hover:bg-white/95">
@@ -131,7 +131,7 @@ export const HomePage = memo(function HomePage() {
               </Button>
               <Button variant="secondary" onClick={() => setSidebarPage("workspace")} className="border-white/20 bg-white/10 text-white hover:border-white/35 hover:bg-white/16">
                 <FlowIcon />
-                查看 Storyflow
+                查看流程画布
               </Button>
             </div>
           </div>
@@ -139,10 +139,10 @@ export const HomePage = memo(function HomePage() {
           <div className="rounded-[22px] border border-white/14 bg-white/[0.09] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.18)]">
             <div className="flex items-center justify-between gap-3 border-b border-white/12 pb-4">
               <div>
-                <p className="text-[13px] font-semibold leading-5 text-white/58">Production Route</p>
+                <p className="text-[13px] font-semibold leading-5 text-white/58">生产路线</p>
                 <p className="mt-1 text-[17px] font-semibold leading-6 text-white">{stylePreset === "commercial" ? "商业广告链路" : stylePreset === "vlog" ? "创作者叙事链路" : "电影短片链路"}</p>
               </div>
-              <StatusBadge tone={localPrompt.trim() ? "success" : "warning"} className="border-white/20 bg-white/12 text-white">{localPrompt.trim() ? "Brief Ready" : "Need Brief"}</StatusBadge>
+              <StatusBadge tone={localPrompt.trim() ? "success" : "warning"} className="border-white/20 bg-white/12 text-white">{localPrompt.trim() ? "创意已就绪" : "等待创意"}</StatusBadge>
             </div>
 
             <div className="mt-5 grid gap-3">

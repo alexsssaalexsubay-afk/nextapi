@@ -73,7 +73,7 @@ export function LoginPanel() {
               <path d="M7 1L12 3.5L7 6L2 3.5L7 1Z" fill="currentColor" className="text-nc-accent" opacity="0.6" />
             </svg>
           </div>
-          <span className="text-lg font-semibold text-nc-text">NextCut</span>
+          <span className="text-lg font-semibold text-nc-text">NextAPI Studio</span>
         </div>
 
         {/* Tab switcher */}
@@ -147,7 +147,7 @@ export function LoginPanel() {
               type="text"
               value={licenseKey}
               onChange={(e) => setLicenseKey(e.target.value)}
-              placeholder="NEXTCUT-XXXX-XXXX-XXXX"
+              placeholder="NEXTAPI-XXXX-XXXX-XXXX"
               className="h-11 rounded-lg border border-nc-border bg-nc-panel px-3 font-mono text-sm text-nc-text shadow-sm outline-none transition-all placeholder:text-nc-text-tertiary focus:border-nc-accent/50 focus:ring-2 focus:ring-nc-accent/15"
             />
             <button

@@ -68,12 +68,12 @@ export function TimelineDock({
       <div className="flex min-h-14 items-center justify-between gap-4 border-b border-nc-border px-4">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <h2 className="text-[15px] font-semibold leading-6 text-nc-text">Timeline</h2>
+            <h2 className="text-[15px] font-semibold leading-6 text-nc-text">时间线</h2>
             <Pill tone={playbackActive ? "accent" : "neutral"} className="min-h-6 px-2.5 py-0.5 text-[11px]">
               {playbackActive ? "播放中" : `${formatTime(total)} 总长`}
             </Pill>
           </div>
-          {!compact && <p className="text-[12px] leading-5 text-nc-text-tertiary">镜头、音频、字幕和标记保持与 Storyflow 节点同步。</p>}
+          {!compact && <p className="text-[12px] leading-5 text-nc-text-tertiary">镜头、音频、字幕和标记保持与创作流程节点同步。</p>}
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <Button size="icon" variant="ghost" className="h-9 w-9" onClick={() => setTimelineZoom(timelineZoom / 1.25)} title="缩小时间线" aria-label="缩小时间线">

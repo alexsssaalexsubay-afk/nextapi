@@ -307,7 +307,7 @@ class LocalOpenAICompatibleProvider(CustomHttpProvider):
                     "role": "system",
                     "content": options.get("system_prompt")
                     or (
-                        "You are a local NextCut generation adapter. "
+                        "You are a local NextAPI Studio generation adapter. "
                         "Return provider-native JSON when possible."
                     ),
                 },

@@ -81,7 +81,7 @@ const FIELD_GROUPS: Array<{
   {
     key: "camera",
     label: "镜头语言",
-    eyebrow: "Camera",
+    eyebrow: "镜头",
     placeholder: "机位、景别、镜头焦段，例如 close-up, 35mm, shallow depth of field。",
     icon: Camera,
     tone: "success",
@@ -89,8 +89,8 @@ const FIELD_GROUPS: Array<{
   },
   {
     key: "motion",
-    label: "Camera Motion",
-    eyebrow: "Motion",
+    label: "运镜方式",
+    eyebrow: "运动",
     placeholder: "镜头运动和主体运动如何配合。运动强度要可生成。",
     icon: Move3D,
     tone: "accent",
@@ -103,7 +103,7 @@ const FIELD_GROUPS: Array<{
   {
     key: "style",
     label: "视觉风格",
-    eyebrow: "Style",
+    eyebrow: "风格",
     placeholder: "画面质感、色彩、产品气质。保持专业、克制、现代。",
     icon: WandSparkles,
     tone: "info",
@@ -112,7 +112,7 @@ const FIELD_GROUPS: Array<{
   {
     key: "lighting",
     label: "光线质感",
-    eyebrow: "Lighting",
+    eyebrow: "光线",
     placeholder: "主光、环境光、反射、高光与阴影关系。",
     icon: Lightbulb,
     tone: "warning",
@@ -125,7 +125,7 @@ const FIELD_GROUPS: Array<{
   {
     key: "constraints",
     label: "生成约束",
-    eyebrow: "Guardrails",
+    eyebrow: "约束",
     placeholder: "明确不要发生什么，避免漂移、文字、水印、身份变化。",
     icon: FileText,
     tone: "neutral",
@@ -134,7 +134,7 @@ const FIELD_GROUPS: Array<{
   {
     key: "audio",
     label: "声音节奏",
-    eyebrow: "Audio",
+    eyebrow: "声音",
     placeholder: "音乐、对白、音效和剪辑节奏，只写会影响画面的关键声音。",
     icon: AudioLines,
     tone: "success",
@@ -192,7 +192,7 @@ export const StructuredPromptBuilder = memo(function StructuredPromptBuilder({
     <Surface className="overflow-hidden rounded-[20px]">
       <div className="flex items-start justify-between gap-5 border-b border-nc-border px-6 py-5">
         <SectionTitle
-          title="Prompt Decomposition"
+          title="提示词拆解"
           subtitle="把创意拆成可执行的主体、动作、场景、运镜、参考约束和声音节奏。"
         />
         <div className="flex shrink-0 items-center gap-2">
@@ -286,10 +286,10 @@ export const StructuredPromptBuilder = memo(function StructuredPromptBuilder({
           </div>
           <div className="mt-4 grid grid-cols-2 gap-3">
             {[
-              ["Storyboard", "分镜会继承动作与场景"],
-              ["Reference", "参考图优先于文字外观"],
-              ["Camera Motion", "运镜和主体动作分离"],
-              ["Prompt Review", "约束进入质检清单"],
+              ["分镜", "分镜会继承动作与场景"],
+              ["参考素材", "参考图优先于文字外观"],
+              ["镜头语言", "运镜和主体动作分离"],
+              ["提示词复核", "约束进入质检清单"],
             ].map(([title, desc]) => (
               <div key={title} className="rounded-[14px] border border-nc-border bg-white p-4">
                 <div className="text-[13px] font-semibold leading-5 text-nc-text">{title}</div>

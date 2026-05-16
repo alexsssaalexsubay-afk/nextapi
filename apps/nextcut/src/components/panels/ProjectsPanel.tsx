@@ -105,7 +105,7 @@ export const ProjectsPanel = memo(function ProjectsPanel() {
   return (
     <PageShell>
       <PageHeader
-        eyebrow="NextCut Studio"
+        eyebrow="NextAPI Studio"
         title="项目"
         subtitle="管理团队视频项目、草稿和近期创作，从这里继续进入 AI 导演、工作台或剪辑流程。"
         action={

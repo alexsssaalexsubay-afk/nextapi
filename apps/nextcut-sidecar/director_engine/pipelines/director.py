@@ -396,13 +396,13 @@ def _build_comfyui_workflow(title: str, shots: list[DirectorShot]) -> dict[str, 
         return {}
     return {
         "version": 1,
-        "name": f"NextCut — {title}",
+        "name": f"NextAPI Studio — {title}",
         "nodes": [
             {"id": "auth", "type": "NextAPIAuth", "params": {}},
-            {"id": "director", "type": "NextCutDirectorPlan", "params": {"title": title, "shot_count": len(shots)}},
+            {"id": "director", "type": "NextAPIStudioDirectorPlan", "params": {"title": title, "shot_count": len(shots)}},
             {
                 "id": "gen_shot_1",
-                "type": "NextCutGenerateVideo",
+                "type": "NextAPIStudioGenerateVideo",
                 "params": {
                     "prompt": first.prompt,
                     "duration": first.duration,
@@ -411,8 +411,8 @@ def _build_comfyui_workflow(title: str, shots: list[DirectorShot]) -> dict[str, 
                     "motion": first.camera.motion,
                 },
             },
-            {"id": "poll", "type": "NextCutPollJob", "params": {}},
-            {"id": "download", "type": "NextCutDownloadResult", "params": {}},
+            {"id": "poll", "type": "NextAPIStudioPollJob", "params": {}},
+            {"id": "download", "type": "NextAPIStudioDownloadResult", "params": {}},
         ],
         "edges": [
             ["auth", "gen_shot_1"],

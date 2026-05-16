@@ -30,11 +30,11 @@ const baseNodeStyle = {
 };
 
 const WORKFLOW_GROUPS = [
-  { id: "prompt", title: "Prompt Decomposition", subtitle: "用户意图与结构化拆解", x: 56, y: 156, width: 220 },
-  { id: "reference", title: "Reference Stack", subtitle: "品牌、素材、风格参考", x: 328, y: 74, width: 232 },
-  { id: "camera", title: "Camera Motion", subtitle: "运镜、构图、运动强度", x: 626, y: 156, width: 240 },
-  { id: "storyboard", title: "Storyboard", subtitle: "镜头顺序与叙事节奏", x: 926, y: 70, width: 520 },
-  { id: "output", title: "Output", subtitle: "时间线与生成任务", x: 1518, y: 174, width: 248 },
+  { id: "prompt", title: "提示词拆解", subtitle: "用户意图与结构化拆解", x: 56, y: 156, width: 220 },
+  { id: "reference", title: "参考素材栈", subtitle: "品牌、素材、风格参考", x: 328, y: 74, width: 232 },
+  { id: "camera", title: "镜头语言", subtitle: "运镜、构图、运动强度", x: 626, y: 156, width: 240 },
+  { id: "storyboard", title: "分镜规划", subtitle: "镜头顺序与叙事节奏", x: 926, y: 70, width: 520 },
+  { id: "output", title: "成片输出", subtitle: "时间线与生成任务", x: 1518, y: 174, width: 248 },
 ];
 
 function statusCopy(status?: string) {
@@ -73,7 +73,7 @@ function ShotNodeLabel({
         {shot.thumbnail_url ? (
           <img src={shot.thumbnail_url} alt="" className="h-full w-full object-cover" />
         ) : (
-          <div className="flex h-full w-full items-center justify-center text-[13px] text-nc-text-tertiary">Shot {shot.index}</div>
+          <div className="flex h-full w-full items-center justify-center text-[13px] text-nc-text-tertiary">镜头 {shot.index}</div>
         )}
         <Pill tone="accent" className="absolute left-3 top-3 bg-white/92">{shot.index}</Pill>
         <span className="absolute right-3 top-3 rounded-[999px] bg-black/55 px-2.5 py-1 font-mono text-[12px] font-semibold text-white">
@@ -536,7 +536,7 @@ export function NodeCanvas() {
           setShowAgents((value) => !value);
           setNodePositions({});
         }}>
-          {showAgents ? "代理区开启" : "只看镜头"}
+          {showAgents ? "角色区开启" : "只看镜头"}
         </Button>
         <Button size="sm" variant="secondary" onClick={() => insertShotAfter(activeShot || undefined)}>
           <Plus className="h-4 w-4" />
@@ -660,7 +660,7 @@ export function NodeCanvas() {
             <label className="grid gap-2 rounded-[14px] border border-nc-border bg-nc-bg p-4">
               <span className="flex items-center gap-2 text-[13px] font-semibold leading-5 text-nc-text">
                 <Camera className="h-4 w-4 text-nc-accent" />
-                Camera Motion
+                镜头语言
               </span>
               <textarea
                 value={previewShot.camera || previewCard?.camera_contract || ""}
@@ -673,7 +673,7 @@ export function NodeCanvas() {
             <label className="grid gap-2 rounded-[14px] border border-nc-border bg-nc-bg p-4">
               <span className="flex items-center gap-2 text-[13px] font-semibold leading-5 text-nc-text">
                 <FileText className="h-4 w-4 text-nc-accent" />
-                Prompt Contract
+                提示词合约
               </span>
               <textarea
                 value={previewShot.generationParams?.shot_script || previewCard?.motion_contract || ""}

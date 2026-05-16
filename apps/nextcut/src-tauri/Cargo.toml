@@ -2,7 +2,7 @@
 name = "nextcut"
 version = "0.1.0"
 edition = "2021"
-description = "NextCut — AI Video Director Studio"
+description = "NextAPI Studio — AI Video Director Studio"
 
 [lib]
 name = "nextcut_lib"

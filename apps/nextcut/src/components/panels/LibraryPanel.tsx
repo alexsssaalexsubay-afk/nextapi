@@ -161,7 +161,7 @@ export const LibraryPanel = memo(function LibraryPanel() {
       size: shot.video_url ? "128 MB" : "2.4 MB",
       resolution: shot.video_url ? "1920x1080" : "分镜规划",
       source: shot.video_url ? "生成视频" : "AI 导演规划",
-      description: shot.generationParams?.shot_script || shot.prompt || "由 AI Director 生成的镜头资产，可继续进入分镜和编辑页。",
+      description: shot.generationParams?.shot_script || shot.prompt || "由 AI 导演生成的镜头资产，可继续进入分镜和编辑页。",
     }));
 
     const characterAssets = characters.flatMap((character, characterIndex) => {
@@ -172,7 +172,7 @@ export const LibraryPanel = memo(function LibraryPanel() {
         thumbnail_url: asset.url,
         name: `${character.name} · ${characterAssetLabel(asset.role)}`,
         created_at: new Date(Date.now() - (characterIndex * 20 + assetIndex) * 30_000).toISOString(),
-        tags: ["角色资产", "Identity Lock", characterAssetLabel(asset.role)],
+        tags: ["角色资产", "身份锁定", characterAssetLabel(asset.role)],
         size: "AI 生成",
         resolution: "1024x1024",
         source: "角色资产包",
@@ -186,7 +186,7 @@ export const LibraryPanel = memo(function LibraryPanel() {
         thumbnail_url: url,
         name: `${character.name} · 身份参考 ${index + 1}`,
         created_at: new Date(Date.now() - (characterIndex * 20 + index) * 30_000).toISOString(),
-        tags: ["角色资产", "Identity Lock", index === 0 ? "Master" : "Reference"],
+        tags: ["角色资产", "身份锁定", index === 0 ? "主参考" : "参考图"],
         size: "参考图",
         resolution: "角色参考",
         source: "角色身份锁",
@@ -254,7 +254,7 @@ export const LibraryPanel = memo(function LibraryPanel() {
         <div className="mb-6 flex items-start justify-between gap-6">
           <SectionTitle
             title="素材库"
-            subtitle="管理视频、图片、音频和项目素材；AI Director 生成的分镜也会进入这里。"
+            subtitle="管理视频、图片、音频和项目素材；AI 导演生成的分镜也会进入这里。"
           />
           <div className="flex items-center gap-3">
             <Button><List className="h-4 w-4" />批量操作</Button>

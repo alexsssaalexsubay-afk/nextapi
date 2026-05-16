@@ -381,7 +381,7 @@ function buildLocalPlan(prompt: string, modeId: string, aspectRatio: string, sty
         audio_cues: ["前 2 秒钩子", "节奏逐步推进", "结尾留 0.5 秒呼吸"],
         reference_instructions: ["产品/人物参考优先于文字描述", "跨镜头锁定主体、服装、色调"],
         provider_score: Math.max(0.68, topProvider.total - i * 0.01),
-        provider_reason: `${topProvider.provider.label}: ${topProvider.reason}; task fit ${Math.round(topProvider.taskFit * 100)}%.`,
+        provider_reason: `${topProvider.provider.label}: ${topProvider.reason}; 任务匹配度 ${Math.round(topProvider.taskFit * 100)}%。`,
       },
       qualityScore: {
         overall: 0.82 + (i % 3) * 0.04,
@@ -485,7 +485,7 @@ function enrichPromptWithKnowledge(prompt: string, activeKnowledgeIds: Knowledge
   return [
     prompt,
     "",
-    "NextCut production constraints:",
+    "NextAPI Studio production constraints:",
     `Knowledge sources: ${sources || "none"}.`,
     ...rules.map((rule, index) => `${index + 1}. ${rule}`),
   ].join("\n");
@@ -539,7 +539,7 @@ function mergeSidecarPlan(
         ...fallbackShot.generationParams,
         ...shot.generation_params,
         provider_score: recommendation.total,
-        provider_reason: `${recommendation.provider.label}: ${recommendation.reason}; engine plan enriched with active knowledge rules.`,
+        provider_reason: `${recommendation.provider.label}: ${recommendation.reason}; 已结合当前知识源补强生成计划。`,
       },
       qualityScore: qualityByShot.get(shot.id) || fallbackShot.qualityScore,
     };
@@ -572,7 +572,7 @@ function mergeSidecarPlan(
     bible: {
       ...bible,
       schema_version: "nextcut.sidecar_engine.v1",
-      prompt_rules: Array.from(new Set([...bible.prompt_rules, "计划来源：Sidecar Director Engine。"])),
+      prompt_rules: Array.from(new Set([...bible.prompt_rules, "计划来源：NextAPI Studio 本地引擎。"])),
     },
     promptReview,
   };
@@ -915,7 +915,7 @@ export function DirectorInput() {
                 <Sparkles className="h-7 w-7 text-nc-accent" />
               </h1>
               <p className="mt-2 text-[14px] leading-6 text-nc-text-secondary">
-                输入一句创意，NextCut 会向下推进成需求理解、角色、分镜、运镜、提示词和剪辑建议。
+                输入一句创意，NextAPI Studio 会向下推进成需求理解、角色、分镜、运镜、提示词和剪辑建议。
               </p>
             </div>
             <Button size="sm" className="shrink-0"><HelpCircle className="h-4 w-4" />如何选择工作流</Button>
@@ -959,10 +959,10 @@ export function DirectorInput() {
 
           <section className="grid gap-4 xl:grid-cols-4">
             {[
-              { title: "Storyboard", value: `${numShots} 个镜头`, note: "镜头数量、时长和叙事节奏直接驱动分镜计划。", active: true },
-              { title: "Reference", value: `${references.length} 份参考`, note: "主参考优先于文字外观，锁定主体、风格和空间。", active: references.length > 0 },
-              { title: "Camera Motion", value: tone, note: "运镜强度会影响镜头词典、动作节奏和推荐模型。", active: true },
-              { title: "Prompt Decomposition", value: useStructuredPrompt ? "已接管" : `${compiledStructuredPrompt ? "可用" : "待补全"}`, note: "把主体、动作、场景、镜头和声音拆成可执行约束。", active: Boolean(compiledStructuredPrompt) },
+              { title: "分镜规划", value: `${numShots} 个镜头`, note: "镜头数量、时长和叙事节奏直接驱动分镜计划。", active: true },
+              { title: "参考素材", value: `${references.length} 份参考`, note: "主参考优先于文字外观，锁定主体、风格和空间。", active: references.length > 0 },
+              { title: "镜头语言", value: tone, note: "运镜强度会影响镜头词典、动作节奏和推荐模型。", active: true },
+              { title: "提示词拆解", value: useStructuredPrompt ? "已接管" : `${compiledStructuredPrompt ? "可用" : "待补全"}`, note: "把主体、动作、场景、镜头和声音拆成可执行约束。", active: Boolean(compiledStructuredPrompt) },
             ].map((item) => (
               <Surface key={item.title} interactive selected={item.active} className="p-5">
                 <div className="text-[12px] font-semibold uppercase leading-4 tracking-[0.08em] text-nc-text-tertiary">{item.title}</div>
@@ -1035,7 +1035,7 @@ export function DirectorInput() {
                     <Surface className="p-5">
                       <div className="mb-4 flex items-center justify-between gap-3">
                         <div>
-                          <h3 className="text-[16px] font-semibold leading-6 text-nc-text">Reference Stack</h3>
+                          <h3 className="text-[16px] font-semibold leading-6 text-nc-text">参考素材栈</h3>
                           <p className="mt-1 text-[13px] leading-5 text-nc-text-secondary">把产品图、角色定妆图、空间氛围图作为一等输入写入导演链。</p>
                         </div>
                         <Pill tone={references.length > 0 ? "accent" : "neutral"}>{references.length} 份</Pill>
@@ -1120,7 +1120,7 @@ export function DirectorInput() {
                     <div className="mb-3 flex items-center justify-between">
                       <div>
                         <h3 className="text-[15px] font-semibold text-nc-text">创作知识源</h3>
-                        <p className="mt-1 text-[12px] text-nc-text-secondary">Cursor 安装的本地字典、sidecar 工具和 ViMax 能力会参与生成规则、运镜和模型路由。</p>
+                        <p className="mt-1 text-[12px] text-nc-text-secondary">本地字典、创作工具和 ViMax 能力会参与生成规则、运镜和线路选择。</p>
                       </div>
                       <span className="rounded-[10px] bg-[#F5F3FF] px-3 py-1 text-[12px] font-semibold text-nc-accent">{activeKnowledgeIds.length} / {DIRECTOR_KNOWLEDGE_SOURCES.length} 已启用</span>
                     </div>

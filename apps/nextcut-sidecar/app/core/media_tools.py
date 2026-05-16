@@ -1,4 +1,4 @@
-"""Local media tool resolution for packaged NextCut sidecar builds."""
+"""Local media tool resolution for packaged NextAPI Studio local engine builds."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ def resolve_ffmpeg_exe() -> str:
 
     Resolution order is designed for packaged desktop builds:
     1. NEXTCUT_FFMPEG_PATH override for developers or enterprise images.
-    2. imageio-ffmpeg's vendored binary, bundled into the PyInstaller sidecar.
+    2. imageio-ffmpeg's bundled binary, packaged into the PyInstaller local engine.
     3. System PATH fallback for development machines.
     """
 
@@ -36,6 +36,6 @@ def resolve_ffmpeg_exe() -> str:
         return system_ffmpeg
 
     raise RuntimeError(
-        "FFmpeg is not available. Rebuild the NextCut sidecar with imageio-ffmpeg "
+        "FFmpeg is not available. Rebuild the NextAPI Studio local engine with imageio-ffmpeg "
         "or set NEXTCUT_FFMPEG_PATH to a local ffmpeg binary."
     )

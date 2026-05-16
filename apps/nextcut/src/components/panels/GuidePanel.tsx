@@ -36,7 +36,7 @@ const GUIDE_STEPS: GuideStep[] = [
     how: [
       "在大输入框写清楚目标、受众、时长、风格和必须出现的内容。",
       "选择生成模式，配置比例、风格、时长、镜头数量和参考素材。",
-      "点击「生成规划」，观察右侧 Pipeline Status 与 AI Director Team 进度。",
+      "点击「生成规划」，观察右侧生成进度与 AI 导演团队状态。",
     ],
     page: "agents",
     cta: "打开 AI 导演",
@@ -48,7 +48,7 @@ const GUIDE_STEPS: GuideStep[] = [
     when: "AI 已生成初版规划，需要检查叙事顺序、镜头意图和提示词质量时使用。",
     how: [
       "逐张检查镜头卡片的标题、画面、时长、状态和质量提示。",
-      "拖拽卡片调整顺序，点击镜头查看 Prompt、动作分解、Camera Contract 和 Reference Instructions。",
+      "拖拽卡片调整顺序，点击镜头查看提示词、动作分解、运镜约束和参考说明。",
       "对问题镜头单独重生成或保存版本，避免整条流程反复返工。",
     ],
     page: "workspace",
@@ -57,13 +57,13 @@ const GUIDE_STEPS: GuideStep[] = [
   },
   {
     id: "workbench",
-    title: "4. Storyflow 无限画布",
+    title: "4. 流程无限画布",
     image: "/tutorial/workbench-normal.png",
     when: "需要把创意意图、参考素材、提示词策略、运镜、场景组、镜头和输出时间线放在一张结构图里梳理时使用。",
     how: [
-      "从「无限画布 / 工作台」进入，默认进入 Storyflow 模式。",
-      "点击节点会同步右侧 Inspector、预览和底部 mini timeline。",
-      "运行 Prompt Decomposition、Reference Stack、Camera Motion、Storyboard Keyframes、Preflight 或 Generate Shot，结果会写回当前镜头。",
+      "从「无限画布 / 工作台」进入，默认进入流程编排模式。",
+      "点击节点会同步右侧检查面板、预览和底部时间线。",
+      "运行提示词拆解、参考素材、运镜设计、分镜关键帧、生成前检查或镜头生成，结果会写回当前镜头。",
       "用底部时间线检查时长、顺序和节奏是否顺滑。",
     ],
     page: "workspace",
@@ -75,11 +75,11 @@ const GUIDE_STEPS: GuideStep[] = [
     id: "clean",
     title: "5. 工作台纯净模式",
     image: "/tutorial/workbench-clean.png",
-    when: "节点很多、想专注编排 Prompt Decomposition / Reference Stack / Camera Motion 时使用。",
+    when: "节点很多、想专注编排提示词拆解、参考素材和运镜设计时使用。",
     how: [
-      "在工作台按 P 或切换 Focus Canvas，隐藏左侧栏和固定面板。",
+      "在工作台按 P 或切换沉浸画布，隐藏左侧栏和固定面板。",
       "专注缩放、拖拽、框选、连接和聚焦节点，检查创作链条是否清楚。",
-      "用浮动控制条运行节点、打开 Inspector 或退出纯净模式。",
+      "用浮动控制条运行节点、打开检查面板或退出纯净模式。",
     ],
     page: "workspace",
     view: "canvas",
@@ -92,7 +92,7 @@ const GUIDE_STEPS: GuideStep[] = [
     image: "/tutorial/workbench-split.png",
     when: "交付前复核，或需要一边看分镜、一边看预览和属性时使用。",
     how: [
-      "切到 Split Review，左侧看镜头列表，中间看 Storyflow + Timeline，右侧看预览和检查器。",
+      "切到分屏复核，左侧看镜头列表，中间看流程画布和时间线，右侧看预览和检查器。",
       "点击镜头卡片后，预览、属性、时间线会围绕同一个镜头同步。",
       "适合检查节奏断点、提示词缺漏、时长不合理和镜头状态异常。",
     ],
@@ -130,9 +130,9 @@ const TODAY_UPDATES = [
     description: "素材库从本机导入和生成镜头资产出发；空库显示下一步操作，不再注入 demo 素材兜底。",
   },
   {
-    title: "Provider 与提示词可配置",
+    title: "生成服务与提示词可配置",
     image: "/tutorial/provider-registry-guide.png",
-    description: "Seedance、NextAPI、ComfyUI、RunningHub、本地 OpenAI 兼容和自定义 HTTP 走统一配置与响应 envelope。",
+    description: "Seedance、NextAPI、ComfyUI、RunningHub、本地 OpenAI 兼容和自定义 HTTP 统一配置、统一返回结果。",
   },
 ];
 
@@ -144,32 +144,32 @@ const STORYFLOW_MODES: Array<{
   points: string[];
 }> = [
   {
-    title: "Storyflow",
+    title: "流程编排",
     mode: "storyflow",
     image: "/tutorial/workbench-normal.png",
-    description: "默认无限画布，把创意生产链路从 Intent 到 Output 串起来。",
-    points: ["节点选择联动 Inspector / Preview / Timeline", "节点运行会写回 prompt、references、camera 和 generationParams", "线条有运行、完成、失败和选中状态"],
+    description: "默认无限画布，把创意生产链路从意图到输出串起来。",
+    points: ["节点选择联动检查面板、预览和时间线", "节点运行会写回提示词、参考、运镜和生成参数", "线条有运行、完成、失败和选中状态"],
   },
   {
-    title: "Focus Canvas",
+    title: "沉浸画布",
     mode: "focus",
     image: "/tutorial/workbench-clean.png",
     description: "纯净创作模式，把边栏和固定面板收掉，专注结构和拖拽。",
     points: ["P 切换纯净模式", "F 聚焦当前节点", "Cmd/Ctrl+0 适配画布"],
   },
   {
-    title: "Split Review",
+    title: "分屏复核",
     mode: "review",
     image: "/tutorial/workbench-split.png",
     description: "分屏复核模式，用于看到问题、改参数、看结果的闭环。",
     points: ["左侧镜头列表", "中间画布和时间线", "右侧预览和分区式 Inspector"],
   },
   {
-    title: "Timeline Edit",
+    title: "时间线精修",
     mode: "timeline",
     image: "/tutorial/workbench-timeline.png",
     description: "执行层时间线模式，适合镜头顺序、时长、节奏、字幕和标记精修。",
-    points: ["拖拽镜头块调整顺序", "-1s / +1s 快速改时长", "选中 clip 后同步节点和 Inspector"],
+    points: ["拖拽镜头块调整顺序", "-1s / +1s 快速改时长", "选中片段后同步节点和检查面板"],
   },
 ];
 
@@ -187,8 +187,8 @@ export function GuidePanel() {
   return (
     <PageShell className="gap-7">
       <PageHeader
-        eyebrow="NextCut Guide"
-        title="NextCut 使用指南"
+        eyebrow="NextAPI Studio Guide"
+        title="NextAPI Studio 使用指南"
         subtitle="把整个产品的使用路径放在应用里：什么时候用哪个页面、怎么从创意走到分镜、工作台、编辑和导出。"
         action={
           <Button variant="primary" onClick={() => openStep(GUIDE_STEPS[1])}>
@@ -205,18 +205,22 @@ export function GuidePanel() {
       >
         <div className="grid gap-6 p-6 xl:grid-cols-[0.8fr_1.2fr]">
           <div className="flex min-h-[190px] items-center justify-center rounded-[18px] border border-nc-border bg-white px-8 py-10 shadow-sm">
-            <img
-              src="/brand/nextcut-logo-lockup.png"
-              alt="NextCut 品牌标识"
-              className="max-h-[86px] w-full max-w-[520px] object-contain"
-            />
+            <div className="flex items-center gap-4">
+              <div className="flex h-14 w-14 items-center justify-center rounded-[18px] bg-nc-accent text-white shadow-[0_18px_46px_rgba(108,77,255,0.24)]">
+                <Sparkles className="h-7 w-7" />
+              </div>
+              <div>
+                <div className="text-[28px] font-bold leading-8 tracking-tight text-nc-text">NextAPI Studio</div>
+                <div className="mt-1 text-[13px] font-semibold text-nc-text-tertiary">AI 视频创作工作台</div>
+              </div>
+            </div>
           </div>
           <div className="grid gap-3">
             {[
-              "侧栏顶部使用 NextCut 品牌图，不再用临时图标或假团队卡片占位。",
+              "侧栏顶部使用 NextAPI Studio 品牌入口，不再用临时图标或假团队卡片占位。",
               "本地工作区入口可展开，直接进入模型与账户设置或项目空间。",
               "导入素材会打开本机文件选择，素材库只展示真实导入或 AI 导演生成的资产。",
-              "设置页只展示用户需要理解的模型、Provider、提示词和视频生成配置。",
+              "设置页只展示用户需要理解的模型、生成服务、提示词和视频生成配置。",
             ].map((item, index) => (
               <div key={item} className="flex gap-3 rounded-[14px] border border-nc-border bg-white px-4 py-3 shadow-sm">
                 <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#F5F3FF] text-[12px] font-bold text-nc-accent">{index + 1}</span>
@@ -229,7 +233,7 @@ export function GuidePanel() {
 
       <SectionCard
         title="今天更新后的功能图"
-        subtitle="这些图对应当前真实产品边界：客户端壳层、素材库数据来源、Provider Registry 和提示词配置。"
+        subtitle="这些图对应当前真实产品边界：客户端壳层、素材库数据来源、生成服务配置和提示词配置。"
       >
         <div className="grid gap-5 xl:grid-cols-3">
           {TODAY_UPDATES.map((item) => (
@@ -247,8 +251,8 @@ export function GuidePanel() {
       </SectionCard>
 
       <SectionCard
-        title="无限画布 / Storyflow 当前能力"
-        subtitle="工作台已经不是旧的卡片拼接页。它现在有四种模式，并且 Canvas、Timeline、Preview、Inspector 共用同一个镜头状态。"
+        title="无限画布当前能力"
+        subtitle="工作台已经不是旧的卡片拼接页。它现在有四种模式，并且画布、时间线、预览、检查面板共用同一个镜头状态。"
       >
         <div className="grid gap-5 xl:grid-cols-4">
           {STORYFLOW_MODES.map((item) => (
@@ -288,12 +292,12 @@ export function GuidePanel() {
 
       <SectionCard
         title="完整流程总览"
-        subtitle="先看这张图：NextCut 的主线不是堆表单，而是从创意输入到镜头合约、画布编排、时间线精修和导出。"
+        subtitle="先看这张图：NextAPI Studio 的主线不是堆表单，而是从创意输入到镜头合约、画布编排、时间线精修和导出。"
         contentClassName="p-0"
       >
         <div className="grid gap-6 p-6 xl:grid-cols-[1.25fr_0.75fr]">
           <div className="overflow-hidden rounded-[18px] border border-nc-border bg-nc-bg">
-            <img src="/tutorial/product-overview.jpg" alt="NextCut 从创意到成片总览" className="h-full w-full object-cover" />
+            <img src="/tutorial/product-overview.jpg" alt="NextAPI Studio 从创意到成片总览" className="h-full w-full object-cover" />
           </div>
           <div className="flex flex-col justify-center gap-4">
             {[

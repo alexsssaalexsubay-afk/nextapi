@@ -32,25 +32,28 @@ const NAV_ITEMS: { id: SidebarPage; labelKey: string; icon: ComponentType<{ clas
   { id: "settings", labelKey: "nav.settings", icon: Settings },
 ];
 
-function NextCutMark({ compact = false }: { compact?: boolean }) {
+function StudioMark({ compact = false }: { compact?: boolean }) {
   if (compact) {
     return (
-      <img
-        src="/brand/nextcut-logo-icon.png"
-        alt="NextCut"
-        draggable={false}
-        className="h-9 w-9 shrink-0 rounded-[11px] object-cover"
-      />
+      <div
+        aria-label="NextAPI Studio"
+        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[11px] bg-nc-accent text-sm font-bold text-white shadow-sm"
+      >
+        N
+      </div>
     );
   }
 
   return (
-    <img
-      src="/brand/nextcut-logo-lockup-sidebar.png"
-      alt="NextCut"
-      draggable={false}
-      className="h-11 w-[172px] min-w-0 shrink object-contain object-left"
-    />
+    <div className="flex h-11 min-w-0 items-center gap-3">
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[11px] bg-nc-accent text-sm font-bold text-white shadow-sm">
+        N
+      </div>
+      <div className="min-w-0">
+        <div className="truncate text-[15px] font-bold leading-5 text-nc-text">NextAPI Studio</div>
+        <div className="truncate text-[11px] font-medium leading-4 text-nc-text-tertiary">AI 视频创作工作台</div>
+      </div>
+    </div>
   );
 }
 
@@ -65,7 +68,7 @@ export function Sidebar() {
       sidebarCollapsed ? "w-[88px]" : "w-[260px]"
     )}>
       <div className={cn("flex h-16 w-full items-center justify-between border-b border-nc-border/70", sidebarCollapsed ? "justify-center px-4" : "px-4")}>
-        <NextCutMark compact={sidebarCollapsed} />
+        <StudioMark compact={sidebarCollapsed} />
         {!sidebarCollapsed && (
           <Button
             variant="ghost"
@@ -178,7 +181,7 @@ export function Sidebar() {
           {!sidebarCollapsed && <span>运行状态</span>}
           <span className="flex items-center gap-2">
             <span className={cn("h-2 w-2 rounded-full", sidecarStatus === "connected" ? "bg-nc-success" : sidecarStatus === "connecting" ? "bg-nc-warning" : "bg-nc-text-tertiary")} />
-            {!sidebarCollapsed && <span>Sidecar {sidecarStatus === "connected" ? "在线" : sidecarStatus === "connecting" ? "连接中" : "离线"}</span>}
+            {!sidebarCollapsed && <span>本地引擎 {sidecarStatus === "connected" ? "在线" : sidecarStatus === "connecting" ? "连接中" : "离线"}</span>}
           </span>
         </div>
         {!sidebarCollapsed && (

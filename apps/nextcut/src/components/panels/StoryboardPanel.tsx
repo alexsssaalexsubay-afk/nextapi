@@ -185,7 +185,7 @@ export const StoryboardPanel = memo(function StoryboardPanel() {
         },
       });
     } catch {
-      setPreflightError("分镜图生成失败：sidecar 或图像模型不可用。");
+      setPreflightError("分镜图生成失败：本地引擎或图像模型不可用。");
     } finally {
       setAssetSubmitting(null);
     }
@@ -193,7 +193,7 @@ export const StoryboardPanel = memo(function StoryboardPanel() {
 
   const exportShotManifest = useCallback(() => {
     const payload = {
-      title: "NextCut storyboard manifest",
+      title: "NextAPI Studio storyboard manifest",
       total_duration: totalDuration,
       shot_count: shots.length,
       shots: shots.map((shot) => ({
@@ -210,7 +210,7 @@ export const StoryboardPanel = memo(function StoryboardPanel() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "nextcut-storyboard-manifest.json";
+    a.download = "nextapi-studio-storyboard-manifest.json";
     a.click();
     URL.revokeObjectURL(url);
   }, [shots, totalDuration]);
@@ -674,7 +674,7 @@ const ShotCard = memo(function ShotCard({
                 onClick={(e) => { e.stopPropagation(); onGenerateStoryboard(); }}
                 disabled={isGeneratingAssets}
                 className="rounded-[10px] px-3.5 py-2.5 text-[13px] font-semibold leading-5 text-nc-accent shadow-sm transition-all hover:bg-nc-accent/10 hover:shadow-md disabled:opacity-60"
-                title="生成分镜关键帧、首帧和尾帧，并写回 image_urls"
+                title="生成分镜关键帧、首帧和尾帧，并写回参考图"
               >
                 {isGeneratingAssets ? "生图中" : "分镜图"}
               </button>

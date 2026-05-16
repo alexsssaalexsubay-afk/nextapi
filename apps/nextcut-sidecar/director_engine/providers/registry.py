@@ -1,4 +1,4 @@
-"""Provider adapter registry for NextCut generation."""
+"""Provider adapter registry for NextAPI Studio generation."""
 
 from __future__ import annotations
 

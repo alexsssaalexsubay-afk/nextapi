@@ -4,12 +4,12 @@ import { cn } from "@/lib/cn";
 import { useDirectorStore, type PipelineStep } from "@/stores/director-store";
 
 const STEPS: { id: PipelineStep; label: string; labelZh: string; desc: string }[] = [
-  { id: "planning", label: "Script", labelZh: "脚本", desc: "AI writes the screenplay" },
+  { id: "planning", label: "脚本", labelZh: "脚本", desc: "生成脚本结构" },
   { id: "script_review", label: "审核脚本", labelZh: "审核脚本", desc: "编辑场景和角色" },
   { id: "storyboard_review", label: "分镜", labelZh: "分镜", desc: "整理并优化镜头" },
-  { id: "prompt_review", label: "Prompts", labelZh: "提示词", desc: "Fine-tune each shot" },
-  { id: "generating", label: "Generate", labelZh: "生成", desc: "Render with Seedance" },
-  { id: "quality_review", label: "Quality", labelZh: "质检", desc: "Review & score results" },
+  { id: "prompt_review", label: "提示词", labelZh: "提示词", desc: "逐镜头调整" },
+  { id: "generating", label: "生成", labelZh: "生成", desc: "提交到视频服务" },
+  { id: "quality_review", label: "质检", labelZh: "质检", desc: "复核结果质量" },
 ];
 
 type StepFlowStatus = "idle" | "running" | "complete" | "failed" | "selected";
@@ -100,7 +100,7 @@ export const PipelineStepFlow = memo(function PipelineStepFlow() {
   const stepSummary = (() => {
     if (visibleStep === "planning") return `${sceneOutlines.length || 0} 个场景 · ${shots.length || 0} 个镜头目标`;
     if (visibleStep === "script_review") return sceneOutlines.length ? sceneOutlines.map((scene) => scene.title).slice(0, 2).join(" / ") : "等待脚本结构";
-    if (visibleStep === "storyboard_review") return shots.length ? `${shots.length} 个镜头已进入 storyboard，可继续调整顺序和时长` : "等待分镜生成";
+    if (visibleStep === "storyboard_review") return shots.length ? `${shots.length} 个镜头已进入分镜，可继续调整顺序和时长` : "等待分镜生成";
     if (visibleStep === "prompt_review") return promptReview ? `${promptReview.critical} 个严重 · ${promptReview.warning} 个警告 · ${promptReview.findings.length} 条复核建议` : "等待镜头提示词复核";
     if (visibleStep === "generating") return `${shots.filter((shot) => shot.status === "queued" || shot.status === "generating").length} 个镜头在生成队列`;
     if (visibleStep === "quality_review") return overallQuality ? `整体评分 ${Math.round(overallQuality.overall * 100)} · ${overallQuality.issues.length} 个问题` : "等待质检评分";

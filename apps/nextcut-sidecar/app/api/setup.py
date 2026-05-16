@@ -124,7 +124,7 @@ async def detect_environment():
     if not status.runtime.ffmpeg:
         status.issues.append("ffmpeg_unavailable")
         status.recommendations.append(
-            "FFmpeg is required for local preview export. Rebuild the sidecar with imageio-ffmpeg or set NEXTCUT_FFMPEG_PATH."
+            "本地预览导出需要 FFmpeg。请用 imageio-ffmpeg 重建本地引擎，或设置 NEXTCUT_FFMPEG_PATH。"
         )
 
     if not status.runtime.exports_writable:
@@ -258,7 +258,7 @@ async def run_setup_action(req: SetupActionRequest):
         except Exception:
             return SetupActionResponse(
                 status="open_url",
-                message="未发现可用 FFmpeg。请安装 FFmpeg，或使用打包版 NextCut 内置 FFmpeg。",
+                message="未发现可用 FFmpeg。请安装 FFmpeg，或使用打包版 NextAPI Studio 内置 FFmpeg。",
                 url="https://ffmpeg.org/download.html",
             )
 
@@ -272,7 +272,7 @@ async def run_setup_action(req: SetupActionRequest):
             readme.write_text(
                 "\n".join(
                     [
-                        "# NextCut model pack directory",
+                        "# NextAPI Studio model pack directory",
                         "",
                         "Put local model files here when using local production lines.",
                         "Supported extensions: .safetensors, .ckpt, .pt, .pth, .bin, .gguf, .onnx.",
@@ -280,7 +280,7 @@ async def run_setup_action(req: SetupActionRequest):
                         "",
                         "Image pipeline:",
                         "- Put SDXL / Flux / LoRA / ControlNet files here when using ComfyUI.",
-                        "- NextCut will use ComfyUI or RunningHub as the execution service.",
+                        "- NextAPI Studio will use ComfyUI or RunningHub as the execution service.",
                     ]
                 ),
                 encoding="utf-8",
@@ -306,7 +306,7 @@ async def run_setup_action(req: SetupActionRequest):
             readme.write_text(
                 "\n".join(
                     [
-                        "# NextCut image pipeline model directory",
+                        "# NextAPI Studio image pipeline model directory",
                         "",
                         "This directory is for local image pipeline assets used by ComfyUI workflows.",
                         "Recommended layout:",
@@ -385,7 +385,7 @@ async def run_setup_action(req: SetupActionRequest):
     if action in action_urls:
         return SetupActionResponse(
             status="open_url",
-            message="请在打开的页面完成下载或 Key 配置，回到 NextCut 后重新检测。",
+            message="请在打开的页面完成下载或 Key 配置，回到 NextAPI Studio 后重新检测。",
             url=action_urls[action],
         )
 

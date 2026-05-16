@@ -97,7 +97,7 @@ function makeShotCard(shot: Shot, source?: ShotGenerationCard): ShotGenerationCa
     camera_contract: source?.camera_contract || shot.camera,
     reference_contract: source?.reference_contract || "继承当前参考栈，按镜头语义补充局部参考。",
     risk_flags: source?.risk_flags || [],
-    edit_note: source?.edit_note || "通过 Storyflow 工作台新增，建议复核节奏和连续性。",
+    edit_note: source?.edit_note || "通过流程画布新增，建议复核节奏和连续性。",
   };
 }
 
@@ -114,7 +114,7 @@ const NODE_LIBRARY: Array<{
 }> = [
   {
     id: "new_shot",
-    title: "Shot Node",
+    title: "新增镜头",
     subtitle: "新增一个可生成镜头，自动继承当前上下文",
     group: "结构",
     icon: <Plus className="h-4 w-4" />,
@@ -122,43 +122,43 @@ const NODE_LIBRARY: Array<{
   },
   {
     id: "prompt",
-    title: "Prompt Decomposition",
+    title: "提示词拆解",
     subtitle: "把当前 brief 注入镜头脚本和提示词结构",
     group: "规划",
     icon: <FileText className="h-4 w-4" />,
   },
   {
     id: "reference",
-    title: "Reference Stack",
+    title: "参考素材",
     subtitle: "把素材库参考图/视频/音频写入生成参数",
     group: "一致性",
     icon: <Image className="h-4 w-4" />,
   },
   {
     id: "camera",
-    title: "Camera Motion",
-    subtitle: "生成可执行运镜合约，绑定 motion_desc",
+    title: "运镜设计",
+    subtitle: "生成可执行运镜说明，绑定镜头运动",
     group: "镜头语言",
     icon: <Camera className="h-4 w-4" />,
   },
   {
     id: "storyboard",
-    title: "Storyboard Keyframes",
-    subtitle: "生成分镜图、首帧、尾帧并回写 image_urls",
+    title: "分镜关键帧",
+    subtitle: "生成分镜图、首帧、尾帧并写回参考图",
     group: "资产生产",
     icon: <WandSparkles className="h-4 w-4" />,
     primary: true,
   },
   {
     id: "preflight",
-    title: "Preflight Gate",
-    subtitle: "检查 prompt、参考、时长、provider 限制",
+    title: "生成前检查",
+    subtitle: "检查提示词、参考、时长和生成服务限制",
     group: "生成前检查",
     icon: <ShieldCheck className="h-4 w-4" />,
   },
   {
     id: "generate",
-    title: "Generate Shot",
+    title: "生成镜头",
     subtitle: "通过预检后提交视频生成任务",
     group: "生成",
     icon: <Play className="h-4 w-4" />,
@@ -172,10 +172,10 @@ function uniqueCompact(values: Array<string | undefined | null>) {
 
 function modeTitle(mode: StoryflowMode) {
   const titles: Record<StoryflowMode, string> = {
-    storyflow: "Storyflow 工作台",
-    focus: "Focus Canvas",
-    review: "Split Review",
-    timeline: "Timeline Edit",
+    storyflow: "流程画布",
+    focus: "沉浸画布",
+    review: "分屏复核",
+    timeline: "时间线精修",
   };
   return titles[mode];
 }
@@ -461,8 +461,8 @@ export function StoryflowWorkspace() {
         audio_urls: uniqueCompact([...(shot.generationParams?.audio_urls || []), ...audioUrls]).slice(0, 4),
         reference_instructions: uniqueCompact([
           ...(shot.generationParams?.reference_instructions || []),
-          "Preserve identity, material, color palette, and composition from the attached Reference Stack.",
-          references.length ? `Reference Stack priority: ${references.map((item) => item.name || item.role).slice(0, 4).join(" > ")}` : "",
+          "保持已附加参考素材中的身份、材质、色彩和构图。",
+          references.length ? `参考素材优先级：${references.map((item) => item.name || item.role).slice(0, 4).join(" > ")}` : "",
         ]),
       },
     });
@@ -477,7 +477,7 @@ export function StoryflowWorkspace() {
         motion_desc: camera,
         reference_instructions: uniqueCompact([
           ...(shot.generationParams?.reference_instructions || []),
-          "Respect the Camera Motion node: one clear camera move, stable subject lock, no competing motion.",
+          "遵循镜头语言节点：只保留一个明确运镜，主体稳定，不叠加互相冲突的运动。",
         ]),
       },
     });
@@ -516,9 +516,9 @@ export function StoryflowWorkspace() {
         image_urls: uniqueCompact([...(shot.generationParams?.image_urls || []), ...assets.map((asset) => asset.url)]).slice(0, 9),
         reference_instructions: uniqueCompact([
           ...(shot.generationParams?.reference_instructions || []),
-          storyboard?.url ? "Use the generated storyboard keyframe to lock composition and subject placement." : "",
-          firstFrame?.url ? "Use the generated first frame as the video start-frame reference." : "",
-          lastFrame?.url ? "Use the generated last frame as the video end-frame continuity target." : "",
+          storyboard?.url ? "使用生成的分镜关键帧锁定构图和主体位置。" : "",
+          firstFrame?.url ? "使用生成的首帧作为视频起始参考。" : "",
+          lastFrame?.url ? "使用生成的尾帧作为视频收束连续性目标。" : "",
         ]),
       },
     });
@@ -550,23 +550,23 @@ export function StoryflowWorkspace() {
     try {
       if (key === "new_shot") {
         addShot();
-        setNodeRunStatus(key, "complete", "已新增 Shot Node，并继承当前 Storyflow 上下文。");
+        setNodeRunStatus(key, "complete", "已新增镜头，并继承当前流程画布上下文。");
         return true;
       }
       if (!shot) throw new Error("请先选择一个镜头节点。");
       if (key === "prompt") {
         applyPromptNode(shot);
-        setNodeRunStatus(key, "complete", "Prompt Decomposition 已写入当前镜头。");
+        setNodeRunStatus(key, "complete", "提示词拆解已写入当前镜头。");
         return true;
       }
       if (key === "reference") {
         attachReferenceStack(shot);
-        setNodeRunStatus(key, "complete", "Reference Stack 已写入 image/video/audio refs。");
+        setNodeRunStatus(key, "complete", "参考素材已写入图片、视频和音频引用。");
         return true;
       }
       if (key === "camera") {
         applyCameraMotion(shot);
-        setNodeRunStatus(key, "complete", "Camera Motion 已绑定到镜头运镜合约。");
+        setNodeRunStatus(key, "complete", "镜头语言已绑定到当前镜头。");
         return true;
       }
       if (key === "storyboard") {
@@ -577,7 +577,7 @@ export function StoryflowWorkspace() {
       if (key === "preflight") {
         await runPreflight(shot);
         handleUpdateShot(shot.id, { status: shot.video_url ? "succeeded" : "planned" });
-        setNodeRunStatus(key, "complete", "Preflight 通过，可以提交生成。");
+        setNodeRunStatus(key, "complete", "生成前检查通过，可以提交生成。");
         return true;
       }
       if (key === "generate") {
@@ -770,7 +770,7 @@ export function StoryflowWorkspace() {
           <EmptyState
             icon={<Sparkles className="h-7 w-7" />}
             title="先从 AI 导演生成一组镜头"
-            description="Storyflow 工作台会把用户意图、参考素材、提示词策略、镜头语言、分镜和时间线串成一个可编辑的创意结构。"
+            description="流程画布会把用户意图、参考素材、提示词策略、镜头语言、分镜和时间线串成一个可编辑的创意结构。"
             action={
               <Button variant="primary" onClick={() => setSidebarPage("agents")}>
                 去 AI 导演生成
@@ -1618,12 +1618,12 @@ function TimelineEditHero({
     <Surface className="nc-card-safe grid min-h-[176px] grid-cols-[minmax(0,1fr)_320px] overflow-hidden rounded-[20px]">
       <div className="p-6">
         <div className="flex items-center gap-3">
-          <Pill tone="accent"><GitBranch className="mr-1 h-3.5 w-3.5" />Timeline Edit</Pill>
+          <Pill tone="accent"><GitBranch className="mr-1 h-3.5 w-3.5" />时间线精修</Pill>
           <Pill tone="neutral">{total}s</Pill>
         </div>
         <h2 className="mt-4 text-[24px] font-semibold leading-8 text-nc-text">精修节奏、轨道和交付状态</h2>
         <p className="mt-2 max-w-[680px] text-[14px] leading-6 text-nc-text-secondary">
-          时间线会和 Storyflow 节点共享选中状态。拖动镜头块调整顺序，修改时长会即时反馈到节点和 Inspector。
+          时间线会和创作流程节点共享选中状态。拖动镜头块调整顺序，修改时长会即时反馈到节点和检查面板。
         </p>
         <div className="mt-5 flex flex-wrap gap-2">
           <Button variant="secondary" onClick={onAddShot}><Plus className="h-4 w-4" />添加镜头</Button>
@@ -1659,7 +1659,7 @@ function ShortcutsPopover({ onClose }: { onClose: () => void }) {
   return (
     <div className="absolute right-8 top-24 z-50 w-[360px] rounded-[20px] border border-nc-border bg-white p-5 shadow-[0_24px_70px_rgba(15,23,42,0.18)]">
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-[16px] font-semibold leading-6 text-nc-text">Storyflow 快捷键</h2>
+        <h2 className="text-[16px] font-semibold leading-6 text-nc-text">流程画布快捷键</h2>
         <Button size="icon" variant="ghost" className="h-8 w-8" onClick={onClose} aria-label="关闭快捷键">
           <X className="h-4 w-4" aria-hidden="true" />
         </Button>
@@ -1685,12 +1685,12 @@ function StatusToast({
 }) {
   const syncMessage =
     syncState === "saving"
-      ? "正在同步到 sidecar"
+      ? "正在同步到本地引擎"
       : syncState === "offline"
-        ? "sidecar 不可用，当前为本地暂存"
+        ? "本地引擎不可用，当前为本地暂存"
         : syncState === "saved"
-          ? "Canvas、Timeline、Preview 已同步"
-          : "当前计划尚未绑定 sidecar，变更保存在本地状态";
+          ? "画布、时间线、预览已同步"
+          : "当前计划尚未连接本地引擎，变更保存在本地状态";
 
   return (
     <div className="pointer-events-none absolute bottom-5 right-7 z-30 hidden items-center gap-2 rounded-[999px] border border-nc-border bg-white/90 px-3 py-2 text-[12px] font-semibold text-nc-text-secondary shadow-[0_12px_34px_rgba(15,23,42,0.10)] backdrop-blur xl:flex">

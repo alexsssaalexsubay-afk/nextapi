@@ -70,7 +70,7 @@ export function SetupWizard() {
       setActionMessage({ tone: res.status === "error" ? "warning" : "success", text: res.message });
       await runDetection();
     } catch {
-      setActionMessage({ tone: "warning", text: "配置动作失败，请确认 sidecar 已启动。" });
+      setActionMessage({ tone: "warning", text: "配置动作失败，请确认本地引擎已启动。" });
     }
   };
 
@@ -84,7 +84,7 @@ export function SetupWizard() {
       setActionMessage({ tone: "success", text: "本地导出目录、视频/生图模型目录、默认端点和 FFmpeg 检测已准备好。" });
       await runDetection();
     } catch {
-      setActionMessage({ tone: "warning", text: "自动准备失败，请重新检查 sidecar。" });
+      setActionMessage({ tone: "warning", text: "自动准备失败，请重新检查本地引擎。" });
     }
   };
 
@@ -179,7 +179,7 @@ function WelcomeStep({ onNext }: { onNext: () => void }) {
             </svg>
           </div>
           <div>
-            <div className="text-[20px] font-bold leading-6 text-nc-text">NextCut</div>
+            <div className="text-[20px] font-bold leading-6 text-nc-text">NextAPI Studio</div>
             <div className="text-[12px] font-medium leading-5 text-nc-text-tertiary">视频创作工作台</div>
           </div>
         </div>
@@ -195,7 +195,7 @@ function WelcomeStep({ onNext }: { onNext: () => void }) {
             <div className="pointer-events-none absolute left-1/2 top-[48%] h-[34%] w-[64%] -translate-x-1/2 rounded-[999px] bg-[radial-gradient(ellipse,rgba(108,77,255,0.18),transparent_70%)] blur-3xl" />
             <img
               src="/onboarding/welcome-hero.png"
-              alt="NextCut AI 视频创作工作台预览"
+              alt="NextAPI Studio AI 视频创作工作台预览"
               className="relative max-h-[52vh] w-full max-w-[1060px] object-contain mix-blend-multiply drop-shadow-[0_38px_80px_rgba(15,23,42,0.14)]"
               style={{
                 WebkitMaskImage: "radial-gradient(ellipse at center, #000 58%, rgba(0,0,0,0.84) 72%, transparent 92%)",
@@ -207,10 +207,10 @@ function WelcomeStep({ onNext }: { onNext: () => void }) {
           <div className="mt-[-8px] flex max-w-[860px] flex-col items-center text-center">
             <div className="mb-5 inline-flex min-h-9 items-center gap-2 rounded-full border border-nc-border bg-white/78 px-4 py-2 text-[13px] font-semibold leading-5 text-nc-accent shadow-sm backdrop-blur">
               <Sparkles className="h-4 w-4" />
-              NextCut 创意工作流，从第一镜开始就有专业感
+              NextAPI Studio 创意工作流，从第一镜开始就有专业感
             </div>
             <h1 className="max-w-[840px] text-[48px] font-bold leading-[1.08] tracking-[-0.01em] text-nc-text">
-              欢迎来到 NextCut
+              欢迎来到 NextAPI Studio
             </h1>
             <p className="mt-5 max-w-[720px] text-[17px] leading-8 text-nc-text-secondary">
               用 AI 导演把一句创意变成分镜、参考图、镜头语言、时间线和可生成的视频生产链路。
@@ -233,7 +233,7 @@ function WelcomeStep({ onNext }: { onNext: () => void }) {
             <div className="mt-7 grid w-full max-w-[760px] grid-cols-1 gap-3 sm:grid-cols-3">
               <WelcomeCapability icon={<Clapperboard className="h-4 w-4" />} title="分镜规划" description="自动拆镜头与首尾帧" />
               <WelcomeCapability icon={<Film className="h-4 w-4" />} title="视频生产" description="参考、提示词、预检串联" />
-              <WelcomeCapability icon={<Sparkles className="h-4 w-4" />} title="Storyflow" description="画布、时间线、质检联动" />
+              <WelcomeCapability icon={<Sparkles className="h-4 w-4" />} title="流程画布" description="画布、时间线、质检联动" />
             </div>
           </div>
 
@@ -488,7 +488,7 @@ function DetectStep({
             />
             <RuntimeRouteCard
               icon={<TerminalSquare className="h-5 w-5" />}
-              title="本地 LLM / OpenAI 兼容"
+              title="本地语言模型 / OpenAI 兼容"
               status={status?.ollama.available || status?.api_keys.openai ? "可用" : "可选"}
               ok={!!(status?.ollama.available || status?.api_keys.openai)}
               soft
@@ -527,7 +527,7 @@ function DetectStep({
               </span>
               <div>
                 <div className="text-[20px] font-bold leading-7 text-nc-text">本机环境检查</div>
-                <div className="text-[13px] leading-6 text-nc-text-secondary">Sidecar、CPU、GPU、FFmpeg、导出目录与模型连接</div>
+                <div className="text-[13px] leading-6 text-nc-text-secondary">本地引擎、CPU、GPU、FFmpeg、导出目录与模型连接</div>
               </div>
             </div>
             <button
@@ -556,14 +556,14 @@ function DetectStep({
 
           {status && !detecting && (
             <div className="grid gap-3 md:grid-cols-2">
-              <DetectRow icon={<Server className="h-4 w-4" />} label="Sidecar" value="NextCut local engine" ok={status.runtime.sidecar} hint="内置" />
+              <DetectRow icon={<Server className="h-4 w-4" />} label="本地引擎" value="NextAPI Studio 本地引擎" ok={status.runtime.sidecar} hint="内置" />
               <DetectRow icon={<Cpu className="h-4 w-4" />} label="CPU / RAM" value={`${status.system.cpu_count} cores / ${status.system.ram_gb} GB`} ok />
-              <DetectRow icon={<TerminalSquare className="h-4 w-4" />} label="FFmpeg" value={status.runtime.ffmpeg ? status.runtime.ffmpeg_path : "Not available"} ok={status.runtime.ffmpeg} hint={status.runtime.ffmpeg_source || "Required"} />
-              <DetectRow icon={<HardDrive className="h-4 w-4" />} label="Exports" value={status.runtime.exports_dir || "exports"} ok={status.runtime.exports_writable} hint="Required" />
-              <DetectRow icon={<Cpu className="h-4 w-4" />} label="GPU" value={status.system.gpu_name || "Not detected"} ok={!!status.system.gpu_backend} hint={status.system.gpu_backend ? status.system.gpu_backend.toUpperCase() : "Optional"} />
-              <DetectRow icon={<KeyRound className="h-4 w-4" />} label="NextAPI Key" value={status.api_keys.nextapi ? "Configured" : "Not configured"} ok={status.api_keys.nextapi} hint="Video" />
-              <DetectRow icon={<TerminalSquare className="h-4 w-4" />} label="Local LLM" value={status.ollama.available ? `Ollama (${status.ollama.models.length} models)` : "Not detected"} ok={status.ollama.available} hint={status.ollama.available ? status.ollama.recommended_model : "Optional"} />
-              <DetectRow icon={<Server className="h-4 w-4" />} label="ComfyUI" value={status.comfyui.available ? "Connected" : "Not detected"} ok={status.comfyui.available} hint="Optional" />
+              <DetectRow icon={<TerminalSquare className="h-4 w-4" />} label="FFmpeg" value={status.runtime.ffmpeg ? status.runtime.ffmpeg_path : "不可用"} ok={status.runtime.ffmpeg} hint={status.runtime.ffmpeg_source || "必需"} />
+              <DetectRow icon={<HardDrive className="h-4 w-4" />} label="导出目录" value={status.runtime.exports_dir || "exports"} ok={status.runtime.exports_writable} hint="必需" />
+              <DetectRow icon={<Cpu className="h-4 w-4" />} label="GPU" value={status.system.gpu_name || "未检测到"} ok={!!status.system.gpu_backend} hint={status.system.gpu_backend ? status.system.gpu_backend.toUpperCase() : "可选"} />
+              <DetectRow icon={<KeyRound className="h-4 w-4" />} label="NextAPI Key" value={status.api_keys.nextapi ? "已配置" : "未配置"} ok={status.api_keys.nextapi} hint="视频" />
+              <DetectRow icon={<TerminalSquare className="h-4 w-4" />} label="本地语言模型" value={status.ollama.available ? `Ollama（${status.ollama.models.length} 个模型）` : "未检测到"} ok={status.ollama.available} hint={status.ollama.available ? status.ollama.recommended_model : "可选"} />
+              <DetectRow icon={<Server className="h-4 w-4" />} label="ComfyUI" value={status.comfyui.available ? "已连接" : "未检测到"} ok={status.comfyui.available} hint="可选" />
             </div>
           )}
         </div>
@@ -765,10 +765,10 @@ function KeysStep({
     <div className="space-y-5">
       <SetupVisualHero
         image="/onboarding/setup-config-hero.png"
-        eyebrow="Provider Setup"
+        eyebrow="生成服务配置"
         title="配置 Key 与生产线路"
-        subtitle="NextAPI 托管视频扣团队点数；本地 OpenAI-compatible、Ollama、ComfyUI 和 RunningHub 使用用户自己的资源或 Key。"
-        status={hasOllama ? "检测到本地 LLM" : "可混合云端/本地"}
+        subtitle="NextAPI 托管视频扣团队点数；本地 OpenAI 兼容服务、Ollama、ComfyUI 和 RunningHub 使用用户自己的资源或 Key。"
+        status={hasOllama ? "检测到本地语言模型" : "可混合云端/本地"}
         actions={(
           <>
             <SetupHeroButton onClick={() => onAction("open_nextapi_key")} icon={<ExternalLink className="h-4 w-4" />}>获取 NextAPI Key</SetupHeroButton>
@@ -864,7 +864,7 @@ function KeysStep({
         <div className="space-y-3">
           <ConfigHint icon={<WalletCards className="h-4 w-4" />} title="团队扣点" description="NextAPI 托管视频统一扣团队余额，适合多人协作和后台用量管理。" />
           <ConfigHint icon={<Cpu className="h-4 w-4" />} title="本地资源" description="Ollama、ComfyUI、本地模型包消耗本机 CPU/GPU/磁盘，不扣团队点数。" />
-          <ConfigHint icon={<KeyRound className="h-4 w-4" />} title="自带 Key" description="RunningHub、Custom HTTP 或 OpenAI-compatible 使用用户自己的上游 Key。" />
+          <ConfigHint icon={<KeyRound className="h-4 w-4" />} title="自带 Key" description="RunningHub、自定义 HTTP 或 OpenAI 兼容服务使用用户自己的上游 Key。" />
         </div>
       </div>
     </div>
@@ -900,11 +900,11 @@ function ReadyStep({
         image="/onboarding/setup-ready-hero.png"
         eyebrow="Ready"
         title={canFinish ? "可以开始创作了" : "还差一点配置"}
-        subtitle={canFinish ? "工作台、AI 导演、素材链路和本地导出已经有基础运行条件。进入产品后仍可随时切换 provider 和模型。" : "你可以先进入产品探索界面；正式生成视频前，NextAPI Key 或本地视频线路仍需要配置完成。"}
+        subtitle={canFinish ? "工作台、AI 导演、素材链路和本地导出已经有基础运行条件。进入产品后仍可随时切换生成服务和模型。" : "你可以先进入产品探索界面；正式生成视频前，NextAPI Key 或本地视频线路仍需要配置完成。"}
         status={canFinish ? "生产链路可用" : "允许跳过"}
         actions={(
           <SetupHeroButton onClick={onFinish} icon={canFinish ? <PlayCircle className="h-4 w-4" /> : <ArrowRight className="h-4 w-4" />}>
-            {canFinish ? "进入 NextCut" : "先进入产品"}
+            {canFinish ? "进入 NextAPI Studio" : "先进入产品"}
           </SetupHeroButton>
         )}
       />

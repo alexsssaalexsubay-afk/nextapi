@@ -48,7 +48,7 @@ export function WindowTitleBar() {
         </button>
       </div>
       <div data-tauri-drag-region className="pointer-events-none text-[12px] font-semibold text-nc-text-tertiary">
-        NextCut
+        NextAPI Studio
       </div>
       <div className="w-[54px]" />
     </div>

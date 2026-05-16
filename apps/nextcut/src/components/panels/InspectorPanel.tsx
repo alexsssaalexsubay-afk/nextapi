@@ -401,7 +401,7 @@ export function InspectorPanel() {
                         if (res.status === "ready" && res.export_url) {
                           const a = document.createElement("a");
                           a.href = res.export_url;
-                          a.download = "nextcut_export.mp4";
+                          a.download = "nextapi-studio-export.mp4";
                           a.target = "_blank";
                           a.click();
                         } else if (res.status === "incomplete") {

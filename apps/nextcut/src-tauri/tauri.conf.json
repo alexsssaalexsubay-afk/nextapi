@@ -1,6 +1,6 @@
 {
   "$schema": "https://raw.githubusercontent.com/nicedoc/tauri/main/tooling/cli/schema.json",
-  "productName": "NextCut",
+  "productName": "NextAPI Studio",
   "version": "0.1.0",
   "identifier": "top.nextapi.nextcut",
   "build": {
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "NextCut",
+        "title": "NextAPI Studio",
         "width": 1440,
         "height": 900,
         "minWidth": 1024,

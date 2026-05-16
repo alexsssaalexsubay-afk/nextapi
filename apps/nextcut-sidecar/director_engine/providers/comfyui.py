@@ -175,7 +175,7 @@ class ComfyUIProvider:
         }
         workflow["7"] = {
             "class_type": "SaveVideo",
-            "inputs": {"images": ["6", 0], "filename_prefix": "NextCut"},
+            "inputs": {"images": ["6", 0], "filename_prefix": "NextAPIStudio"},
         }
         return workflow
 

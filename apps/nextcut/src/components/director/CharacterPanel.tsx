@@ -128,7 +128,7 @@ export const CharacterPanel = memo(function CharacterPanel() {
           url: asset.url,
           type: "image",
           role: "角色身份",
-          description: `${asset.description} Identity Lock for ${char.name}.`,
+          description: `${asset.description} ${char.name} 身份锁定。`,
           priority: index === 0 ? "primary" : "support",
           locked: true,
         });
@@ -403,7 +403,7 @@ export const CharacterPanel = memo(function CharacterPanel() {
                         )}
                       </div>
                       <div className="mt-1 text-xs text-nc-text-secondary">
-                        {t("char.refHint")} 资产包会自动进入 Reference Stack，并作为 Identity Lock 注入每个镜头。
+                        {t("char.refHint")} 资产包会自动进入参考素材栈，并作为身份锁定注入每个镜头。
                       </div>
                       {(char.assetPack?.length || 0) > 0 && (
                         <div className="mt-2 flex flex-wrap gap-1.5">
@@ -550,7 +550,7 @@ function applyIdentityLockToShots(
   if (!char.name.trim() || lockUrls.length === 0) return;
   const assetRoles = uniqueCompact(assetPack.map((asset) => asset.role));
   const instruction = [
-    `Identity Lock for ${char.name}: use the attached character references on every shot.`,
+    `${char.name} 身份锁定：每个镜头都使用已附加的角色参考。`,
     "Preserve the same face, body proportions, silhouette, outfit continuity, expression language, and recognizable identity.",
     assetRoles.length ? `Reference pack roles: ${assetRoles.map(assetRoleLabel).join(", ")}.` : "",
   ].filter(Boolean).join(" ");

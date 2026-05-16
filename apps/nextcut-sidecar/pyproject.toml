@@ -1,7 +1,7 @@
 [project]
 name = "nextcut-sidecar"
 version = "0.1.0"
-description = "NextCut AI Video Director — Python Sidecar"
+description = "NextAPI Studio AI Video Director — Python Sidecar"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.115.0",

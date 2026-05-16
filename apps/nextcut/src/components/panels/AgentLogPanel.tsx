@@ -76,9 +76,9 @@ export function AgentLogPanel() {
     <div className="flex h-full flex-col overflow-auto bg-nc-bg p-6">
       <div className="mb-5 flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <h2 className="text-[20px] font-semibold leading-8 text-nc-text">Agent 运行日志</h2>
+          <h2 className="text-[20px] font-semibold leading-8 text-nc-text">AI 导演运行记录</h2>
           <p className="mt-1 line-clamp-2 text-[13px] leading-6 text-nc-text-secondary">
-            代理状态、性能指标、警告和错误会集中在这里，方便定位导演链断点。
+            角色状态、性能指标、警告和错误会集中在这里，方便定位导演链断点。
           </p>
         </div>
         <Pill tone={isRunning ? "accent" : shots.length > 0 ? "success" : "neutral"}>
@@ -88,7 +88,7 @@ export function AgentLogPanel() {
 
       <div className="mb-5 grid gap-4 md:grid-cols-4">
         <MetricCard icon={<Activity className="h-4 w-4" />} label="流程步骤" value={pipelineStep} />
-        <MetricCard icon={<CheckCircle2 className="h-4 w-4" />} label="代理完成" value={`${completedAgents}/${totalAgents}`} />
+        <MetricCard icon={<CheckCircle2 className="h-4 w-4" />} label="角色完成" value={`${completedAgents}/${totalAgents}`} />
         <MetricCard icon={<Zap className="h-4 w-4" />} label="镜头计划" value={`${shots.length}`} />
         <MetricCard icon={<AlertTriangle className="h-4 w-4" />} label="警告" value={`${warnings}`} warning={warnings > 0} />
       </div>
@@ -100,7 +100,7 @@ export function AgentLogPanel() {
             <input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="搜索代理、角色、日志..."
+              placeholder="搜索角色、阶段、日志..."
               className="w-full bg-transparent text-[14px] text-nc-text outline-none placeholder:text-nc-text-tertiary"
             />
           </FieldShell>
@@ -231,15 +231,15 @@ function OrchestrationMap({
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <GitBranch className="h-4 w-4 text-nc-accent" />
-            <h3 className="text-[16px] font-semibold leading-6 text-nc-text">多智能体生产编排</h3>
+            <h3 className="text-[16px] font-semibold leading-6 text-nc-text">AI 导演生产编排</h3>
           </div>
           <p className="mt-1 line-clamp-2 text-[13px] leading-6 text-nc-text-secondary">
-            每个 Agent 都有上游依赖、产物契约和生成前检查。状态不是装饰，会跟导演运行、画布节点和生产链同步。
+            每个角色都有上游依赖、产物契约和生成前检查。状态不是装饰，会跟导演运行、画布节点和生产链同步。
           </p>
         </div>
         <Button variant="secondary" size="sm" onClick={onOpenStoryflow}>
           <PlayCircle className="h-4 w-4" />
-          打开 Storyflow
+          打开流程画布
         </Button>
       </div>
 

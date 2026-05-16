@@ -229,10 +229,10 @@ export const EditVideoPanel = memo(function EditVideoPanel() {
           {submitting ? (
             <>
               <span className="h-3 w-3 animate-spin rounded-full border border-current border-t-transparent" />
-              Processing...
+              处理中...
             </>
           ) : submitted ? (
-            "Submitted — check storyboard"
+            "已提交，请到分镜查看"
           ) : (
             `Apply ${EDIT_MODES.find((m) => m.id === mode)?.label}`
           )}

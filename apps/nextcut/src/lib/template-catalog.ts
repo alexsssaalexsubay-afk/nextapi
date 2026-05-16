@@ -6,7 +6,7 @@ export const TEMPLATE_CATALOG: WorkflowTemplate[] = [
     name: "Product Launch Hero 30s",
     nameZh: "产品首发广告 30s",
     category: "system",
-    description: "从痛点、产品揭示、材质特写到场景验证和 CTA 的完整商品广告链路。",
+    description: "从痛点、产品揭示、材质特写到场景验证和转化动作的完整商品广告链路。",
     duration: "30s",
     shotCount: 8,
     shotDuration: 5,
@@ -14,7 +14,7 @@ export const TEMPLATE_CATALOG: WorkflowTemplate[] = [
     style: "premium commercial, clean studio lighting, precise product macro, restrained purple cyan accent",
     workflow: "image_to_video",
     prompt:
-      "为一款即将发布的高端智能硬件制作 30 秒产品首发广告。结构：1 痛点环境中创作者受阻，2 产品轮廓被自然光揭示，3 材质和按键微距特写，4 用户拿起产品开始操作，5 核心功能以清晰画面演示，6 产品进入真实使用场景，7 结果画面对比展示价值，8 品牌收束与 CTA。每个镜头只保留一个动作；需要 Reference Stack 锁定产品外观，Camera Motion 使用慢推、环绕和稳定跟拍，生成前检查产品一致性、文字溢出、镜头时长和垫图传参。",
+      "为一款即将发布的高端智能硬件制作 30 秒产品首发广告。结构：1 痛点环境中创作者受阻，2 产品轮廓被自然光揭示，3 材质和按键微距特写，4 用户拿起产品开始操作，5 核心功能以清晰画面演示，6 产品进入真实使用场景，7 结果画面对比展示价值，8 品牌收束与转化动作。每个镜头只保留一个动作；需要参考素材锁定产品外观，运镜使用慢推、环绕和稳定跟拍，生成前检查产品一致性、文字溢出、镜头时长和垫图传参。",
     tags: ["产品", "广告", "首发", "垫图"],
     thumbnail: "/templates/product-launch.jpg",
     difficulty: "进阶",
@@ -35,7 +35,7 @@ export const TEMPLATE_CATALOG: WorkflowTemplate[] = [
     style: "bright UGC product video, handheld but stable, authentic creator desk, soft daylight",
     workflow: "image_to_video",
     prompt:
-      "制作一支 20 秒竖屏达人开箱短片。结构：1 包裹进入画面制造期待，2 拆开包装露出产品，3 手部展示关键细节，4 第一次使用的真实反应，5 对比旧方案或痛点，6 三个卖点快速节奏展示，7 桌面定格和购买理由。要求镜头自然但不晃，产品外观由参考图锁定；对白和字幕要口语化，不要夸张营销腔；每个 shot 自动继承产品垫图。",
+      "制作一支 20 秒竖屏达人开箱短片。结构：1 包裹进入画面制造期待，2 拆开包装露出产品，3 手部展示关键细节，4 第一次使用的真实反应，5 对比旧方案或痛点，6 三个卖点快速节奏展示，7 桌面定格和购买理由。要求镜头自然但不晃，产品外观由参考图锁定；对白和字幕要口语化，不要夸张营销腔；每个镜头自动继承产品垫图。",
     tags: ["UGC", "开箱", "竖屏", "电商"],
     thumbnail: "/templates/ugc-unboxing.jpg",
     difficulty: "入门",
@@ -56,7 +56,7 @@ export const TEMPLATE_CATALOG: WorkflowTemplate[] = [
     style: "cinematic travel vlog, natural color, gentle handheld movement, warm documentary feeling",
     workflow: "text_to_video",
     prompt:
-      "制作 45 秒旅行 vlog：从抵达目的地开始，逐步展示街道、海岸、当地食物、人物体验、交通移动、情绪高潮和日落收束。每个镜头一个清晰动作，Camera Motion 以稳定手持、慢推和轻微横移为主；Prompt Decomposition 输出 first frame 和 last frame；Timeline 需要音乐节奏点和字幕标记。",
+      "制作 45 秒旅行 vlog：从抵达目的地开始，逐步展示街道、海岸、当地食物、人物体验、交通移动、情绪高潮和日落收束。每个镜头一个清晰动作，运镜以稳定手持、慢推和轻微横移为主；提示词拆解需要明确首帧和尾帧；时间线需要音乐节奏点和字幕标记。",
     tags: ["旅行", "Vlog", "生活方式", "分镜"],
     thumbnail: "/templates/travel-vlog.jpg",
     difficulty: "入门",
@@ -77,7 +77,7 @@ export const TEMPLATE_CATALOG: WorkflowTemplate[] = [
     style: "modern SaaS product film, polished interface closeups, clean white background, precise motion graphics",
     workflow: "multimodal_story",
     prompt:
-      "为一款 AI 创作 SaaS 制作 30 秒功能演示。结构：1 用户目标，2 旧流程低效，3 输入 brief，4 Storyflow 自动拆解，5 参考素材和镜头语言联动，6 时间线生成，7 预览结果，8 团队交付。界面素材作为 reference video 或 image 传入，所有 UI 镜头保持可读但不堆字；提示词避免把 UI 文案塞进画面生成。",
+      "为一款 AI 创作 SaaS 制作 30 秒功能演示。结构：1 用户目标，2 旧流程低效，3 输入创意简报，4 流程画布自动拆解，5 参考素材和镜头语言联动，6 时间线生成，7 预览结果，8 团队交付。界面素材作为参考视频或图片传入，所有界面镜头保持可读但不堆字；提示词避免把界面文案塞进画面生成。",
     tags: ["SaaS", "功能演示", "发布", "界面"],
     thumbnail: "/templates/saas-explainer.jpg",
     difficulty: "专业",
@@ -98,7 +98,7 @@ export const TEMPLATE_CATALOG: WorkflowTemplate[] = [
     style: "vertical cinematic drama, expressive closeups, controlled handheld, high emotional tension",
     workflow: "multimodal_story",
     prompt:
-      "生成一支 35 秒竖屏短剧预告。结构：1 三秒内给出冲突，2 主角反应特写，3 对手提出压力，4 关键物件或信息出现，5 关系反转，6 快速交叉剪辑，7 情绪爆发，8 悬念停顿，9 留下下一集问题。必须先抽取角色锚点，再生成角色三视图和表情参考；每个 shot 继承 Identity Lock，并在 Preflight 阻断角色漂移。",
+      "生成一支 35 秒竖屏短剧预告。结构：1 三秒内给出冲突，2 主角反应特写，3 对手提出压力，4 关键物件或信息出现，5 关系反转，6 快速交叉剪辑，7 情绪爆发，8 悬念停顿，9 留下下一集问题。必须先抽取角色锚点，再生成角色三视图和表情参考；每个镜头继承身份锁定，并在生成前检查中阻断角色漂移。",
     tags: ["短剧", "角色一致性", "剧情", "竖屏"],
     thumbnail: "/templates/short-drama.jpg",
     difficulty: "专业",
@@ -119,7 +119,7 @@ export const TEMPLATE_CATALOG: WorkflowTemplate[] = [
     style: "premium food reel, appetizing macro, soft steam, warm clean lighting, crisp ingredient texture",
     workflow: "image_to_video",
     prompt:
-      "为一家餐厅制作 18 秒美食探店短视频。结构：1 门店或桌面氛围，2 厨师出餐动作，3 菜品冒热气微距，4 酱汁或食材细节，5 人物试吃反应，6 最终菜单或招牌菜收束。需要菜品参考图作为 image_urls；Camera Motion 使用微距慢推、俯拍和稳定横移；不要让字幕压住菜品主体。",
+      "为一家餐厅制作 18 秒美食探店短视频。结构：1 门店或桌面氛围，2 厨师出餐动作，3 菜品冒热气微距，4 酱汁或食材细节，5 人物试吃反应，6 最终菜单或招牌菜收束。需要菜品参考图作为生成参考；运镜使用微距慢推、俯拍和稳定横移；不要让字幕压住菜品主体。",
     tags: ["美食", "探店", "竖屏", "微距"],
     thumbnail: "/templates/food-reel.jpg",
     difficulty: "入门",
@@ -140,7 +140,7 @@ export const TEMPLATE_CATALOG: WorkflowTemplate[] = [
     style: "cinematic brand film, quiet confidence, elegant negative space, refined camera movement",
     workflow: "multimodal_story",
     prompt:
-      "制作 45 秒品牌宣言片。结构：1 时代背景和用户问题，2 团队/用户真实瞬间，3 产品或服务如何介入，4 三个价值主张，每个价值只用一个视觉隐喻，5 结果画面，6 品牌收束。参考素材可包含品牌色、产品界面、人物素材和 logo，但生成画面不要伪造不可控文字；用 Prompt Strategy 把文案和画面分离。",
+      "制作 45 秒品牌宣言片。结构：1 时代背景和用户问题，2 团队/用户真实瞬间，3 产品或服务如何介入，4 三个价值主张，每个价值只用一个视觉隐喻，5 结果画面，6 品牌收束。参考素材可包含品牌色、产品界面、人物素材和 logo，但生成画面不要伪造不可控文字；用提示词策略把文案和画面分离。",
     tags: ["品牌", "宣言片", "发布会", "团队"],
     thumbnail: "/templates/saas-explainer.jpg",
     difficulty: "专业",
@@ -161,7 +161,7 @@ export const TEMPLATE_CATALOG: WorkflowTemplate[] = [
     style: "architectural film, smooth gimbal and drone movement, natural sunset light, premium interior",
     workflow: "text_to_video",
     prompt:
-      "制作 20 秒高端空间漫游。结构：1 外立面建立空间，2 入口推进，3 客厅或主空间横移，4 细节材质特写，5 窗景或景观，6 结束在最具记忆点的位置。Camera Motion 必须稳定，不使用过快 FPV；如果有实拍参考图，作为空间风格和材质垫图传入。",
+      "制作 20 秒高端空间漫游。结构：1 外立面建立空间，2 入口推进，3 客厅或主空间横移，4 细节材质特写，5 窗景或景观，6 结束在最具记忆点的位置。运镜必须稳定，不使用过快第一视角飞行；如果有实拍参考图，作为空间风格和材质垫图传入。",
     tags: ["空间", "房产", "酒店", "运镜"],
     thumbnail: "/templates/travel-vlog.jpg",
     difficulty: "进阶",
@@ -182,7 +182,7 @@ export const TEMPLATE_CATALOG: WorkflowTemplate[] = [
     style: "automotive commercial, glossy reflections, controlled tracking shot, premium dusk lighting",
     workflow: "image_to_video",
     prompt:
-      "制作 15 秒汽车动态展示：1 车身轮廓从暗处显现，2 前脸和灯组特写，3 车轮启动和路面细节，4 海岸公路稳定跟拍，5 停车定格展示品牌气质。必须使用车辆参考图锁定外观，禁止让车标和车身比例漂移；生成前检查 image_urls 是否传入。",
+      "制作 15 秒汽车动态展示：1 车身轮廓从暗处显现，2 前脸和灯组特写，3 车轮启动和路面细节，4 海岸公路稳定跟拍，5 停车定格展示品牌气质。必须使用车辆参考图锁定外观，禁止让车标和车身比例漂移；生成前检查参考图是否已传入。",
     tags: ["汽车", "广告", "产品一致性"],
     thumbnail: "/templates/product-launch.jpg",
     difficulty: "进阶",
@@ -203,7 +203,7 @@ export const TEMPLATE_CATALOG: WorkflowTemplate[] = [
     style: "creator vlog, realistic character consistency, soft city daylight, handheld selfie rhythm",
     workflow: "multimodal_story",
     prompt:
-      "生成 30 秒虚拟达人日常 vlog：1 角色对镜头打招呼，2 城市街道行走，3 咖啡店点单，4 展示当天穿搭，5 分享一个生活观点，6 与环境互动，7 情绪特写，8 结尾 CTA。先由角色文字锚点生成三视图、表情和服装参考，再写入角色资产库；每个 shot 自动继承 Identity Lock。",
+      "生成 30 秒虚拟达人日常 vlog：1 角色对镜头打招呼，2 城市街道行走，3 咖啡店点单，4 展示当天穿搭，5 分享一个生活观点，6 与环境互动，7 情绪特写，8 结尾转化动作。先由角色文字锚点生成三视图、表情和服装参考，再写入角色资产库；每个镜头自动继承身份锁定。",
     tags: ["虚拟达人", "角色资产", "Vlog", "一致性"],
     thumbnail: "/templates/ugc-unboxing.jpg",
     difficulty: "专业",
@@ -224,7 +224,7 @@ export const TEMPLATE_CATALOG: WorkflowTemplate[] = [
     style: "clean educational explainer, elegant motion graphics, calm narration, high readability",
     workflow: "text_to_video",
     prompt:
-      "制作 40 秒知识解释短片：先提出一个观众关心的问题，再用一个生活类比解释核心概念，随后拆成三步，每一步搭配一个清晰视觉隐喻，最后总结行动建议。画面要简洁，不生成大段文字；需要字幕轨和关键概念标记；Prompt Strategy 分离旁白、画面和字幕。",
+      "制作 40 秒知识解释短片：先提出一个观众关心的问题，再用一个生活类比解释核心概念，随后拆成三步，每一步搭配一个清晰视觉隐喻，最后总结行动建议。画面要简洁，不生成大段文字；需要字幕轨和关键概念标记；提示词策略分离旁白、画面和字幕。",
     tags: ["教育", "科普", "解释器", "字幕"],
     thumbnail: "/templates/saas-explainer.jpg",
     difficulty: "入门",
@@ -245,7 +245,7 @@ export const TEMPLATE_CATALOG: WorkflowTemplate[] = [
     style: "event recap film, energetic but clean, polished transitions, natural crowd moments",
     workflow: "multimodal_story",
     prompt:
-      "制作 60 秒活动回顾片。结构：1 场地建立，2 入场签到，3 人群和互动，4 主讲人登台，5 产品或主题亮点，6 观众反应，7 圆桌/采访，8 现场细节，9 合影或成果，10 快速 montage，11 核心数据或成果表达，12 感谢收束。需要导入实拍素材作为 video_refs，自动挑选可用镜头并标记质量风险。",
+      "制作 60 秒活动回顾片。结构：1 场地建立，2 入场签到，3 人群和互动，4 主讲人登台，5 产品或主题亮点，6 观众反应，7 圆桌/采访，8 现场细节，9 合影或成果，10 快速蒙太奇，11 核心数据或成果表达，12 感谢收束。需要导入实拍视频素材，自动挑选可用镜头并标记质量风险。",
     tags: ["活动", "回顾", "企业", "多素材"],
     thumbnail: "/templates/saas-explainer.jpg",
     difficulty: "进阶",
@@ -266,7 +266,7 @@ export const TEMPLATE_CATALOG: WorkflowTemplate[] = [
     style: "fashion editorial video, elegant poses, clean studio, premium fabric texture, confident pacing",
     workflow: "image_to_video",
     prompt:
-      "制作 24 秒时尚 Lookbook。结构：1 主造型全身建立，2 面料微距，3 配饰特写，4 走动转身，5 第二套造型对比，6 动态姿态，7 美妆或细节，8 品牌收束。需要角色/模特参考保持脸部和身材一致；服装参考图作为 image_urls，避免颜色和版型漂移。",
+      "制作 24 秒时尚 Lookbook。结构：1 主造型全身建立，2 面料微距，3 配饰特写，4 走动转身，5 第二套造型对比，6 动态姿态，7 美妆或细节，8 品牌收束。需要角色/模特参考保持脸部和身材一致；服装参考图作为生成参考，避免颜色和版型漂移。",
     tags: ["时尚", "服装", "美妆", "角色一致性"],
     thumbnail: "/templates/ugc-unboxing.jpg",
     difficulty: "进阶",
@@ -287,7 +287,7 @@ export const TEMPLATE_CATALOG: WorkflowTemplate[] = [
     style: "music visualizer, audio reactive abstract scenes, elegant light trails, cinematic performance inserts",
     workflow: "multimodal_story",
     prompt:
-      "为一段 45 秒音乐制作视觉化短片。先分析音频段落：intro、verse、drop、outro；每个段落对应不同视觉密度。镜头包含抽象粒子、表演者剪影、光轨、环境氛围和节奏切点。audio_urls 必须传入；Timeline 中标记鼓点、转场和字幕/歌词位置。",
+      "为一段 45 秒音乐制作视觉化短片。先分析音频段落：intro、verse、drop、outro；每个段落对应不同视觉密度。镜头包含抽象粒子、表演者剪影、光轨、环境氛围和节奏切点。必须传入音频参考；时间线中标记鼓点、转场和字幕/歌词位置。",
     tags: ["音乐", "音频", "节奏", "视觉化"],
     thumbnail: "/templates/short-drama.jpg",
     difficulty: "专业",
@@ -308,7 +308,7 @@ export const TEMPLATE_CATALOG: WorkflowTemplate[] = [
     style: "game trailer, energetic camera, readable action, cinematic UI-safe composition",
     workflow: "multimodal_story",
     prompt:
-      "制作 30 秒游戏预告：1 世界观建立，2 主角能力展示，3 核心玩法循环，4 敌人或挑战，5 装备/技能升级，6 高潮战斗，7 多场景 montage，8 关键奖励，9 结尾爆点，10 标题/CTA 留白。需要角色和场景参考，动作镜头要可读，避免过快和混乱；Review Node 检查镜头信息量。",
+      "制作 30 秒游戏预告：1 世界观建立，2 主角能力展示，3 核心玩法循环，4 敌人或挑战，5 装备/技能升级，6 高潮战斗，7 多场景蒙太奇，8 关键奖励，9 结尾爆点，10 标题和转化动作留白。需要角色和场景参考，动作镜头要可读，避免过快和混乱；复核节点检查镜头信息量。",
     tags: ["游戏", "预告", "动作", "高能"],
     thumbnail: "/templates/short-drama.jpg",
     difficulty: "专业",
@@ -329,13 +329,13 @@ export const TEMPLATE_CATALOG: WorkflowTemplate[] = [
     style: "direct response ecommerce video, bright product lighting, clean graphic space, fast readable cuts",
     workflow: "image_to_video",
     prompt:
-      "制作 15 秒电商促销短片：1 产品进入画面并给出强视觉钩子，2 展示第一个核心卖点，3 使用场景验证，4 价格/限时信息用后期字幕保留安全区域，5 CTA 收束。不要在生成画面中直接生成复杂文字；用字幕轨承载促销文案。产品图必须作为 image_urls 传入。",
+      "制作 15 秒电商促销短片：1 产品进入画面并给出强视觉钩子，2 展示第一个核心卖点，3 使用场景验证，4 价格/限时信息用后期字幕保留安全区域，5 转化动作收束。不要在生成画面中直接生成复杂文字；用字幕轨承载促销文案。产品图必须作为生成参考传入。",
     tags: ["电商", "促销", "转化", "竖屏"],
     thumbnail: "/templates/product-launch.jpg",
     difficulty: "入门",
-    deliverables: ["卖点拆解", "字幕安全区", "产品垫图", "CTA"],
+    deliverables: ["卖点拆解", "字幕安全区", "产品垫图", "转化动作"],
     chain: ["Reference Stack", "Prompt Strategy", "Subtitle", "Preflight"],
-    variables: ["产品", "折扣", "卖点", "CTA"],
+    variables: ["产品", "折扣", "卖点", "转化动作"],
   },
   {
     id: "tmpl_app_store_preview_30s",
@@ -350,7 +350,7 @@ export const TEMPLATE_CATALOG: WorkflowTemplate[] = [
     style: "mobile app preview, clean device mockups, crisp UI motion, bright white premium SaaS look",
     workflow: "multimodal_story",
     prompt:
-      "制作 30 秒应用商店预览：1 用户需求，2 打开 App，3 核心功能一，4 核心功能二，5 结果页面，6 用户收益，7 下载 CTA。界面录屏或截图作为 reference video/image 输入；生成画面不能伪造 UI 文案，文字交给后期字幕和真实截图。",
+      "制作 30 秒应用商店预览：1 用户需求，2 打开 App，3 核心功能一，4 核心功能二，5 结果页面，6 用户收益，7 下载引导。界面录屏或截图作为参考视频/图片输入；生成画面不能伪造 UI 文案，文字交给后期字幕和真实截图。",
     tags: ["App", "移动端", "商店预览", "界面"],
     thumbnail: "/templates/saas-explainer.jpg",
     difficulty: "进阶",
@@ -392,7 +392,7 @@ export const TEMPLATE_CATALOG: WorkflowTemplate[] = [
     style: "micro documentary, natural light, observational camera, tactile details, calm pacing",
     workflow: "text_to_video",
     prompt:
-      "制作 30 秒微纪录片：1 建立人物或地点，2 手部或工艺细节，3 环境声音，4 主角做一个关键动作，5 旁白解释背景，6 过程中的微小困难，7 完成结果，8 安静收束。画面重真实，不做夸张广告；Audio Director 需要记录环境音和旁白提示。",
+      "制作 30 秒微纪录片：1 建立人物或地点，2 手部或工艺细节，3 环境声音，4 主角做一个关键动作，5 旁白解释背景，6 过程中的微小困难，7 完成结果，8 安静收束。画面重真实，不做夸张广告；声音设计需要记录环境音和旁白提示。",
     tags: ["纪录片", "人物", "工艺", "旁白"],
     thumbnail: "/templates/food-reel.jpg",
     difficulty: "进阶",
@@ -413,12 +413,12 @@ export const TEMPLATE_CATALOG: WorkflowTemplate[] = [
     style: "performance marketing variants, clear hook, fast readable cuts, product-safe composition",
     workflow: "image_to_video",
     prompt:
-      "为同一产品生成四个 15 秒广告变体：A 痛点开场，B 结果开场，C 场景使用开场，D 社会证明开场。每个变体保持相同产品垫图、相同比例和相同 CTA，但镜头顺序、开场文案和节奏不同。结果以网格对比，记录版本号、变量和质量分。",
+      "为同一产品生成四个 15 秒广告变体：A 痛点开场，B 结果开场，C 场景使用开场，D 社会证明开场。每个变体保持相同产品垫图、相同比例和相同转化动作，但镜头顺序、开场文案和节奏不同。结果以网格对比，记录版本号、变量和质量分。",
     tags: ["A/B", "批量生成", "投放", "版本"],
     thumbnail: "/templates/product-launch.jpg",
     difficulty: "专业",
     deliverables: ["4 个变体", "变量矩阵", "质量分", "投放对比"],
     chain: ["Prompt Strategy", "Batch Generate", "Version", "Review"],
-    variables: ["产品", "目标受众", "钩子类型", "CTA"],
+    variables: ["产品", "目标受众", "钩子类型", "转化动作"],
   },
 ];

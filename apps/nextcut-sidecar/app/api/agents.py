@@ -16,7 +16,7 @@ router = APIRouter()
 AGENT_REGISTRY = [
     {
         "id": "provider_scorer",
-        "name": "Provider Scorer",
+        "name": "生成服务推荐",
         "description": "Automatically selects the best video model using 7-dimension scoring",
         "status": "idle",
     },
@@ -52,7 +52,7 @@ AGENT_REGISTRY = [
     },
     {
         "id": "editing_agent",
-        "name": "Editing Agent",
+        "name": "剪辑建议",
         "description": "Cut rhythm, transitions, and pacing",
         "status": "idle",
     },
