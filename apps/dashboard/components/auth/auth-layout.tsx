@@ -63,13 +63,13 @@ export function AuthLayout({ children }: AuthLayoutProps) {
                     AI video
                   </span>
                   <span className="rounded-full bg-status-success/14 px-2 py-1 font-mono text-[10px] text-status-success">
-                    accepted
+                    ready
                   </span>
                 </div>
                 <div className="mt-5 space-y-3">
                   {[
                     ["idea", "cinematic product launch, 6s"],
-                    ["model", "seedance-2.0-pro"],
+                    ["style", "seedance-2.0-pro"],
                     ["delivery", "trusted update"],
                   ].map(([label, value]) => (
                     <div key={label} className="rounded-lg border border-white/10 bg-white/[0.045] p-3">
@@ -81,8 +81,8 @@ export function AuthLayout({ children }: AuthLayoutProps) {
               </div>
               <div className="grid gap-3">
                 {[
-                  { icon: CreditCard, label: "cost", value: "reserved" },
-                  { icon: RadioTower, label: "lane", value: "best option set" },
+                  { icon: CreditCard, label: "cost", value: "planned" },
+                  { icon: RadioTower, label: "choice", value: "best option ready" },
                   { icon: Webhook, label: "delivery", value: "confirmed" },
                 ].map((item) => {
                   const Icon = item.icon
