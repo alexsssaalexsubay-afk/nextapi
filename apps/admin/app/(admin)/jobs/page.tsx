@@ -69,7 +69,7 @@ export default function AdminJobsPage() {
       const nextId = queryId.trim() || (rows[0] ? str(rows[0], "ID", "id") : null)
       setSelectedId(nextId || null)
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load jobs")
+      setError(e instanceof Error ? e.message : "Failed to load video work")
     } finally {
       setLoading(false)
     }
@@ -91,7 +91,7 @@ export default function AdminJobsPage() {
         setDeadLetters([])
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load job detail")
+      setError(e instanceof Error ? e.message : "Failed to load video detail")
     }
   }, [])
 
@@ -117,7 +117,7 @@ export default function AdminJobsPage() {
       await loadJobs()
       await loadDetail(jobId, selectedOrg)
     } catch (e) {
-      setError(e instanceof Error ? e.message : `Failed to ${kind} job`)
+      setError(e instanceof Error ? e.message : `Failed to ${kind} video`)
     } finally {
       setActionLoading(null)
     }
@@ -130,7 +130,7 @@ export default function AdminJobsPage() {
       await adminFetch(`/dead-letter/${id}/replay`, { method: "POST" })
       if (selectedId) await loadDetail(selectedId, selectedOrg)
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to replay dead-letter job")
+      setError(e instanceof Error ? e.message : "Failed to replay recovery item")
     } finally {
       setActionLoading(null)
     }
@@ -139,13 +139,13 @@ export default function AdminJobsPage() {
   return (
     <AdminShell
       activeHref="/jobs"
-      title="Jobs"
-      description="Search video jobs, inspect upstream state, retry failures, force-cancel stuck work, and replay dead-letter tasks."
+      title="Video work"
+      description="Search video work, inspect provider status, retry failures, cancel stuck items, and replay recovery items."
       meta={
         <>
-          <span>{jobs.length} loaded</span>
+          <span>{jobs.length} shown</span>
           <span className="text-muted-foreground/50">·</span>
-          <span>{loading ? "loading" : "live admin APIs"}</span>
+          <span>{loading ? "loading" : "live admin data"}</span>
         </>
       }
     >
@@ -155,17 +155,17 @@ export default function AdminJobsPage() {
             <div className="bg-background/36 p-5">
               <div className="ops-pill inline-flex items-center gap-2 rounded-full px-3 py-1.5 font-mono text-[10.5px] uppercase tracking-[0.14em] text-muted-foreground">
                 <span className="size-1.5 rounded-full bg-status-failed" />
-                operator job search
+                support search
               </div>
               <h2 className="mt-4 text-2xl font-semibold tracking-tight text-foreground">
-                Find stuck provider work before customers do.
+                Catch stuck video work before customers do.
               </h2>
               <p className="mt-2 max-w-2xl text-[13px] leading-relaxed text-muted-foreground">
-                Search active, failed, and dead-lettered jobs with enough context to retry, cancel, or replay without leaving the incident surface.
+                Search active, failed, and delayed work with enough context to retry, cancel, or replay safely.
               </p>
             </div>
             <div className="grid grid-cols-3 gap-px bg-border/70">
-              <AdminJobMetric icon={Workflow} label="loaded" value={String(jobs.length)} />
+              <AdminJobMetric icon={Workflow} label="shown" value={String(jobs.length)} />
               <AdminJobMetric icon={Clock3} label={status} value={loading ? "…" : "live"} />
               <AdminJobMetric icon={ShieldAlert} label="selected" value={selectedId ? "yes" : "none"} tone="risk" />
             </div>
@@ -192,7 +192,7 @@ export default function AdminJobsPage() {
             <input
               value={queryId}
               onChange={(e) => setQueryId(e.target.value)}
-              placeholder="jump to job id"
+              placeholder="jump to video id"
               className="h-9 rounded-md border border-border/80 bg-background/70 px-3 font-mono text-[13px] outline-none transition-colors placeholder:text-muted-foreground/70 focus-visible:border-status-failed focus-visible:ring-2 focus-visible:ring-status-failed/25"
             />
             <button
@@ -212,7 +212,7 @@ export default function AdminJobsPage() {
 
         <div className="grid min-h-[640px] grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_520px]">
           <section className="ops-panel overflow-hidden rounded-2xl">
-            <header className="border-b border-border/60 px-4 py-3 text-[13px] font-medium">Job search results</header>
+            <header className="border-b border-border/60 px-4 py-3 text-[13px] font-medium">Search results</header>
             <div className="divide-y divide-border/60">
               {jobs.map((j) => {
                 const id = str(j, "ID", "id")
@@ -235,7 +235,7 @@ export default function AdminJobsPage() {
                 )
               })}
               {!loading && jobs.length === 0 && (
-                <div className="px-4 py-10 text-center text-[13px] text-muted-foreground">No jobs found.</div>
+                <div className="px-4 py-10 text-center text-[13px] text-muted-foreground">No video work found.</div>
               )}
             </div>
           </section>
@@ -243,7 +243,7 @@ export default function AdminJobsPage() {
           <aside className="space-y-5">
             <section className="ops-risk-panel rounded-2xl">
               <header className="flex items-center justify-between border-b border-border/60 px-4 py-3">
-                <div className="text-[13px] font-medium">Job detail</div>
+                <div className="text-[13px] font-medium">Video detail</div>
                 {selectedId && (
                   <div className="flex gap-2">
                     <button
@@ -264,25 +264,25 @@ export default function AdminJobsPage() {
                 )}
               </header>
               <pre className="max-h-[360px] overflow-auto p-4 text-[12px] leading-relaxed text-muted-foreground">
-                {detail ? JSON.stringify(detail, null, 2) : "Select a job to inspect."}
+                {detail ? JSON.stringify(detail, null, 2) : "Select a video to inspect."}
               </pre>
             </section>
 
             <section className="ops-panel rounded-2xl">
               <header className="flex items-center gap-2 border-b border-border/60 px-4 py-3 text-[13px] font-medium">
-                <Terminal className="size-4 text-signal" /> Request logs
+                <Terminal className="size-4 text-signal" /> Activity logs
               </header>
               <div className="max-h-[220px] divide-y divide-border/60 overflow-auto">
                 {logs.map((log, idx) => (
                   <pre key={idx} className="overflow-auto px-4 py-3 text-[12px] text-muted-foreground">{JSON.stringify(log, null, 2)}</pre>
                 ))}
-                {logs.length === 0 && <div className="px-4 py-6 text-[13px] text-muted-foreground">No request logs for this job.</div>}
+                {logs.length === 0 && <div className="px-4 py-6 text-[13px] text-muted-foreground">No activity logs for this video.</div>}
               </div>
             </section>
 
             <section className="ops-panel rounded-2xl">
               <header className="flex items-center justify-between border-b border-border/60 px-4 py-3">
-                <div className="text-[13px] font-medium">Dead letter</div>
+                <div className="text-[13px] font-medium">Recovery queue</div>
                 <span className="font-mono text-[12px] text-muted-foreground">{deadLetters.length}</span>
               </header>
               <div className="divide-y divide-border/60">
@@ -305,7 +305,7 @@ export default function AdminJobsPage() {
                     </div>
                   )
                 })}
-                {deadLetters.length === 0 && <div className="px-4 py-6 text-[13px] text-muted-foreground">No dead-letter rows for this org.</div>}
+                {deadLetters.length === 0 && <div className="px-4 py-6 text-[13px] text-muted-foreground">No recovery items for this org.</div>}
               </div>
             </section>
           </aside>

@@ -7,9 +7,9 @@ import { track } from "@/lib/analytics"
 
 const STEPS = [
   { n: 1, title: "Sign Up", body: "Create your account in seconds" },
-  { n: 2, title: "Get API Key", body: "Retrieve your key and start building" },
-  { n: 3, title: "Make Request", body: "Send your first request with our simple API" },
-  { n: 4, title: "Get Response", body: "Receive high-quality AI videos, instantly" },
+  { n: 2, title: "Get Access", body: "Use your key when you are ready to connect" },
+  { n: 3, title: "Send an Idea", body: "Describe the scene and choose a video style" },
+  { n: 4, title: "Receive Video", body: "Get the finished clip and final cost" },
 ] as const
 
 type Tab = "cURL" | "Python" | "Node.js" | "Response"
@@ -181,13 +181,13 @@ export function DevexSection() {
       <div className="mx-auto grid max-w-7xl grid-cols-1 gap-14 px-6 lg:grid-cols-2 lg:items-center">
         <div>
           <h2 className="text-balance text-4xl font-semibold leading-tight tracking-[-0.02em] text-foreground sm:text-5xl">
-            From setup to scale,{" "}
+            From first idea to first clip,{" "}
             <span className="bg-gradient-to-r from-indigo-500 to-purple-500 bg-clip-text text-transparent">
               in minutes.
             </span>
           </h2>
           <p className="mt-4 max-w-lg text-[15px] leading-relaxed text-muted-foreground">
-            Four steps. No approval queue. No consultants. No rewrite.
+            Four calm steps. No sales queue, no heavy migration, no long onboarding.
           </p>
 
           <ol className="mt-10 relative">
@@ -221,10 +221,10 @@ export function DevexSection() {
                 <span className="size-3 rounded-full bg-yellow-500/80" />
                 <span className="size-3 rounded-full bg-emerald-500/80" />
               </div>
-              <span className="font-mono text-[11px] text-zinc-500">generate.ts</span>
+              <span className="font-mono text-[11px] text-zinc-500">quick-start</span>
               <div className="flex items-center gap-2">
                 <span className="rounded-md border border-amber-400/40 bg-amber-400/10 px-2 py-0.5 text-[10px] font-medium text-amber-400">
-                  sample response
+                  example output
                 </span>
                 <button
                   type="button"

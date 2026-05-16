@@ -63,13 +63,13 @@ export default function UsagePage() {
             <div className="bg-background/36 p-5">
               <div className="ops-pill inline-flex items-center gap-2 rounded-full px-3 py-1.5 font-mono text-[10.5px] uppercase tracking-[0.14em] text-muted-foreground">
                 <span className="size-1.5 rounded-full bg-signal" />
-                usage intelligence
+                usage overview
               </div>
               <h2 className="mt-4 max-w-2xl text-2xl font-semibold tracking-tight text-foreground">
-                Watch demand, spend, and job throughput in the same frame.
+                See demand, spend, and completed work together.
               </h2>
               <p className="mt-2 max-w-2xl text-[13px] leading-relaxed text-muted-foreground">
-                Keep the credit ledger connected to actual generation volume so billing, routing, and customer support read from one operational story.
+                Connect credit spend with real video activity so billing and support stay aligned.
               </p>
             </div>
             <div className="grid gap-px bg-border/70 md:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">

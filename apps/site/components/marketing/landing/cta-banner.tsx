@@ -21,21 +21,21 @@ export function CtaBanner() {
 
           <div className="relative">
             <h2 className="text-balance text-4xl font-semibold leading-tight tracking-[-0.02em] text-foreground sm:text-5xl">
-              Ready to build the{" "}
+              Ready to make{" "}
               <span className="bg-gradient-to-r from-indigo-500 to-purple-500 bg-clip-text text-transparent">
-                future of video
+                better video
               </span>{" "}
               with AI?
             </h2>
             <p className="mx-auto mt-5 max-w-xl text-pretty text-[16px] leading-relaxed text-muted-foreground">
-              Join thousands of developers shipping innovative products today.
+              Start with a real clip, clear cost, and a workspace your team can keep using.
             </p>
             <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
               <Link
                 href="https://app.nextapi.top/sign-up"
                 className="premium-button group inline-flex items-center gap-2 rounded-full border border-white/20 bg-[radial-gradient(circle_at_20%_0%,rgba(255,255,255,0.42),transparent_30%),linear-gradient(110deg,#2563eb_0%,#7c3aed_42%,#db2777_100%)] px-6 py-3 text-[14px] font-semibold text-white shadow-[0_18px_48px_-18px] shadow-fuchsia-500/70 transition-all"
               >
-                Get a free API key
+                Start free
                 <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
               </Link>
               <Link

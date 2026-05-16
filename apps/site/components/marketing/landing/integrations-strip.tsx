@@ -1,7 +1,7 @@
 "use client"
 
 /**
- * Compatible-with strip. Renders 6 developer-tool wordmarks in a monochrome
+ * Compatible-with strip. Renders 6 tool wordmarks in a monochrome
  * aesthetic that inverts between light and dark. Pure text + icon — no
  * external brand assets required.
  */
@@ -81,7 +81,7 @@ export function IntegrationsStrip() {
     <section className="border-y border-border/70 bg-muted/30 py-12">
       <div className="mx-auto max-w-7xl px-6">
         <p className="text-center font-mono text-[11px] font-medium uppercase tracking-[0.24em] text-muted-foreground">
-          Compatible with your modern stack
+          Works with the tools your team already uses
         </p>
         <div className="mt-8 grid grid-cols-2 items-center justify-items-center gap-x-6 gap-y-8 sm:grid-cols-3 md:grid-cols-6">
           {INTEGRATIONS.map((i) => (

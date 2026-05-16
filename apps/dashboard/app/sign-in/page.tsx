@@ -95,7 +95,7 @@ export default function SignInPage() {
   return (
     <AuthLayout>
       <div className="ops-pill mb-5 inline-flex rounded-full px-3 py-1 font-mono text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
-        secure workspace
+        secure sign in
       </div>
       <h1 className="text-[26px] font-semibold tracking-tight text-foreground text-balance">
         {t.auth.welcomeBack}

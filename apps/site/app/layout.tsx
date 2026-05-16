@@ -8,24 +8,24 @@ const SITE_URL = "https://nextapi.top"
 
 export const metadata: Metadata = {
   title: {
-    default: "NextAPI — Production video generation infrastructure",
+    default: "NextAPI — AI Video Workspace",
     template: "%s | NextAPI",
   },
   description:
-    "One API and key for video generation: signed webhooks, transparent billing, and job-level observability. Ship your first video in minutes.",
+    "Create AI video, track delivery, and see final cost from one production-ready workspace.",
   metadataBase: new URL(SITE_URL),
   openGraph: {
     type: "website",
     siteName: "NextAPI",
-    title: "NextAPI — Production video generation infrastructure",
-    description: "Unified video generation API — signed webhooks, transparent billing, job-level observability.",
+    title: "NextAPI — AI Video Workspace",
+    description: "Create AI video, track delivery, and see final cost from one production-ready workspace.",
     url: SITE_URL,
     images: [{ url: "/og/default.png", width: 1200, height: 630 }],
   },
   twitter: {
     card: "summary_large_image",
-    title: "NextAPI — Production video generation infrastructure",
-    description: "Unified video generation API — signed webhooks, transparent billing, job-level observability.",
+    title: "NextAPI — AI Video Workspace",
+    description: "Create AI video, track delivery, and see final cost from one production-ready workspace.",
     images: ["/og/default.png"],
   },
   icons: {

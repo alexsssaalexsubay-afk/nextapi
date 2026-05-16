@@ -21,29 +21,29 @@ import { fetchMarketingSlots, type MarketingSlot } from "@/lib/marketing-slots"
 
 const COPY = {
   en: {
-    badge: "Production video API control plane",
-    titleTop: "Generate, route, and reconcile",
+    badge: "Production video workspace",
+    titleTop: "Create, track, and deliver",
     titleAccent: " AI video",
-    titleTail: " without the ops drag.",
+    titleTail: " without the busywork.",
     subtitle:
-      "One API surface for video jobs, model routing, signed webhooks, credit reservation, and final cost reconciliation. Built for teams shipping real product flows, not one-off demos.",
+      "Plan scenes, choose the best video lane, follow progress, and see the final cost in one place. Built for teams shipping real product flows, not one-off demos.",
     primaryCta: "Open Dashboard",
-    secondaryCta: "Read API Docs",
-    trust: ["Reserve credits", "Route provider", "Track every job", "Reconcile on completion"],
+    secondaryCta: "See Setup Guide",
+    trust: ["Know the cost", "Pick the best lane", "Follow every run", "Settle after delivery"],
     videoAria: "AI-generated video: drone orbiting a lighthouse at dusk",
     status: "Generating · 38s",
     prompt: "drone orbiting a lighthouse",
   },
   zh: {
-    badge: "生产级 AI 视频 API 控制面",
-    titleTop: "生成、路由、对账",
+    badge: "生产级 AI 视频工作台",
+    titleTop: "创作、追踪、交付",
     titleAccent: " AI 视频",
-    titleTail: "不再靠人工救火。",
+    titleTail: "少掉那些杂活。",
     subtitle:
-      "一套 API 同时处理视频任务、模型路由、签名 Webhook、点数预留和最终成本对账。为真实产品流而做，不是一次性 Demo。",
+      "从分镜规划、视频通道选择、进度追踪到最终花费，一处看清。为真实产品流而做，不是一次性 Demo。",
     primaryCta: "打开控制台",
-    secondaryCta: "阅读 API 文档",
-    trust: ["预留点数", "路由供应商", "追踪任务状态", "完成后对账"],
+    secondaryCta: "查看接入指南",
+    trust: ["提前知道花费", "选择最佳通道", "跟进每次生成", "交付后结清"],
     videoAria: "AI 生成视频：无人机黄昏环绕灯塔",
     status: "生成中 · 38s",
     prompt: "无人机环绕灯塔",
@@ -171,7 +171,7 @@ function HeroPlayerCard({
           </div>
           <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
             <WandSparkles className="size-3.5 text-fuchsia-500" />
-            <span className="font-mono">director.workflow.live</span>
+            <span className="font-mono">creative.plan.live</span>
           </div>
         </div>
 
@@ -235,7 +235,7 @@ function HeroPlayerCard({
               <div className="mb-3 flex items-center justify-between">
                 <div className="flex items-center gap-2 text-[13px] font-semibold">
                   <Clapperboard className="size-4 text-fuchsia-300" />
-                  AI Director
+                  Creative plan
                 </div>
                 <span className="rounded-full bg-emerald-400/14 px-2 py-0.5 font-mono text-[10px] text-emerald-300">
                   live
@@ -243,9 +243,9 @@ function HeroPlayerCard({
               </div>
               <div className="space-y-2">
                 {[
-                  ["Script", "GPT / Claude / Kimi"],
-                  ["Storyboard", "Seedream / Nano Banana"],
-                  ["Video", "Seedance / Kling"],
+                  ["Idea", "GPT / Claude / Kimi"],
+                  ["Visual plan", "Seedream / Nano Banana"],
+                  ["Final clip", "Seedance / Kling"],
                 ].map(([label, value]) => (
                   <div key={label} className="rounded-xl border border-white/10 bg-white/[0.045] p-2">
                     <div className="text-[11px] uppercase tracking-[0.14em] text-zinc-500">{label}</div>
@@ -257,9 +257,9 @@ function HeroPlayerCard({
 
             <div className="grid grid-cols-3 gap-2">
               {[
-                { icon: Route, label: "Route", value: "auto" },
-                { icon: Gauge, label: "Queue", value: "p95" },
-                { icon: Layers3, label: "Merge", value: "ready" },
+                { icon: Route, label: "Best lane", value: "auto" },
+                { icon: Gauge, label: "Wait time", value: "low" },
+                { icon: Layers3, label: "Delivery", value: "ready" },
               ].map((item) => (
                 <div key={item.label} className="rounded-2xl border border-border/70 bg-background/55 p-2.5 shadow-sm backdrop-blur">
                   <item.icon className="size-4 text-signal" />

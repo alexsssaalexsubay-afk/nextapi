@@ -36,13 +36,13 @@ export function AuthLayout({ children }: AuthLayoutProps) {
           <div className="max-w-2xl">
             <div className="ops-pill inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-[12px] font-medium text-muted-foreground">
               <span className="size-1.5 rounded-full bg-status-success shadow-[0_0_18px] shadow-status-success/70" />
-              Production video gateway
+              Production video workspace
             </div>
             <h1 className="mt-6 text-5xl font-semibold leading-[0.98] tracking-tight text-foreground">
-              Sign in to the control plane that routes every video job.
+              Sign in to manage every video your team creates.
             </h1>
             <p className="mt-5 max-w-xl text-[15px] leading-7 text-muted-foreground">
-              Reserve credits, choose the right model lane, observe async jobs, and reconcile the final cost from one workspace.
+              Track progress, cost, delivery, and account settings from one workspace.
             </p>
           </div>
 
@@ -53,14 +53,14 @@ export function AuthLayout({ children }: AuthLayoutProps) {
                 <span className="size-2.5 rounded-full bg-warning" />
                 <span className="size-2.5 rounded-full bg-status-success" />
               </div>
-              <span className="font-mono text-[11px] text-muted-foreground">/v1/videos · preview</span>
+              <span className="font-mono text-[11px] text-muted-foreground">video preview</span>
             </div>
             <div className="grid gap-3 p-3 xl:grid-cols-[1.1fr_0.9fr]">
               <div className="rounded-xl border border-white/10 bg-zinc-950/88 p-4 text-white">
                 <div className="flex items-center justify-between">
                   <span className="inline-flex items-center gap-2 text-[12px] font-medium">
                     <Clapperboard className="size-4 text-signal" />
-                    AI video run
+                    AI video
                   </span>
                   <span className="rounded-full bg-status-success/14 px-2 py-1 font-mono text-[10px] text-status-success">
                     accepted
@@ -68,9 +68,9 @@ export function AuthLayout({ children }: AuthLayoutProps) {
                 </div>
                 <div className="mt-5 space-y-3">
                   {[
-                    ["prompt", "cinematic product launch, 6s"],
+                    ["idea", "cinematic product launch, 6s"],
                     ["model", "seedance-2.0-pro"],
-                    ["webhook", "signed delivery"],
+                    ["delivery", "trusted update"],
                   ].map(([label, value]) => (
                     <div key={label} className="rounded-lg border border-white/10 bg-white/[0.045] p-3">
                       <div className="font-mono text-[10px] uppercase text-zinc-500">{label}</div>
@@ -81,9 +81,9 @@ export function AuthLayout({ children }: AuthLayoutProps) {
               </div>
               <div className="grid gap-3">
                 {[
-                  { icon: CreditCard, label: "reserve", value: "credits locked" },
-                  { icon: RadioTower, label: "route", value: "provider ready" },
-                  { icon: Webhook, label: "notify", value: "webhook signed" },
+                  { icon: CreditCard, label: "cost", value: "reserved" },
+                  { icon: RadioTower, label: "lane", value: "best option set" },
+                  { icon: Webhook, label: "delivery", value: "confirmed" },
                 ].map((item) => {
                   const Icon = item.icon
                   return (
@@ -109,7 +109,7 @@ export function AuthLayout({ children }: AuthLayoutProps) {
             <div className="mb-6 flex items-center justify-between lg:hidden">
               <Logo />
               <span className="ops-pill inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] text-muted-foreground">
-                gateway
+                workspace
                 <ArrowRight className="size-3" />
               </span>
             </div>

@@ -48,20 +48,20 @@ export default function AdminSignInPage() {
           <div className="mt-14 max-w-lg">
             <div className="ops-pill inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-[13px] text-muted-foreground">
               <span className="size-1.5 rounded-full bg-warning" />
-              signed operations only
+              critical changes only
             </div>
             <h1 className="mt-5 text-4xl font-semibold leading-tight tracking-tight text-foreground">
-              Enter the cockpit for incidents, credits, and provider risk.
+              Manage incidents, balances, and video supply safely.
             </h1>
             <p className="mt-4 text-[14px] leading-7 text-muted-foreground">
-              Admin access is intentionally slower and more explicit: allowlist, session audit, and high-risk controls stay visible before any action.
+              Admin access keeps approvals, audit history, and high-risk controls visible before any action.
             </p>
           </div>
           <div className="mt-8 grid gap-3">
             {[
-              { icon: ShieldCheck, label: "allowlist", value: "ADMIN_EMAILS verified" },
-              { icon: ClipboardCheck, label: "audit", value: "every mutation signed" },
-              { icon: Siren, label: "risk", value: "attention queue first" },
+              { icon: ShieldCheck, label: "access", value: "approved admins only" },
+              { icon: ClipboardCheck, label: "history", value: "changes recorded" },
+              { icon: Siren, label: "risk", value: "attention first" },
             ].map((item) => {
               const Icon = item.icon
               return (
@@ -92,7 +92,7 @@ export default function AdminSignInPage() {
             Admin sign in
           </h1>
           <p className="mt-2 text-[14px] leading-relaxed text-muted-foreground">
-            Use an ADMIN_EMAILS allowlisted NextAPI account.
+            Use an approved NextAPI admin account.
           </p>
         </div>
 

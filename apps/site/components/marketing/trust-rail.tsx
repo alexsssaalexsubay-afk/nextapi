@@ -11,25 +11,25 @@ export function TrustRail() {
       icon: BadgeCheck,
       title: t.trust.official.title,
       copy: t.trust.official.description,
-      mono: "production: stable",
+      mono: "ready for live work",
     },
     {
       icon: Lock,
       title: t.trust.webhooks.title,
       copy: t.trust.webhooks.description,
-      mono: "X-NextAPI-Signature: t=..,v1=..",
+      mono: "signed delivery updates",
     },
     {
       icon: ReceiptText,
       title: t.trust.billing.title,
       copy: t.trust.billing.description,
-      mono: "reserved 1.00 to billed 0.84",
+      mono: "estimated 1.00 to final 0.84",
     },
     {
       icon: Eye,
       title: t.trust.observability.title,
       copy: t.trust.observability.description,
-      mono: "job.events[] · 90d retention",
+      mono: "timeline kept for 90 days",
     },
   ]
 
@@ -38,7 +38,7 @@ export function TrustRail() {
       <div className="mx-auto max-w-[1240px] px-6 py-24">
         <div className="mb-14 flex flex-col items-start gap-4">
           <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-signal">
-            / operational trust
+            / delivery confidence
           </span>
           <h2 className="max-w-[720px] text-balance text-[32px] font-medium leading-tight tracking-tight md:text-[40px]">
             {t.trust.title}

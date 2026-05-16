@@ -146,10 +146,10 @@ export default function JobsPage() {
   }
 
   const stateTabs: { key: ListState; label: string; hint: string }[] = [
-    { key: "default", label: t.jobs.statePreview.default, hint: `${counts.all} jobs` },
+    { key: "default", label: t.jobs.statePreview.default, hint: `${counts.all} videos` },
     { key: "empty", label: t.jobs.statePreview.empty, hint: t.jobs.empty.title.toLowerCase() },
     { key: "loading", label: t.jobs.statePreview.loading, hint: t.common.loading.toLowerCase() },
-    { key: "error", label: t.jobs.statePreview.error, hint: "upstream 5xx" },
+    { key: "error", label: t.jobs.statePreview.error, hint: "service issue" },
   ]
 
   const filters: {
@@ -188,20 +188,20 @@ export default function JobsPage() {
             <div className="bg-background/36 p-5">
               <div className="ops-pill inline-flex items-center gap-2 rounded-full px-3 py-1.5 font-mono text-[10.5px] uppercase tracking-[0.14em] text-muted-foreground">
                 <span className="size-1.5 rounded-full bg-status-success" />
-                job command center
+                video activity
               </div>
               <h2 className="mt-4 max-w-2xl text-2xl font-semibold tracking-tight text-foreground">
-                Inspect every video run from request to final reconciliation.
+                See every video from request to delivery.
               </h2>
               <p className="mt-2 max-w-2xl text-[13px] leading-relaxed text-muted-foreground">
-                Filter live jobs, confirm provider identifiers, inspect reserved or billed credits, and jump into failed runs without losing operational context.
+                Filter live work, check progress, review cost, and open failed items without losing context.
               </p>
             </div>
             <div className="grid grid-cols-2 gap-px bg-border/70">
-              <JobOpsMetric icon={Activity} label="loaded" value={String(counts.all)} />
-              <JobOpsMetric icon={Clock3} label="active" value={String(counts.running + counts.queued)} />
-              <JobOpsMetric icon={ReceiptText} label="succeeded" value={String(counts.succeeded)} />
-              <JobOpsMetric icon={Webhook} label="failed" value={String(counts.failed)} tone="failed" />
+              <JobOpsMetric icon={Activity} label="shown" value={String(counts.all)} />
+              <JobOpsMetric icon={Clock3} label="live" value={String(counts.running + counts.queued)} />
+              <JobOpsMetric icon={ReceiptText} label="delivered" value={String(counts.succeeded)} />
+              <JobOpsMetric icon={Webhook} label="needs help" value={String(counts.failed)} tone="failed" />
             </div>
           </div>
           <div className="flex flex-col gap-3 border-t border-white/10 bg-background/26 px-4 py-3 lg:flex-row lg:items-center lg:justify-between">

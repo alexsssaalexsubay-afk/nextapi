@@ -19,14 +19,14 @@ export function HowItWorks() {
       icon: Send,
       title: t.howItWorks.step2.title,
       description: t.howItWorks.step2.description,
-      mono: "POST /v1/videos returns id",
+      mono: "video id appears instantly",
     },
     {
       n: "03",
       icon: Webhook,
       title: t.howItWorks.step3.title,
       description: t.howItWorks.step3.description,
-      mono: "webhook.signed  ·  video.succeeded",
+      mono: "trusted update · video ready",
     },
   ]
 
@@ -35,7 +35,7 @@ export function HowItWorks() {
       <div className="mx-auto max-w-[1240px] px-6 py-24">
         <div className="mb-14 flex flex-col items-start gap-4">
           <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-signal">
-            / integration path
+            / first video path
           </span>
           <h2 className="max-w-[720px] text-balance text-[32px] font-medium leading-tight tracking-tight md:text-[40px]">
             {t.howItWorks.title}

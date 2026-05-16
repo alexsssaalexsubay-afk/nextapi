@@ -13,48 +13,48 @@ const FEATURE_META = [
 
 const COPY = {
   en: {
-    eyebrow: "Powerful. Flexible. Reliable.",
-    title: "Everything you need to build AI video into your product",
+    eyebrow: "Fast. Clear. Reliable.",
+    title: "Everything your team needs to ship AI video",
     docs: "Explore Docs",
     features: [
       {
-        title: "Lightning Fast",
-        body: "P50 latency under 12 seconds. Dedicated lanes mean you never wait in a queue.",
+        title: "Fast When It Matters",
+        body: "Priority video lanes keep high-volume work moving without surprise waits.",
       },
       {
-        title: "Enterprise Grade",
-        body: "SOC 2 compliance, contractual SLAs, and configurable content moderation profiles.",
+        title: "Ready for Real Teams",
+        body: "Clear uptime expectations, account controls, and content safety settings for production work.",
       },
       {
-        title: "Easy Integration",
-        body: "Drop-in replacement for existing APIs. Simple REST API, clear docs, and multi-language SDKs.",
+        title: "Simple to Connect",
+        body: "Clear docs and familiar request formats help your team move from test to live faster.",
       },
       {
-        title: "Scalable Performance",
-        body: "Handle massive high-volume batch workloads with our optimized routing architecture.",
+        title: "Room to Grow",
+        body: "Handle batches, campaigns, and repeat workflows without rebuilding the video pipeline.",
       },
     ],
   },
   zh: {
-    eyebrow: "强大。灵活。可靠。",
-    title: "把 AI 视频能力快速嵌入你的产品",
+    eyebrow: "快速。清楚。可靠。",
+    title: "让团队真正把 AI 视频交付出去",
     docs: "查看文档",
     features: [
       {
-        title: "极速生成",
-        body: "专属通道减少排队等待，让高频视频任务拥有稳定响应。",
+        title: "关键时刻更快",
+        body: "优先视频通道减少意外等待，高频生成也能稳定推进。",
       },
       {
-        title: "企业级保障",
-        body: "支持合同级 SLA、内容安全配置与面向企业的稳定性要求。",
+        title: "适合真实团队",
+        body: "稳定性预期、账户控制与内容安全设置都在同一处管理。",
       },
       {
-        title: "轻松接入",
-        body: "标准 REST API、清晰文档、多语言 SDK，替换现有调用路径更容易。",
+        title: "更容易接上",
+        body: "清晰文档和熟悉的请求方式，让测试到上线少走弯路。",
       },
       {
-        title: "弹性吞吐",
-        body: "为大规模批量任务优化路由与并发，支撑持续增长的业务负载。",
+        title: "增长不用重做",
+        body: "批量视频、营销活动和重复流程都能接住，不必重建整套视频链路。",
       },
     ],
   },
