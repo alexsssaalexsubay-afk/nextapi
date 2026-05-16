@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/aiprovider"
 	"github.com/alexsssaalexsubay-afk/nextapi/backend/internal/domain"
@@ -21,6 +22,17 @@ type aiProviderReq struct {
 	Enabled    *bool           `json:"enabled"`
 	IsDefault  bool            `json:"is_default"`
 	ConfigJSON json.RawMessage `json:"config_json"`
+}
+
+type aiProviderQuotaManualReq struct {
+	Currency        string `json:"currency"`
+	TotalCents      *int64 `json:"total_cents"`
+	UsedCents       *int64 `json:"used_cents"`
+	RemainingCents  *int64 `json:"remaining_cents"`
+	LowBalanceCents *int64 `json:"low_balance_cents"`
+	PeriodStart     string `json:"period_start"`
+	PeriodEnd       string `json:"period_end"`
+	Message         string `json:"message"`
 }
 
 func (h *AdminHandlers) ListAIProviders(c *gin.Context) {
@@ -119,6 +131,65 @@ func (h *AdminHandlers) ListAIProviderLogs(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"data": rows})
 }
 
+func (h *AdminHandlers) ListProviderQuotas(c *gin.Context) {
+	rows, err := aiprovider.NewService(h.DB).ListQuotaSnapshots(c.Request.Context(), 200)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "internal_error"}})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"data": rows})
+}
+
+func (h *AdminHandlers) SyncAIProviderQuota(c *gin.Context) {
+	if !RequireOTP(c, h.DB) {
+		return
+	}
+	row, err := aiprovider.NewService(h.DB).SyncProviderQuota(c.Request.Context(), c.Param("id"))
+	if err != nil {
+		handleAIProviderError(c, err)
+		return
+	}
+	RecordAudit(c.Request.Context(), h.DB, c, "ai_provider.quota_sync", "ai_provider", c.Param("id"), gin.H{"status": row.Status, "remaining_cents": row.RemainingCents})
+	c.JSON(http.StatusOK, row)
+}
+
+func (h *AdminHandlers) RecordAIProviderQuota(c *gin.Context) {
+	if !RequireOTP(c, h.DB) {
+		return
+	}
+	var req aiProviderQuotaManualReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "bad_request"}})
+		return
+	}
+	periodStart, ok := parseOptionalAdminTime(req.PeriodStart)
+	if !ok && strings.TrimSpace(req.PeriodStart) != "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "invalid_period_start"}})
+		return
+	}
+	periodEnd, ok := parseOptionalAdminTime(req.PeriodEnd)
+	if !ok && strings.TrimSpace(req.PeriodEnd) != "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "invalid_period_end"}})
+		return
+	}
+	row, err := aiprovider.NewService(h.DB).RecordManualQuotaSnapshot(c.Request.Context(), c.Param("id"), aiprovider.ManualQuotaInput{
+		Currency:        req.Currency,
+		TotalCents:      req.TotalCents,
+		UsedCents:       req.UsedCents,
+		RemainingCents:  req.RemainingCents,
+		LowBalanceCents: req.LowBalanceCents,
+		PeriodStart:     periodStart,
+		PeriodEnd:       periodEnd,
+		Message:         req.Message,
+	})
+	if err != nil {
+		handleAIProviderError(c, err)
+		return
+	}
+	RecordAudit(c.Request.Context(), h.DB, c, "ai_provider.quota_manual", "ai_provider", c.Param("id"), gin.H{"status": row.Status, "remaining_cents": row.RemainingCents})
+	c.JSON(http.StatusOK, row)
+}
+
 func providerInput(req aiProviderReq) aiprovider.ProviderInput {
 	enabled := true
 	if req.Enabled != nil {
@@ -150,4 +221,18 @@ func handleAIProviderError(c *gin.Context, err error) {
 	default:
 		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "internal_error"}})
 	}
+}
+
+func parseOptionalAdminTime(raw string) (*time.Time, bool) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return nil, true
+	}
+	for _, layout := range []string{time.RFC3339, "2006-01-02"} {
+		if parsed, err := time.Parse(layout, raw); err == nil {
+			out := parsed.UTC()
+			return &out, true
+		}
+	}
+	return nil, false
 }

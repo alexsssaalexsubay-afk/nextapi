@@ -104,14 +104,14 @@ export default function AdminOverviewPage() {
         </>
       }
     >
-      <div className="flex flex-col gap-6 p-6">
+      <div className="flex flex-col gap-5 p-6">
         {overviewError && (
           <div className="rounded-lg border border-status-failed/30 bg-status-failed/10 px-4 py-2 font-mono text-[11px] text-status-failed">
             {overviewError}
           </div>
         )}
         {/* System pulse strip */}
-        <section className="grid grid-cols-2 gap-px overflow-hidden rounded-3xl border border-white/12 bg-border/60 shadow-[0_24px_80px_-60px] shadow-status-failed md:grid-cols-5">
+        <section className="ops-panel grid grid-cols-2 gap-px overflow-hidden rounded-2xl md:grid-cols-5">
           <Pulse
             label={t.admin.pulse.upstream}
             value={t.admin.pulse.unavailable}
@@ -144,10 +144,10 @@ export default function AdminOverviewPage() {
           />
         </section>
 
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_380px]">
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_380px]">
           {/* Jobs requiring attention */}
-          <section className="premium-surface overflow-hidden rounded-3xl">
-            <header className="flex items-center justify-between border-b border-border/60 px-5 py-3">
+          <section className="ops-risk-panel overflow-hidden rounded-2xl">
+            <header className="flex items-center justify-between border-b border-status-failed/20 px-5 py-3">
               <div className="flex items-center gap-2">
                 <AlertOctagon className="size-4 text-status-failed" />
                 <h2 className="text-[13.5px] font-medium tracking-tight">
@@ -164,7 +164,7 @@ export default function AdminOverviewPage() {
             </header>
 
             <OperatorEmptyState icon={AlertOctagon} message={t.admin.overviewPage.noAttentionData} />
-            <div className="flex items-center justify-between border-t border-border/60 bg-background/30 px-5 py-2.5">
+            <div className="flex items-center justify-between border-t border-status-failed/20 bg-background/30 px-5 py-2.5">
               <span className="font-mono text-[10.5px] text-muted-foreground">
                 {t.admin.attention.subtitle}
               </span>
@@ -176,8 +176,8 @@ export default function AdminOverviewPage() {
 
           {/* Incidents + credit adjustments stack */}
           <div className="flex flex-col gap-6">
-            <section className="overflow-hidden rounded-xl border border-border/80 bg-card/40">
-              <header className="flex items-center justify-between border-b border-border/60 px-5 py-3">
+            <section className="ops-panel overflow-hidden rounded-2xl">
+              <header className="flex items-center justify-between border-b border-white/10 px-5 py-3">
                 <div className="flex items-center gap-2">
                   <ShieldAlert className="size-4 text-status-running" />
                   <h2 className="text-[13.5px] font-medium tracking-tight">
@@ -195,8 +195,8 @@ export default function AdminOverviewPage() {
               <OperatorEmptyState icon={ShieldAlert} message={t.admin.overviewPage.noIncidentData} compact />
             </section>
 
-            <section className="overflow-hidden rounded-xl border border-border/80 bg-card/40">
-              <header className="flex items-center justify-between border-b border-border/60 px-5 py-3">
+            <section className="ops-panel overflow-hidden rounded-2xl">
+              <header className="flex items-center justify-between border-b border-white/10 px-5 py-3">
                 <div className="flex items-center gap-2">
                   <Banknote className="size-4 text-signal" />
                   <h2 className="text-[13.5px] font-medium tracking-tight">
@@ -212,7 +212,7 @@ export default function AdminOverviewPage() {
                 </Link>
               </header>
               <OperatorEmptyState icon={Banknote} message={t.admin.overviewPage.noLedgerPreview} compact />
-              <div className="flex items-center justify-between border-t border-border/60 bg-background/30 px-5 py-2.5">
+              <div className="flex items-center justify-between border-t border-white/10 bg-background/30 px-5 py-2.5">
                 <span className="font-mono text-[10.5px] text-muted-foreground">
                   {t.admin.credits.threshold}: {t.admin.credits.thresholdValue}
                 </span>
@@ -225,8 +225,8 @@ export default function AdminOverviewPage() {
         </div>
 
         {/* Live event feed */}
-        <section className="overflow-hidden rounded-xl border border-border/80 bg-card/40">
-          <header className="flex items-center justify-between border-b border-border/60 px-5 py-3">
+        <section className="ops-panel overflow-hidden rounded-2xl">
+          <header className="flex items-center justify-between border-b border-white/10 px-5 py-3">
             <div className="flex items-center gap-2">
               <Clock3 className="size-4 text-muted-foreground" />
               <h2 className="text-[13.5px] font-medium tracking-tight">
@@ -283,7 +283,7 @@ function Pulse({
   tone?: "success" | "warn" | "failed" | "default"
 }) {
   return (
-    <div className="flex flex-col justify-between bg-card/40 p-4">
+    <div className="flex flex-col justify-between bg-background/36 p-4">
       <div className="flex items-center gap-2">
         <span
           className={cn(

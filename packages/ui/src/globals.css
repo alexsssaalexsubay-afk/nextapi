@@ -436,4 +436,51 @@
       radial-gradient(circle at 1px 1px, color-mix(in oklch, var(--foreground) 8%, transparent) 1px, transparent 0);
     background-size: 24px 24px;
   }
+
+  .ops-canvas {
+    background:
+      radial-gradient(circle at 8% 8%, color-mix(in oklch, var(--signal) 22%, transparent) 0 18%, transparent 34%),
+      radial-gradient(circle at 86% 14%, color-mix(in oklch, oklch(0.78 0.13 210) 18%, transparent) 0 14%, transparent 34%),
+      radial-gradient(circle at 72% 88%, color-mix(in oklch, oklch(0.78 0.14 85) 14%, transparent) 0 12%, transparent 32%),
+      linear-gradient(135deg, var(--background), color-mix(in oklch, var(--background) 88%, var(--signal) 6%) 48%, var(--background));
+  }
+
+  .ops-panel {
+    border: 1px solid color-mix(in oklch, var(--border) 86%, transparent);
+    background:
+      linear-gradient(180deg, color-mix(in oklch, var(--card) 88%, white 5%), color-mix(in oklch, var(--card) 92%, var(--signal) 4%));
+    box-shadow:
+      0 22px 70px color-mix(in oklch, var(--foreground) 8%, transparent),
+      inset 0 1px 0 color-mix(in oklch, white 24%, transparent);
+    backdrop-filter: blur(16px);
+  }
+
+  .dark .ops-panel {
+    background:
+      linear-gradient(180deg, color-mix(in oklch, var(--card) 76%, white 4%), color-mix(in oklch, var(--card) 88%, var(--signal) 6%));
+    box-shadow:
+      0 22px 80px color-mix(in oklch, var(--signal) 15%, transparent),
+      inset 0 1px 0 color-mix(in oklch, white 9%, transparent);
+  }
+
+  .ops-subpanel {
+    border: 1px solid color-mix(in oklch, var(--border) 82%, transparent);
+    background: color-mix(in oklch, var(--background) 64%, var(--card) 36%);
+  }
+
+  .ops-pill {
+    border: 1px solid color-mix(in oklch, var(--border) 78%, transparent);
+    background: color-mix(in oklch, var(--card) 68%, transparent);
+    backdrop-filter: blur(12px);
+  }
+
+  .ops-risk-panel {
+    border: 1px solid color-mix(in oklch, var(--status-failed) 32%, var(--border));
+    background:
+      linear-gradient(135deg, color-mix(in oklch, var(--status-failed) 12%, var(--card)), color-mix(in oklch, var(--card) 86%, var(--signal) 5%));
+  }
+
+  .ops-hairline {
+    background: linear-gradient(90deg, transparent, color-mix(in oklch, var(--signal) 42%, transparent), transparent);
+  }
 }

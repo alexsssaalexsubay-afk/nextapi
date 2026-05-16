@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { AlertCircle, Eye, EyeOff, Loader2, Lock, Mail, ShieldCheck } from "lucide-react"
+import { AlertCircle, ClipboardCheck, Eye, EyeOff, Loader2, Lock, Mail, ShieldCheck, Siren } from "lucide-react"
 import { Label } from "@/components/ui/label"
 import { Logo } from "@/components/nextapi/logo"
 import { loginAdmin, AdminApiError } from "@/lib/admin-api"
@@ -33,20 +33,62 @@ export default function AdminSignInPage() {
   }
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background px-4">
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute left-1/2 top-[-180px] size-[620px] -translate-x-1/2 rounded-full bg-gradient-to-b from-indigo-500/15 to-transparent blur-3xl"
-      />
-      <div className="relative z-10 w-full max-w-[420px] rounded-xl border border-border bg-card p-8 shadow-sm">
-        <div className="flex justify-center">
-          <Logo />
-        </div>
-        <div className="mt-8 flex flex-col items-center text-center">
-          <div className="flex size-12 items-center justify-center rounded-full border border-signal/20 bg-signal/10 text-signal">
+    <div className="ops-canvas relative flex min-h-dvh items-center justify-center overflow-hidden bg-background px-4 py-8">
+      <div aria-hidden className="soft-noise pointer-events-none absolute inset-0 opacity-[0.14]" />
+      <div aria-hidden className="bg-grid bg-grid-fade pointer-events-none absolute inset-0 opacity-[0.11]" />
+
+      <main className="relative z-10 grid w-full max-w-5xl overflow-hidden rounded-2xl border border-white/10 bg-background/54 shadow-2xl backdrop-blur-2xl lg:grid-cols-[1fr_430px]">
+        <section className="hidden border-r border-white/10 p-7 lg:block">
+          <div className="flex items-center justify-between">
+            <Logo />
+            <span className="rounded-full border border-status-failed/35 px-3 py-1 font-mono text-[11px] uppercase tracking-[0.16em] text-status-failed">
+              admin
+            </span>
+          </div>
+          <div className="mt-14 max-w-lg">
+            <div className="ops-pill inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-[12px] text-muted-foreground">
+              <span className="size-1.5 rounded-full bg-warning" />
+              signed operations only
+            </div>
+            <h1 className="mt-5 text-4xl font-semibold leading-tight tracking-tight text-foreground">
+              Enter the cockpit for incidents, credits, and provider risk.
+            </h1>
+            <p className="mt-4 text-[14px] leading-7 text-muted-foreground">
+              Admin access is intentionally slower and more explicit: allowlist, session audit, and high-risk controls stay visible before any action.
+            </p>
+          </div>
+          <div className="mt-8 grid gap-3">
+            {[
+              { icon: ShieldCheck, label: "allowlist", value: "ADMIN_EMAILS verified" },
+              { icon: ClipboardCheck, label: "audit", value: "every mutation signed" },
+              { icon: Siren, label: "risk", value: "attention queue first" },
+            ].map((item) => {
+              const Icon = item.icon
+              return (
+                <div key={item.label} className="ops-risk-panel rounded-xl p-4">
+                  <Icon className="size-4 text-status-failed" />
+                  <div className="mt-3 font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
+                    {item.label}
+                  </div>
+                  <div className="mt-1 text-[13px] text-foreground">{item.value}</div>
+                </div>
+              )
+            })}
+          </div>
+        </section>
+
+        <section className="p-5 sm:p-8">
+          <div className="flex items-center justify-between lg:hidden">
+            <Logo />
+            <span className="rounded-full border border-status-failed/35 px-3 py-1 font-mono text-[11px] uppercase tracking-[0.16em] text-status-failed">
+              admin
+            </span>
+          </div>
+          <div className="mt-8 flex flex-col text-left lg:mt-0">
+          <div className="flex size-12 items-center justify-center rounded-xl border border-status-failed/24 bg-status-failed/10 text-status-failed">
             <ShieldCheck className="size-5" aria-hidden="true" />
           </div>
-          <h1 className="mt-4 text-[22px] font-medium tracking-tight text-foreground">
+          <h1 className="mt-4 text-[26px] font-semibold tracking-tight text-foreground">
             Admin sign in
           </h1>
           <p className="mt-2 text-[13px] leading-relaxed text-muted-foreground">
@@ -80,7 +122,7 @@ export default function AdminSignInPage() {
                 autoComplete="email"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
-                className="h-10 w-full rounded-lg border border-input bg-input/30 pl-10 pr-3 text-[14px] text-foreground outline-none transition-colors placeholder:text-muted-foreground/70 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30"
+                className="h-11 w-full rounded-xl border border-input bg-background/45 pl-10 pr-3 text-[14px] text-foreground outline-none transition-colors placeholder:text-muted-foreground/70 focus-visible:border-status-failed focus-visible:ring-2 focus-visible:ring-status-failed/25"
                 placeholder="you@example.com"
                 required
               />
@@ -102,7 +144,7 @@ export default function AdminSignInPage() {
                 autoComplete="current-password"
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
-                className="h-10 w-full rounded-lg border border-input bg-input/30 pl-10 pr-10 text-[14px] text-foreground outline-none transition-colors placeholder:text-muted-foreground/70 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30"
+                className="h-11 w-full rounded-xl border border-input bg-background/45 pl-10 pr-10 text-[14px] text-foreground outline-none transition-colors placeholder:text-muted-foreground/70 focus-visible:border-status-failed focus-visible:ring-2 focus-visible:ring-status-failed/25"
                 placeholder="••••••••"
                 minLength={8}
                 required
@@ -121,12 +163,13 @@ export default function AdminSignInPage() {
           <button
             type="submit"
             disabled={loading}
-            className="mt-2 inline-flex h-10 w-full items-center justify-center rounded-full bg-gradient-to-r from-indigo-500 to-purple-600 text-[14px] font-medium text-white shadow-[0_0_30px_-8px] shadow-indigo-500/50 transition-all hover:shadow-[0_0_40px_-4px] hover:shadow-indigo-500/60 disabled:opacity-70"
+            className="mt-2 inline-flex h-11 w-full items-center justify-center rounded-full bg-status-failed text-[14px] font-medium text-white shadow-[0_18px_45px_-26px] shadow-status-failed transition-all hover:translate-y-[-1px] hover:bg-status-failed/90 disabled:translate-y-0 disabled:opacity-70"
           >
             {loading ? <Loader2 className="size-4 animate-spin" /> : "Sign in"}
           </button>
         </form>
-      </div>
+        </section>
+      </main>
     </div>
   )
 }

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useId, useRef } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import {
@@ -59,6 +59,8 @@ export function DashboardShell({
   const [navigationOpen, setNavigationOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
+  const [activeCommandIndex, setActiveCommandIndex] = useState(0)
+  const commandListId = useId()
   const navigationMenuRef = useRef<HTMLDivElement | null>(null)
   const searchInputRef = useRef<HTMLInputElement | null>(null)
 
@@ -176,6 +178,11 @@ export function DashboardShell({
   ).slice(0, 8)
   const activeCommandItem = commandItems.find((item) => item.href === activeHref)
 
+  useEffect(() => {
+    if (!searchOpen) return
+    setActiveCommandIndex(0)
+  }, [normalizedSearch, searchOpen])
+
   function openCommand(item: { href: string }) {
     setSearchOpen(false)
     setSearchTerm("")
@@ -188,10 +195,12 @@ export function DashboardShell({
   }
 
   return (
-    <div className="flex min-h-screen overflow-hidden bg-background text-foreground">
+    <div className="ops-canvas relative isolate flex min-h-screen overflow-hidden text-foreground">
+      <div aria-hidden className="soft-noise pointer-events-none absolute inset-0 opacity-[0.10]" />
+      <div aria-hidden className="bg-grid bg-grid-fade pointer-events-none absolute inset-0 opacity-[0.08]" />
       {!immersive ? (
-        <aside className={cn("relative hidden shrink-0 flex-col border-r border-sidebar-border bg-sidebar transition-[width] duration-200 md:flex", sidebarCollapsed ? "w-[72px]" : "w-[240px]")}>
-          <div className={cn("flex h-14 items-center border-b border-sidebar-border px-4", sidebarCollapsed ? "justify-center" : "justify-between")}>
+        <aside className={cn("relative z-10 hidden shrink-0 flex-col border-r border-white/10 bg-sidebar/82 shadow-[24px_0_80px_-70px] shadow-signal backdrop-blur-2xl transition-[width] duration-200 md:flex", sidebarCollapsed ? "w-[72px]" : "w-[240px]")}>
+          <div className={cn("flex h-14 items-center border-b border-white/10 px-4", sidebarCollapsed ? "justify-center" : "justify-between")}>
             <Link href="/" className="flex min-w-0 items-center gap-2">
               <Logo />
             </Link>
@@ -205,17 +214,17 @@ export function DashboardShell({
             </button>
           </div>
 
-          <div className="flex items-center gap-2 border-b border-sidebar-border px-3 py-2.5">
-            <div className="flex flex-1 items-center justify-between rounded-lg border border-sidebar-border bg-background/60 px-2 py-1.5">
+          <div className="flex items-center gap-2 border-b border-white/10 px-3 py-2.5">
+            <div className="ops-subpanel flex flex-1 items-center justify-between rounded-xl px-2 py-1.5">
               <div className="flex items-center gap-2">
-                <div className="flex size-5 items-center justify-center rounded-md border border-sidebar-border bg-sidebar text-signal">
+                <div className="flex size-5 items-center justify-center rounded-md border border-signal/20 bg-signal/10 text-signal">
                   <Building2 className="size-3.5" aria-hidden="true" />
                 </div>
                 <span className={cn("max-w-[130px] truncate text-[12.5px] text-foreground", sidebarCollapsed && "hidden")}>
                   {orgName ?? t.dashboard.command.workspace}
                 </span>
               </div>
-              <span className={cn("font-mono text-[10px] uppercase tracking-wider text-muted-foreground", sidebarCollapsed && "hidden")}>
+                <span className={cn("font-mono text-[11px] uppercase tracking-wider text-status-success", sidebarCollapsed && "hidden")}>
                 live
               </span>
             </div>
@@ -240,8 +249,8 @@ export function DashboardShell({
                             "flex items-center gap-2.5 rounded-md px-2 py-1.5 text-[13px] transition-colors",
                             sidebarCollapsed && "justify-center px-0",
                             active
-                              ? "bg-sidebar-accent text-sidebar-accent-foreground shadow-[inset_2px_0_0] shadow-signal"
-                              : "text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                              ? "bg-gradient-to-r from-signal/16 via-signal/8 to-transparent text-foreground shadow-[inset_2px_0_0] shadow-signal"
+                              : "text-muted-foreground hover:bg-sidebar-accent/70 hover:text-foreground",
                           )}
                         >
                           <Icon className={cn("size-4", active ? "text-signal" : "")} />
@@ -274,7 +283,7 @@ export function DashboardShell({
               <LifeBuoy className="size-4" />
               <span className={cn(sidebarCollapsed && "sr-only")}>{t.common.support}</span>
             </a>
-            <div className={cn("mt-2 rounded-lg border border-sidebar-border bg-background/60 p-2.5", sidebarCollapsed && "hidden")}>
+            <div className={cn("ops-subpanel mt-2 rounded-xl p-2.5", sidebarCollapsed && "hidden")}>
               <div className="flex items-center gap-2">
                 <span className="relative inline-flex h-1.5 w-1.5">
                   <span className="absolute inset-0 rounded-full bg-status-success op-pulse" />
@@ -296,8 +305,8 @@ export function DashboardShell({
         </aside>
       ) : null}
 
-      <div className="flex min-w-0 flex-1 flex-col">
-        <header className={cn("sticky top-0 z-30 flex items-center border-b border-border bg-background/95", compactChrome ? "h-11 gap-2 px-2 sm:px-3" : "h-14 gap-3 px-4 sm:px-5")}>
+      <div className="relative z-10 flex min-w-0 flex-1 flex-col">
+        <header className={cn("sticky top-0 z-30 flex items-center border-b border-white/10 bg-background/70 shadow-[0_18px_70px_-60px] shadow-signal backdrop-blur-2xl", compactChrome ? "h-11 gap-2 px-2 sm:px-3" : "h-14 gap-3 px-4 sm:px-5")}>
           {immersive ? (
             <div className="flex min-w-0 items-center gap-2">
               <Link href="/" className="grid size-8 shrink-0 place-items-center rounded-lg border border-border bg-card" aria-label="NextAPI dashboard">
@@ -352,7 +361,7 @@ export function DashboardShell({
           ) : (
             <div
               className={cn(
-                "relative flex h-8 min-w-0 items-center gap-2 rounded-lg border border-border bg-card px-3 text-left text-[12.5px] text-muted-foreground transition-colors focus-within:border-signal/45 focus-within:bg-background",
+                "ops-pill relative flex h-8 min-w-0 items-center gap-2 rounded-full px-3 text-left text-[12.5px] text-muted-foreground transition-colors focus-within:border-signal/45 focus-within:text-foreground",
                 compactChrome ? "hidden max-w-sm flex-1 md:flex" : "max-w-xl flex-1",
               )}
               onBlur={() => window.setTimeout(() => setSearchOpen(false), 120)}
@@ -360,6 +369,8 @@ export function DashboardShell({
               <Search className="size-3.5" />
               <input
                 aria-label={t.common.typeToSearch}
+                aria-controls={searchOpen ? commandListId : undefined}
+                aria-activedescendant={searchOpen && visibleCommandItems[activeCommandIndex] ? commandOptionId(commandListId, activeCommandIndex) : undefined}
                 ref={searchInputRef}
                 value={searchTerm}
                 onFocus={() => setSearchOpen(true)}
@@ -372,9 +383,22 @@ export function DashboardShell({
                     setSearchOpen(false)
                     return
                   }
-                  if (event.key === "Enter" && visibleCommandItems[0]) {
+                  if (event.key === "ArrowDown") {
                     event.preventDefault()
-                    openCommand(visibleCommandItems[0])
+                    setSearchOpen(true)
+                    setActiveCommandIndex((index) => Math.min(index + 1, Math.max(visibleCommandItems.length - 1, 0)))
+                    return
+                  }
+                  if (event.key === "ArrowUp") {
+                    event.preventDefault()
+                    setSearchOpen(true)
+                    setActiveCommandIndex((index) => Math.max(index - 1, 0))
+                    return
+                  }
+                  const activeItem = visibleCommandItems[activeCommandIndex] ?? visibleCommandItems[0]
+                  if (event.key === "Enter" && activeItem) {
+                    event.preventDefault()
+                    openCommand(activeItem)
                   }
                 }}
                 placeholder={t.common.typeToSearch}
@@ -382,20 +406,28 @@ export function DashboardShell({
               />
               <Kbd>⌘K</Kbd>
               {searchOpen && (
-                <div className="absolute left-0 top-[calc(100%+8px)] z-50 w-full min-w-[280px] overflow-hidden rounded-lg border border-border bg-popover p-1.5 shadow-lg">
+                <div id={commandListId} role="listbox" aria-label={t.common.typeToSearch} className="absolute left-0 top-[calc(100%+8px)] z-50 w-full min-w-[280px] overflow-hidden rounded-lg border border-border bg-popover p-1.5 shadow-lg">
                   {visibleCommandItems.length === 0 ? (
                     <div className="px-3 py-2 text-xs text-muted-foreground">{t.common.empty}</div>
-                  ) : visibleCommandItems.map((item) => {
+                  ) : visibleCommandItems.map((item, index) => {
                     const Icon = item.icon
+                    const active = index === activeCommandIndex
                     return (
                       <button
                         key={`${item.section}-${item.href}`}
+                        id={commandOptionId(commandListId, index)}
                         type="button"
+                        role="option"
+                        aria-selected={active}
                         onMouseDown={(event) => event.preventDefault()}
+                        onMouseEnter={() => setActiveCommandIndex(index)}
                         onClick={() => openCommand(item)}
-                        className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-xs text-muted-foreground transition hover:bg-accent hover:text-foreground"
+                        className={cn(
+                          "flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-xs transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal/45",
+                          active ? "bg-accent text-foreground" : "text-muted-foreground hover:bg-accent hover:text-foreground",
+                        )}
                       >
-                        <Icon className="size-3.5" />
+                        <Icon className={cn("size-3.5", active && "text-signal")} />
                         <span className="min-w-0 flex-1 truncate">{item.label}</span>
                         <span className="font-mono text-[10px] text-muted-foreground/70">{item.href.startsWith("http") ? "docs" : item.href}</span>
                       </button>
@@ -413,7 +445,7 @@ export function DashboardShell({
           ) : null}
           <div className="ml-auto flex items-center gap-2">
             {compactChrome && actions ? <div className="hidden items-center gap-2 xl:flex">{actions}</div> : null}
-            <div className={cn("hidden items-center gap-2 rounded-lg border border-border bg-card px-3 py-1.5 text-[12px] text-muted-foreground", compactChrome ? "2xl:inline-flex" : "md:inline-flex")}>
+            <div className={cn("ops-pill hidden items-center gap-2 rounded-full px-3 py-1.5 text-[12px] text-muted-foreground", compactChrome ? "2xl:inline-flex" : "md:inline-flex")}>
               <span>{t.dashboard.stats.available}</span>
               <span className="font-mono text-foreground">
                 {balance !== null ? `$${(balance / 100).toFixed(2)}` : "—"}
@@ -421,11 +453,11 @@ export function DashboardShell({
             </div>
             <Link
               href="/billing"
-              className="rounded-lg bg-foreground px-3 py-1.5 text-[12px] font-medium text-background transition-opacity hover:opacity-90"
+              className="premium-button rounded-full px-3 py-1.5 text-[12px] font-medium text-white"
             >
               {t.common.topUp}
             </Link>
-            <div className="flex items-center gap-1 rounded-lg border border-border bg-card px-1 py-1">
+            <div className="ops-pill flex items-center gap-1 rounded-full px-1 py-1">
               <button
                 type="button"
                 onClick={() => {
@@ -447,7 +479,7 @@ export function DashboardShell({
         </header>
 
         {!compactChrome && (title || description || actions) && (
-          <div className="border-b border-border bg-muted/20 px-5 py-4">
+          <div className="border-b border-white/10 bg-background/34 px-5 py-4 backdrop-blur-sm">
             <div className="flex flex-wrap items-end justify-between gap-4">
               <div>
                 {title && <h1 className="text-[20px] font-medium tracking-tight">{title}</h1>}
@@ -466,4 +498,8 @@ export function DashboardShell({
       </div>
     </div>
   )
+}
+
+function commandOptionId(listId: string, index: number) {
+  return `${listId}-option-${index}`
 }

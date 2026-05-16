@@ -116,15 +116,15 @@ export default function DashboardHome() {
         </>
       }
     >
-      <div className="flex flex-col gap-4 p-4 sm:p-5">
+      <div className="flex flex-col gap-5 p-4 sm:p-6">
         {error && (
           <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-2 text-[13px] text-destructive">
             {error}
           </div>
         )}
 
-        <section className="rounded-xl border border-border bg-card/82 p-4 shadow-sm">
-          <div className="flex flex-col gap-4 xl:flex-row xl:items-stretch xl:justify-between">
+        <section className="ops-panel overflow-hidden rounded-2xl p-4 sm:p-5">
+          <div className="flex flex-col gap-5 xl:flex-row xl:items-stretch xl:justify-between">
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2 text-[12px] text-muted-foreground">
                 <StatusBadge>{t.dashboard.command.workspace}</StatusBadge>
@@ -132,24 +132,26 @@ export default function DashboardHome() {
                 <span className="hidden text-border sm:inline">/</span>
                 <span>{t.dashboard.readiness.progress}: {readinessPct}%</span>
               </div>
-              <h2 className="mt-3 max-w-3xl text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
+              <h2 className="mt-4 max-w-3xl text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
                 {t.dashboard.command.title}
               </h2>
               <p className="mt-2 max-w-2xl text-[13px] leading-relaxed text-muted-foreground sm:text-sm">
                 {t.dashboard.command.subtitle}
               </p>
+              <ProcessRail />
             </div>
-            <div className="grid gap-2 sm:grid-cols-2 xl:w-[520px]">
-              <MetricTile label={t.dashboard.stats.available} value={credits} caption={me ? t.dashboard.stats.availableHint : t.common.loading} icon={CreditCard} tone="success" />
-              <MetricTile label={t.dashboard.stats.activeKeys} value={activeKeys} caption={t.dashboard.stats.activeKeysHint} icon={KeyRound} tone="signal" />
-              <MetricTile label={t.dashboard.stats.jobsToday} value={jobsTodayValue} caption={t.dashboard.stats.jobsTodayHint} icon={Activity} tone="signal" />
-              <MetricTile label={t.dashboard.stats.webhookHealth} value="—" caption={t.dashboard.stats.webhookHealthHint} icon={Webhook} tone="muted" />
-            </div>
+            <HeroControlDeck
+              credits={credits}
+              activeKeys={activeKeys}
+              jobsTodayValue={jobsTodayValue}
+              loadingCaption={me ? t.dashboard.stats.availableHint : t.common.loading}
+              t={t}
+            />
           </div>
         </section>
 
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_380px]">
-          <section className="rounded-xl border border-border bg-card/82 p-4 shadow-sm">
+        <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_380px]">
+          <section className="ops-panel rounded-2xl p-4">
             <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
               <div>
                 <h2 className="text-[15px] font-medium tracking-tight text-foreground">
@@ -187,7 +189,7 @@ export default function DashboardHome() {
             </div>
           </section>
 
-          <section className="rounded-xl border border-border bg-card/82 p-4 shadow-sm">
+          <section className="ops-panel rounded-2xl p-4">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <h2 className="text-[15px] font-medium tracking-tight text-foreground">
@@ -214,8 +216,8 @@ export default function DashboardHome() {
           </section>
         </div>
 
-        <section className="overflow-hidden rounded-xl border border-border bg-card/82 shadow-sm">
-          <div className="flex items-end justify-between border-b border-border bg-muted/20 px-4 py-3">
+        <section className="ops-panel overflow-hidden rounded-2xl">
+          <div className="flex items-end justify-between border-b border-white/10 bg-background/26 px-4 py-3">
             <div>
               <h2 className="text-[15px] font-medium tracking-tight text-foreground">
                 {t.dashboard.recentJobs.title}
@@ -274,6 +276,91 @@ function MissionStep({
   )
 }
 
+function ProcessRail() {
+  const steps = [
+    { label: "request", value: "accepted", tone: "success" },
+    { label: "reserve", value: "credits", tone: "signal" },
+    { label: "route", value: "model", tone: "signal" },
+    { label: "webhook", value: "signed", tone: "muted" },
+  ] as const
+
+  return (
+    <div className="mt-6 grid max-w-3xl gap-2 sm:grid-cols-4">
+      {steps.map((step, index) => (
+        <div key={step.label} className="ops-subpanel relative rounded-xl p-3">
+          {index < steps.length - 1 ? (
+            <span className="absolute left-[calc(100%-2px)] top-1/2 hidden h-px w-4 -translate-y-1/2 bg-border sm:block" />
+          ) : null}
+          <div className="flex items-center gap-2">
+            <span
+              className={cn(
+                "size-1.5 rounded-full",
+                step.tone === "success" && "bg-status-success",
+                step.tone === "signal" && "bg-signal",
+                step.tone === "muted" && "bg-muted-foreground",
+              )}
+            />
+            <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+              {step.label}
+            </span>
+          </div>
+          <div className="mt-2 text-[13px] font-medium text-foreground">{step.value}</div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function HeroControlDeck({
+  credits,
+  activeKeys,
+  jobsTodayValue,
+  loadingCaption,
+  t,
+}: {
+  credits: string
+  activeKeys: string
+  jobsTodayValue: string
+  loadingCaption: string
+  t: ReturnType<typeof useTranslations>
+}) {
+  return (
+    <div className="xl:w-[540px]">
+      <div className="grid gap-2 sm:grid-cols-2">
+        <MetricTile label={t.dashboard.stats.available} value={credits} caption={loadingCaption} icon={CreditCard} tone="success" />
+        <MetricTile label={t.dashboard.stats.activeKeys} value={activeKeys} caption={t.dashboard.stats.activeKeysHint} icon={KeyRound} tone="signal" />
+      </div>
+      <div className="ops-subpanel mt-2 overflow-hidden rounded-xl">
+        <div className="flex items-center justify-between border-b border-border/70 px-3 py-2">
+          <span className="font-mono text-[10.5px] uppercase tracking-[0.14em] text-muted-foreground">
+            route blueprint
+          </span>
+          <span className="rounded-full border border-status-success/25 bg-status-success/10 px-2 py-0.5 font-mono text-[10px] text-status-success">
+            ready
+          </span>
+        </div>
+        <div className="grid gap-px bg-border/70 sm:grid-cols-3">
+          {[
+            ["model", "seedance-2.0-pro", "video generation lane"],
+            ["reserve", credits, "balance-aware preflight"],
+            ["notify", "signed webhook", "delivery proof"],
+          ].map(([label, value, hint]) => (
+            <div key={label} className="bg-background/56 p-3">
+              <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">{label}</div>
+              <div className="mt-2 truncate text-[13px] font-medium text-foreground">{value}</div>
+              <div className="mt-1 truncate text-[11.5px] text-muted-foreground">{hint}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="mt-2 grid gap-2 sm:grid-cols-2">
+        <MetricTile label={t.dashboard.stats.jobsToday} value={jobsTodayValue} caption={t.dashboard.stats.jobsTodayHint} icon={Activity} tone="signal" />
+        <MetricTile label={t.dashboard.stats.webhookHealth} value="—" caption={t.dashboard.stats.webhookHealthHint} icon={Webhook} tone="muted" />
+      </div>
+    </div>
+  )
+}
+
 function EmptyJobs({ title, cta }: { title: string; cta: string }) {
   return (
     <div className="grid min-h-72 place-items-center px-6 py-12 text-center">
@@ -313,7 +400,7 @@ function MetricTile({
   tone: "signal" | "success" | "muted"
 }) {
   return (
-    <div className="rounded-lg border border-border bg-background/70 p-3">
+    <div className="ops-subpanel rounded-xl p-3">
       <div className="flex items-center justify-between gap-3">
         <span className="truncate font-mono text-[10.5px] uppercase tracking-[0.14em] text-muted-foreground">
           {label}
@@ -348,10 +435,10 @@ function ActionTile({
     <Link
       href={href}
       className={cn(
-        "group flex min-h-[92px] items-start gap-3 rounded-lg border p-3 transition-colors",
+    "group flex min-h-[92px] items-start gap-3 rounded-xl border p-3 transition-colors",
         primary
           ? "border-signal/35 bg-signal/10 hover:bg-signal/15"
-          : "border-border bg-background/70 hover:bg-accent",
+          : "border-border bg-background/45 hover:bg-accent/70",
       )}
     >
       <span className={cn(

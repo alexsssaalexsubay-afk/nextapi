@@ -94,10 +94,13 @@ export default function SignInPage() {
 
   return (
     <AuthLayout>
-      <h1 className="mt-8 text-center text-[22px] font-medium tracking-tight text-foreground text-balance">
+      <div className="ops-pill mb-5 inline-flex rounded-full px-3 py-1 font-mono text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+        secure workspace
+      </div>
+      <h1 className="text-[26px] font-semibold tracking-tight text-foreground text-balance">
         {t.auth.welcomeBack}
       </h1>
-      <p className="mt-2 mb-8 text-center text-[13px] text-muted-foreground text-pretty">
+      <p className="mt-2 mb-6 text-[13px] leading-relaxed text-muted-foreground text-pretty">
         {mode === "password" ? t.auth.signInSubtitle : t.auth.codeSignInSubtitle}
       </p>
 
@@ -112,7 +115,7 @@ export default function SignInPage() {
       )}
 
       <form onSubmit={handleSubmit(submit)} className="flex flex-col gap-4" noValidate>
-        <div className="grid grid-cols-2 gap-2 rounded-full border border-border bg-muted/35 p-1 text-[12px]">
+        <div className="grid grid-cols-2 gap-2 rounded-xl border border-border/80 bg-background/38 p-1 text-[12px]">
           {(["password", "code"] as const).map((item) => (
             <button
               key={item}
@@ -121,7 +124,7 @@ export default function SignInPage() {
                 setMode(item)
                 setServerError(null)
               }}
-              className={`rounded-full px-3 py-1.5 transition-colors ${mode === item ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+              className={`rounded-lg px-3 py-2 transition-colors ${mode === item ? "bg-signal text-white shadow-sm" : "text-muted-foreground hover:bg-card/60 hover:text-foreground"}`}
             >
               {item === "password" ? t.auth.passwordLogin : t.auth.codeLogin}
             </button>
@@ -143,7 +146,7 @@ export default function SignInPage() {
               autoComplete="email"
               placeholder={t.auth.emailPlaceholder}
               aria-invalid={!!errors.email}
-              className="h-10 w-full rounded-lg border border-input bg-input/30 pl-10 pr-3 text-[14px] text-foreground outline-none transition-colors placeholder:text-muted-foreground/70 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 aria-[invalid=true]:border-destructive"
+              className="h-11 w-full rounded-xl border border-input bg-background/45 pl-10 pr-3 text-[14px] text-foreground outline-none transition-colors placeholder:text-muted-foreground/70 focus-visible:border-signal focus-visible:ring-2 focus-visible:ring-signal/25 aria-[invalid=true]:border-destructive"
               {...register("email")}
             />
           </div>
@@ -170,7 +173,7 @@ export default function SignInPage() {
                 type="password"
                 autoComplete="current-password"
                 aria-invalid={!!errors.password}
-                className="h-10 w-full rounded-lg border border-input bg-input/30 pl-10 pr-3 text-[14px] text-foreground outline-none transition-colors placeholder:text-muted-foreground/70 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 aria-[invalid=true]:border-destructive"
+                className="h-11 w-full rounded-xl border border-input bg-background/45 pl-10 pr-3 text-[14px] text-foreground outline-none transition-colors placeholder:text-muted-foreground/70 focus-visible:border-signal focus-visible:ring-2 focus-visible:ring-signal/25 aria-[invalid=true]:border-destructive"
                 {...register("password")}
               />
             </div>
@@ -192,7 +195,7 @@ export default function SignInPage() {
                 maxLength={6}
                 placeholder="123456"
                 aria-invalid={!!errors.code}
-                className="h-10 w-full rounded-lg border border-input bg-input/30 pl-10 pr-28 text-[14px] text-foreground outline-none transition-colors placeholder:text-muted-foreground/70 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 aria-[invalid=true]:border-destructive"
+                className="h-11 w-full rounded-xl border border-input bg-background/45 pl-10 pr-28 text-[14px] text-foreground outline-none transition-colors placeholder:text-muted-foreground/70 focus-visible:border-signal focus-visible:ring-2 focus-visible:ring-signal/25 aria-[invalid=true]:border-destructive"
                 {...register("code")}
               />
               <button
@@ -211,7 +214,7 @@ export default function SignInPage() {
         <button
           type="submit"
           disabled={isLoading}
-          className="mt-2 inline-flex h-10 w-full items-center justify-center rounded-full bg-gradient-to-r from-indigo-500 to-purple-600 text-[14px] font-medium text-white shadow-[0_0_30px_-8px] shadow-indigo-500/50 transition-all hover:shadow-[0_0_40px_-4px] hover:shadow-indigo-500/60 disabled:opacity-70"
+          className="mt-2 inline-flex h-11 w-full items-center justify-center rounded-full bg-signal text-[14px] font-medium text-white shadow-[0_18px_45px_-26px] shadow-signal transition-all hover:translate-y-[-1px] hover:bg-signal/90 disabled:translate-y-0 disabled:opacity-70"
         >
           {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <span>{t.auth.signIn}</span>}
         </button>

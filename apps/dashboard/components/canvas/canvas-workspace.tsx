@@ -118,9 +118,12 @@ function FlowNode({ data, type, selected }: NodeProps<CanvasNode>) {
   const status = data.node_status
   return (
     <div
+      role="group"
+      tabIndex={0}
+      aria-label={`${String(data.label || nodeType)} ${status ?? "idle"}`}
       data-canvas-node-selected={selected ? "true" : "false"}
       className={cn(
-        "min-w-56 overflow-hidden rounded-2xl border bg-card/92 shadow-[0_18px_60px_-44px] backdrop-blur transition-all",
+        "min-w-56 overflow-hidden rounded-2xl border bg-card/92 shadow-[0_18px_60px_-44px] backdrop-blur transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal/55 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
         selected
           ? "border-emerald-400 shadow-[0_0_0_1px_rgba(52,211,153,0.55),0_18px_70px_-45px_rgba(52,211,153,0.85)]"
           : "border-white/12",
@@ -139,6 +142,9 @@ function FlowNode({ data, type, selected }: NodeProps<CanvasNode>) {
           </div>
         </div>
         {status ? <NodeStatusBadge status={status} /> : null}
+        {data.error_message ? (
+          <p className="mt-2 line-clamp-2 text-[11px] leading-snug text-status-failed">{String(data.error_message)}</p>
+        ) : null}
         {nodeType === "image.input" && data.image_url ? (
           <div className="mt-3 overflow-hidden rounded-xl border border-white/12">
             {/* eslint-disable-next-line @next/next/no-img-element -- presigned/user URL preview */}
@@ -198,6 +204,7 @@ export function CanvasWorkspace() {
   const [templateSaving, setTemplateSaving] = useState(false)
   const [exporting, setExporting] = useState(false)
   const [exportResult, setExportResult] = useState<ExportAPIResult | null>(null)
+  const [canvasNotice, setCanvasNotice] = useState<string | null>(null)
   const [currentVideo, setCurrentVideo] = useState<CurrentVideo | null>(null)
   const [assets, setAssets] = useState<LibraryAsset[]>([])
   const [uploadingImage, setUploadingImage] = useState(false)
@@ -234,13 +241,19 @@ export function CanvasWorkspace() {
     const id = searchParams.get("workflow")
     if (!id) return
     getWorkflow(id).then((row) => {
+      setCanvasNotice(null)
       setWorkflow(row)
       setWorkflowMetadata(row.workflow_json.metadata || {})
       setName(row.name)
       setNodes(row.workflow_json.nodes.map((n) => ({ id: n.id, type: "canvas", position: n.position ?? { x: 0, y: 0 }, data: { ...n.data, node_type: n.type } })))
       setEdges(row.workflow_json.edges.map((edge) => ({ id: edge.id ?? `edge_${edge.source}_${edge.target}`, source: edge.source, target: edge.target })))
-    }).catch(() => toast.error(labels.loadFailed))
-  }, [labels.loadFailed, searchParams, setEdges, setName, setNodes, setWorkflow])
+    }).catch(() => {
+      setCanvasNotice(labels.recoverFromLoadFailed)
+      setNodes(initialNodes.map((item) => String(item.data.node_type) === "seedance.video" ? { ...item, data: { ...item.data, node_status: "failed", error_message: labels.recoverFromLoadFailed } } : item))
+      setEdges(initialEdges)
+      toast.error(labels.loadFailed)
+    })
+  }, [labels.loadFailed, labels.recoverFromLoadFailed, searchParams, setEdges, setName, setNodes, setWorkflow])
 
   const onConnect = useCallback(
     (connection: Connection) => setEdges((eds) => addEdge({ ...connection, id: `edge_${Date.now()}` }, eds)),
@@ -255,6 +268,16 @@ export function CanvasWorkspace() {
     if (!selectedId) return
     updateNodeData(selectedId, patch)
   }, [selectedId, updateNodeData])
+
+  const markVideoNodesFailed = useCallback((message: string) => {
+    setNodes((items) => items.map((item) => {
+      const nodeType = String(item.data.node_type)
+      if (nodeType === "seedance.video" || nodeType === "output.preview") {
+        return { ...item, data: { ...item.data, node_status: "failed", error_message: message } }
+      }
+      return item
+    }))
+  }, [setNodes])
 
   const uploadImageForSelectedNode = useCallback(async (file: File) => {
     setUploadingImage(true)
@@ -321,6 +344,8 @@ export function CanvasWorkspace() {
     const json = toWorkflowJSON()
     const err = validateClient(json)
     if (err) {
+      setCanvasNotice(labels.validationFailed)
+      markVideoNodesFailed(err)
       toast.error(err)
       return null
     }
@@ -330,10 +355,14 @@ export function CanvasWorkspace() {
         ? await updateWorkflow(workflow.id, { name, workflow_json: json })
         : await createWorkflow({ name, workflow_json: json })
       setWorkflow(saved)
+      setCanvasNotice(null)
       toast.success(labels.saved)
       return saved
     } catch (e) {
-      toast.error(e instanceof ApiError ? jobApiErrorMessage(t, e) : labels.saveFailed)
+      const message = e instanceof ApiError ? jobApiErrorMessage(t, e) : labels.saveFailed
+      setCanvasNotice(message)
+      markVideoNodesFailed(message)
+      toast.error(message)
       return null
     } finally {
       setSaving(false)
@@ -352,8 +381,10 @@ export function CanvasWorkspace() {
       setEdges(imported.edges.map((edge) => ({ id: edge.id ?? `edge_${edge.source}_${edge.target}`, source: edge.source, target: edge.target })))
       setSelectedId(imported.nodes[0]?.id || "")
       setInspectorOpen(true)
+      setCanvasNotice(null)
       toast.success(labels.imported)
     } catch {
+      setCanvasNotice(labels.importFailed)
       toast.error(labels.importFailed)
     }
   }
@@ -362,7 +393,9 @@ export function CanvasWorkspace() {
     if (!requiresDirectorEntitlement(json)) return true
     const status = await getDirectorStatus()
     if (status.available) return true
-    toast.error(status.blocking_reason === "vip_required" ? labels.directorVipRequired : labels.directorUnavailable)
+    const message = status.blocking_reason === "vip_required" ? labels.directorVipRequired : labels.directorUnavailable
+    setCanvasNotice(message)
+    toast.error(message)
     return false
   }
 
@@ -388,12 +421,12 @@ export function CanvasWorkspace() {
     if (!currentVideo?.id || !ACTIVE_STATUSES.has(currentVideo.status)) return
     if (pollRef.current) clearTimeout(pollRef.current)
     pollRef.current = setTimeout(() => {
-      void refreshVideo(currentVideo.id).catch(() => undefined)
+      void refreshVideo(currentVideo.id).catch(() => setCanvasNotice(labels.refreshFailed))
     }, 4000)
     return () => {
       if (pollRef.current) clearTimeout(pollRef.current)
     }
-  }, [currentVideo?.id, currentVideo?.status, refreshVideo])
+  }, [currentVideo?.id, currentVideo?.status, labels.refreshFailed, refreshVideo])
 
   const run = async () => {
     if (running) return
@@ -406,11 +439,14 @@ export function CanvasWorkspace() {
       setNodes((items) => items.map((item) => String(item.data.node_type) === "seedance.video" ? { ...item, data: { ...item.data, node_status: "running", error_message: undefined } } : item))
       const result = await runWorkflow(saved.id)
       toast.success(labels.runCreated)
+      setCanvasNotice(null)
       setCurrentVideo({ id: result.task_id, status: result.status })
-      void refreshVideo(result.task_id).catch(() => undefined)
+      void refreshVideo(result.task_id).catch(() => setCanvasNotice(labels.refreshFailed))
     } catch (e) {
-      toast.error(e instanceof ApiError ? jobApiErrorMessage(t, e) : labels.runFailed)
-      setNodes((items) => items.map((item) => String(item.data.node_type) === "seedance.video" ? { ...item, data: { ...item.data, node_status: "failed" } } : item))
+      const message = e instanceof ApiError ? jobApiErrorMessage(t, e) : labels.runFailed
+      setCanvasNotice(message)
+      toast.error(message)
+      setNodes((items) => items.map((item) => String(item.data.node_type) === "seedance.video" ? { ...item, data: { ...item.data, node_status: "failed", error_message: message } } : item))
     } finally {
       setRunning(false)
     }
@@ -439,9 +475,12 @@ export function CanvasWorkspace() {
       if (!saved) return
       const result = await exportWorkflowAPI(saved.id)
       setExportResult(result)
+      setCanvasNotice(null)
       toast.success(labels.exportReady)
     } catch (e) {
-      toast.error(e instanceof ApiError ? jobApiErrorMessage(t, e) : labels.exportFailed)
+      const message = e instanceof ApiError ? jobApiErrorMessage(t, e) : labels.exportFailed
+      setCanvasNotice(message)
+      toast.error(message)
     } finally {
       setExporting(false)
     }
@@ -566,6 +605,22 @@ export function CanvasWorkspace() {
           </button>
         </div>
       </div>
+
+      {canvasNotice ? (
+        <div className="pointer-events-auto absolute inset-x-3 top-20 z-30 flex items-start gap-2 rounded-lg border border-status-failed/30 bg-status-failed/10 px-3 py-2 text-[12px] text-status-failed shadow-sm backdrop-blur">
+          <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+          <p className="min-w-0 flex-1 leading-relaxed">{canvasNotice}</p>
+          <button
+            type="button"
+            onClick={() => setCanvasNotice(null)}
+            className="grid size-7 shrink-0 place-items-center rounded-md text-status-failed/80 transition hover:bg-status-failed/10 hover:text-status-failed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-status-failed/45"
+            aria-label={labels.dismissNotice}
+            title={labels.dismissNotice}
+          >
+            <X className="size-3.5" />
+          </button>
+        </div>
+      ) : null}
 
       <input
         ref={workflowImportInputRef}

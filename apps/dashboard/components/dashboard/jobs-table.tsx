@@ -88,7 +88,18 @@ export function JobsTable({
                       "group cursor-pointer transition-colors hover:bg-card/60",
                       r.status === "failed" && "bg-status-failed-dim/15",
                     )}
+                    role={compact ? undefined : "button"}
+                    tabIndex={compact ? undefined : 0}
+                    aria-expanded={compact ? undefined : expanded}
+                    aria-controls={compact ? undefined : `job-detail-${r.id}`}
                     onClick={() => !compact && setExpandedId(expanded ? null : r.id)}
+                    onKeyDown={(event) => {
+                      if (compact) return
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault()
+                        setExpandedId(expanded ? null : r.id)
+                      }
+                    }}
                   >
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
@@ -129,14 +140,15 @@ export function JobsTable({
                       <Link
                         href={`/jobs/${r.id}`}
                         onClick={(e) => e.stopPropagation()}
-                        className="inline-flex size-6 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100"
+                        aria-label={`${t.common.viewDetails}: ${r.id}`}
+                        className="inline-flex size-6 items-center justify-center rounded-md text-muted-foreground opacity-100 transition-opacity hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal/35 md:opacity-0 md:group-focus-within:opacity-100 md:group-hover:opacity-100"
                       >
                         <ArrowUpRight className="size-3.5" />
                       </Link>
                     </td>
                   </tr>
                   {expanded && (
-                    <tr className="bg-background/40">
+                    <tr id={`job-detail-${r.id}`} className="bg-background/40">
                       <td colSpan={8} className="px-4 pb-5 pt-1">
                         <div className="grid gap-4 rounded-lg border border-border/70 bg-card/50 p-4 lg:grid-cols-[220px_1fr]">
                           <div className="overflow-hidden rounded-lg border border-border/70 bg-background">

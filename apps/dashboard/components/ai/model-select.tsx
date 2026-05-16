@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from "react"
 import { Bot, Check, ChevronDown, Clapperboard, FileText, Image as ImageIcon, Search, Sparkles, UserRound, Video } from "lucide-react"
 import { AI_MODEL_CATALOG, type AIModelCatalogItem, type AIModelCategory } from "@/lib/ai-model-catalog"
 import { cn } from "@/lib/utils"
@@ -67,6 +67,8 @@ export function ModelSelect({
 }) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState("")
+  const [activeOptionId, setActiveOptionId] = useState<string | null>(null)
+  const listboxId = useId()
   const rootRef = useRef<HTMLDivElement | null>(null)
   const availableModelSet = availableModelIds && availableModelIds.length > 0 ? new Set(availableModelIds) : null
   const items = AI_MODEL_CATALOG.filter((item) =>
@@ -105,6 +107,11 @@ export function ModelSelect({
     }
     return groups
   }, [])
+  const optionItems = useMemo(() => [
+    ...recommendedItems,
+    ...groupedItems.flatMap((group) => group.items),
+  ], [groupedItems, recommendedItems])
+  const enabledOptionItems = useMemo(() => optionItems.filter((item) => item.enabled), [optionItems])
   const hasMatches = filteredItems.length > 0
 
   useEffect(() => {
@@ -115,7 +122,60 @@ export function ModelSelect({
     return () => document.removeEventListener("pointerdown", onPointerDown)
   }, [])
 
-  if (!selected) return null
+  useEffect(() => {
+    if (!open) return
+    const current = enabledOptionItems.find((item) => item.id === selected?.id) ?? enabledOptionItems[0] ?? null
+    setActiveOptionId(current?.id ?? null)
+  }, [enabledOptionItems, open, selected?.id])
+
+  const pickItem = useCallback((item: AIModelCatalogItem) => {
+    if (!item.enabled) return
+    onChange(item.id)
+    setOpen(false)
+  }, [onChange])
+
+  const moveActiveOption = useCallback((delta: number) => {
+    if (enabledOptionItems.length === 0) return
+    setActiveOptionId((current) => {
+      const currentIndex = enabledOptionItems.findIndex((item) => item.id === current)
+      const safeIndex = currentIndex >= 0 ? currentIndex : 0
+      const nextIndex = (safeIndex + delta + enabledOptionItems.length) % enabledOptionItems.length
+      return enabledOptionItems[nextIndex]?.id ?? null
+    })
+  }, [enabledOptionItems])
+
+  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === "ArrowDown") {
+      event.preventDefault()
+      if (!open) {
+        setOpen(true)
+      } else {
+        moveActiveOption(1)
+      }
+      return
+    }
+    if (event.key === "ArrowUp") {
+      event.preventDefault()
+      if (!open) {
+        setOpen(true)
+      } else {
+        moveActiveOption(-1)
+      }
+      return
+    }
+    if (event.key === "Enter" && open && activeOptionId) {
+      const item = enabledOptionItems.find((entry) => entry.id === activeOptionId)
+      if (item) {
+        event.preventDefault()
+        pickItem(item)
+      }
+      return
+    }
+    if (event.key === "Escape" && open) {
+      event.preventDefault()
+      setOpen(false)
+    }
+  }
 
   const dropdownClassName = cn(
     "overflow-y-auto overscroll-contain rounded-lg border border-border bg-popover p-2 text-popover-foreground",
@@ -124,15 +184,19 @@ export function ModelSelect({
       : "absolute left-0 top-full z-[80] mt-2 max-h-[min(22rem,60vh)] w-full min-w-[18rem] max-w-[calc(100vw-2rem)] sm:min-w-[24rem]",
   )
 
+  if (!selected) return null
+
   return (
-    <div ref={rootRef} className="relative min-w-0">
+    <div ref={rootRef} className="relative min-w-0" onKeyDown={onKeyDown}>
       {label && <div className="mb-1 text-xs text-muted-foreground">{label}</div>}
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
         aria-expanded={open}
+        aria-haspopup="listbox"
+        aria-controls={open ? listboxId : undefined}
         className={cn(
-          "flex w-full items-center gap-2 rounded-lg border border-border bg-background px-2.5 text-left text-[13px] transition hover:border-signal/35",
+          "flex w-full items-center gap-2 rounded-lg border border-border bg-background px-2.5 text-left text-[13px] transition hover:border-signal/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal/45 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
           dense ? "h-9" : "h-10",
           open && "border-signal/45 bg-card",
         )}
@@ -156,6 +220,8 @@ export function ModelSelect({
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder={statusLabels?.searchPlaceholder ?? "Search models..."}
+                aria-controls={listboxId}
+                aria-activedescendant={activeOptionId ? modelOptionDomId(listboxId, activeOptionId) : undefined}
                 className="min-w-0 flex-1 bg-transparent text-foreground outline-none placeholder:text-muted-foreground"
               />
             </label>
@@ -170,47 +236,48 @@ export function ModelSelect({
               {statusLabels?.noMatches ?? "No matching models."}
             </div>
           )}
-          {recommendedItems.length > 0 && (
-            <div className="mb-2 rounded-lg border border-signal/20 bg-background p-1">
-              <div className="flex items-center justify-between px-2 py-1 text-xs font-medium uppercase tracking-[0.14em] text-signal">
-                <span>{statusLabels?.recommended ?? "Recommended"}</span>
-                <span>{statusLabels?.bestForFlow ?? "Best fit"}</span>
+          <div id={listboxId} role="listbox" aria-label={label ?? statusLabels?.allModels ?? "Models"} aria-activedescendant={activeOptionId ? modelOptionDomId(listboxId, activeOptionId) : undefined}>
+            {recommendedItems.length > 0 && (
+              <div className="mb-2 rounded-lg border border-signal/20 bg-background p-1">
+                <div className="flex items-center justify-between px-2 py-1 text-xs font-medium uppercase tracking-[0.14em] text-signal">
+                  <span>{statusLabels?.recommended ?? "Recommended"}</span>
+                  <span>{statusLabels?.bestForFlow ?? "Best fit"}</span>
+                </div>
+                {recommendedItems.map((item) => (
+                  <ModelOption
+                    key={`recommended-${item.id}`}
+                    id={modelOptionDomId(listboxId, item.id)}
+                    item={item}
+                    active={item.id === selected.id}
+                    highlighted={item.id === activeOptionId}
+                    statusLabels={statusLabels}
+                    onMouseEnter={() => item.enabled && setActiveOptionId(item.id)}
+                    onPick={() => pickItem(item)}
+                  />
+                ))}
               </div>
-              {recommendedItems.map((item) => (
-                <ModelOption
-                  key={`recommended-${item.id}`}
-                  item={item}
-                  active={item.id === selected.id}
-                  statusLabels={statusLabels}
-                  onPick={() => {
-                    onChange(item.id)
-                    setOpen(false)
-                  }}
-                />
-              ))}
-            </div>
-          )}
-          {groupedItems.map((group) => (
-            <div key={group.provider} className="mt-1.5 first:mt-0">
-              <div className="flex items-center justify-between px-2 py-1 text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
-                <span>{group.provider}</span>
-                <span>{group.items.length}</span>
+            )}
+            {groupedItems.map((group) => (
+              <div key={group.provider} className="mt-1.5 first:mt-0">
+                <div className="flex items-center justify-between px-2 py-1 text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                  <span>{group.provider}</span>
+                  <span>{group.items.length}</span>
+                </div>
+                {group.items.map((item) => (
+                  <ModelOption
+                    key={item.id}
+                    id={modelOptionDomId(listboxId, item.id)}
+                    item={item}
+                    active={item.id === selected.id}
+                    highlighted={item.id === activeOptionId}
+                    statusLabels={statusLabels}
+                    onMouseEnter={() => item.enabled && setActiveOptionId(item.id)}
+                    onPick={() => pickItem(item)}
+                  />
+                ))}
               </div>
-              {group.items.map((item) => (
-                <ModelOption
-                  key={item.id}
-                  item={item}
-                  active={item.id === selected.id}
-                  statusLabels={statusLabels}
-                  onPick={() => {
-                    if (!item.enabled) return
-                    onChange(item.id)
-                    setOpen(false)
-                  }}
-                />
-              ))}
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       )}
     </div>
@@ -218,24 +285,35 @@ export function ModelSelect({
 }
 
 function ModelOption({
+  id,
   item,
   active,
+  highlighted,
   statusLabels,
+  onMouseEnter,
   onPick,
 }: {
+  id: string
   item: AIModelCatalogItem
   active: boolean
+  highlighted: boolean
   statusLabels?: ModelSelectStatusLabels
+  onMouseEnter: () => void
   onPick: () => void
 }) {
   return (
     <button
+      id={id}
       type="button"
+      role="option"
+      aria-selected={active}
       disabled={!item.enabled}
+      onMouseEnter={onMouseEnter}
       onClick={onPick}
       className={cn(
-        "group flex w-full items-center gap-2.5 rounded-md border px-2.5 py-1.5 text-left transition-colors",
+        "group flex w-full items-center gap-2.5 rounded-md border px-2.5 py-1.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal/45",
         active ? "border-signal/30 bg-signal/10" : "border-transparent hover:border-border hover:bg-muted/55",
+        highlighted && !active && "border-signal/25 bg-signal/5",
         item.enabled ? "" : "cursor-not-allowed opacity-55",
       )}
     >
@@ -264,6 +342,10 @@ function ModelOption({
       {active && <Check className="size-4 shrink-0 text-signal" />}
     </button>
   )
+}
+
+function modelOptionDomId(listboxId: string, modelId: string) {
+  return `${listboxId}-${modelId.replace(/[^a-zA-Z0-9_-]/g, "_")}`
 }
 
 function modelStatusLabel(item: AIModelCatalogItem, labels?: ModelSelectStatusLabels) {

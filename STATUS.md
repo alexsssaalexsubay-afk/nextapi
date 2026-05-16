@@ -1,6 +1,41 @@
-# STATUS — as of 2026-04-28
+# STATUS — as of 2026-05-16
 
 Legend: ✅ closed-loop (builds, tests pass, wired) · 🟡 compiles but not integration-tested · 🔴 stub / not started
+
+## Upstream quota monitor checkpoint (2026-05-16)
+
+- ✅ Added `provider_quota_snapshots` so each AI Provider can persist admin-visible balance snapshots with top-up total, used cents, remaining cents, low-balance threshold, period, sync mode, source, status, and raw evidence.
+- ✅ Backend admin endpoints now expose `GET /v1/internal/admin/provider-quotas`, OTP-protected `POST /v1/internal/admin/ai-providers/:id/quota/sync`, and OTP-protected manual snapshot recording. Sync supports OpenAI organization costs, NextAPI local ledger, and manual/provider-config snapshots.
+- ✅ Admin `/ai-providers` now has an upstream balance monitor panel with healthy/low/depleted/config-required/failed states, per-provider sync actions, remaining/used/total cards, period/source/mode evidence, and config hints for `quota_total_cents`, `quota_low_balance_cents`, and `quota_api_key_env`.
+
+Validation:
+
+- `go test ./backend/internal/aiprovider` → ✅ quota ledger and OpenAI-cost parser tests pass
+- `go test ./backend/internal/gateway` → ✅ admin handler package compiles
+- `go test ./backend/cmd/server` → ✅ route registration compiles
+- `go test ./backend/...` → ✅ all backend packages pass
+- `pnpm --filter @nextapi/admin typecheck` → ✅ exit 0
+- `pnpm --filter @nextapi/ui check-i18n` → ✅ `en` and `zh` key parity OK (`2221` leaf keys)
+- `pnpm --filter @nextapi/admin build` → ✅ compiled `/ai-providers` and admin routes
+- `git diff --check` → ✅ no whitespace errors
+
+## Product UI interaction/state checkpoint (2026-05-16)
+
+- ✅ Admin high-risk OTP is now a real confirmation state machine instead of a silent bypass: send/loading, retryable send error, code entry, verifying, cancel/escape, disabled submit, and explicit bypass notice all render in the dialog.
+- ✅ Dashboard Director, Canvas, Jobs, Batch, and shared shell/model controls now cover blocked, loading, empty, error, selected, disabled, running, failed, and recovery microstates more explicitly. Critical controls expose disabled reasons, retry paths, keyboard navigation, and readable status text instead of hover-only or color-only signals.
+- ✅ Canvas failures persist on screen through a dismissible notice and failed node annotations, so import/load/save/run/export/poll errors are not lost after a toast.
+- ✅ Jobs filtered-empty is distinct from global-empty; row expansion and shell/model command lists now have keyboard/listbox semantics.
+
+Validation:
+
+- `pnpm --filter @nextapi/dashboard typecheck` → ✅ exit 0
+- `pnpm --filter @nextapi/admin typecheck` → ✅ exit 0
+- `pnpm --filter @nextapi/ui check-i18n` → ✅ `en` and `zh` key parity OK (`2198` leaf keys)
+- `pnpm --filter @nextapi/dashboard build` → ✅ compiled `/jobs`, `/director`, `/canvas`, `/batch`, and related dashboard routes
+- `pnpm --filter @nextapi/admin build` → ✅ compiled `/ai-providers` and admin routes
+- `pnpm --filter @nextapi/site build` → ✅ compiled marketing/docs routes
+- `pnpm --filter @nextapi/nextcut build` → ✅ Vite production build passed
+- Local dev smoke: `http://localhost:3010/health` and `http://localhost:3012/health` → ✅ `status: ok`; protected `/jobs`, `/director`, `/canvas`, and `/ai-providers` returned expected 307 redirects to sign-in without runtime server errors.
 
 ## Latest verified checkpoint (2026-05-05)
 

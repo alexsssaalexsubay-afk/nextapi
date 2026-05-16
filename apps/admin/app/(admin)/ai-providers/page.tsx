@@ -31,6 +31,25 @@ type ProviderLog = {
   created_at: string
 }
 
+type ProviderQuotaSnapshot = {
+  id: number
+  provider_id?: string
+  provider: string
+  scope: string
+  mode: string
+  currency: string
+  total_cents?: number | null
+  used_cents: number
+  remaining_cents?: number | null
+  low_balance_cents?: number | null
+  period_start?: string
+  period_end?: string
+  status: string
+  message: string
+  source: string
+  created_at: string
+}
+
 type DirectorMeteringEvent = {
   id: number
   org_id: string
@@ -152,6 +171,7 @@ export default function AIProvidersPage() {
   const p = t.admin.aiProvidersPage
   const [providers, setProviders] = useState<AIProvider[]>([])
   const [logs, setLogs] = useState<ProviderLog[]>([])
+  const [quotaSnapshots, setQuotaSnapshots] = useState<ProviderQuotaSnapshot[]>([])
   const [directorStatus, setDirectorStatus] = useState<AIDirectorAdminStatus | null>(null)
   const [selected, setSelected] = useState<AIProvider | null>(null)
   const [loading, setLoading] = useState(true)
@@ -161,6 +181,7 @@ export default function AIProvidersPage() {
     action: string
     target: string
     hint: string
+    success: string
     run: (result: ConfirmedOTP) => Promise<void>
   } | null>(null)
   const [form, setForm] = useState({
@@ -183,13 +204,15 @@ export default function AIProvidersPage() {
     setLoading(true)
     setError(null)
     try {
-      const [providerRes, logRes, directorRes] = await Promise.all([
+      const [providerRes, logRes, quotaRes, directorRes] = await Promise.all([
         adminFetch("/ai-providers") as Promise<{ data?: AIProvider[] }>,
         adminFetch("/ai-provider-logs") as Promise<{ data?: ProviderLog[] }>,
+        adminFetch("/provider-quotas") as Promise<{ data?: ProviderQuotaSnapshot[] }>,
         adminFetch("/ai-director/status") as Promise<AIDirectorAdminStatus>,
       ])
       setProviders(providerRes.data ?? [])
       setLogs(logRes.data ?? [])
+      setQuotaSnapshots(quotaRes.data ?? [])
       setDirectorStatus(directorRes)
     } catch (e) {
       setError(e instanceof Error ? e.message : p.loadFailed)
@@ -246,8 +269,8 @@ export default function AIProvidersPage() {
     }))
   }
 
-  function withOTP(action: string, target: string, hint: string, run: (result: ConfirmedOTP) => Promise<void>) {
-    setPending({ action, target, hint, run })
+  function withOTP(action: string, target: string, hint: string, run: (result: ConfirmedOTP) => Promise<void>, success = p.saved) {
+    setPending({ action, target, hint, run, success })
   }
 
   async function handleOTP(result: OTPDialogResult) {
@@ -256,7 +279,7 @@ export default function AIProvidersPage() {
     if (!result.confirmed || !current) return
     try {
       await current.run(result)
-      setOk(p.saved)
+      setOk(current.success)
       await load()
     } catch (e) {
       setError(e instanceof Error ? e.message : p.saveFailed)
@@ -313,8 +336,13 @@ export default function AIProvidersPage() {
   function test(row: AIProvider) {
     withOTP("ai_provider.test", row.id, `${p.test}: ${row.name}`, async (result) => {
       await adminFetchWithOTP(`/ai-providers/${row.id}/test`, result.otpId, result.otpCode, { method: "POST" })
-      setOk(p.testOK)
-    })
+    }, p.testOK)
+  }
+
+  function syncQuota(row: AIProvider) {
+    withOTP("ai_provider.quota_sync", row.id, `${p.quotaSync}: ${row.name}`, async (result) => {
+      await adminFetchWithOTP(`/ai-providers/${row.id}/quota/sync`, result.otpId, result.otpCode, { method: "POST" })
+    }, p.quotaSyncOK)
   }
 
   function remove(row: AIProvider) {
@@ -398,6 +426,7 @@ export default function AIProvidersPage() {
           <label className="flex flex-col gap-1 text-xs text-muted-foreground">
             {p.configJSON}
             <textarea className="min-h-24 rounded-2xl border border-white/12 bg-background/55 px-3 py-2 font-mono text-xs text-foreground shadow-inner backdrop-blur-md focus:border-signal/45 focus:outline-none" value={form.configJSON} onChange={(e) => setForm((s) => ({ ...s, configJSON: e.target.value }))} />
+            <span className="leading-relaxed">{p.quotaConfigHint}</span>
           </label>
           <div className="flex gap-2">
             <button className="premium-button h-9 rounded-full border border-white/20 bg-[radial-gradient(circle_at_20%_0%,rgba(255,255,255,0.42),transparent_30%),linear-gradient(110deg,#2563eb_0%,#7c3aed_42%,#db2777_100%)] px-4 text-sm font-medium text-white" type="submit">{selected ? p.updateProvider : p.createProvider}</button>
@@ -425,6 +454,7 @@ export default function AIProvidersPage() {
             <CapabilityMatrix providers={providers} directorStatus={directorStatus} copy={p} />
             <DirectorJobsPanel jobs={directorStatus?.jobs} copy={p} />
             <DirectorMeteringPanel metering={directorStatus?.metering} copy={p} />
+            <ProviderQuotaPanel providers={providers} snapshots={quotaSnapshots} loading={loading} copy={p} onSync={syncQuota} />
             <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_120px]">
               <Field label={p.orgID} value={vipOrgID} onChange={setVipOrgID} />
               <button type="button" onClick={() => void loadEntitlement()} className="self-end rounded-full border border-white/12 bg-card/55 px-3 py-2 text-sm shadow-sm backdrop-blur-md">{p.loadVIP}</button>
@@ -441,7 +471,17 @@ export default function AIProvidersPage() {
           </section>
           <section className="premium-surface rounded-3xl p-5">
             <h2 className="mb-4 text-sm font-medium">{p.title}</h2>
-            {loading ? <div className="text-sm text-muted-foreground">{t.common.loading}...</div> : providers.length === 0 ? (
+            {loading ? (
+              <div className="space-y-2" aria-busy="true" aria-live="polite">
+                {Array.from({ length: 5 }, (_, index) => (
+                  <div key={index} className="grid grid-cols-[minmax(0,1fr)_72px_96px] items-center gap-3 rounded-xl border border-border/70 bg-background/45 px-3 py-3 md:grid-cols-[minmax(0,1.5fr)_80px_100px_minmax(0,1fr)_72px_72px_140px]">
+                    {Array.from({ length: 7 }, (_unused, cell) => (
+                      <span key={cell} className="h-3 rounded-full bg-muted" />
+                    ))}
+                  </div>
+                ))}
+              </div>
+            ) : providers.length === 0 ? (
               <div className="rounded-3xl border border-dashed border-white/15 bg-background/35 p-6 text-sm text-muted-foreground">
                 <div className="text-base font-medium text-foreground">{p.noProvidersTitle}</div>
                 <p className="mt-2 max-w-2xl leading-relaxed">{p.noProvidersBody}</p>
@@ -453,7 +493,21 @@ export default function AIProvidersPage() {
                   <tbody>{providers.map((row) => (
                     <tr key={row.id} className="border-t border-border">
                       <td className="py-2">{row.name}</td><td>{row.type}</td><td>{row.provider}</td><td className="font-mono text-xs">{row.key_hint || "-"}</td><td>{row.enabled ? p.enabled : p.disabled}</td><td>{row.is_default ? t.common.enabled : "-"}</td>
-                      <td className="space-x-3 text-right text-xs"><button onClick={() => edit(row)}>{t.common.edit}</button><button onClick={() => test(row)}>{p.test}</button><button disabled={!providerHasRunnableConfig(row)} className="disabled:cursor-not-allowed disabled:opacity-40" onClick={() => setDefault(row)}>{p.setDefault}</button><button className="text-destructive" onClick={() => remove(row)}>{p.delete}</button></td>
+                      <td className="space-x-3 text-right text-xs">
+	                        <button type="button" className="rounded-sm text-signal underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal/35" onClick={() => edit(row)}>{t.common.edit}</button>
+	                        <button type="button" className="rounded-sm text-signal underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal/35" onClick={() => test(row)}>{p.test}</button>
+	                        <button type="button" className="rounded-sm text-signal underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal/35" onClick={() => syncQuota(row)}>{p.quotaSync}</button>
+	                        <button
+                          type="button"
+                          disabled={!providerHasRunnableConfig(row)}
+                          title={!providerHasRunnableConfig(row) ? p.keyRequiredWhenEnabled : p.setDefault}
+                          className="rounded-sm text-signal underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal/35 disabled:cursor-not-allowed disabled:text-muted-foreground disabled:opacity-60"
+                          onClick={() => setDefault(row)}
+                        >
+                          {p.setDefault}
+                        </button>
+                        <button type="button" className="rounded-sm text-destructive underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive/35" onClick={() => remove(row)}>{p.delete}</button>
+                      </td>
                     </tr>
                   ))}</tbody>
                 </table>
@@ -599,6 +653,135 @@ function DirectorMeteringPanel({
   )
 }
 
+function ProviderQuotaPanel({
+  providers,
+  snapshots,
+  loading,
+  copy,
+  onSync,
+}: {
+  providers: AIProvider[]
+  snapshots: ProviderQuotaSnapshot[]
+  loading: boolean
+  copy: ReturnType<typeof useTranslations>["admin"]["aiProvidersPage"]
+  onSync: (provider: AIProvider) => void
+}) {
+  const latest = new Map<string, ProviderQuotaSnapshot>()
+  for (const snapshot of snapshots) {
+    if (snapshot.provider_id && !latest.has(snapshot.provider_id)) {
+      latest.set(snapshot.provider_id, snapshot)
+    }
+  }
+  return (
+    <div className="mb-5 rounded-3xl border border-white/12 bg-background/35 p-4 shadow-inner backdrop-blur-md">
+      <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h3 className="text-sm font-medium">{copy.quotaTitle}</h3>
+          <p className="mt-1 max-w-3xl text-xs leading-relaxed text-muted-foreground">{copy.quotaHint}</p>
+        </div>
+      </div>
+      {loading ? (
+        <div className="grid gap-3 md:grid-cols-2" aria-busy="true" aria-live="polite">
+          {Array.from({ length: 2 }, (_, index) => (
+            <div key={index} className="rounded-2xl border border-white/12 bg-card/45 p-3 shadow-sm backdrop-blur-md">
+              <div className="mb-3 h-4 rounded-full bg-muted" />
+              <div className="grid grid-cols-3 gap-2">
+                <span className="h-12 rounded-xl bg-muted" />
+                <span className="h-12 rounded-xl bg-muted" />
+                <span className="h-12 rounded-xl bg-muted" />
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : providers.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-white/12 bg-card/35 p-4 text-xs text-muted-foreground">
+          {copy.quotaNoProviders}
+        </div>
+      ) : (
+        <div className="grid gap-3 xl:grid-cols-2">
+          {providers.map((provider) => {
+            const snapshot = latest.get(provider.id)
+            const currency = snapshot?.currency || "USD"
+            return (
+              <article key={provider.id} className="rounded-2xl border border-white/12 bg-card/45 p-3 text-xs shadow-sm backdrop-blur-md">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="truncate text-sm font-medium">{provider.name}</span>
+                      <QuotaStatusPill status={snapshot?.status ?? "not_configured"} copy={copy} />
+                    </div>
+                    <div className="mt-1 font-mono text-[10px] text-muted-foreground">
+                      {provider.type} · {provider.provider} · {snapshot?.source || copy.quotaNoSnapshot}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => onSync(provider)}
+                    className="h-8 rounded-full border border-white/12 bg-background/55 px-3 text-xs font-medium shadow-sm backdrop-blur-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal/35"
+                  >
+                    {copy.quotaSync}
+                  </button>
+                </div>
+                <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                  <MetricCard label={copy.quotaRemaining} value={formatOptionalMoney(snapshot?.remaining_cents, currency)} />
+                  <MetricCard label={copy.quotaUsed} value={formatMoney(snapshot?.used_cents ?? 0, currency)} />
+                  <MetricCard label={copy.quotaTotal} value={formatOptionalMoney(snapshot?.total_cents, currency)} />
+                </div>
+                <div className="mt-3 grid gap-2 text-muted-foreground md:grid-cols-2">
+                  <CapabilityLine label={copy.quotaMode} value={snapshot?.mode ?? copy.quotaNoSnapshot} mono />
+                  <CapabilityLine label={copy.quotaLastSync} value={snapshot ? new Date(snapshot.created_at).toLocaleString() : copy.quotaNeverSynced} />
+                  <CapabilityLine label={copy.quotaPeriod} value={snapshot ? formatQuotaPeriod(snapshot) : "-"} mono />
+                  <CapabilityLine label={copy.quotaLowBalance} value={formatOptionalMoney(snapshot?.low_balance_cents, currency)} />
+                </div>
+                <p className={`mt-3 rounded-xl border px-3 py-2 leading-relaxed ${snapshot?.status === "failed" || snapshot?.status === "depleted" ? "border-rose-500/20 bg-rose-500/10 text-rose-500" : "border-white/12 bg-background/35 text-muted-foreground"}`}>
+                  {snapshot?.message || copy.quotaNoSnapshotHint}
+                </p>
+              </article>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function QuotaStatusPill({
+  status,
+  copy,
+}: {
+  status: string
+  copy: ReturnType<typeof useTranslations>["admin"]["aiProvidersPage"]
+}) {
+  const normalized = status.toLowerCase()
+  const color =
+    normalized === "failed" || normalized === "depleted" ? "border-rose-400/30 bg-rose-500/10 text-rose-500" :
+    normalized === "low_balance" ? "border-amber-400/30 bg-amber-500/10 text-amber-600" :
+    normalized === "healthy" ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-600" :
+    "border-border bg-muted/45 text-muted-foreground"
+  return <span className={`rounded-full border px-2 py-0.5 text-[10px] font-medium ${color}`}>{quotaStatusLabel(normalized, copy)}</span>
+}
+
+function quotaStatusLabel(status: string, copy: ReturnType<typeof useTranslations>["admin"]["aiProvidersPage"]) {
+  switch (status) {
+    case "healthy":
+      return copy.quotaHealthy
+    case "low_balance":
+      return copy.quotaLow
+    case "depleted":
+      return copy.quotaDepleted
+    case "config_required":
+      return copy.quotaConfigRequired
+    case "failed":
+      return copy.quotaFailed
+    case "unsupported":
+      return copy.quotaUnsupported
+    case "recorded":
+      return copy.quotaRecorded
+    default:
+      return copy.quotaNoSnapshot
+  }
+}
+
 function DirectorJobsPanel({
   jobs,
   copy,
@@ -676,11 +859,14 @@ function directorStepEvidence(step: DirectorStepEvent) {
 }
 
 function StatusPill({ status }: { status: string }) {
+  const normalized = status.toLowerCase()
   const color =
-    status === "failed" ? "border-rose-400/30 bg-rose-500/10 text-rose-500" :
-    status === "running" || status === "queued" || status === "planning" ? "border-sky-400/30 bg-sky-500/10 text-sky-600" :
-    status === "fallback" ? "border-amber-400/30 bg-amber-500/10 text-amber-600" :
-    "border-emerald-400/30 bg-emerald-500/10 text-emerald-600"
+    normalized === "failed" || normalized === "blocked" ? "border-rose-400/30 bg-rose-500/10 text-rose-500" :
+    normalized === "cancelled" ? "border-zinc-400/30 bg-zinc-500/10 text-zinc-500" :
+    normalized === "running" || normalized === "queued" || normalized === "planning" || normalized === "planning_requested" || normalized === "planning_running" || normalized === "execution_requested" ? "border-sky-400/30 bg-sky-500/10 text-sky-600" :
+    normalized === "fallback" || normalized === "degraded_workflow_ready" || normalized === "partial_success" ? "border-amber-400/30 bg-amber-500/10 text-amber-600" :
+    normalized === "succeeded" || normalized === "workflow_ready" || normalized === "video_complete" ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-600" :
+    "border-border bg-muted/45 text-muted-foreground"
   return <span className={`rounded-full border px-2 py-0.5 text-[10px] font-medium ${color}`}>{status}</span>
 }
 
@@ -838,8 +1024,22 @@ function isAvatarModel(model: string, name: string, config?: Record<string, unkn
   return haystack.includes("avatar") || haystack.includes("omnihuman") || haystack.includes("digital human") || haystack.includes("数字人")
 }
 
-function formatMoney(cents: number) {
-  return `$${(cents / 100).toFixed(2)}`
+function formatMoney(cents: number, currency = "USD") {
+  const normalized = currency.toUpperCase()
+  if (normalized === "USD") return `$${(cents / 100).toFixed(2)}`
+  return `${normalized} ${(cents / 100).toFixed(2)}`
+}
+
+function formatOptionalMoney(cents?: number | null, currency = "USD") {
+  if (typeof cents !== "number") return "-"
+  return formatMoney(cents, currency)
+}
+
+function formatQuotaPeriod(snapshot: ProviderQuotaSnapshot) {
+  const start = snapshot.period_start ? new Date(snapshot.period_start).toLocaleDateString() : ""
+  const end = snapshot.period_end ? new Date(snapshot.period_end).toLocaleDateString() : ""
+  if (start && end) return `${start} -> ${end}`
+  return start || end || "-"
 }
 
 function formatDirectorJobCost(job: DirectorJobEvent, estimatedLabel: string) {

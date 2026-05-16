@@ -103,12 +103,9 @@ export default function JobsPage() {
   const [fetchError, setFetchError] = React.useState<string | null>(null)
   const [activeFilter, setActiveFilter] = React.useState<FilterStatus>("all")
 
-  const loadJobs = React.useCallback((filterStatus: FilterStatus) => {
+  const loadJobs = React.useCallback(() => {
     let cancelled = false
-    const url = filterStatus === "all"
-      ? "/v1/videos?limit=50"
-      : `/v1/videos?limit=50&status=${filterStatus}`
-    apiFetch(url)
+    apiFetch("/v1/videos?limit=50")
       .then((res) => {
         if (cancelled) return
         if (res && Array.isArray(res.data)) {
@@ -125,15 +122,20 @@ export default function JobsPage() {
   }, [])
 
   React.useEffect(() => {
-    return loadJobs(activeFilter)
-  }, [activeFilter, loadJobs])
+    return loadJobs()
+  }, [loadJobs])
 
   // Decide effective state: explicit ?state= overrides; otherwise infer from data.
   const state: ListState =
     override ||
     (fetchError ? "error" : allRows === null ? "loading" : allRows.length === 0 ? "empty" : "default")
 
-  const rows = allRows
+  const rows = React.useMemo(() => {
+    if (!allRows) return allRows
+    if (activeFilter === "all") return allRows
+    return allRows.filter((row) => row.rawStatus === activeFilter || row.status === activeFilter)
+  }, [activeFilter, allRows])
+  const isFilteredEmpty = state === "default" && rows?.length === 0 && activeFilter !== "all"
 
   const counts = {
     all: allRows?.length ?? 0,
@@ -257,9 +259,26 @@ export default function JobsPage() {
           </button>
         </div>
 
-        {state === "default" && rows && <JobsTable rows={rows} />}
+        {state === "default" && rows && rows.length > 0 && <JobsTable rows={rows} />}
+        {isFilteredEmpty && (
+          <div className="rounded-xl border border-dashed border-border/80 bg-card/40 px-6 py-10 text-center">
+            <h3 className="text-[15px] font-medium tracking-tight text-foreground">
+              {t.jobs.filteredEmpty.title.replace("{status}", filters.find((filter) => filter.filterKey === activeFilter)?.label.toLowerCase() ?? activeFilter)}
+            </h3>
+            <p className="mx-auto mt-2 max-w-[440px] text-sm leading-relaxed text-muted-foreground">
+              {t.jobs.filteredEmpty.description}
+            </p>
+            <button
+              type="button"
+              onClick={() => setActiveFilter("all")}
+              className="mt-5 inline-flex h-8 items-center rounded-md bg-foreground px-3 text-[12.5px] font-medium text-background hover:bg-foreground/90"
+            >
+              {t.jobs.filteredEmpty.cta}
+            </button>
+          </div>
+        )}
         {state === "loading" && <LoadingRows rows={6} />}
-        {state === "empty" && <EmptyState />}
+        {state === "empty" && <EmptyState primaryHref="/jobs/new" />}
         {state === "error" && <ErrorState retryHref="/jobs" />}
       </div>
     </DashboardShell>

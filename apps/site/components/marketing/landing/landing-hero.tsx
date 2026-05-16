@@ -21,29 +21,29 @@ import { fetchMarketingSlots, type MarketingSlot } from "@/lib/marketing-slots"
 
 const COPY = {
   en: {
-    badge: "Seedance video infrastructure for production teams",
-    titleTop: "Ship your first",
-    titleAccent: "successful video",
-    titleTail: " job in minutes.",
+    badge: "Production video API control plane",
+    titleTop: "Generate, route, and reconcile",
+    titleAccent: " AI video",
+    titleTail: " without the ops drag.",
     subtitle:
-      "Clean API, async job handling, signed webhooks, and transparent credit reconciliation for Seedance-powered products.",
-    primaryCta: "Get Your API Key",
-    secondaryCta: "View Documentation",
-    trust: ["Create key", "Submit request", "Watch job state", "Receive webhook"],
+      "One API surface for video jobs, model routing, signed webhooks, credit reservation, and final cost reconciliation. Built for teams shipping real product flows, not one-off demos.",
+    primaryCta: "Open Dashboard",
+    secondaryCta: "Read API Docs",
+    trust: ["Reserve credits", "Route provider", "Track every job", "Reconcile on completion"],
     videoAria: "AI-generated video: drone orbiting a lighthouse at dusk",
     status: "Generating · 38s",
     prompt: "drone orbiting a lighthouse",
   },
   zh: {
-    badge: "面向生产团队的 Seedance 视频基础设施",
-    titleTop: "几分钟内完成",
-    titleAccent: "第一次成功",
-    titleTail: "视频任务。",
+    badge: "生产级 AI 视频 API 控制面",
+    titleTop: "生成、路由、对账",
+    titleAccent: " AI 视频",
+    titleTail: "不再靠人工救火。",
     subtitle:
-      "干净 API、异步任务、签名 Webhook，以及透明的点数预留/结算对账，服务 Seedance 视频产品。",
-    primaryCta: "获取 API Key",
-    secondaryCta: "查看文档",
-    trust: ["创建密钥", "提交请求", "观察任务状态", "接收 Webhook"],
+      "一套 API 同时处理视频任务、模型路由、签名 Webhook、点数预留和最终成本对账。为真实产品流而做，不是一次性 Demo。",
+    primaryCta: "打开控制台",
+    secondaryCta: "阅读 API 文档",
+    trust: ["预留点数", "路由供应商", "追踪任务状态", "完成后对账"],
     videoAria: "AI 生成视频：无人机黄昏环绕灯塔",
     status: "生成中 · 38s",
     prompt: "无人机环绕灯塔",
@@ -69,42 +69,36 @@ export function LandingHero() {
   }, [])
 
   return (
-    <section className="brand-aurora relative isolate overflow-hidden">
-      <div aria-hidden className="soft-noise pointer-events-none absolute inset-0 opacity-[0.28]" />
-      <div aria-hidden className="bg-grid bg-grid-fade pointer-events-none absolute inset-0 opacity-[0.16]" />
+    <section className="ops-canvas relative isolate overflow-hidden border-b border-border/70">
+      <div aria-hidden className="soft-noise pointer-events-none absolute inset-0 opacity-[0.18]" />
+      <div aria-hidden className="bg-grid bg-grid-fade pointer-events-none absolute inset-0 opacity-[0.12]" />
       <div
         aria-hidden
-        className="pointer-events-none absolute left-1/2 top-8 h-64 w-[86vw] -translate-x-1/2 rounded-full bg-white/20 blur-3xl dark:bg-white/5"
+        className="ops-hairline pointer-events-none absolute inset-x-0 top-0 h-px"
       />
 
-      <div className="mx-auto grid max-w-7xl grid-cols-1 items-center gap-14 px-6 pt-20 pb-24 lg:grid-cols-[1.05fr_1fr] lg:pt-28 lg:pb-32">
-        {/* LEFT — copy */}
-        <div>
-          {/* Badge */}
-          <div className="inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/45 px-3 py-1.5 text-[12px] font-semibold text-foreground/85 shadow-sm backdrop-blur-md dark:border-white/10 dark:bg-white/8">
+      <div className="mx-auto grid min-h-[calc(100svh-4rem)] max-w-7xl grid-cols-1 items-center gap-12 px-6 pt-16 pb-12 lg:grid-cols-[0.95fr_1.05fr] lg:pt-24">
+        <div className="relative z-10">
+          <div className="ops-pill inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-[12px] font-semibold text-foreground/85">
             <span className="relative inline-flex size-1.5">
-              <span className="absolute inset-0 animate-ping rounded-full bg-fuchsia-500 opacity-75" />
-              <span className="relative inline-block size-1.5 rounded-full bg-fuchsia-500" />
+              <span className="absolute inset-0 animate-ping rounded-full bg-status-success opacity-75" />
+              <span className="relative inline-block size-1.5 rounded-full bg-status-success" />
             </span>
             {copy.badge}
           </div>
 
-          {/* Headline */}
-          <h1 className="mt-6 max-w-3xl text-balance font-sans text-5xl font-semibold leading-[1.02] tracking-[-0.055em] text-foreground sm:text-7xl lg:text-[78px]">
+          <h1 className="mt-6 max-w-4xl text-balance font-sans text-5xl font-semibold leading-[1.02] tracking-tight text-foreground sm:text-7xl lg:text-[76px]">
             {copy.titleTop}
-            <br />
             <span className="bg-gradient-to-r from-blue-500 via-violet-500 to-fuchsia-500 bg-clip-text text-transparent drop-shadow-sm">
               {copy.titleAccent}
             </span>
             {copy.titleTail}
           </h1>
 
-          {/* Subtitle */}
           <p className="mt-6 max-w-xl text-pretty text-[16px] leading-relaxed text-muted-foreground">
             {copy.subtitle}
           </p>
 
-          {/* CTAs */}
           <div className="mt-8 flex flex-wrap items-center gap-3">
             <Link
               href="https://app.nextapi.top"
@@ -122,22 +116,20 @@ export function LandingHero() {
             </Link>
           </div>
 
-          {/* Trust checklist */}
-          <ul className="mt-8 flex flex-wrap gap-x-6 gap-y-2">
+          <ul className="mt-8 grid max-w-xl grid-cols-2 gap-2 sm:grid-cols-4">
             {copy.trust.map((t) => (
               <li
                 key={t}
-                className="flex items-center gap-2 text-[13px] text-muted-foreground"
+                className="ops-subpanel flex min-h-16 flex-col justify-between rounded-xl p-3 text-[12px] text-muted-foreground"
               >
-                <CheckCircle2 className="size-4 text-indigo-500 dark:text-indigo-400" />
-                {t}
+                <CheckCircle2 className="size-4 text-status-success" />
+                <span>{t}</span>
               </li>
             ))}
           </ul>
         </div>
 
-        {/* RIGHT — glowing player + code card */}
-        <div className="relative">
+        <div className="relative z-10 lg:translate-y-6">
           <HeroPlayerCard
             videoAria={copy.videoAria}
             status={copy.status}
@@ -145,6 +137,9 @@ export function LandingHero() {
             heroMain={heroMain}
           />
         </div>
+      </div>
+      <div aria-hidden className="mx-auto h-12 max-w-7xl px-6">
+        <div className="h-px bg-gradient-to-r from-transparent via-border to-transparent" />
       </div>
     </section>
   )
@@ -162,11 +157,11 @@ function HeroPlayerCard({
   heroMain: MarketingSlot | null
 }) {
   return (
-    <div className="relative mx-auto w-full max-w-xl">
-      <div aria-hidden className="absolute -left-10 top-16 size-40 rounded-full bg-cyan-400/25 blur-3xl" />
-      <div aria-hidden className="absolute -right-10 bottom-8 size-52 rounded-full bg-fuchsia-500/25 blur-3xl" />
+    <div className="relative mx-auto w-full max-w-2xl">
+      <div aria-hidden className="absolute -left-8 top-20 size-40 rounded-full bg-cyan-400/20 blur-3xl" />
+      <div aria-hidden className="absolute -right-10 bottom-8 size-52 rounded-full bg-amber-400/14 blur-3xl" />
 
-      <div className="premium-surface relative overflow-hidden rounded-[30px]">
+      <div className="ops-panel relative overflow-hidden rounded-2xl">
         {/* Window chrome */}
         <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
           <div className="flex items-center gap-1.5">
@@ -180,8 +175,8 @@ function HeroPlayerCard({
           </div>
         </div>
 
-        <div className="grid gap-3 p-3 sm:grid-cols-[1.18fr_0.82fr]">
-          <div className="relative aspect-[16/11] overflow-hidden rounded-2xl bg-muted shadow-inner">
+        <div className="grid gap-3 p-3 sm:grid-cols-[1.2fr_0.8fr]">
+          <div className="relative aspect-[16/11] overflow-hidden rounded-xl bg-muted shadow-inner">
           {heroMain?.url && heroMain.media_kind === "video" ? (
             <video
               className="absolute inset-0 h-full w-full object-cover"
@@ -229,14 +224,14 @@ function HeroPlayerCard({
             {status}
           </div>
 
-          <div className="absolute bottom-4 right-4 flex items-center gap-2 rounded-full border border-white/20 bg-white/12 px-3 py-1.5 text-[11px] font-medium text-white backdrop-blur-md">
+          <div className="absolute bottom-4 right-4 flex items-center gap-2 rounded-full border border-white/20 bg-white/12 px-3 py-1.5 text-[12px] font-medium text-white backdrop-blur-md">
             <Film className="size-3.5" />
             4 shots · 9:16 · 1080p
           </div>
           </div>
 
           <div className="flex min-h-[260px] flex-col gap-3">
-            <div className="rounded-2xl border border-white/10 bg-zinc-950/88 p-3 text-white shadow-2xl">
+            <div className="rounded-xl border border-white/10 bg-zinc-950/88 p-3 text-white shadow-2xl">
               <div className="mb-3 flex items-center justify-between">
                 <div className="flex items-center gap-2 text-[12px] font-semibold">
                   <Clapperboard className="size-4 text-fuchsia-300" />
@@ -253,7 +248,7 @@ function HeroPlayerCard({
                   ["Video", "Seedance / Kling"],
                 ].map(([label, value]) => (
                   <div key={label} className="rounded-xl border border-white/10 bg-white/[0.045] p-2">
-                    <div className="text-[10px] uppercase tracking-[0.18em] text-zinc-500">{label}</div>
+                    <div className="text-[11px] uppercase tracking-[0.14em] text-zinc-500">{label}</div>
                     <div className="mt-0.5 text-[12px] text-zinc-200">{value}</div>
                   </div>
                 ))}

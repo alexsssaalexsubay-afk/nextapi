@@ -322,7 +322,7 @@ export default function BatchStudioPage() {
       const res = (await apiFetch("/v1/batch/runs?limit=8")) as { data?: Record<string, unknown>[] }
       const rows = Array.isArray(res?.data) ? res.data.map(normalizeBatchRunRecord).filter((r) => r.id) : []
       setRecentRuns(rows)
-      if (!activeRunId && rows[0]?.id) {
+      if (!activeRunId && !rawRows && rows[0]?.id) {
         setActiveRunId(rows[0].id)
       }
     } catch (e) {
@@ -331,7 +331,7 @@ export default function BatchStudioPage() {
     } finally {
       setLoadingRuns(false)
     }
-  }, [activeRunId, tb.loadRunsFailed])
+  }, [activeRunId, rawRows, tb.loadRunsFailed])
 
   const loadRun = useCallback(
     async (runId: string) => {
@@ -432,6 +432,10 @@ export default function BatchStudioPage() {
   const onFile = async (file: File | null) => {
     if (!file) return
     setCsvName(file.name)
+    setActiveRunId(null)
+    setActiveRun(null)
+    setActiveRunManifest(null)
+    setBatchName((current) => current || file.name.replace(/\.csv$/i, ""))
     try {
       const text = await file.text()
       const { rows } = parseShotManifestCsv(text)

@@ -31,7 +31,7 @@ function StateFrame({ tone = "neutral", className, children }: StateFrameProps) 
 export function EmptyState({
   title,
   description,
-  primaryHref = "/dashboard/jobs/new",
+  primaryHref = "/jobs/new",
   primaryLabel,
   secondaryHref = "/docs",
   secondaryLabel,
@@ -142,7 +142,7 @@ export function ErrorState({
 
       <div className="mt-5 flex items-center gap-2">
         <Link
-          href={retryHref ?? "/dashboard/jobs"}
+          href={retryHref ?? "/jobs"}
           className="inline-flex h-8 items-center gap-1.5 rounded-md bg-foreground px-3 text-[12.5px] font-medium text-background hover:bg-foreground/90"
         >
           <RefreshCcw className="size-3.5" />
@@ -155,7 +155,7 @@ export function ErrorState({
           {t.jobs.error.status}
         </Link>
         <Link
-          href="/dashboard"
+          href="/"
           className="inline-flex h-8 items-center gap-1.5 rounded-md px-2 text-[12.5px] text-muted-foreground hover:text-foreground"
         >
           {t.common.dashboard}

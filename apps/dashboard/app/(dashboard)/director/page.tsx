@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { useEffect, useRef, useState, type ReactNode } from "react"
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import {
   AlertTriangle,
   ArrowRight,
@@ -36,6 +36,7 @@ type ActionFeedback = "success" | "error"
 type ActionButtonState = "available" | "disabled" | "loading" | ActionFeedback
 type ProofStepState = "done" | "active" | "waiting" | "blocked"
 type DirectorWorkspaceFocus = "brief" | "storyboard" | "workflow"
+type RemoteState = "loading" | "ready" | "error"
 
 type PipelineStep = {
   id: "brief" | "script" | "storyboard" | "references" | "workflow" | "canvas"
@@ -47,6 +48,18 @@ const DEFAULT_RESOLUTIONS = ["480p", "720p", "1080p"]
 const DIRECTOR_ZOOM_MIN = 0.88
 const DIRECTOR_ZOOM_MAX = 1.08
 const DIRECTOR_ZOOM_STEP = 0.05
+const NON_TERMINAL_DIRECTOR_STATUSES = new Set([
+  "planning",
+  "planning_requested",
+  "planning_running",
+  "workflow_ready",
+  "degraded_workflow_ready",
+  "execution_requested",
+  "queued",
+  "running",
+  "partial_success",
+  "video_complete",
+])
 
 export default function DirectorPage() {
   const t = useTranslations()
@@ -62,11 +75,15 @@ export default function DirectorPage() {
   const [videoModel, setVideoModel] = useState("seedance-2.0-pro")
   const [storyboard, setStoryboard] = useState<DirectorStoryboard | null>(null)
   const [status, setStatus] = useState<DirectorStatus | null>(null)
+  const [statusState, setStatusState] = useState<RemoteState>("loading")
+  const [statusError, setStatusError] = useState<string | null>(null)
   const [characters, setCharacters] = useState<CharacterRecord[]>([])
+  const [charactersState, setCharactersState] = useState<RemoteState>("loading")
   const [selectedCharacterIDs, setSelectedCharacterIDs] = useState<string[]>([])
   const [workflowID, setWorkflowID] = useState<string | null>(null)
   const [workflowRun, setWorkflowRun] = useState<WorkflowRunResult | null>(null)
   const [directorRuns, setDirectorRuns] = useState<DirectorRunSummary[]>([])
+  const [runsError, setRunsError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [busyStage, setBusyStage] = useState<BusyStage | null>(null)
   const [workspaceFocus, setWorkspaceFocus] = useState<DirectorWorkspaceFocus>("brief")
@@ -77,24 +94,45 @@ export default function DirectorPage() {
   const [error, setError] = useState<string | null>(null)
   const videoCatalog = useVideoModelCatalog()
 
-  useEffect(() => {
-    getDirectorStatus()
-      .then(setStatus)
-      .catch(() => setStatus(null))
-    listCharacters()
-      .then(setCharacters)
-      .catch(() => setCharacters([]))
-  }, [])
+  const refreshDirectorStatus = useCallback(async () => {
+    setStatusState("loading")
+    setStatusError(null)
+    try {
+      const next = await getDirectorStatus()
+      setStatus(next)
+      setStatusState("ready")
+    } catch (err) {
+      setStatus(null)
+      setStatusState("error")
+      setStatusError(err instanceof Error ? err.message : labels.statusUnavailable)
+    }
+  }, [labels.statusUnavailable])
 
-  const nonTerminalStatuses = new Set(["planning", "workflow_ready", "queued", "running", "video_complete"])
+  useEffect(() => {
+    void refreshDirectorStatus()
+  }, [refreshDirectorStatus])
+
+  useEffect(() => {
+    setCharactersState("loading")
+    listCharacters()
+      .then((next) => {
+        setCharacters(next)
+        setCharactersState("ready")
+      })
+      .catch(() => {
+        setCharacters([])
+        setCharactersState("error")
+      })
+  }, [])
 
   const loadRunsRef = useRef<() => Promise<void>>(async () => {})
   loadRunsRef.current = async () => {
     try {
       const page = await listDirectorRuns(5)
       setDirectorRuns(page.data ?? [])
-    } catch {
-      // keep previous state on error
+      setRunsError(null)
+    } catch (err) {
+      setRunsError(err instanceof Error ? err.message : labels.recentRunsLoadFailed)
     }
   }
 
@@ -104,7 +142,7 @@ export default function DirectorPage() {
 
   useEffect(() => {
     const latest = directorRuns[0]
-    if (!latest || !nonTerminalStatuses.has(latest.director_job.status)) return
+    if (!latest || !NON_TERMINAL_DIRECTOR_STATUSES.has(latest.director_job.status)) return
     const interval = setInterval(() => {
       void loadRunsRef.current()
     }, 5000)
@@ -333,12 +371,12 @@ export default function DirectorPage() {
   }
 
   const modelCatalogBlocked = videoCatalog.state !== "ready" || videoCatalog.modelIds.length === 0
-  const blocked = !status?.available || modelCatalogBlocked
+  const blocked = statusState !== "ready" || !status?.available || modelCatalogBlocked
   const imageBlocked = status != null && !status.image_provider_configured
   const storyMissing = story.trim() === ""
   const directorDisabled = loading || blocked || storyMissing
   const shotsDisabled = loading || blocked || storyMissing
-  const imagesDisabled = loading || imageBlocked || !storyboard
+  const imagesDisabled = loading || statusState !== "ready" || imageBlocked || !storyboard
   const workflowDisabled = loading || blocked || !storyboard
   const totalDuration = storyboard?.shots.reduce((sum, shot) => sum + Number(shot.duration || 0), 0) ?? shotCount * duration
   const estimatedCostCents = estimateDirectorVideoCostCents(videoModel, shotCount, duration, videoCatalog.priceCentsPerSecond)
@@ -362,6 +400,21 @@ export default function DirectorPage() {
   const shotsActionState = actionButtonState(shotsDisabled, busyStage === "shots", actionFeedback.shots)
   const imagesActionState = actionButtonState(imagesDisabled, busyStage === "images", actionFeedback.images)
   const workflowActionState = actionButtonState(workflowDisabled, busyStage === "workflow", actionFeedback.workflow)
+  const runtimeBlockReason = statusState === "loading"
+    ? labels.statusLoading
+    : statusState === "error"
+      ? statusError ?? labels.statusUnavailable
+      : modelCatalogBlocked
+        ? labels.modelCatalogUnavailable
+        : !status?.available
+          ? status?.blocking_reason === "vip_required" ? labels.vipRequired : labels.providerMissing
+          : undefined
+  const storyBlockReason = storyMissing ? labels.loopStoryWaiting : undefined
+  const storyboardBlockReason = !storyboard ? labels.loopStoryboardWaiting : undefined
+  const imageBlockReason = imageBlocked ? labels.imageProviderMissing : storyboardBlockReason
+  const directorDisabledReason = storyBlockReason ?? runtimeBlockReason
+  const shotsDisabledReason = storyBlockReason ?? runtimeBlockReason
+  const workflowDisabledReason = storyboardBlockReason ?? runtimeBlockReason
   const selectedCharacterSet = new Set(selectedCharacterIDs)
   const selectedCharacters = characters.filter((character) => selectedCharacterSet.has(character.id))
 
@@ -376,6 +429,7 @@ export default function DirectorPage() {
               focus={workspaceFocus}
               workflowID={workflowID}
               storyboard={storyboard}
+              selectedCharacterCount={selectedCharacters.length}
               onFocusChange={setWorkspaceFocus}
             />
 
@@ -444,6 +498,8 @@ export default function DirectorPage() {
                   imagesDisabled={imagesDisabled}
                   imagesActionState={imagesActionState}
                   workflowDisabled={workflowDisabled}
+                  imagesDisabledReason={imageBlockReason}
+                  workflowDisabledReason={workflowDisabledReason}
                   workflowActionState={workflowActionState}
                   onFocusChange={setWorkspaceFocus}
                   onSelectShot={setSelectedShotIndex}
@@ -498,6 +554,10 @@ export default function DirectorPage() {
                   resolutionOptions={resolutionOptions}
                   busyStage={busyStage}
                   estimatedBudget={estimatedBudget}
+                  directorDisabledReason={directorDisabledReason}
+                  shotsDisabledReason={shotsDisabledReason}
+                  imagesDisabledReason={imageBlockReason}
+                  workflowDisabledReason={workflowDisabledReason}
                   onGenerateDirector={() => void generateDirectorWorkflow()}
                   onGenerateShots={() => void generate()}
                   onGenerateImages={() => void generateImages()}
@@ -517,10 +577,11 @@ export default function DirectorPage() {
                 <span>{error}</span>
               </div>
             )}
-              <RuntimePanel status={status} storyboard={storyboard} labels={labels} />
+              <RuntimePanel status={status} statusState={statusState} statusError={statusError} storyboard={storyboard} labels={labels} onRetryStatus={() => void refreshDirectorStatus()} />
               <CharacterMemoryPicker
                 labels={labels}
                 characters={characters}
+                state={charactersState}
                 selectedIDs={selectedCharacterIDs}
                 onToggle={(id) => {
                   setSelectedCharacterIDs((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id])
@@ -532,6 +593,11 @@ export default function DirectorPage() {
               <HandoffPanel workflowID={workflowID} run={workflowRun} labels={labels} />
               <EngineEvidenceBanner storyboard={storyboard} status={status} labels={labels} />
               <RecentRunsPanel runs={directorRuns} labels={labels} />
+              {runsError ? (
+                <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-200">
+                  {labels.recentRunsLoadFailed}: {runsError}
+                </div>
+              ) : null}
               <ClosedLoopRail
                 story={story}
                 selectedCharacters={selectedCharacters}
@@ -556,6 +622,7 @@ function DirectorToolRail({
   focus,
   workflowID,
   storyboard,
+  selectedCharacterCount,
   onFocusChange,
 }: {
   labels: ReturnType<typeof useTranslations>["directorPage"]
@@ -563,11 +630,12 @@ function DirectorToolRail({
   focus: DirectorWorkspaceFocus
   workflowID: string | null
   storyboard: DirectorStoryboard | null
+  selectedCharacterCount: number
   onFocusChange: (focus: DirectorWorkspaceFocus) => void
 }) {
-  const items: Array<{ id: DirectorWorkspaceFocus | "memory" | "canvas"; label: string; icon: ReactNode; ready: boolean; focusTarget: DirectorWorkspaceFocus }> = [
+  const items: Array<{ id: DirectorWorkspaceFocus | "memory" | "canvas"; label: string; icon: ReactNode; ready: boolean; focusTarget: DirectorWorkspaceFocus; disabled?: boolean; hint?: string }> = [
     { id: "brief", label: labels.pipelineBrief, icon: <Clapperboard className="size-4" />, ready: activeId !== "brief", focusTarget: "brief" },
-    { id: "memory", label: labels.characterMemoryTitle, icon: <UsersRound className="size-4" />, ready: false, focusTarget: "brief" },
+    { id: "memory", label: labels.characterMemoryTitle, icon: <UsersRound className="size-4" />, ready: selectedCharacterCount > 0, focusTarget: "brief", disabled: true, hint: labels.characterMemoryRailHint },
     { id: "storyboard", label: labels.pipelineStoryboard, icon: <Film className="size-4" />, ready: Boolean(storyboard), focusTarget: "storyboard" },
     { id: "workflow", label: labels.pipelineWorkflow, icon: <Workflow className="size-4" />, ready: Boolean(workflowID), focusTarget: "workflow" },
     { id: "canvas", label: labels.pipelineCanvas, icon: <Route className="size-4" />, ready: Boolean(workflowID), focusTarget: "workflow" },
@@ -581,12 +649,16 @@ function DirectorToolRail({
           <button
             key={item.id}
             type="button"
+            disabled={item.disabled}
+            title={item.hint ?? item.label}
             onClick={() => onFocusChange(item.focusTarget)}
             className={cn(
               "group flex min-w-16 flex-1 flex-col items-center justify-center gap-1 rounded-lg border px-2 py-2 text-center text-[10.5px] transition lg:min-h-16 lg:w-full lg:flex-none",
               active ? "border-signal/45 bg-signal/12 text-signal" : "border-transparent text-muted-foreground hover:border-border hover:bg-background/70 hover:text-foreground",
+              item.disabled && "cursor-help hover:border-transparent hover:bg-transparent hover:text-muted-foreground",
             )}
             aria-pressed={active}
+            aria-disabled={item.disabled}
           >
             <span className={cn("grid size-8 place-items-center rounded-lg border", active ? "border-signal/30 bg-signal/10" : "border-border bg-background")}>{item.icon}</span>
             <span className="max-w-full truncate">{item.label}</span>
@@ -615,6 +687,8 @@ function DirectorCanvasBoard({
   imagesDisabled,
   imagesActionState,
   workflowDisabled,
+  imagesDisabledReason,
+  workflowDisabledReason,
   workflowActionState,
   onFocusChange,
   onSelectShot,
@@ -642,6 +716,8 @@ function DirectorCanvasBoard({
   imagesDisabled: boolean
   imagesActionState: ActionButtonState
   workflowDisabled: boolean
+  imagesDisabledReason?: string
+  workflowDisabledReason?: string
   workflowActionState: ActionButtonState
   onFocusChange: (focus: DirectorWorkspaceFocus) => void
   onSelectShot: (index: number) => void
@@ -729,6 +805,7 @@ function DirectorCanvasBoard({
                     state={imagesActionState}
                     onClick={onGenerateImages}
                     labels={labels}
+                    disabledReason={imagesDisabledReason}
                     compact
                     className="h-9"
                     icon={<ImageIcon className="size-3.5" />}
@@ -741,6 +818,7 @@ function DirectorCanvasBoard({
                     onClick={onCreateWorkflow}
                     labels={labels}
                     variant="signal"
+                    disabledReason={workflowDisabledReason}
                     compact
                     className="h-9"
                     icon={<Workflow className="size-3.5" />}
@@ -921,6 +999,10 @@ function DirectorComposer({
   resolutionOptions,
   busyStage,
   estimatedBudget,
+  directorDisabledReason,
+  shotsDisabledReason,
+  imagesDisabledReason,
+  workflowDisabledReason,
   onGenerateDirector,
   onGenerateShots,
   onGenerateImages,
@@ -970,6 +1052,10 @@ function DirectorComposer({
   resolutionOptions: string[]
   busyStage: BusyStage | null
   estimatedBudget: string
+  directorDisabledReason?: string
+  shotsDisabledReason?: string
+  imagesDisabledReason?: string
+  workflowDisabledReason?: string
   onGenerateDirector: () => void
   onGenerateShots: () => void
   onGenerateImages: () => void
@@ -1092,6 +1178,7 @@ function DirectorComposer({
                 onClick={onGenerateDirector}
                 labels={labels}
                 variant="primary"
+                disabledReason={directorDisabledReason}
                 className="h-10"
                 icon={<Sparkles className="size-4" />}
               >
@@ -1102,6 +1189,7 @@ function DirectorComposer({
                 state={shotsActionState}
                 onClick={onGenerateShots}
                 labels={labels}
+                disabledReason={shotsDisabledReason}
                 compact
                 className="h-10"
                 icon={<Film className="size-3.5" />}
@@ -1140,6 +1228,7 @@ function DirectorComposer({
                 state={imagesActionState}
                 onClick={onGenerateImages}
                 labels={labels}
+                disabledReason={imagesDisabledReason}
                 compact
                 className="h-10"
                 icon={<ImageIcon className="size-3.5" />}
@@ -1152,6 +1241,7 @@ function DirectorComposer({
                 onClick={onCreateWorkflow}
                 labels={labels}
                 variant="signal"
+                disabledReason={workflowDisabledReason}
                 compact
                 className="h-10"
                 icon={<Workflow className="size-3.5" />}
@@ -1189,6 +1279,7 @@ function DirectorComposer({
                 onClick={onGenerateDirector}
                 labels={labels}
                 variant="primary"
+                disabledReason={directorDisabledReason}
                 className="h-10"
                 icon={<Sparkles className="size-4" />}
               >
@@ -1199,6 +1290,7 @@ function DirectorComposer({
                 state={workflowActionState}
                 onClick={onCreateWorkflow}
                 labels={labels}
+                disabledReason={workflowDisabledReason}
                 compact
                 className="h-10"
                 icon={<Workflow className="size-3.5" />}
@@ -1467,6 +1559,7 @@ function ActionButton({
   compact = false,
   variant = "secondary",
   disabled,
+  disabledReason,
   onClick,
 }: {
   state: ActionButtonState
@@ -1477,6 +1570,7 @@ function ActionButton({
   compact?: boolean
   variant?: "primary" | "secondary" | "signal"
   disabled?: boolean
+  disabledReason?: string
   onClick: () => void
 }) {
   const meta = actionStateMeta(state, labels)
@@ -1484,9 +1578,12 @@ function ActionButton({
     <button
       type="button"
       disabled={disabled}
+      title={disabled && disabledReason ? disabledReason : undefined}
+      aria-busy={state === "loading" ? true : undefined}
+      aria-label={disabled && disabledReason ? `${String(children)}: ${disabledReason}` : undefined}
       onClick={onClick}
       className={cn(
-        "inline-flex min-w-0 items-center justify-center gap-2 rounded-lg border text-sm font-medium transition disabled:cursor-not-allowed",
+        "inline-flex min-w-0 items-center justify-center gap-2 rounded-lg border text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal/35 disabled:cursor-not-allowed",
         compact ? "px-3 text-[12px]" : "px-4",
         variant === "primary" && "border-foreground bg-foreground text-background hover:opacity-90 disabled:opacity-65",
         variant === "secondary" && "border-border bg-card text-foreground hover:bg-accent disabled:opacity-55",
@@ -1507,6 +1604,7 @@ function ActionButton({
       >
         {meta.label}
       </span>
+      {disabled && disabledReason ? <span className="sr-only">{disabledReason}</span> : null}
     </button>
   )
 }
@@ -1966,15 +2064,19 @@ function PipelineStepper({ steps, activeId, loading, compact = false }: { steps:
 function CharacterMemoryPicker({
   labels,
   characters,
+  state,
   selectedIDs,
   onToggle,
 }: {
   labels: ReturnType<typeof useTranslations>["directorPage"]
   characters: CharacterRecord[]
+  state: RemoteState
   selectedIDs: string[]
   onToggle: (id: string) => void
 }) {
   const visible = characters.slice(0, 6)
+  const loading = state === "loading"
+  const failed = state === "error"
   return (
     <section className="rounded-lg border border-border bg-background/70 p-2.5">
       <div className="flex items-start gap-3">
@@ -1991,10 +2093,23 @@ function CharacterMemoryPicker({
             ) : null}
           </div>
           <p className="mt-0.5 text-[11px] leading-relaxed text-muted-foreground">
-            {characters.length > 0 ? labels.characterMemorySubtitle : labels.characterMemoryEmpty}
+            {loading ? labels.characterMemoryLoading : failed ? labels.characterMemoryLoadFailed : characters.length > 0 ? labels.characterMemorySubtitle : labels.characterMemoryEmpty}
           </p>
         </div>
       </div>
+      {loading ? (
+        <div className="mt-3 flex gap-2 overflow-hidden pb-1" aria-busy="true">
+          {Array.from({ length: 3 }, (_, index) => (
+            <div key={index} className="flex min-w-32 items-center gap-2 rounded-lg border border-border bg-card/70 px-2 py-2">
+              <span className="size-9 shrink-0 rounded-md bg-muted" />
+              <span className="min-w-0 flex-1 space-y-1.5">
+                <span className="block h-3 rounded-full bg-muted" />
+                <span className="block h-2.5 w-2/3 rounded-full bg-muted" />
+              </span>
+            </div>
+          ))}
+        </div>
+      ) : null}
       {visible.length > 0 ? (
         <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
           {visible.map((character) => {
@@ -2031,7 +2146,21 @@ function CharacterMemoryPicker({
   )
 }
 
-function RuntimePanel({ status, storyboard, labels }: { status: DirectorStatus | null; storyboard: DirectorStoryboard | null; labels: ReturnType<typeof useTranslations>["directorPage"] }) {
+function RuntimePanel({
+  status,
+  statusState,
+  statusError,
+  storyboard,
+  labels,
+  onRetryStatus,
+}: {
+  status: DirectorStatus | null
+  statusState: RemoteState
+  statusError: string | null
+  storyboard: DirectorStoryboard | null
+  labels: ReturnType<typeof useTranslations>["directorPage"]
+  onRetryStatus: () => void
+}) {
   return (
     <section className="space-y-3 rounded-xl border border-border bg-card/82 p-4 shadow-sm">
       <div className="flex items-start gap-3">
@@ -2043,7 +2172,7 @@ function RuntimePanel({ status, storyboard, labels }: { status: DirectorStatus |
           <p className="mt-1 text-[12px] leading-relaxed text-muted-foreground">{labels.runtimeSubtitle}</p>
         </div>
       </div>
-      <StatusBanner status={status} labels={labels} />
+      <StatusBanner status={status} state={statusState} error={statusError} labels={labels} onRetry={onRetryStatus} />
       <div className="grid gap-2">
         <ProviderStatus label={labels.textProvider} ready={status?.text_provider_configured} labels={labels} />
         <ProviderStatus label={labels.imageProvider} ready={status?.image_provider_configured} labels={labels} />
@@ -2193,12 +2322,37 @@ function ShotTimelineMap({
   )
 }
 
-function StatusBanner({ status, labels }: { status: DirectorStatus | null; labels: ReturnType<typeof useTranslations>["directorPage"] }) {
-  if (!status) {
+function StatusBanner({
+  status,
+  state,
+  error,
+  labels,
+  onRetry,
+}: {
+  status: DirectorStatus | null
+  state: RemoteState
+  error: string | null
+  labels: ReturnType<typeof useTranslations>["directorPage"]
+  onRetry: () => void
+}) {
+  if (state === "loading") {
     return (
       <div className="flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 text-xs text-muted-foreground">
         <Loader2 className="size-3.5 animate-spin text-signal" />
         {labels.statusLoading}
+      </div>
+    )
+  }
+  if (state === "error" || !status) {
+    return (
+      <div className="flex items-start justify-between gap-3 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+        <div className="flex min-w-0 items-start gap-2">
+          <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
+          <span className="min-w-0">{error ?? labels.statusUnavailable}</span>
+        </div>
+        <button type="button" onClick={onRetry} className="shrink-0 rounded-md border border-destructive/30 bg-background/60 px-2 py-1 font-medium text-destructive transition hover:bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive/35">
+          {labels.statusRetry}
+        </button>
       </div>
     )
   }

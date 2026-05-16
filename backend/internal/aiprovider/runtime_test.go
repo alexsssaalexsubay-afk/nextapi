@@ -211,4 +211,26 @@ func migrateAIProviderTestTables(t *testing.T, db *gorm.DB) {
 	if err != nil {
 		t.Fatalf("migrate director_metering: %v", err)
 	}
+	err = db.Exec(`CREATE TABLE provider_quota_snapshots (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		provider_id TEXT,
+		provider TEXT NOT NULL DEFAULT '',
+		scope TEXT NOT NULL DEFAULT 'account',
+		mode TEXT NOT NULL DEFAULT 'local_ledger',
+		currency TEXT NOT NULL DEFAULT 'USD',
+		total_cents INTEGER,
+		used_cents INTEGER NOT NULL DEFAULT 0,
+		remaining_cents INTEGER,
+		low_balance_cents INTEGER,
+		period_start DATETIME,
+		period_end DATETIME,
+		status TEXT NOT NULL DEFAULT 'recorded',
+		message TEXT NOT NULL DEFAULT '',
+		source TEXT NOT NULL DEFAULT '',
+		raw_json TEXT NOT NULL DEFAULT '{}',
+		created_at DATETIME
+	)`).Error
+	if err != nil {
+		t.Fatalf("migrate provider_quota_snapshots: %v", err)
+	}
 }

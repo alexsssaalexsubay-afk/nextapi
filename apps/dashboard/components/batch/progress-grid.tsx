@@ -17,11 +17,11 @@ type Props = {
 }
 
 const phaseConfig = {
-  idle: { icon: Clock, color: "border-border/40 bg-muted/20", text: "text-muted-foreground" },
-  queued: { icon: Clock, color: "border-blue-500/30 bg-blue-500/5", text: "text-blue-500" },
-  running: { icon: Loader2, color: "border-amber-500/30 bg-amber-500/5", text: "text-amber-500" },
-  succeeded: { icon: CheckCircle2, color: "border-emerald-500/30 bg-emerald-500/5", text: "text-emerald-500" },
-  failed: { icon: AlertTriangle, color: "border-destructive/30 bg-destructive/5", text: "text-destructive" },
+  idle: { icon: Clock, color: "border-border/40 bg-muted/20", text: "text-muted-foreground", label: "Idle" },
+  queued: { icon: Clock, color: "border-blue-500/30 bg-blue-500/5", text: "text-blue-500", label: "Queued" },
+  running: { icon: Loader2, color: "border-amber-500/30 bg-amber-500/5", text: "text-amber-500", label: "Running" },
+  succeeded: { icon: CheckCircle2, color: "border-emerald-500/30 bg-emerald-500/5", text: "text-emerald-500", label: "Succeeded" },
+  failed: { icon: AlertTriangle, color: "border-destructive/30 bg-destructive/5", text: "text-destructive", label: "Failed" },
 } as const
 
 export function ProgressGrid({ shots }: Props) {
@@ -37,12 +37,17 @@ export function ProgressGrid({ shots }: Props) {
           <div
             key={shot.shot_id}
             className={`relative overflow-hidden rounded-lg border p-2.5 transition-colors ${cfg.color}`}
+            aria-label={`Shot ${i + 1}: ${cfg.label}`}
           >
             <div className="mb-1.5 flex items-center justify-between">
               <span className="font-mono text-[10px] text-muted-foreground">#{i + 1}</span>
               <Icon
                 className={`size-3.5 ${cfg.text} ${shot.phase === "running" ? "animate-spin" : ""}`}
+                aria-hidden="true"
               />
+            </div>
+            <div className={`mb-1 rounded-md font-mono text-[10px] uppercase tracking-[0.12em] ${cfg.text}`}>
+              {cfg.label}
             </div>
 
             {shot.videoUrl ? (

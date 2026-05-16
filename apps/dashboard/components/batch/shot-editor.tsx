@@ -145,6 +145,7 @@ export function ShotEditor({ shots, onChange, disabled }: Props) {
                       className="size-7"
                       onClick={() => moveUp(i)}
                       disabled={disabled || i === 0}
+                      aria-label={`Move shot ${i + 1} up`}
                     >
                       <ArrowUp className="size-3" />
                     </Button>
@@ -154,6 +155,7 @@ export function ShotEditor({ shots, onChange, disabled }: Props) {
                       className="size-7"
                       onClick={() => moveDown(i)}
                       disabled={disabled || i >= shots.length - 1}
+                      aria-label={`Move shot ${i + 1} down`}
                     >
                       <ArrowDown className="size-3" />
                     </Button>
@@ -163,6 +165,7 @@ export function ShotEditor({ shots, onChange, disabled }: Props) {
                       className="size-7 text-destructive hover:text-destructive"
                       onClick={() => remove(i)}
                       disabled={disabled}
+                      aria-label={`Remove shot ${i + 1}`}
                     >
                       <Trash2 className="size-3" />
                     </Button>
