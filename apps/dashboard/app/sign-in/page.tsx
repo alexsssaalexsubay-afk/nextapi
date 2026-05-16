@@ -100,14 +100,14 @@ export default function SignInPage() {
       <h1 className="text-[26px] font-semibold tracking-tight text-foreground text-balance">
         {t.auth.welcomeBack}
       </h1>
-      <p className="mt-2 mb-6 text-[13px] leading-relaxed text-muted-foreground text-pretty">
+      <p className="mt-2 mb-6 text-[14px] leading-relaxed text-muted-foreground text-pretty">
         {mode === "password" ? t.auth.signInSubtitle : t.auth.codeSignInSubtitle}
       </p>
 
       {serverError && (
         <div
           role="alert"
-          className="mb-4 flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-[12px] text-destructive"
+          className="mb-4 flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-[13px] text-destructive"
         >
           <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
           <span>{serverError}</span>
@@ -115,7 +115,7 @@ export default function SignInPage() {
       )}
 
       <form onSubmit={handleSubmit(submit)} className="flex flex-col gap-4" noValidate>
-        <div className="grid grid-cols-2 gap-2 rounded-xl border border-border/80 bg-background/38 p-1 text-[12px]">
+        <div className="grid grid-cols-2 gap-2 rounded-xl border border-border/80 bg-background/38 p-1 text-[13px]">
           {(["password", "code"] as const).map((item) => (
             <button
               key={item}
@@ -124,7 +124,8 @@ export default function SignInPage() {
                 setMode(item)
                 setServerError(null)
               }}
-              className={`rounded-lg px-3 py-2 transition-colors ${mode === item ? "bg-signal text-white shadow-sm" : "text-muted-foreground hover:bg-card/60 hover:text-foreground"}`}
+              data-selected={mode === item ? "true" : undefined}
+              className={`ops-interactive rounded-lg border border-transparent px-3 py-2 ${mode === item ? "bg-signal text-white shadow-sm" : "text-muted-foreground hover:bg-card/60 hover:text-foreground"}`}
             >
               {item === "password" ? t.auth.passwordLogin : t.auth.codeLogin}
             </button>
@@ -150,7 +151,7 @@ export default function SignInPage() {
               {...register("email")}
             />
           </div>
-          {errors.email && <p className="text-[12px] text-destructive">{errors.email.message}</p>}
+          {errors.email && <p className="text-[13px] text-destructive">{errors.email.message}</p>}
         </div>
 
         {mode === "password" ? (
@@ -159,7 +160,7 @@ export default function SignInPage() {
               <Label htmlFor="password" className="text-sm font-medium text-foreground">
                 {t.auth.password}
               </Label>
-              <Link href="/forgot-password" className="text-[12px] text-signal underline-offset-4 hover:underline">
+              <Link href="/forgot-password" className="ops-interactive rounded-md px-1 py-0.5 text-[13px] text-signal underline-offset-4 hover:underline">
                 {t.auth.forgotPassword}
               </Link>
             </div>
@@ -202,19 +203,19 @@ export default function SignInPage() {
                 type="button"
                 onClick={sendCode}
                 disabled={sendingCode}
-                className="absolute right-1 top-1/2 inline-flex h-8 -translate-y-1/2 items-center justify-center rounded-md px-3 text-[12px] font-medium text-signal transition-colors hover:bg-signal/10 disabled:opacity-60"
+                className="ops-interactive absolute right-1 top-1/2 inline-flex h-8 -translate-y-1/2 items-center justify-center rounded-md px-3 text-[13px] font-medium text-signal hover:bg-signal/10"
               >
                 {sendingCode ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : t.auth.sendCode}
               </button>
             </div>
-            {sentTo && <p className="text-[12px] text-muted-foreground">{t.auth.codeSentTo.replace("{email}", sentTo)}</p>}
+            {sentTo && <p className="text-[13px] text-muted-foreground">{t.auth.codeSentTo.replace("{email}", sentTo)}</p>}
           </div>
         )}
 
         <button
           type="submit"
           disabled={isLoading}
-          className="mt-2 inline-flex h-11 w-full items-center justify-center rounded-full bg-signal text-[14px] font-medium text-white shadow-[0_18px_45px_-26px] shadow-signal transition-all hover:translate-y-[-1px] hover:bg-signal/90 disabled:translate-y-0 disabled:opacity-70"
+          className="ops-interactive mt-2 inline-flex h-11 w-full items-center justify-center rounded-full bg-signal text-[14px] font-medium text-white shadow-[0_18px_45px_-26px] shadow-signal hover:translate-y-[-1px] hover:bg-signal/90"
         >
           {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <span>{t.auth.signIn}</span>}
         </button>

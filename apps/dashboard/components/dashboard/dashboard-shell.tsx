@@ -207,7 +207,7 @@ export function DashboardShell({
             <button
               type="button"
               onClick={toggleSidebar}
-              className={cn("rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground", sidebarCollapsed && "absolute left-1/2 -translate-x-1/2 opacity-0 focus:opacity-100")}
+              className={cn("ops-interactive rounded-md p-1.5 text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground", sidebarCollapsed && "absolute left-1/2 -translate-x-1/2 opacity-0 focus:opacity-100")}
               aria-label={sidebarCollapsed ? t.common.expandSidebar : t.common.collapseSidebar}
             >
               {sidebarCollapsed ? <PanelLeftOpen className="size-4" /> : <PanelLeftClose className="size-4" />}
@@ -220,7 +220,7 @@ export function DashboardShell({
                 <div className="flex size-5 items-center justify-center rounded-md border border-signal/20 bg-signal/10 text-signal">
                   <Building2 className="size-3.5" aria-hidden="true" />
                 </div>
-                <span className={cn("max-w-[130px] truncate text-[12.5px] text-foreground", sidebarCollapsed && "hidden")}>
+                <span className={cn("max-w-[130px] truncate text-[13px] text-foreground", sidebarCollapsed && "hidden")}>
                   {orgName ?? t.dashboard.command.workspace}
                 </span>
               </div>
@@ -245,8 +245,9 @@ export function DashboardShell({
                         <Link
                           href={item.href}
                           title={sidebarCollapsed ? item.label : undefined}
+                          aria-current={active ? "page" : undefined}
                           className={cn(
-                            "flex items-center gap-2.5 rounded-md px-2 py-1.5 text-[13px] transition-colors",
+                            "ops-interactive flex items-center gap-2.5 rounded-md px-2 py-2 text-[13.5px]",
                             sidebarCollapsed && "justify-center px-0",
                             active
                               ? "bg-gradient-to-r from-signal/16 via-signal/8 to-transparent text-foreground shadow-[inset_2px_0_0] shadow-signal"
@@ -271,13 +272,13 @@ export function DashboardShell({
 
           <div className="border-t border-sidebar-border p-3">
             {sidebarCollapsed && (
-              <button type="button" onClick={toggleSidebar} className="mb-2 flex w-full items-center justify-center rounded-md px-2 py-1.5 text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground" aria-label={t.common.expandSidebar}>
+              <button type="button" onClick={toggleSidebar} className="ops-interactive mb-2 flex w-full items-center justify-center rounded-md px-2 py-2 text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground" aria-label={t.common.expandSidebar}>
                 <PanelLeftOpen className="size-4" />
               </button>
             )}
             <a
               href="mailto:support@nextapi.top?subject=NextAPI%20support%20request"
-              className={cn("flex items-center gap-2.5 rounded-md px-2 py-1.5 text-[13px] text-muted-foreground transition-colors hover:text-foreground", sidebarCollapsed && "justify-center")}
+              className={cn("ops-interactive flex items-center gap-2.5 rounded-md px-2 py-2 text-[13.5px] text-muted-foreground hover:text-foreground", sidebarCollapsed && "justify-center")}
               title={sidebarCollapsed ? t.common.support : undefined}
             >
               <LifeBuoy className="size-4" />
@@ -289,7 +290,7 @@ export function DashboardShell({
                   <span className="absolute inset-0 rounded-full bg-status-success op-pulse" />
                   <span className="relative inline-block h-1.5 w-1.5 rounded-full bg-status-success" />
                 </span>
-                <span className="text-[12px] text-foreground">{t.cta.footer.allSystems}</span>
+                <span className="text-[13px] text-foreground">{t.cta.footer.allSystems}</span>
               </div>
               <div className="mt-1 font-mono text-[10.5px] text-muted-foreground">
                 NextAPI · production
@@ -316,7 +317,7 @@ export function DashboardShell({
                 <button
                   type="button"
                   onClick={() => setNavigationOpen((value) => !value)}
-                  className="grid size-8 place-items-center rounded-lg border border-border bg-card text-muted-foreground transition hover:bg-accent hover:text-foreground"
+                  className="ops-interactive grid size-8 place-items-center rounded-lg border border-border bg-card text-muted-foreground hover:bg-accent hover:text-foreground"
                   aria-label={t.common.expandSidebar}
                   aria-expanded={navigationOpen}
                 >
@@ -338,7 +339,7 @@ export function DashboardShell({
                                 onClick={() => openCommand(item)}
                                 aria-current={active ? "page" : undefined}
                                 className={cn(
-                                  "flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-xs transition",
+                                  "ops-interactive flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-[13px]",
                                   active ? "bg-accent text-foreground" : "text-muted-foreground hover:bg-accent hover:text-foreground",
                                 )}
                               >
@@ -361,7 +362,7 @@ export function DashboardShell({
           ) : (
             <div
               className={cn(
-                "ops-pill relative flex h-8 min-w-0 items-center gap-2 rounded-full px-3 text-left text-[12.5px] text-muted-foreground transition-colors focus-within:border-signal/45 focus-within:text-foreground",
+                "ops-pill relative flex h-8 min-w-0 items-center gap-2 rounded-full px-3 text-left text-[13px] text-muted-foreground transition-colors focus-within:border-signal/45 focus-within:text-foreground",
                 compactChrome ? "hidden max-w-sm flex-1 md:flex" : "max-w-xl flex-1",
               )}
               onBlur={() => window.setTimeout(() => setSearchOpen(false), 120)}
@@ -402,13 +403,13 @@ export function DashboardShell({
                   }
                 }}
                 placeholder={t.common.typeToSearch}
-                className="h-full min-w-0 flex-1 bg-transparent text-[12.5px] text-foreground placeholder:text-muted-foreground focus:outline-none"
+                className="h-full min-w-0 flex-1 bg-transparent text-[13px] text-foreground placeholder:text-muted-foreground focus:outline-none"
               />
               <Kbd>⌘K</Kbd>
               {searchOpen && (
                 <div id={commandListId} role="listbox" aria-label={t.common.typeToSearch} className="absolute left-0 top-[calc(100%+8px)] z-50 w-full min-w-[280px] overflow-hidden rounded-lg border border-border bg-popover p-1.5 shadow-lg">
                   {visibleCommandItems.length === 0 ? (
-                    <div className="px-3 py-2 text-xs text-muted-foreground">{t.common.empty}</div>
+                    <div className="px-3 py-2 text-[13px] text-muted-foreground">{t.common.empty}</div>
                   ) : visibleCommandItems.map((item, index) => {
                     const Icon = item.icon
                     const active = index === activeCommandIndex
@@ -423,7 +424,7 @@ export function DashboardShell({
                         onMouseEnter={() => setActiveCommandIndex(index)}
                         onClick={() => openCommand(item)}
                         className={cn(
-                          "flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-xs transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal/45",
+                          "ops-interactive flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-[13px]",
                           active ? "bg-accent text-foreground" : "text-muted-foreground hover:bg-accent hover:text-foreground",
                         )}
                       >
@@ -440,12 +441,12 @@ export function DashboardShell({
           {compactChrome && !immersive && title ? (
             <div className="hidden min-w-0 items-center gap-2 lg:flex">
               <span className="max-w-[260px] truncate text-[13px] font-medium tracking-tight text-foreground">{title}</span>
-              {description ? <span className="max-w-[360px] truncate text-[12px] text-muted-foreground xl:inline">{description}</span> : null}
+              {description ? <span className="max-w-[360px] truncate text-[13px] text-muted-foreground xl:inline">{description}</span> : null}
             </div>
           ) : null}
           <div className="ml-auto flex items-center gap-2">
             {compactChrome && actions ? <div className="hidden items-center gap-2 xl:flex">{actions}</div> : null}
-            <div className={cn("ops-pill hidden items-center gap-2 rounded-full px-3 py-1.5 text-[12px] text-muted-foreground", compactChrome ? "2xl:inline-flex" : "md:inline-flex")}>
+            <div className={cn("ops-pill hidden items-center gap-2 rounded-full px-3 py-1.5 text-[13px] text-muted-foreground", compactChrome ? "2xl:inline-flex" : "md:inline-flex")}>
               <span>{t.dashboard.stats.available}</span>
               <span className="font-mono text-foreground">
                 {balance !== null ? `$${(balance / 100).toFixed(2)}` : "—"}
@@ -453,7 +454,7 @@ export function DashboardShell({
             </div>
             <Link
               href="/billing"
-              className="premium-button rounded-full px-3 py-1.5 text-[12px] font-medium text-white"
+              className="premium-button rounded-full px-3 py-1.5 text-[13px] font-medium text-white"
             >
               {t.common.topUp}
             </Link>
@@ -464,7 +465,7 @@ export function DashboardShell({
                   void onSignOut()
                 }}
                 disabled={signingOut}
-                className="inline-flex h-7 items-center gap-1.5 rounded-md px-2.5 text-[12px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-50"
+                className="ops-interactive inline-flex h-7 items-center gap-1.5 rounded-md px-2.5 text-[13px] text-muted-foreground hover:bg-accent hover:text-foreground"
               >
                 <LogOut className="size-3.5" />
                 <span className={cn(immersive && "sr-only")}>{signingOut ? t.common.loading : t.common.signOut}</span>
@@ -484,7 +485,7 @@ export function DashboardShell({
               <div>
                 {title && <h1 className="text-[20px] font-medium tracking-tight">{title}</h1>}
                 {description && (
-                  <p className="mt-1 max-w-[640px] text-[13px] leading-relaxed text-muted-foreground">
+                  <p className="mt-1 max-w-[640px] text-[14px] leading-relaxed text-muted-foreground">
                     {description}
                   </p>
                 )}

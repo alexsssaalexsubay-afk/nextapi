@@ -3,7 +3,7 @@
 import * as React from "react"
 import Link from "next/link"
 import { useSearchParams } from "next/navigation"
-import { Play } from "lucide-react"
+import { Activity, Clock3, Play, ReceiptText, Webhook } from "lucide-react"
 import { DashboardShell } from "@/components/dashboard/dashboard-shell"
 import { JobsTable, type JobRow } from "@/components/dashboard/jobs-table"
 import { Button } from "@/components/ui/button"
@@ -173,7 +173,7 @@ export default function JobsPage() {
       actions={
         <Button
           asChild
-          className="h-8 gap-1.5 bg-foreground px-3 text-[12.5px] font-medium text-background hover:bg-foreground/90"
+          className="ops-interactive h-9 gap-1.5 bg-foreground px-3 text-[13px] font-medium text-background hover:bg-foreground/90"
         >
           <Link href="/jobs/new">
             <Play className="size-3.5" />
@@ -183,13 +183,34 @@ export default function JobsPage() {
       }
     >
       <div className="flex flex-col gap-5 p-6">
-        <div className="flex items-center justify-between rounded-lg border border-dashed border-border/80 bg-card/30 px-3 py-2">
-          <div className="flex items-center gap-2 text-[12px] text-muted-foreground">
-            <span className="font-mono uppercase tracking-[0.14em]">
-              {t.jobs.statePreview.label}
-            </span>
+        <section className="ops-panel overflow-hidden rounded-2xl">
+          <div className="grid gap-px bg-border/70 lg:grid-cols-[1.2fr_0.8fr]">
+            <div className="bg-background/36 p-5">
+              <div className="ops-pill inline-flex items-center gap-2 rounded-full px-3 py-1.5 font-mono text-[10.5px] uppercase tracking-[0.14em] text-muted-foreground">
+                <span className="size-1.5 rounded-full bg-status-success" />
+                job command center
+              </div>
+              <h2 className="mt-4 max-w-2xl text-2xl font-semibold tracking-tight text-foreground">
+                Inspect every video run from request to final reconciliation.
+              </h2>
+              <p className="mt-2 max-w-2xl text-[13px] leading-relaxed text-muted-foreground">
+                Filter live jobs, confirm provider identifiers, inspect reserved or billed credits, and jump into failed runs without losing operational context.
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-px bg-border/70">
+              <JobOpsMetric icon={Activity} label="loaded" value={String(counts.all)} />
+              <JobOpsMetric icon={Clock3} label="active" value={String(counts.running + counts.queued)} />
+              <JobOpsMetric icon={ReceiptText} label="succeeded" value={String(counts.succeeded)} />
+              <JobOpsMetric icon={Webhook} label="failed" value={String(counts.failed)} tone="failed" />
+            </div>
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex flex-col gap-3 border-t border-white/10 bg-background/26 px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex items-center gap-2 text-[13px] text-muted-foreground">
+              <span className="font-mono uppercase tracking-[0.14em]">
+                {t.jobs.statePreview.label}
+              </span>
+            </div>
+            <div className="flex flex-wrap items-center gap-1">
             {stateTabs.map((tab) => {
               const active = state === tab.key
               const href =
@@ -198,10 +219,11 @@ export default function JobsPage() {
                 <Link
                   key={tab.key}
                   href={href}
+                  data-selected={active ? "true" : undefined}
                   className={cn(
-                    "rounded-md px-2.5 py-1 text-[11.5px] transition-colors",
+                    "ops-interactive rounded-md border border-transparent px-2.5 py-1.5 text-[13px]",
                     active
-                      ? "bg-secondary text-foreground"
+                      ? "bg-signal text-white"
                       : "text-muted-foreground hover:text-foreground",
                   )}
                 >
@@ -212,8 +234,9 @@ export default function JobsPage() {
                 </Link>
               )
             })}
+            </div>
           </div>
-        </div>
+        </section>
 
         <div
           className={cn(
@@ -232,11 +255,12 @@ export default function JobsPage() {
                     setActiveFilter(f.filterKey)
                   }
                 }}
+                data-selected={isActive && state === "default" ? "true" : undefined}
                 className={cn(
-                  "inline-flex items-center gap-2 rounded-md border px-2.5 py-1 text-[12.5px] transition-colors",
+                  "ops-interactive inline-flex items-center gap-2 rounded-md border px-2.5 py-1.5 text-[13px]",
                   isActive && state === "default"
-                    ? "border-border bg-card text-foreground"
-                    : "border-border/60 bg-card/30 text-muted-foreground hover:border-border hover:text-foreground",
+                    ? "border-signal/35 bg-signal/10 text-foreground"
+                    : "border-border/60 bg-background/40 text-muted-foreground hover:border-border hover:text-foreground",
                 )}
               >
                 {f.status ? (
@@ -253,7 +277,7 @@ export default function JobsPage() {
           <div className="flex-1" />
           <button
             disabled={state !== "default"}
-            className="h-8 rounded-md border border-border/60 bg-card/30 px-2.5 text-[12px] text-muted-foreground transition-colors hover:border-border hover:text-foreground"
+            className="ops-interactive h-9 rounded-md border border-border/60 bg-card/30 px-2.5 text-[13px] text-muted-foreground hover:border-border hover:text-foreground"
           >
             {t.common.last24h}
           </button>
@@ -261,7 +285,7 @@ export default function JobsPage() {
 
         {state === "default" && rows && rows.length > 0 && <JobsTable rows={rows} />}
         {isFilteredEmpty && (
-          <div className="rounded-xl border border-dashed border-border/80 bg-card/40 px-6 py-10 text-center">
+          <div className="ops-panel rounded-2xl border-dashed px-6 py-10 text-center">
             <h3 className="text-[15px] font-medium tracking-tight text-foreground">
               {t.jobs.filteredEmpty.title.replace("{status}", filters.find((filter) => filter.filterKey === activeFilter)?.label.toLowerCase() ?? activeFilter)}
             </h3>
@@ -271,7 +295,7 @@ export default function JobsPage() {
             <button
               type="button"
               onClick={() => setActiveFilter("all")}
-              className="mt-5 inline-flex h-8 items-center rounded-md bg-foreground px-3 text-[12.5px] font-medium text-background hover:bg-foreground/90"
+              className="ops-interactive mt-5 inline-flex h-9 items-center rounded-md bg-foreground px-3 text-[13px] font-medium text-background hover:bg-foreground/90"
             >
               {t.jobs.filteredEmpty.cta}
             </button>
@@ -282,5 +306,25 @@ export default function JobsPage() {
         {state === "error" && <ErrorState retryHref="/jobs" />}
       </div>
     </DashboardShell>
+  )
+}
+
+function JobOpsMetric({
+  icon: Icon,
+  label,
+  value,
+  tone = "default",
+}: {
+  icon: React.ComponentType<{ className?: string }>
+  label: string
+  value: string
+  tone?: "default" | "failed"
+}) {
+  return (
+    <div className="bg-background/46 p-4">
+      <Icon className={cn("size-4", tone === "failed" ? "text-status-failed" : "text-signal")} />
+      <div className="mt-3 font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">{label}</div>
+      <div className="mt-1 font-mono text-2xl font-semibold tracking-tight text-foreground">{value}</div>
+    </div>
   )
 }

@@ -105,11 +105,11 @@ export default function DashboardHome() {
       description={t.dashboard.subtitle}
       actions={
         <>
-          <Link href="https://nextapi.top/docs" className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border bg-card px-3 text-[12.5px] shadow-sm transition-colors hover:bg-accent">
+          <Link href="https://nextapi.top/docs" className="ops-interactive inline-flex h-9 items-center gap-1.5 rounded-lg border border-border bg-card px-3 text-[13px] shadow-sm hover:bg-accent">
             <BookOpen className="size-3.5" />
             {t.common.readDocs}
           </Link>
-          <Link href="/jobs/new" className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-foreground px-3 text-[12.5px] font-medium text-background shadow-sm transition-opacity hover:opacity-90">
+          <Link href="/jobs/new" className="ops-interactive inline-flex h-9 items-center gap-1.5 rounded-lg bg-foreground px-3 text-[13px] font-medium text-background shadow-sm hover:opacity-90">
             <Play className="size-3.5" />
             {t.dashboard.onboarding.step3.title}
           </Link>
@@ -126,7 +126,7 @@ export default function DashboardHome() {
         <section className="ops-panel overflow-hidden rounded-2xl p-4 sm:p-5">
           <div className="flex flex-col gap-5 xl:flex-row xl:items-stretch xl:justify-between">
             <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-2 text-[12px] text-muted-foreground">
+              <div className="flex flex-wrap items-center gap-2 text-[13px] text-muted-foreground">
                 <StatusBadge>{t.dashboard.command.workspace}</StatusBadge>
                 <span className="truncate">{me?.org?.name ?? "NextAPI"}</span>
                 <span className="hidden text-border sm:inline">/</span>
@@ -157,7 +157,7 @@ export default function DashboardHome() {
                 <h2 className="text-[15px] font-medium tracking-tight text-foreground">
                   {t.dashboard.quickActions.title}
                 </h2>
-                <p className="mt-1 text-[12.5px] text-muted-foreground">{t.dashboard.quickActions.subtitle}</p>
+                <p className="mt-1 text-[13.5px] text-muted-foreground">{t.dashboard.quickActions.subtitle}</p>
               </div>
             </div>
             <div className="mt-4 grid gap-2 md:grid-cols-2">
@@ -195,9 +195,9 @@ export default function DashboardHome() {
                 <h2 className="text-[15px] font-medium tracking-tight text-foreground">
                   {t.dashboard.readiness.title}
                 </h2>
-                <p className="mt-1 text-[12.5px] text-muted-foreground">{t.dashboard.readiness.subtitle}</p>
+                <p className="mt-1 text-[13.5px] text-muted-foreground">{t.dashboard.readiness.subtitle}</p>
               </div>
-              <span className="font-mono text-[12px] text-muted-foreground">{readinessDone}/{readinessItems.length}</span>
+              <span className="font-mono text-[13px] text-muted-foreground">{readinessDone}/{readinessItems.length}</span>
             </div>
             <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-muted">
               <div className="h-full rounded-full bg-signal transition-all duration-500" style={{ width: `${readinessPct}%` }} />
@@ -222,11 +222,11 @@ export default function DashboardHome() {
               <h2 className="text-[15px] font-medium tracking-tight text-foreground">
                 {t.dashboard.recentJobs.title}
               </h2>
-              <p className="mt-1 text-[12.5px] text-muted-foreground">{t.dashboard.recentJobs.subtitle}</p>
+              <p className="mt-1 text-[13.5px] text-muted-foreground">{t.dashboard.recentJobs.subtitle}</p>
             </div>
             <Link
               href="/jobs"
-              className="inline-flex items-center gap-1.5 text-[12.5px] text-muted-foreground hover:text-foreground"
+              className="ops-interactive inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[13px] text-muted-foreground hover:text-foreground"
             >
               {t.dashboard.recentJobs.viewAll}
               <ArrowRight className="size-3.5" />
@@ -263,9 +263,9 @@ function MissionStep({
       <span className={`flex size-7 shrink-0 items-center justify-center rounded-md border ${done ? "border-status-success/40 bg-status-success/10 text-status-success" : "border-border bg-background text-muted-foreground"}`}>
         {done ? <CheckCircle2 className="size-3.5" /> : <Icon className="size-3.5" />}
       </span>
-      <span className={`min-w-0 flex-1 truncate text-[12.5px] ${done ? "text-foreground" : "text-muted-foreground"}`}>{label}</span>
+      <span className={`min-w-0 flex-1 truncate text-[13px] ${done ? "text-foreground" : "text-muted-foreground"}`}>{label}</span>
       <span className={cn(
-        "rounded-md border px-1.5 py-0.5 text-[10.5px]",
+        "rounded-md border px-1.5 py-0.5 text-[12px]",
         done
           ? "border-status-success/30 bg-status-success/10 text-status-success"
           : "border-border bg-background text-muted-foreground",
@@ -335,7 +335,7 @@ function HeroControlDeck({
           <span className="font-mono text-[10.5px] uppercase tracking-[0.14em] text-muted-foreground">
             route blueprint
           </span>
-          <span className="rounded-full border border-status-success/25 bg-status-success/10 px-2 py-0.5 font-mono text-[10px] text-status-success">
+          <span className="rounded-full border border-status-success/25 bg-status-success/10 px-2 py-0.5 font-mono text-[12px] text-status-success">
             ready
           </span>
         </div>
@@ -348,7 +348,7 @@ function HeroControlDeck({
             <div key={label} className="bg-background/56 p-3">
               <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">{label}</div>
               <div className="mt-2 truncate text-[13px] font-medium text-foreground">{value}</div>
-              <div className="mt-1 truncate text-[11.5px] text-muted-foreground">{hint}</div>
+              <div className="mt-1 truncate text-[13px] text-muted-foreground">{hint}</div>
             </div>
           ))}
         </div>
@@ -369,7 +369,7 @@ function EmptyJobs({ title, cta }: { title: string; cta: string }) {
           <Play className="size-5" />
         </div>
         <div className="mt-4 text-sm font-medium">{title}</div>
-        <Link href="/jobs/new" className="mt-4 inline-flex h-9 items-center gap-2 rounded-lg bg-foreground px-4 text-[12.5px] font-medium text-background shadow-sm transition-opacity hover:opacity-90">
+        <Link href="/jobs/new" className="ops-interactive mt-4 inline-flex h-9 items-center gap-2 rounded-lg bg-foreground px-4 text-[13px] font-medium text-background shadow-sm hover:opacity-90">
           {cta}
           <ArrowRight className="size-3.5" />
         </Link>
@@ -413,7 +413,7 @@ function MetricTile({
         )} />
       </div>
       <div className="mt-3 font-mono text-2xl font-semibold tracking-tight text-foreground">{value}</div>
-      <div className="mt-1 truncate text-[12px] text-muted-foreground">{caption}</div>
+      <div className="mt-1 truncate text-[13px] text-muted-foreground">{caption}</div>
     </div>
   )
 }
@@ -435,7 +435,7 @@ function ActionTile({
     <Link
       href={href}
       className={cn(
-    "group flex min-h-[92px] items-start gap-3 rounded-xl border p-3 transition-colors",
+        "ops-interactive group flex min-h-[96px] items-start gap-3 rounded-xl border p-3",
         primary
           ? "border-signal/35 bg-signal/10 hover:bg-signal/15"
           : "border-border bg-background/45 hover:bg-accent/70",
@@ -454,7 +454,7 @@ function ActionTile({
           {label}
           <ArrowRight className="size-3.5 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-foreground" />
         </span>
-        <span className="mt-1 block text-[12.5px] leading-relaxed text-muted-foreground">{description}</span>
+        <span className="mt-1 block text-[13px] leading-relaxed text-muted-foreground">{description}</span>
       </span>
     </Link>
   )

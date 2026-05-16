@@ -179,7 +179,7 @@ export function AdminShell({
           <button
             type="button"
             onClick={toggleSidebar}
-            className={cn("rounded-md p-1.5 text-muted-foreground transition hover:bg-sidebar-accent hover:text-foreground", sidebarCollapsed && "absolute left-1/2 -translate-x-1/2 opacity-0 focus:opacity-100")}
+            className={cn("ops-interactive rounded-md p-1.5 text-muted-foreground hover:bg-sidebar-accent hover:text-foreground", sidebarCollapsed && "absolute left-1/2 -translate-x-1/2 opacity-0 focus:opacity-100")}
             aria-label={sidebarCollapsed ? t.common.expandSidebar : t.common.collapseSidebar}
           >
             {sidebarCollapsed ? <PanelLeftOpen className="size-4" /> : <PanelLeftClose className="size-4" />}
@@ -193,7 +193,7 @@ export function AdminShell({
           <div className="ops-subpanel flex items-center justify-between rounded-xl px-2 py-1.5 shadow-sm backdrop-blur-md">
             <div className="flex items-center gap-2">
               <Terminal className="size-3.5 text-signal" />
-              <span className={cn("font-mono text-[11.5px] text-foreground", sidebarCollapsed && "sr-only")}>ops.nextapi.top</span>
+              <span className={cn("font-mono text-[13px] text-foreground", sidebarCollapsed && "sr-only")}>ops.nextapi.top</span>
             </div>
             <span className={cn("font-mono text-[9.5px] uppercase tracking-[0.16em] text-muted-foreground", sidebarCollapsed && "hidden")}>
               {t.admin.shell.prodBadge.toLowerCase()}
@@ -216,8 +216,9 @@ export function AdminShell({
                       <Link
                         href={item.href}
                         title={sidebarCollapsed ? item.label : undefined}
+                        aria-current={active ? "page" : undefined}
                         className={cn(
-                          "flex items-center gap-2.5 rounded-md px-2 py-1.5 text-[12.5px] transition-colors",
+                          "ops-interactive flex items-center gap-2.5 rounded-md px-2 py-2 text-[13.5px]",
                           sidebarCollapsed && "justify-center px-0",
                           active
                             ? "bg-gradient-to-r from-status-failed/16 via-signal/10 to-transparent text-foreground shadow-[inset_2px_0_0] shadow-status-failed"
@@ -253,7 +254,7 @@ export function AdminShell({
 
         <div className="border-t border-sidebar-border p-3">
           {sidebarCollapsed && (
-            <button type="button" onClick={toggleSidebar} className="mb-2 flex w-full items-center justify-center rounded-md px-2 py-1.5 text-muted-foreground hover:bg-sidebar-accent hover:text-foreground" aria-label={t.common.expandSidebar}>
+            <button type="button" onClick={toggleSidebar} className="ops-interactive mb-2 flex w-full items-center justify-center rounded-md px-2 py-2 text-muted-foreground hover:bg-sidebar-accent hover:text-foreground" aria-label={t.common.expandSidebar}>
               <PanelLeftOpen className="size-4" />
             </button>
           )}
@@ -262,7 +263,7 @@ export function AdminShell({
             target="_blank"
             rel="noreferrer"
             title={sidebarCollapsed ? t.nav.admin.runbooks : undefined}
-            className={cn("mb-2 flex items-center gap-2.5 rounded-md px-2 py-1.5 text-[12.5px] text-muted-foreground transition-colors hover:text-foreground", sidebarCollapsed && "justify-center")}
+            className={cn("ops-interactive mb-2 flex items-center gap-2.5 rounded-md px-2 py-2 text-[13.5px] text-muted-foreground hover:text-foreground", sidebarCollapsed && "justify-center")}
           >
             <LifeBuoy className="size-4" />
             <span className={cn(sidebarCollapsed && "sr-only")}>{t.nav.admin.runbooks}</span>
@@ -278,7 +279,7 @@ export function AdminShell({
               <div className="flex size-5 items-center justify-center rounded-md bg-signal/15 text-signal">
                 <UserCog className="size-3.5" aria-hidden="true" />
               </div>
-              <span className="text-[12px] text-foreground">{t.admin.shell.prodBadge.toLowerCase()}</span>
+              <span className="text-[13px] text-foreground">{t.admin.shell.prodBadge.toLowerCase()}</span>
             </div>
           </div>
         </div>
@@ -286,8 +287,8 @@ export function AdminShell({
 
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-30 flex h-12 items-center gap-4 border-b border-white/10 bg-background/70 px-6 shadow-[0_18px_70px_-58px] shadow-status-failed backdrop-blur-2xl">
-          <div className="flex items-center gap-2 font-mono text-[11.5px] text-muted-foreground">
-            <Link href="/" className="hover:text-foreground">
+          <div className="flex items-center gap-2 font-mono text-[13px] text-muted-foreground">
+            <Link href="/" className="ops-interactive rounded-md px-1.5 py-1 hover:text-foreground">
               admin
             </Link>
             <span className="text-muted-foreground/50">/</span>
@@ -297,7 +298,7 @@ export function AdminShell({
           </div>
           <div className="ml-auto flex items-center gap-3">
             <div
-              className="ops-pill relative flex h-7 w-[220px] items-center gap-2 rounded-full px-2.5 text-[11.5px] text-muted-foreground shadow-sm focus-within:border-status-failed/35 focus-within:text-foreground"
+              className="ops-pill relative flex h-8 w-[240px] items-center gap-2 rounded-full px-3 text-[13px] text-muted-foreground shadow-sm focus-within:border-status-failed/35 focus-within:text-foreground"
               onBlur={() => window.setTimeout(() => setJumpOpen(false), 120)}
             >
               <Search className="size-3.5" />
@@ -336,13 +337,13 @@ export function AdminShell({
                   }
                 }}
                 placeholder={t.admin.shell.jumpTo}
-                className="h-full min-w-0 flex-1 bg-transparent text-[11.5px] text-foreground placeholder:text-muted-foreground focus:outline-none"
+                className="h-full min-w-0 flex-1 bg-transparent text-[13px] text-foreground placeholder:text-muted-foreground focus:outline-none"
               />
               <Kbd>⌘K</Kbd>
               {jumpOpen && (
                 <div id={commandListId} role="listbox" aria-label={t.admin.shell.jumpTo} className="absolute right-0 top-[calc(100%+8px)] z-50 w-[280px] overflow-hidden rounded-2xl border border-white/12 bg-popover/95 p-1.5 shadow-2xl shadow-status-failed/10 backdrop-blur-2xl">
                   {visibleCommandItems.length === 0 ? (
-                    <div className="px-3 py-2 text-xs text-muted-foreground">{t.common.empty}</div>
+                    <div className="px-3 py-2 text-[13px] text-muted-foreground">{t.common.empty}</div>
                   ) : visibleCommandItems.map((item, index) => {
                     const Icon = item.icon
                     const active = index === activeCommandIndex
@@ -357,7 +358,7 @@ export function AdminShell({
                         onMouseEnter={() => setActiveCommandIndex(index)}
                         onClick={() => openCommand(item)}
                         className={cn(
-                          "flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-left text-xs transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-status-failed/40",
+                          "ops-interactive flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-left text-[13px]",
                           active ? "bg-status-failed/10 text-foreground" : "text-muted-foreground hover:bg-status-failed/10 hover:text-foreground",
                         )}
                       >
@@ -389,7 +390,7 @@ export function AdminShell({
                 void onSignOut()
               }}
               disabled={signingOut}
-              className="ops-pill inline-flex h-7 items-center gap-1.5 rounded-full px-2.5 text-[11.5px] text-muted-foreground shadow-sm transition-colors hover:border-border hover:bg-card hover:text-foreground disabled:opacity-50"
+              className="ops-interactive ops-pill inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-[13px] text-muted-foreground shadow-sm hover:border-border hover:bg-card hover:text-foreground"
             >
               <LogOut className="size-3.5" />
               {signingOut ? t.common.loading : t.common.signOut}
@@ -409,7 +410,7 @@ export function AdminShell({
                   </h1>
                 )}
                 {description && (
-                  <p className="mt-1 max-w-[680px] text-[13px] leading-relaxed text-muted-foreground">
+                  <p className="mt-1 max-w-[680px] text-[14px] leading-relaxed text-muted-foreground">
                     {description}
                   </p>
                 )}

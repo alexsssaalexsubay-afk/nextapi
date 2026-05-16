@@ -61,13 +61,13 @@ export function EmptyState({
       <div className="mt-5 flex items-center gap-2">
         <Link
           href={primaryHref}
-          className="inline-flex h-8 items-center gap-1.5 rounded-md bg-foreground px-3 text-[12.5px] font-medium text-background hover:bg-foreground/90"
+          className="ops-interactive inline-flex h-9 items-center gap-1.5 rounded-md bg-foreground px-3 text-[13px] font-medium text-background hover:bg-foreground/90"
         >
           {primaryLabel ?? t.jobs.empty.cta}
         </Link>
         <Link
           href={secondaryHref}
-          className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border/80 bg-card/40 px-3 text-[12.5px] text-foreground hover:bg-card"
+          className="ops-interactive inline-flex h-9 items-center gap-1.5 rounded-md border border-border/80 bg-card/40 px-3 text-[13px] text-foreground hover:bg-card"
         >
           {secondaryLabel ?? t.jobs.empty.secondary}
         </Link>
@@ -81,10 +81,10 @@ export function LoadingRows({ rows = 6 }: { rows?: number }) {
   return (
     <div className="overflow-hidden rounded-xl border border-border/80 bg-card/40">
       <div className="flex items-center justify-between border-b border-border/60 bg-card/70 px-4 py-2.5">
-        <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+        <span className="font-mono text-[12px] uppercase tracking-[0.14em] text-muted-foreground">
           {t.jobs.loading.title}
         </span>
-        <span className="inline-flex items-center gap-2 font-mono text-[11px] text-muted-foreground">
+        <span className="inline-flex items-center gap-2 font-mono text-[12px] text-muted-foreground">
           <span className="size-2.5 animate-spin rounded-full border border-muted-foreground border-t-transparent" />
           api.nextapi.top
         </span>
@@ -92,12 +92,12 @@ export function LoadingRows({ rows = 6 }: { rows?: number }) {
       <div className="divide-y divide-border/60">
         {Array.from({ length: rows }).map((_, i) => (
           <div key={i} className="flex items-center gap-4 px-4 py-3.5" style={{ animationDelay: `${i * 60}ms` }}>
-            <div className="h-3 w-40 rounded-sm bg-muted-foreground/10 op-shimmer" />
-            <div className="h-5 w-20 rounded-full bg-muted-foreground/10 op-shimmer" />
-            <div className="h-3 w-28 rounded-sm bg-muted-foreground/10 op-shimmer" />
-            <div className="h-3 flex-1 rounded-sm bg-muted-foreground/10 op-shimmer" />
-            <div className="h-3 w-16 rounded-sm bg-muted-foreground/10 op-shimmer" />
-            <div className="h-3 w-20 rounded-sm bg-muted-foreground/10 op-shimmer" />
+            <div className="ops-loading-stripes h-3 w-40 rounded-sm bg-muted-foreground/10 op-shimmer" />
+            <div className="ops-loading-stripes h-5 w-20 rounded-full bg-muted-foreground/10 op-shimmer" />
+            <div className="ops-loading-stripes h-3 w-28 rounded-sm bg-muted-foreground/10 op-shimmer" />
+            <div className="ops-loading-stripes h-3 flex-1 rounded-sm bg-muted-foreground/10 op-shimmer" />
+            <div className="ops-loading-stripes h-3 w-16 rounded-sm bg-muted-foreground/10 op-shimmer" />
+            <div className="ops-loading-stripes h-3 w-20 rounded-sm bg-muted-foreground/10 op-shimmer" />
           </div>
         ))}
       </div>
@@ -143,20 +143,20 @@ export function ErrorState({
       <div className="mt-5 flex items-center gap-2">
         <Link
           href={retryHref ?? "/jobs"}
-          className="inline-flex h-8 items-center gap-1.5 rounded-md bg-foreground px-3 text-[12.5px] font-medium text-background hover:bg-foreground/90"
+          className="ops-interactive inline-flex h-9 items-center gap-1.5 rounded-md bg-foreground px-3 text-[13px] font-medium text-background hover:bg-foreground/90"
         >
           <RefreshCcw className="size-3.5" />
           {t.jobs.error.cta}
         </Link>
         <Link
           href="https://status.nextapi.top"
-          className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border/80 bg-card/40 px-3 text-[12.5px] text-foreground hover:bg-card"
+          className="ops-interactive inline-flex h-9 items-center gap-1.5 rounded-md border border-border/80 bg-card/40 px-3 text-[13px] text-foreground hover:bg-card"
         >
           {t.jobs.error.status}
         </Link>
         <Link
           href="/"
-          className="inline-flex h-8 items-center gap-1.5 rounded-md px-2 text-[12.5px] text-muted-foreground hover:text-foreground"
+          className="ops-interactive inline-flex h-9 items-center gap-1.5 rounded-md px-2 text-[13px] text-muted-foreground hover:text-foreground"
         >
           {t.common.dashboard}
         </Link>

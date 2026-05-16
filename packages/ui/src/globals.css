@@ -8,6 +8,93 @@
 
 @custom-variant dark (&:is(.dark *));
 
+@font-face {
+  font-family: "NextAPI Sans";
+  src: url("./fonts/nextapi-sans-latin.woff2") format("woff2");
+  font-display: swap;
+  font-style: normal;
+  font-weight: 100 900;
+  unicode-range:
+    U+0000-00FF,
+    U+0131,
+    U+0152-0153,
+    U+02BB-02BC,
+    U+02C6,
+    U+02DA,
+    U+02DC,
+    U+0304,
+    U+0308,
+    U+0329,
+    U+2000-206F,
+    U+2074,
+    U+20AC,
+    U+2122,
+    U+2191,
+    U+2193,
+    U+2212,
+    U+2215,
+    U+FEFF,
+    U+FFFD;
+}
+
+@font-face {
+  font-family: "NextAPI Display";
+  src: url("./fonts/nextapi-display-latin.woff2") format("woff2");
+  font-display: swap;
+  font-style: normal;
+  font-weight: 100 900;
+  unicode-range:
+    U+0000-00FF,
+    U+0131,
+    U+0152-0153,
+    U+02BB-02BC,
+    U+02C6,
+    U+02DA,
+    U+02DC,
+    U+0304,
+    U+0308,
+    U+0329,
+    U+2000-206F,
+    U+2074,
+    U+20AC,
+    U+2122,
+    U+2191,
+    U+2193,
+    U+2212,
+    U+2215,
+    U+FEFF,
+    U+FFFD;
+}
+
+@font-face {
+  font-family: "NextAPI Mono";
+  src: url("./fonts/nextapi-mono-latin.woff2") format("woff2");
+  font-display: swap;
+  font-style: normal;
+  font-weight: 100 900;
+  unicode-range:
+    U+0000-00FF,
+    U+0131,
+    U+0152-0153,
+    U+02BB-02BC,
+    U+02C6,
+    U+02DA,
+    U+02DC,
+    U+0304,
+    U+0308,
+    U+0329,
+    U+2000-206F,
+    U+2074,
+    U+20AC,
+    U+2122,
+    U+2191,
+    U+2193,
+    U+2212,
+    U+2215,
+    U+FEFF,
+    U+FFFD;
+}
+
 /* NextAPI — refined operator theme.
    Premium dark with transparent depth (not pure black).
    Accent = indigo/purple gradient — brand signal.
@@ -17,6 +104,10 @@
    LIGHT MODE
    ═══════════════════════════════════════════════════════════════ */
 :root {
+  --nextapi-font-sans: "NextAPI Sans", Inter, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --nextapi-font-display: "NextAPI Display", "NextAPI Sans", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", ui-sans-serif, system-ui, sans-serif;
+  --nextapi-font-mono: "NextAPI Mono", "SFMono-Regular", "SF Mono", Consolas, "Liberation Mono", ui-monospace, monospace;
+
   /* Zinc + white scale, aligned with landing page */
   --background: oklch(1 0 0);                    /* pure white */
   --foreground: oklch(0.205 0.01 260);           /* zinc-900 */
@@ -178,8 +269,8 @@
 }
 
 @theme inline {
-  --font-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --font-mono: "SFMono-Regular", "SF Mono", Consolas, "Liberation Mono", ui-monospace, monospace;
+  --font-sans: var(--nextapi-font-sans);
+  --font-mono: var(--nextapi-font-mono);
 
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -253,7 +344,21 @@
   }
   body {
     @apply bg-background text-foreground antialiased;
-    font-feature-settings: "cv11", "ss01", "ss03";
+    font-family: var(--nextapi-font-sans);
+    font-feature-settings: "cv11", "ss01", "ss03", "liga", "calt";
+    font-optical-sizing: auto;
+    text-rendering: optimizeLegibility;
+  }
+
+  :where(h1, h2, h3, .font-display) {
+    font-family: var(--nextapi-font-display);
+    font-feature-settings: "cv11", "ss01", "ss03", "liga", "calt";
+    font-optical-sizing: auto;
+  }
+
+  :where(.font-mono, code, kbd, samp, pre) {
+    font-feature-settings: "liga" 0, "calt" 0, "tnum" 1, "zero" 1;
+    font-variant-numeric: tabular-nums;
   }
 
   /* Inline keyword emphasis — use sparingly, max 10 per page. */
@@ -431,6 +536,73 @@
       inset 0 1px 0 rgba(255,255,255,0.16);
   }
 
+  .ops-interactive {
+    cursor: pointer;
+    touch-action: manipulation;
+    transition:
+      background-color 0.16s ease,
+      border-color 0.16s ease,
+      color 0.16s ease,
+      box-shadow 0.16s ease,
+      opacity 0.16s ease,
+      transform 0.14s ease;
+  }
+
+  .ops-interactive:hover {
+    border-color: color-mix(in oklch, var(--signal) 28%, var(--border));
+    box-shadow:
+      0 12px 30px color-mix(in oklch, var(--signal) 10%, transparent),
+      inset 0 1px 0 color-mix(in oklch, white 18%, transparent);
+  }
+
+  .ops-interactive:active {
+    filter: brightness(0.98) saturate(0.98);
+  }
+
+  .ops-interactive:focus-visible {
+    outline: 2px solid color-mix(in oklch, var(--signal) 58%, transparent);
+    outline-offset: 2px;
+    box-shadow:
+      0 0 0 4px color-mix(in oklch, var(--signal) 14%, transparent),
+      0 12px 30px color-mix(in oklch, var(--signal) 10%, transparent);
+  }
+
+  .ops-interactive:disabled,
+  .ops-interactive[aria-disabled="true"] {
+    cursor: not-allowed;
+    filter: none;
+    opacity: 0.52;
+    transform: none;
+    box-shadow: none;
+  }
+
+  .ops-interactive[aria-current="page"],
+  .ops-interactive[aria-selected="true"],
+  .ops-interactive[data-selected="true"] {
+    box-shadow:
+      inset 2px 0 0 color-mix(in oklch, var(--signal) 84%, transparent),
+      inset 0 1px 0 color-mix(in oklch, white 18%, transparent);
+  }
+
+  .ops-loading-stripes {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .ops-loading-stripes::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(
+      90deg,
+      transparent,
+      color-mix(in oklch, var(--foreground) 8%, transparent),
+      transparent
+    );
+    animation: ops-loading-sweep 1.4s ease-in-out infinite;
+  }
+
   .soft-noise {
     background-image:
       radial-gradient(circle at 1px 1px, color-mix(in oklch, var(--foreground) 8%, transparent) 1px, transparent 0);
@@ -482,5 +654,27 @@
 
   .ops-hairline {
     background: linear-gradient(90deg, transparent, color-mix(in oklch, var(--signal) 42%, transparent), transparent);
+  }
+}
+
+@keyframes ops-loading-sweep {
+  to {
+    transform: translateX(100%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ops-interactive,
+  .premium-button {
+    transition-duration: 0.01ms !important;
+  }
+
+  .premium-button:active,
+  .premium-button:hover {
+    transform: none;
+  }
+
+  .ops-loading-stripes::after {
+    animation: none;
   }
 }

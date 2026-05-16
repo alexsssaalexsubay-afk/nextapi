@@ -46,7 +46,7 @@ export default function AdminSignInPage() {
             </span>
           </div>
           <div className="mt-14 max-w-lg">
-            <div className="ops-pill inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-[12px] text-muted-foreground">
+            <div className="ops-pill inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-[13px] text-muted-foreground">
               <span className="size-1.5 rounded-full bg-warning" />
               signed operations only
             </div>
@@ -91,7 +91,7 @@ export default function AdminSignInPage() {
           <h1 className="mt-4 text-[26px] font-semibold tracking-tight text-foreground">
             Admin sign in
           </h1>
-          <p className="mt-2 text-[13px] leading-relaxed text-muted-foreground">
+          <p className="mt-2 text-[14px] leading-relaxed text-muted-foreground">
             Use an ADMIN_EMAILS allowlisted NextAPI account.
           </p>
         </div>
@@ -99,7 +99,7 @@ export default function AdminSignInPage() {
         {error && (
           <div
             role="alert"
-            className="mt-5 flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-[12px] text-destructive"
+            className="mt-5 flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-[13px] text-destructive"
           >
             <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
             <span>{error}</span>
@@ -152,7 +152,7 @@ export default function AdminSignInPage() {
               <button
                 type="button"
                 onClick={() => setShowPassword((value) => !value)}
-                className="absolute right-1 top-1/2 inline-flex size-8 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground transition-colors hover:text-foreground"
+                className="ops-interactive absolute right-1 top-1/2 inline-flex size-8 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground hover:bg-card/60 hover:text-foreground"
                 aria-label={showPassword ? "Hide password" : "Show password"}
               >
                 {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
@@ -163,7 +163,7 @@ export default function AdminSignInPage() {
           <button
             type="submit"
             disabled={loading}
-            className="mt-2 inline-flex h-11 w-full items-center justify-center rounded-full bg-status-failed text-[14px] font-medium text-white shadow-[0_18px_45px_-26px] shadow-status-failed transition-all hover:translate-y-[-1px] hover:bg-status-failed/90 disabled:translate-y-0 disabled:opacity-70"
+            className="ops-interactive mt-2 inline-flex h-11 w-full items-center justify-center rounded-full bg-status-failed text-[14px] font-medium text-white shadow-[0_18px_45px_-26px] shadow-status-failed hover:translate-y-[-1px] hover:bg-status-failed/90"
           >
             {loading ? <Loader2 className="size-4 animate-spin" /> : "Sign in"}
           </button>

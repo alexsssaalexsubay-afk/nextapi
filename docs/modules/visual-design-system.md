@@ -6,6 +6,12 @@ This document is the shared visual contract for the public site, dashboard, and 
 
 NextAPI should feel like a cinematic AI operations console: sharp, premium, fast, and trustworthy. Avoid plain white SaaS blocks. Use depth, glass, gradients, and motion only when they improve hierarchy or feedback.
 
+## Typography
+
+- Shared UI self-hosts `NextAPI Sans` (Inter), `NextAPI Display` (Inter Tight), and `NextAPI Mono` (Geist Mono) from `packages/ui/src/fonts`.
+- Body, navigation, and form text use `font-sans`; H1-H3 and `.font-display` use the display face; code, IDs, billing numbers, and tabular data use `font-mono` with tabular numbers.
+- Chinese text falls back to PingFang SC, Hiragino Sans GB, and Microsoft YaHei. Do not depend on runtime Google Fonts for production surfaces.
+
 ## Color Roles
 
 - `Brand primary`: blue -> violet -> fuchsia gradient. Use for the one primary action per view, active navigation, and important progress routes.

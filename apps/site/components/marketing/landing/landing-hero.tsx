@@ -79,7 +79,7 @@ export function LandingHero() {
 
       <div className="mx-auto grid min-h-[calc(100svh-4rem)] max-w-7xl grid-cols-1 items-center gap-12 px-6 pt-16 pb-12 lg:grid-cols-[0.95fr_1.05fr] lg:pt-24">
         <div className="relative z-10">
-          <div className="ops-pill inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-[12px] font-semibold text-foreground/85">
+          <div className="ops-pill inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-[13px] font-semibold text-foreground/85">
             <span className="relative inline-flex size-1.5">
               <span className="absolute inset-0 animate-ping rounded-full bg-status-success opacity-75" />
               <span className="relative inline-block size-1.5 rounded-full bg-status-success" />
@@ -87,7 +87,7 @@ export function LandingHero() {
             {copy.badge}
           </div>
 
-          <h1 className="mt-6 max-w-4xl text-balance font-sans text-5xl font-semibold leading-[1.02] tracking-tight text-foreground sm:text-7xl lg:text-[76px]">
+          <h1 className="mt-6 max-w-4xl text-balance font-display text-5xl font-semibold leading-[1.02] text-foreground sm:text-7xl lg:text-[76px]">
             {copy.titleTop}
             <span className="bg-gradient-to-r from-blue-500 via-violet-500 to-fuchsia-500 bg-clip-text text-transparent drop-shadow-sm">
               {copy.titleAccent}
@@ -110,7 +110,7 @@ export function LandingHero() {
             </Link>
             <Link
               href="/docs"
-              className="inline-flex items-center gap-2 rounded-full border border-white/35 bg-white/55 px-5 py-3 text-[14px] font-semibold text-foreground shadow-sm backdrop-blur-md transition-all hover:border-signal/35 hover:bg-white/75 dark:border-white/10 dark:bg-white/8 dark:hover:bg-white/12"
+              className="ops-interactive inline-flex items-center gap-2 rounded-full border border-white/35 bg-white/55 px-5 py-3 text-[14px] font-semibold text-foreground shadow-sm backdrop-blur-md hover:border-signal/35 hover:bg-white/75 dark:border-white/10 dark:bg-white/8 dark:hover:bg-white/12"
             >
               {copy.secondaryCta}
             </Link>
@@ -120,7 +120,7 @@ export function LandingHero() {
             {copy.trust.map((t) => (
               <li
                 key={t}
-                className="ops-subpanel flex min-h-16 flex-col justify-between rounded-xl p-3 text-[12px] text-muted-foreground"
+                className="ops-subpanel flex min-h-16 flex-col justify-between rounded-xl p-3 text-[13px] text-muted-foreground"
               >
                 <CheckCircle2 className="size-4 text-status-success" />
                 <span>{t}</span>
@@ -224,7 +224,7 @@ function HeroPlayerCard({
             {status}
           </div>
 
-          <div className="absolute bottom-4 right-4 flex items-center gap-2 rounded-full border border-white/20 bg-white/12 px-3 py-1.5 text-[12px] font-medium text-white backdrop-blur-md">
+          <div className="absolute bottom-4 right-4 flex items-center gap-2 rounded-full border border-white/20 bg-white/12 px-3 py-1.5 text-[13px] font-medium text-white backdrop-blur-md">
             <Film className="size-3.5" />
             4 shots · 9:16 · 1080p
           </div>
@@ -233,7 +233,7 @@ function HeroPlayerCard({
           <div className="flex min-h-[260px] flex-col gap-3">
             <div className="rounded-xl border border-white/10 bg-zinc-950/88 p-3 text-white shadow-2xl">
               <div className="mb-3 flex items-center justify-between">
-                <div className="flex items-center gap-2 text-[12px] font-semibold">
+                <div className="flex items-center gap-2 text-[13px] font-semibold">
                   <Clapperboard className="size-4 text-fuchsia-300" />
                   AI Director
                 </div>
@@ -249,7 +249,7 @@ function HeroPlayerCard({
                 ].map(([label, value]) => (
                   <div key={label} className="rounded-xl border border-white/10 bg-white/[0.045] p-2">
                     <div className="text-[11px] uppercase tracking-[0.14em] text-zinc-500">{label}</div>
-                    <div className="mt-0.5 text-[12px] text-zinc-200">{value}</div>
+                    <div className="mt-0.5 text-[13px] text-zinc-200">{value}</div>
                   </div>
                 ))}
               </div>
@@ -264,7 +264,7 @@ function HeroPlayerCard({
                 <div key={item.label} className="rounded-2xl border border-border/70 bg-background/55 p-2.5 shadow-sm backdrop-blur">
                   <item.icon className="size-4 text-signal" />
                   <div className="mt-2 text-[10px] uppercase tracking-[0.16em] text-muted-foreground">{item.label}</div>
-                  <div className="font-mono text-[12px] text-foreground">{item.value}</div>
+                  <div className="font-mono text-[13px] text-foreground">{item.value}</div>
                 </div>
               ))}
             </div>
@@ -282,7 +282,7 @@ function HeroPlayerCard({
                 <button
                   type="button"
                   aria-label="Copy code"
-                  className="rounded-md p-1 text-zinc-400 transition-colors hover:bg-white/5 hover:text-zinc-200"
+                  className="ops-interactive rounded-md border border-transparent p-1 text-zinc-400 hover:bg-white/5 hover:text-zinc-200"
                 >
                   <Copy className="size-3.5" />
                 </button>

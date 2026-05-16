@@ -1,9 +1,8 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
-import { Loader2, RefreshCw } from "lucide-react"
+import { BarChart3, CreditCard, Loader2, RefreshCw, TrendingUp } from "lucide-react"
 import { DashboardShell } from "@/components/dashboard/dashboard-shell"
-import { StatCard } from "@/components/dashboard/stat-card"
 import { Button } from "@/components/ui/button"
 import { useTranslations } from "@/lib/i18n/context"
 import { apiFetch, ApiError } from "@/lib/api"
@@ -39,7 +38,6 @@ export default function UsagePage() {
 
   const totalJobs = data?.reduce((s, p) => s + p.jobs, 0) ?? 0
   const totalCredits = data?.reduce((s, p) => s + p.credits_used, 0) ?? 0
-  const sparkline = data?.map((p) => p.jobs) ?? []
   const max = Math.max(...(data?.map((d) => d.jobs) ?? [1]), 1)
 
   return (
@@ -50,7 +48,7 @@ export default function UsagePage() {
       actions={
         <Button
           variant="outline"
-          className="h-8 gap-1.5 border-border/80 bg-card/40 text-[12.5px]"
+          className="ops-interactive h-9 gap-1.5 border-border/80 bg-card/40 text-[13px]"
           onClick={load}
           disabled={loading}
         >
@@ -59,43 +57,64 @@ export default function UsagePage() {
         </Button>
       }
     >
-      <div className="flex flex-col gap-6 p-6">
-        {loading && !data ? (
-          <div className="flex items-center justify-center py-20 text-muted-foreground">
-            <Loader2 className="mr-2 size-4 animate-spin" /> Loading…
+      <div className="flex flex-col gap-5 p-6">
+        <section className="ops-panel overflow-hidden rounded-2xl">
+          <div className="grid gap-px bg-border/70 lg:grid-cols-[1.1fr_0.9fr]">
+            <div className="bg-background/36 p-5">
+              <div className="ops-pill inline-flex items-center gap-2 rounded-full px-3 py-1.5 font-mono text-[10.5px] uppercase tracking-[0.14em] text-muted-foreground">
+                <span className="size-1.5 rounded-full bg-signal" />
+                usage intelligence
+              </div>
+              <h2 className="mt-4 max-w-2xl text-2xl font-semibold tracking-tight text-foreground">
+                Watch demand, spend, and job throughput in the same frame.
+              </h2>
+              <p className="mt-2 max-w-2xl text-[13px] leading-relaxed text-muted-foreground">
+                Keep the credit ledger connected to actual generation volume so billing, routing, and customer support read from one operational story.
+              </p>
+            </div>
+            <div className="grid gap-px bg-border/70 md:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
+              <UsageHeroMetric icon={BarChart3} label={t.usage.title} value={loading && !data ? "…" : totalJobs.toLocaleString()} hint={t.common.last30d} />
+              <UsageHeroMetric icon={CreditCard} label={t.usage.billed ?? "Credits used"} value={loading && !data ? "…" : totalCredits.toLocaleString()} hint={t.common.last30d} />
+              <UsageHeroMetric icon={TrendingUp} label={t.usage.columns?.jobs ?? "Avg jobs/day"} value={loading && !data ? "…" : data && data.length > 0 ? Math.round(totalJobs / data.length).toLocaleString() : "—"} hint={t.common.last30d} />
+            </div>
           </div>
-        ) : error ? (
+        </section>
+
+        {error ? (
           <div className="rounded-2xl border border-destructive/40 bg-destructive/10 p-5 text-[13px] text-destructive">
             {error}
           </div>
+        ) : loading && !data ? (
+          <section className="ops-panel rounded-2xl p-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-[14px] font-medium tracking-tight">{t.usage.dailyBreakdown}</h2>
+                <p className="mt-0.5 text-[13px] text-muted-foreground">{t.common.last30d}</p>
+              </div>
+              <div className="inline-flex items-center gap-2 text-[13px] text-muted-foreground">
+                <Loader2 className="size-3.5 animate-spin" />
+                {t.common.loading}
+              </div>
+            </div>
+            <div className="mt-5 flex h-40 items-end gap-1.5">
+              {Array.from({ length: 30 }).map((_, index) => (
+                <div
+                  key={index}
+                  className="ops-loading-stripes flex-1 rounded-sm bg-muted/40"
+                  style={{ height: `${18 + ((index * 17) % 76)}%` }}
+                />
+              ))}
+            </div>
+          </section>
         ) : (
           <>
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-              <StatCard
-                label={t.usage.title}
-                value={totalJobs.toLocaleString()}
-                unit={t.common.last30d}
-                sparkline={sparkline}
-              />
-              <StatCard
-                label={t.usage.billed ?? "Credits used"}
-                value={totalCredits.toLocaleString()}
-                caption={t.common.last30d}
-              />
-              <StatCard
-                label={t.usage.columns?.jobs ?? "Avg jobs/day"}
-                value={data && data.length > 0 ? Math.round(totalJobs / data.length).toLocaleString() : "—"}
-                caption={t.common.last30d}
-              />
-            </div>
-
-            <section className="rounded-xl border border-border/80 bg-card/40 p-5">
+            <section className="ops-panel rounded-2xl p-5">
               <div className="mb-4 flex items-center justify-between">
                 <div>
                   <h2 className="text-[14px] font-medium tracking-tight">{t.usage.dailyBreakdown}</h2>
-                  <p className="mt-0.5 text-[12px] text-muted-foreground">{t.common.last30d}</p>
+                  <p className="mt-0.5 text-[13px] text-muted-foreground">{t.common.last30d}</p>
                 </div>
-                <div className="flex items-center gap-4 font-mono text-[11px] text-muted-foreground">
+                <div className="flex items-center gap-4 font-mono text-[12px] text-muted-foreground">
                   <span className="inline-flex items-center gap-1.5">
                     <span className="size-2 rounded-sm bg-signal/80" /> {t.usage.columns.jobs}
                   </span>
@@ -111,15 +130,15 @@ export default function UsagePage() {
                   </div>
                 ))}
               </div>
-              <div className="mt-2 flex justify-between font-mono text-[10.5px] text-muted-foreground">
+              <div className="mt-2 flex justify-between font-mono text-[12px] text-muted-foreground">
                 <span>−30d</span>
                 <span>{t.common.updatedNow}</span>
               </div>
             </section>
 
-            <section className="rounded-xl border border-border/80 bg-card/40">
+            <section className="ops-panel overflow-hidden rounded-2xl">
               <div className="flex items-center justify-between border-b border-border/60 px-5 py-3">
-                <h2 className="text-[13px] font-medium tracking-tight">
+                <h2 className="text-[14px] font-medium tracking-tight">
                   {t.usage.dailyBreakdown} · {t.common.last30d}
                 </h2>
               </div>
@@ -131,11 +150,11 @@ export default function UsagePage() {
                     <th className="px-5 py-2.5 font-mono font-normal">{t.usage.billed ?? "Credits"}</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-border/60 font-mono text-[12.5px]">
+                <tbody className="divide-y divide-border/60 font-mono text-[13px]">
                   {(data ?? []).map((d) => {
                     const day = new Date(d.day).toLocaleDateString("en-US", { month: "short", day: "numeric" })
                     return (
-                      <tr key={d.day} className="text-foreground/90">
+                      <tr key={d.day} className="text-foreground/90 transition-colors hover:bg-card/50">
                         <td className="px-5 py-3 text-foreground">{day}</td>
                         <td className="px-5 py-3">{d.jobs.toLocaleString()}</td>
                         <td className="px-5 py-3">{d.credits_used.toLocaleString()}</td>
@@ -156,5 +175,26 @@ export default function UsagePage() {
         )}
       </div>
     </DashboardShell>
+  )
+}
+
+function UsageHeroMetric({
+  icon: Icon,
+  label,
+  value,
+  hint,
+}: {
+  icon: React.ComponentType<{ className?: string }>
+  label: string
+  value: string
+  hint: string
+}) {
+  return (
+    <div className="bg-background/46 p-4">
+      <Icon className="size-4 text-signal" />
+      <div className="mt-3 font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">{label}</div>
+      <div className="mt-1 font-mono text-2xl font-semibold tracking-tight text-foreground">{value}</div>
+      <div className="mt-1 text-[13px] text-muted-foreground">{hint}</div>
+    </div>
   )
 }

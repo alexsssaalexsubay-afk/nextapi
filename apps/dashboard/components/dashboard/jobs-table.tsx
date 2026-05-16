@@ -85,7 +85,8 @@ export function JobsTable({
                 <React.Fragment key={r.id}>
                   <tr
                     className={cn(
-                      "group cursor-pointer transition-colors hover:bg-card/60",
+                      "group transition-colors hover:bg-card/60 focus-visible:bg-card/60",
+                      !compact && "ops-interactive cursor-pointer",
                       r.status === "failed" && "bg-status-failed-dim/15",
                     )}
                     role={compact ? undefined : "button"}
@@ -109,7 +110,7 @@ export function JobsTable({
                         <Link
                           href={`/jobs/${r.id}`}
                           onClick={(e) => e.stopPropagation()}
-                          className="font-mono text-[12px] text-foreground underline-offset-4 hover:underline"
+                          className="ops-interactive rounded-md px-1 py-0.5 font-mono text-[13px] text-foreground underline-offset-4 hover:underline"
                         >
                           {r.id.slice(0, 18)}…
                         </Link>
@@ -119,20 +120,20 @@ export function JobsTable({
                       <StatusPill status={r.status} label={r.rawStatus || undefined} />
                     </td>
                     {!compact && (
-                      <td className="px-4 py-3 font-mono text-[12px] text-muted-foreground">
+                      <td className="px-4 py-3 font-mono text-[13px] text-muted-foreground">
                         {r.model}
                       </td>
                     )}
                     <td className="max-w-[260px] truncate px-4 py-3 text-foreground/90">{r.prompt}</td>
-                    <td className="px-4 py-3 font-mono text-[12px] text-muted-foreground">
+                    <td className="px-4 py-3 font-mono text-[13px] text-muted-foreground">
                       {r.submitted}
                     </td>
                     {!compact && (
-                      <td className="px-4 py-3 font-mono text-[12px] text-muted-foreground">
+                      <td className="px-4 py-3 font-mono text-[13px] text-muted-foreground">
                         {r.duration}
                       </td>
                     )}
-                    <td className="px-4 py-3 font-mono text-[12px] text-foreground/90">
+                    <td className="px-4 py-3 font-mono text-[13px] text-foreground/90">
                       <span>{r.creditsAmount}</span>{" "}
                       <span className="text-muted-foreground">{kindLabel[r.creditsKind]}</span>
                     </td>
@@ -141,7 +142,7 @@ export function JobsTable({
                         href={`/jobs/${r.id}`}
                         onClick={(e) => e.stopPropagation()}
                         aria-label={`${t.common.viewDetails}: ${r.id}`}
-                        className="inline-flex size-6 items-center justify-center rounded-md text-muted-foreground opacity-100 transition-opacity hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal/35 md:opacity-0 md:group-focus-within:opacity-100 md:group-hover:opacity-100"
+                        className="ops-interactive inline-flex size-7 items-center justify-center rounded-md text-muted-foreground opacity-100 hover:text-foreground md:opacity-0 md:group-focus-within:opacity-100 md:group-hover:opacity-100"
                       >
                         <ArrowUpRight className="size-3.5" />
                       </Link>
@@ -155,17 +156,17 @@ export function JobsTable({
                             {r.videoURL ? (
                               <video src={r.videoURL} controls className="aspect-video w-full bg-black object-contain" />
                             ) : (
-                              <div className="flex aspect-video items-center justify-center px-4 text-center text-[12px] text-muted-foreground">
+                              <div className="flex aspect-video items-center justify-center px-4 text-center text-[13px] text-muted-foreground">
                                 {r.status === "failed" ? "No video generated" : "Waiting for video output"}
                               </div>
                             )}
                           </div>
                           <div className="space-y-4">
                             <div>
-                              <div className="mb-1 text-[11px] uppercase tracking-[0.14em] text-muted-foreground">Prompt</div>
+                              <div className="mb-1 text-[12px] uppercase tracking-[0.14em] text-muted-foreground">Prompt</div>
                               <p className="text-[13px] leading-6 text-foreground/90">{r.prompt}</p>
                             </div>
-                            <div className="grid gap-2 text-[12px] text-muted-foreground sm:grid-cols-2 lg:grid-cols-4">
+                            <div className="grid gap-2 text-[13px] text-muted-foreground sm:grid-cols-2 lg:grid-cols-4">
                               <Meta label="Tokens" value={r.tokenCount != null ? r.tokenCount.toLocaleString() : "—"} />
                               <Meta label="Cost" value={r.creditsAmount} />
                               <Meta label="Resolution" value={r.resolution || "—"} />
@@ -177,7 +178,7 @@ export function JobsTable({
                               <Meta label="Finished" value={r.finishedAt ? new Date(r.finishedAt).toLocaleString() : "—"} />
                             </div>
                             {(r.errorCode || r.errorMessage) && (
-                              <div className="rounded-lg border border-status-failed/25 bg-status-failed-dim/10 p-3 text-[12.5px] text-status-failed">
+                              <div className="rounded-lg border border-status-failed/25 bg-status-failed-dim/10 p-3 text-[13px] text-status-failed">
                                 <span className="font-mono">{r.errorCode || "failed"}</span>
                                 <div className="mt-1 text-foreground/90">{errorCopy.summary}</div>
                                 {errorCopy.detail ? <div className="mt-1 text-foreground/70">{t.jobs.errors.upstream_original}: {errorCopy.detail}</div> : null}
@@ -210,7 +211,7 @@ export function JobsTable({
                                       a.click()
                                     }
                                   }}
-                                  className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border/80 px-3 text-[12.5px] hover:bg-background"
+                                  className="ops-interactive inline-flex h-9 items-center gap-1.5 rounded-md border border-border/80 px-3 text-[13px] hover:bg-background"
                                 >
                                   <Download className="size-3.5" /> Download
                                 </button>
@@ -222,7 +223,7 @@ export function JobsTable({
                                     setCopiedId(r.id)
                                     setTimeout(() => setCopiedId(null), 1500)
                                   }}
-                                  className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border/80 px-3 text-[12.5px] hover:bg-background"
+                                  className="ops-interactive inline-flex h-9 items-center gap-1.5 rounded-md border border-border/80 px-3 text-[13px] hover:bg-background"
                                 >
                                   <Copy className="size-3.5" /> {copiedId === r.id ? "Copied" : "Copy link"}
                                 </button>
@@ -239,7 +240,7 @@ export function JobsTable({
                                       setRetryingId(null)
                                     }
                                   }}
-                                  className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border/80 px-3 text-[12.5px] hover:bg-background disabled:opacity-50"
+                                  className="ops-interactive inline-flex h-9 items-center gap-1.5 rounded-md border border-border/80 px-3 text-[13px] hover:bg-background"
                                 >
                                   <RefreshCcw className="size-3.5" /> {retryingId === r.id ? "Retrying" : "Retry"}
                                 </button>
@@ -263,8 +264,8 @@ export function JobsTable({
 function Meta({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-md border border-border/60 bg-background/60 px-3 py-2">
-      <div className="text-[10.5px] uppercase tracking-[0.12em] text-muted-foreground/70">{label}</div>
-      <div className="mt-1 truncate font-mono text-[12px] text-foreground/90">{value}</div>
+      <div className="text-[12px] uppercase tracking-[0.12em] text-muted-foreground/70">{label}</div>
+      <div className="mt-1 truncate font-mono text-[13px] text-foreground/90">{value}</div>
     </div>
   )
 }

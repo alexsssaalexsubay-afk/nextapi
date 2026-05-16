@@ -89,7 +89,7 @@ export default function AdminOverviewPage() {
             type="button"
             disabled
             title={t.common.disabled}
-            className="inline-flex h-8 cursor-not-allowed items-center gap-1.5 rounded-full border border-white/12 bg-card/40 px-3 text-[12px] text-muted-foreground opacity-60 shadow-sm backdrop-blur-md"
+            className="inline-flex h-9 cursor-not-allowed items-center gap-1.5 rounded-full border border-white/12 bg-card/40 px-3 text-[13px] text-muted-foreground opacity-60 shadow-sm backdrop-blur-md"
           >
             {t.common.export}
           </button>
@@ -97,7 +97,7 @@ export default function AdminOverviewPage() {
             href="https://docs.nextapi.top"
             target="_blank"
             rel="noreferrer"
-            className="premium-button inline-flex h-8 items-center gap-1.5 rounded-full border border-white/20 bg-[radial-gradient(circle_at_20%_0%,rgba(255,255,255,0.42),transparent_30%),linear-gradient(110deg,#2563eb_0%,#7c3aed_42%,#db2777_100%)] px-3 text-[12px] font-medium text-white"
+            className="premium-button inline-flex h-9 items-center gap-1.5 rounded-full border border-white/20 bg-[radial-gradient(circle_at_20%_0%,rgba(255,255,255,0.42),transparent_30%),linear-gradient(110deg,#2563eb_0%,#7c3aed_42%,#db2777_100%)] px-3 text-[13px] font-medium text-white"
           >
             {t.nav.admin.runbooks}
           </a>
@@ -156,7 +156,7 @@ export default function AdminOverviewPage() {
               </div>
               <Link
                 href="/attention"
-                className="inline-flex items-center gap-1 text-[11.5px] text-muted-foreground hover:text-foreground"
+                className="ops-interactive inline-flex items-center gap-1 rounded-md px-2 py-1 text-[13px] text-muted-foreground hover:text-foreground"
               >
                 {t.common.viewAll}
                 <ArrowUpRight className="size-3" />
@@ -168,7 +168,7 @@ export default function AdminOverviewPage() {
               <span className="font-mono text-[10.5px] text-muted-foreground">
                 {t.admin.attention.subtitle}
               </span>
-              <Link href="/attention" className="font-mono text-[10.5px] text-muted-foreground hover:text-foreground">
+              <Link href="/attention" className="ops-interactive rounded-md px-2 py-1 font-mono text-[12px] text-muted-foreground hover:text-foreground">
                 {t.common.configure.toLowerCase()}
               </Link>
             </div>
@@ -186,7 +186,7 @@ export default function AdminOverviewPage() {
                 </div>
                 <Link
                   href="/incidents"
-                  className="inline-flex items-center gap-1 text-[11.5px] text-muted-foreground hover:text-foreground"
+                  className="ops-interactive inline-flex items-center gap-1 rounded-md px-2 py-1 text-[13px] text-muted-foreground hover:text-foreground"
                 >
                   {t.common.viewAll}
                   <ArrowUpRight className="size-3" />
@@ -205,7 +205,7 @@ export default function AdminOverviewPage() {
                 </div>
                 <Link
                   href="/credits"
-                  className="inline-flex items-center gap-1 text-[11.5px] text-muted-foreground hover:text-foreground"
+                  className="ops-interactive inline-flex items-center gap-1 rounded-md px-2 py-1 text-[13px] text-muted-foreground hover:text-foreground"
                 >
                   {t.admin.credits.ledger}
                   <ArrowUpRight className="size-3" />
@@ -216,7 +216,7 @@ export default function AdminOverviewPage() {
                 <span className="font-mono text-[10.5px] text-muted-foreground">
                   {t.admin.credits.threshold}: {t.admin.credits.thresholdValue}
                 </span>
-                <Link href="/credits" className="font-mono text-[10.5px] text-foreground hover:text-signal">
+                <Link href="/credits" className="ops-interactive rounded-md px-2 py-1 font-mono text-[12px] text-foreground hover:text-signal">
                   {t.admin.credits.newAdjustment.toLowerCase()}
                 </Link>
               </div>
@@ -234,7 +234,7 @@ export default function AdminOverviewPage() {
               </h2>
               <StatusPill status="queued" label={t.admin.pulse.unavailable} size="sm" />
             </div>
-            <div className="flex items-center gap-2 font-mono text-[11px] text-muted-foreground">
+            <div className="flex items-center gap-2 font-mono text-[12px] text-muted-foreground">
               <span className="rounded-md border border-border/80 bg-card/40 px-2 py-0.5 text-foreground">
                 {t.admin.liveFeed.allEvents}
               </span>
@@ -265,7 +265,7 @@ function OperatorEmptyState({
         <div className="mx-auto flex size-10 items-center justify-center rounded-2xl border border-white/12 bg-background/55 text-muted-foreground shadow-sm backdrop-blur-md">
           <Icon className="size-4" />
         </div>
-        <p className="mt-3 text-[12.5px] leading-relaxed text-muted-foreground">{message}</p>
+        <p className="mt-3 text-[13px] leading-relaxed text-muted-foreground">{message}</p>
       </div>
     </div>
   )
@@ -299,7 +299,7 @@ function Pulse({
         </span>
       </div>
       <div className="mt-3 text-[22px] font-medium tracking-tight text-foreground">{value}</div>
-      <div className="mt-0.5 font-mono text-[11px] text-muted-foreground">{sub}</div>
+      <div className="mt-0.5 font-mono text-[12px] text-muted-foreground">{sub}</div>
     </div>
   )
 }
@@ -335,11 +335,11 @@ function AttentionRow({
           <span className="text-muted-foreground">·</span>
           <span className="truncate text-muted-foreground">{org}</span>
         </div>
-        <div className="mt-0.5 truncate text-[11.5px] text-muted-foreground">{reason}</div>
+        <div className="mt-0.5 truncate text-[13px] text-muted-foreground">{reason}</div>
       </div>
       <span
         className={cn(
-          "text-[11.5px]",
+          "text-[13px]",
           tone === "failed" ? "text-status-failed" : "text-status-running",
         )}
       >
@@ -348,7 +348,7 @@ function AttentionRow({
       <span className="w-10 text-right text-muted-foreground">{age}</span>
       <Link
         href={`https://app.nextapi.top/jobs/${id}`}
-        className="rounded-md border border-border/80 bg-card/40 px-2 py-0.5 text-[10.5px] text-foreground hover:bg-card"
+        className="ops-interactive rounded-md border border-border/80 bg-card/40 px-2 py-1 text-[12px] text-foreground hover:bg-card"
       >
         {inspectLabel}
       </Link>
@@ -393,7 +393,7 @@ function IncidentRow({
             {levelLabel} · {since}
           </span>
         </div>
-        <div className="mt-0.5 text-[11.5px] text-muted-foreground">{note}</div>
+        <div className="mt-0.5 text-[13px] text-muted-foreground">{note}</div>
       </div>
     </li>
   )
