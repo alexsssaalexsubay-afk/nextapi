@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic"
 
 export const metadata: Metadata = {
   title: "Admin — NextAPI Operations",
-  description: "NextAPI internal operations console",
+  description: "NextAPI internal support workspace",
   icons: {
     icon: [{ url: "/nextapi-logo.png", type: "image/png", sizes: "400x400" }],
     shortcut: [{ url: "/nextapi-logo.png", type: "image/png", sizes: "400x400" }],

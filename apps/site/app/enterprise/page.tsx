@@ -9,30 +9,30 @@ import { useI18n } from "@/lib/i18n/context"
 const COPY = {
   en: {
     badge: "Enterprise",
-    heroTitleBefore: "Scale your video pipeline with",
-    heroTitleAccent: "Enterprise SLAs",
+    heroTitleBefore: "Scale video production with",
+    heroTitleAccent: "enterprise guarantees",
     heroSubtitle:
-      "Dedicated capacity planning, contracted throughput targets, custom moderation profiles, and a solutions architect to design your integration.",
+      "Dedicated capacity planning, clear volume targets, custom review settings, and a specialist to help your team launch cleanly.",
     features: [
       {
         icon: Zap,
         title: "Dedicated Capacity",
-        desc: "Contracted throughput targets with isolated queue lanes — no noisy neighbors.",
+        desc: "Reserved production lanes keep priority video work moving predictably.",
       },
       {
         icon: Shield,
-        title: "Enterprise SLAs",
-        desc: "Contracted availability targets, P95 latency objectives, and incident response.",
+        title: "Enterprise Guarantees",
+        desc: "Clear uptime targets, speed expectations, and incident response.",
       },
       {
         icon: Building2,
-        title: "Custom Moderation",
-        desc: "Configurable trust & safety profiles tailored to your compliance needs.",
+        title: "Custom Review Rules",
+        desc: "Content safety settings tailored to your compliance needs.",
       },
       {
         icon: HeadphonesIcon,
-        title: "Solutions Architect",
-        desc: "A dedicated engineer to design your integration and optimize throughput.",
+        title: "Launch Support",
+        desc: "A dedicated specialist helps plan setup, volume, and rollout.",
       },
     ],
     formTitle: "Contact our Sales team",
@@ -63,30 +63,30 @@ const COPY = {
   },
   zh: {
     badge: "企业方案",
-    heroTitleBefore: "规模化你的视频管线，依托",
-    heroTitleAccent: "企业级 SLA",
+    heroTitleBefore: "把视频生产规模化，依托",
+    heroTitleAccent: "企业级保障",
     heroSubtitle:
-      "独享容量规划、合同化吞吐目标、可定制的内容安全策略，并由解决方案架构师协助你完成接入与容量规划。",
+      "独享容量规划、清晰的视频量目标、可定制的内容审核设置，并由专人协助团队顺利上线。",
     features: [
       {
         icon: Zap,
         title: "独享容量",
-        desc: "隔离队列通道与合同化吞吐目标，避免公共资源上的邻居干扰。",
+        desc: "保留生产通道，让高优先级视频稳定推进。",
       },
       {
         icon: Shield,
-        title: "企业 SLA",
-        desc: "合同化可用性目标、P95 时延目标与事件响应。",
+        title: "企业级保障",
+        desc: "清晰的可用性、速度预期与事件响应。",
       },
       {
         icon: Building2,
         title: "可定制审核",
-        desc: "按合规需求配置 trust & safety 策略。",
+        desc: "按合规需求配置内容安全规则。",
       },
       {
         icon: HeadphonesIcon,
-        title: "解决方案架构师",
-        desc: "专属工程师协助集成设计与吞吐优化。",
+        title: "上线支持",
+        desc: "专人协助规划接入、容量与上线节奏。",
       },
     ],
     formTitle: "联系销售团队",

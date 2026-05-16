@@ -2,10 +2,10 @@ import type { Metadata } from "next"
 
 export const metadata: Metadata = {
   title: "Enterprise",
-  description: "Scale your video pipeline with Enterprise SLAs. Dedicated capacity, guaranteed throughput, and custom moderation.",
+  description: "Scale video production with enterprise guarantees, dedicated capacity, and custom review rules.",
   openGraph: {
     title: "Enterprise | NextAPI",
-    description: "Scale your video pipeline with Enterprise SLAs.",
+    description: "Scale video production with enterprise guarantees.",
     images: [{ url: "/og/enterprise.png", width: 1200, height: 630 }],
   },
 }

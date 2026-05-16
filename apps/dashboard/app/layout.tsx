@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic"
 
 export const metadata: Metadata = {
   title: "Dashboard — NextAPI",
-  description: "Manage your video generation pipeline",
+  description: "Manage your team videos",
   icons: {
     icon: [{ url: "/nextapi-logo.png", type: "image/png", sizes: "400x400" }],
     shortcut: [{ url: "/nextapi-logo.png", type: "image/png", sizes: "400x400" }],

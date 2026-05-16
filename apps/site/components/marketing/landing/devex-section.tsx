@@ -7,7 +7,7 @@ import { track } from "@/lib/analytics"
 
 const STEPS = [
   { n: 1, title: "Sign Up", body: "Create your account in seconds" },
-  { n: 2, title: "Get Access", body: "Use your key when you are ready to connect" },
+  { n: 2, title: "Get Access", body: "Use your access key when you are ready" },
   { n: 3, title: "Send an Idea", body: "Describe the scene and choose a video style" },
   { n: 4, title: "Receive Video", body: "Get the finished clip and final cost" },
 ] as const
@@ -80,7 +80,7 @@ export function DevexSection() {
 
     const { allowed } = checkRateLimit()
     if (!allowed) {
-      setDemoError("Rate limit exceeded (3/hour). Sign up for a free API key to continue.")
+      setDemoError("Demo limit reached (3/hour). Sign up to continue.")
       setTab("Response")
       return
     }
@@ -221,7 +221,7 @@ export function DevexSection() {
                 <span className="size-3 rounded-full bg-yellow-500/80" />
                 <span className="size-3 rounded-full bg-emerald-500/80" />
               </div>
-              <span className="font-mono text-[11px] text-zinc-500">quick-start</span>
+              <span className="font-mono text-[11px] text-zinc-500">starter clip</span>
               <div className="flex items-center gap-2">
                 <span className="rounded-md border border-amber-400/40 bg-amber-400/10 px-2 py-0.5 text-[10px] font-medium text-amber-400">
                   example output
@@ -233,7 +233,7 @@ export function DevexSection() {
                   className="inline-flex items-center gap-1 rounded-md bg-indigo-500/20 px-2.5 py-1 text-[11px] font-medium text-indigo-300 transition-colors hover:bg-indigo-500/30 disabled:opacity-50"
                 >
                   {running ? <Loader2 className="size-3 animate-spin" /> : <Play className="size-3" />}
-                  {running ? "Running..." : "Show sample"}
+                  {running ? "Preparing..." : "Show sample"}
                 </button>
                 <button
                   type="button"

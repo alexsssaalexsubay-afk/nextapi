@@ -1,13 +1,13 @@
 "use client"
 
 import Link from "next/link"
-import { ArrowRight, Code, Shield, TrendingUp, Zap } from "lucide-react"
+import { ArrowRight, Plug, Shield, TrendingUp, Zap } from "lucide-react"
 import { useI18n } from "@/lib/i18n/context"
 
 const FEATURE_META = [
   Zap,
   Shield,
-  Code,
+  Plug,
   TrendingUp,
 ] as const
 
@@ -27,11 +27,11 @@ const COPY = {
       },
       {
         title: "Simple to Connect",
-        body: "Clear docs and familiar request formats help your team move from test to live faster.",
+        body: "Clear setup notes help your team move from test to live faster.",
       },
       {
         title: "Room to Grow",
-        body: "Handle batches, campaigns, and repeat workflows without rebuilding the video pipeline.",
+        body: "Handle batches, campaigns, and recurring video work without rebuilding from scratch.",
       },
     ],
   },
@@ -50,11 +50,11 @@ const COPY = {
       },
       {
         title: "更容易接上",
-        body: "清晰文档和熟悉的请求方式，让测试到上线少走弯路。",
+        body: "清晰的设置说明，让测试到上线少走弯路。",
       },
       {
         title: "增长不用重做",
-        body: "批量视频、营销活动和重复流程都能接住，不必重建整套视频链路。",
+        body: "批量视频、营销活动和重复制作都能接住，不必从头重建。",
       },
     ],
   },
